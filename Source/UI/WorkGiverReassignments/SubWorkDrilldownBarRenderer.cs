@@ -5,6 +5,7 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Input;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using RimWorld;
 using UnityEngine;
@@ -91,8 +92,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             var settings = BetterWorkTabMod.Settings;
             if (settings == null ||
-                !settings.ShowPawnAndWorktypeHighlights ||
-                !settings.ShowCursorPawnAndWorktypeHighlight ||
+                !BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.FeaturesHighlights,
+                    settings.ShowPawnAndWorktypeHighlights) ||
+                !BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HighlightsHover,
+                    settings.ShowCursorPawnAndWorktypeHighlight) ||
                 TimePriorityScheduleEditor.OwnsCurrentMousePosition)
             {
                 return false;
@@ -194,7 +199,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             TimePriorityScheduleEditor.CloseForWorkModeTransition();
             Vector2 returnMousePosition = Vector2.zero;
             string cursorRestoreSuppression = null;
-            bool settingAllowsRestore = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? true;
+            bool settingAllowsRestore = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.SubWorkRestoreCursor,
+                BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? DefaultSettings.restoreCursorOnSubWorkExit);
             bool shouldRestoreMouse = restoreMousePosition &&
                 settingAllowsRestore &&
                 SubWorkDrilldownState.TryGetCursorRestorePosition(out returnMousePosition, out cursorRestoreSuppression);

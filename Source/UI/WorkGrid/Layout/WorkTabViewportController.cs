@@ -91,6 +91,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
         private float _horizontalScrollbarDragMouseX;
         private float _horizontalScrollbarDragScrollX;
         private float _horizontalScrollbarDragPixelsToContent = 1f;
+        private WorkTabViewport _lastViewport;
+        private bool _hasLastViewport;
 
         internal bool LastRawHorizontalOverflow => _lastRawHorizontalOverflow;
         internal bool LastHorizontalScrollbarVisible => _lastHorizontalScrollbarVisible;
@@ -113,6 +115,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
             _horizontalScrollbarDragMouseX = 0f;
             _horizontalScrollbarDragScrollX = 0f;
             _horizontalScrollbarDragPixelsToContent = 1f;
+            _lastViewport = default(WorkTabViewport);
+            _hasLastViewport = false;
         }
 
         internal WorkTabViewport CalculateScrollRects(in WorkTabViewportFrame frame)
@@ -242,9 +246,58 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
             contentHeight = _stableVerticalScrollbarVisible
                 ? Mathf.Max(contentHeight, fittedViewportHeight + 1f)
                 : fittedViewportHeight;
-            return new WorkTabViewport(
+            WorkTabViewport viewport = new WorkTabViewport(
                 outRect,
                 new Rect(0f, 0f, viewWidth, contentHeight));
+            _lastViewport = viewport;
+            _hasLastViewport = true;
+            return viewport;
+        }
+
+        /// <summary>
+        /// Applies a wheel event using the exact rectangles published for the
+        /// normal PawnTable scroll view. Preview controls can sit outside that
+        /// view while retaining inspection, so they delegate here instead of
+        /// maintaining a second vertical-only range calculation.
+        /// </summary>
+        internal bool TryApplyScrollWheel(ref Vector2 scrollPosition, Event currentEvent)
+        {
+            if (!_hasLastViewport || currentEvent == null ||
+                currentEvent.type != EventType.ScrollWheel)
+            {
+                return false;
+            }
+
+            Rect outRect = _lastViewport.OutRect;
+            Rect viewRect = _lastViewport.ViewRect;
+            bool horizontalOverflow = viewRect.width > outRect.width + 0.5f;
+            bool verticalOverflow = viewRect.height > outRect.height + 0.5f;
+
+            // Unity reserves the horizontal scrollbar's height from the
+            // vertical viewport and the vertical scrollbar's width from the
+            // horizontal viewport. Mirror that coupling so the routed range
+            // matches BeginScrollView at both ends of the table.
+            float effectiveViewportWidth = Mathf.Max(
+                1f,
+                outRect.width -
+                (verticalOverflow ? WorkGridLayoutMetrics.HorizontalScrollbarHeight : 0f));
+            float effectiveViewportHeight = Mathf.Max(
+                1f,
+                outRect.height -
+                (horizontalOverflow ? WorkGridLayoutMetrics.HorizontalScrollbarHeight : 0f));
+            float maxScrollX = Mathf.Max(0f, viewRect.width - effectiveViewportWidth);
+            float maxScrollY = Mathf.Max(0f, viewRect.height - effectiveViewportHeight);
+
+            scrollPosition = new Vector2(
+                Mathf.Clamp(
+                    scrollPosition.x + currentEvent.delta.x * 20f,
+                    0f,
+                    maxScrollX),
+                Mathf.Clamp(
+                    scrollPosition.y + currentEvent.delta.y * 20f,
+                    0f,
+                    maxScrollY));
+            return true;
         }
 
         internal WorkTabHorizontalScrollbarDragResult PrepareHorizontalScrollbarDrag(

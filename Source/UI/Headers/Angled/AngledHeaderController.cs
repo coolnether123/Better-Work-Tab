@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Columns;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -44,12 +45,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
             var evt = Event.current;
             if (!HeaderUtility.ShouldHandleHeader(evt.type)) return false;
 
-            if (!SubWorkDrilldownState.IsActive)
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked ||
+                !SubWorkDrilldownState.IsActive)
             {
                 SubWorkDrilldownHeaderGeometry.RecordNormalHeaderHeight(table, rect.height);
             }
 
-            if (SubWorkDrilldownState.IsDrawingExpandBesideChild)
+            if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                SubWorkDrilldownState.IsDrawingExpandBesideChild)
             {
                 return DoExpandBesideChildHeader(worker, rect, table, evt);
             }
@@ -59,7 +62,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float rot = AngledLabelDrawer.CurrentRotation;
             float rotCos = Mathf.Cos(rot * Mathf.Deg2Rad);
             float rotSin = Mathf.Sin(rot * Mathf.Deg2Rad);
-            float stableDrawWidth = SubWorkDrilldownState.HasAnyDrilldown
+            float stableDrawWidth = !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                SubWorkDrilldownState.HasAnyDrilldown
                 ? SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(table, rect.height)
                 : -1f;
 
@@ -216,7 +220,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static float GetVisualOffsetY(AngledHeaderCache.CachedHeaderData cached)
         {
-            return SubWorkDrilldownState.IsActive && !cached.Layout.IsCJKVertical
+            return !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                SubWorkDrilldownState.IsActive && !cached.Layout.IsCJKVertical
                 ? SubWorkDrilldownState.HeaderAnchorVisualOffsetY
                 : 0f;
         }

@@ -5,7 +5,9 @@ using System.Collections.Generic;
 using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Columns;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 
 namespace Better_Work_Tab.UI.Headers
 {
@@ -59,7 +61,8 @@ namespace Better_Work_Tab.UI.Headers
             {
                 label = DefaultHeaderText;
             }
-            else if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+            else if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                     SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
                          null,
                          out var drawingWorkGiver,
                          out _,
@@ -67,13 +70,17 @@ namespace Better_Work_Tab.UI.Headers
                      drawingWorkGiver?.def != null)
             {
                 label = WorkGiverDisplayNameService.HeaderLabel(drawingWorkGiver.def, subWorkLabelStyle);
-                if (isMoved && BetterWorkTabMod.Settings != null && BetterWorkTabMod.Settings.showColumnMovedMarker && !label.EndsWith(MovedMarker))
+                if (isMoved && BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.ColumnsShowMovedIndicator,
+                        BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true) &&
+                    !label.EndsWith(MovedMarker))
                 {
                     label += MovedMarker;
                 }
                 return label;
             }
-            else if (SubWorkDrilldownState.IsActive &&
+            else if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                     SubWorkDrilldownState.IsActive &&
                 TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, out var subWorkText))
             {
                 label = subWorkText;
@@ -108,7 +115,10 @@ namespace Better_Work_Tab.UI.Headers
             string label = WorkTypeDisplayNameService.HeaderLabel(workType);
 
             var settings = BetterWorkTabMod.Settings;
-            if (isMoved && settings != null && settings.showColumnMovedMarker && !label.EndsWith(MovedMarker))
+            if (isMoved && BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.ColumnsShowMovedIndicator,
+                    settings?.showColumnMovedMarker ?? true) &&
+                !label.EndsWith(MovedMarker))
             {
                 label += MovedMarker;
             }
@@ -129,13 +139,18 @@ namespace Better_Work_Tab.UI.Headers
                 hash = hash * 23 + (isMoved ? 1 : 0);
                 hash = hash * 23 + (int)labelStyle;
                 hash = hash * 23 + (parentOnly ? 1 : 0);
-                if (!parentOnly)
+                hash = hash * 23 + (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked ? 1 : 0);
+                if (!parentOnly && !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
                 {
                     hash = hash * 23 + SubWorkDrilldownState.CurrentDrawingHeaderSignature;
                 }
                 hash = hash * 23 + CustomLabelStore.Version;
-                hash = hash * 23 + (BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true ? 1 : 0);
-                if (!parentOnly && SubWorkDrilldownState.IsActive)
+                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.ColumnsShowMovedIndicator,
+                    BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true) ? 1 : 0);
+                if (!parentOnly &&
+                    !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                    SubWorkDrilldownState.IsActive)
                 {
                     hash = hash * 23 + SubWorkDrilldownState.MeasurementSignature;
                 }
@@ -152,6 +167,11 @@ namespace Better_Work_Tab.UI.Headers
         {
             label = string.Empty;
             if (workType == null)
+            {
+                return false;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
             {
                 return false;
             }
@@ -178,7 +198,10 @@ namespace Better_Work_Tab.UI.Headers
 
                 label = WorkGiverDisplayNameService.HeaderLabel(workGiver.def, labelStyle);
                 var settings = BetterWorkTabMod.Settings;
-                if (isMoved && settings != null && settings.showColumnMovedMarker && !label.EndsWith(MovedMarker))
+                if (isMoved && BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.ColumnsShowMovedIndicator,
+                        settings?.showColumnMovedMarker ?? true) &&
+                    !label.EndsWith(MovedMarker))
                 {
                     label += MovedMarker;
                 }
@@ -211,8 +234,10 @@ namespace Better_Work_Tab.UI.Headers
 
         public static bool ShouldUseCJKVerticalLabel(string text)
         {
-            var settings = BetterWorkTabMod.Settings;
-            return settings != null && settings.useVerticalStackingForCJK && IsCJK(text);
+            return BWTWorkTabEffectiveSettings.GetBool(
+                       SettingIDs.HeadersUseVerticalStackingForCJK,
+                       BetterWorkTabMod.Settings?.useVerticalStackingForCJK ?? DefaultSettings.useVerticalStackingForCJK) &&
+                IsCJK(text);
         }
 
         /// <summary>
@@ -224,7 +249,11 @@ namespace Better_Work_Tab.UI.Headers
         public static bool IsAnyCJKVertical(PawnTable table)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (settings == null || !settings.useVerticalStackingForCJK || table?.Columns == null)
+            if (settings == null ||
+                !BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HeadersUseVerticalStackingForCJK,
+                    settings.useVerticalStackingForCJK) ||
+                table?.Columns == null)
                 return false;
 
             foreach (var col in table.Columns)

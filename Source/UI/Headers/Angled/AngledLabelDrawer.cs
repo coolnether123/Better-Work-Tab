@@ -5,7 +5,9 @@ using UnityEngine;
 using Verse;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -32,7 +34,13 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// <summary>
         /// Returns the current rotation angle from settings or default.
         /// </summary>
-        public static float CurrentRotation => BetterWorkTabMod.Settings.enableAngledHeaders ? BetterWorkTabMod.Settings.angledHeaderRotation : DefaultRotationAngle;
+        public static float CurrentRotation => BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HeadersAngled,
+                    BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders)
+                ? BWTWorkTabEffectiveSettings.GetInt(
+                    SettingIDs.HeadersAngleRotation,
+                    BetterWorkTabMod.Settings?.angledHeaderRotation ?? -60)
+                : DefaultRotationAngle;
         
         /// <summary>
         /// Returns the cosine of the current rotation angle.
@@ -58,7 +66,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 {
                     return 0f;
                 }
-                return BetterWorkTabMod.Settings.angledHeaderHorizontalOffset;
+                return BWTWorkTabEffectiveSettings.GetInt(
+                    "headers.horizontalOffset",
+                    BetterWorkTabMod.Settings?.angledHeaderHorizontalOffset ?? 10);
             }
         }
 
@@ -203,12 +213,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 drawRect.x += horizontalOffset;
             }
 
-            if (SubWorkDrilldownState.TryGetHeaderTransitionOffset(column, headerRect.width, out float transitionOffsetX))
+            bool subWorkOrderingAvailable = !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked;
+            if (subWorkOrderingAvailable &&
+                SubWorkDrilldownState.TryGetHeaderTransitionOffset(column, headerRect.width, out float transitionOffsetX))
             {
                 drawRect.x += transitionOffsetX;
             }
 
-            if (SubWorkDrilldownState.IsActive && !isCJKVertical)
+            if (subWorkOrderingAvailable && SubWorkDrilldownState.IsActive && !isCJKVertical)
             {
                 drawRect.y += SubWorkDrilldownState.HeaderAnchorVisualOffsetY;
             }
@@ -218,10 +230,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             GameFont savedFont = Text.Font;
             Color savedColor = GUI.color;
             bool savedWordWrap = Text.WordWrap;
-            float flipScale = SubWorkDrilldownState.HeaderFlipScale;
-            float flipAlpha = SubWorkDrilldownState.HeaderFlipAlpha;
-            float parentAlpha = SubWorkDrilldownState.ParentWorkContentAlpha;
-            if (SubWorkDrilldownState.TryGetHeaderTransitionVisuals(column, out float transitionFlipScale, out float transitionSubAlpha, out float transitionParentAlpha))
+            float flipScale = subWorkOrderingAvailable ? SubWorkDrilldownState.HeaderFlipScale : 1f;
+            float flipAlpha = subWorkOrderingAvailable ? SubWorkDrilldownState.HeaderFlipAlpha : 1f;
+            float parentAlpha = subWorkOrderingAvailable ? SubWorkDrilldownState.ParentWorkContentAlpha : 1f;
+            if (subWorkOrderingAvailable &&
+                SubWorkDrilldownState.TryGetHeaderTransitionVisuals(column, out float transitionFlipScale, out float transitionSubAlpha, out float transitionParentAlpha))
             {
                 flipScale = transitionFlipScale;
                 flipAlpha = transitionSubAlpha;
@@ -238,7 +251,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 Vector2 pivotPoint = GUIClipUtility.Unclip(drawRect.center);
 
                 Vector2 scale = flipScale < 0.999f
-                    ? SubWorkDrilldownState.UsePixelWaveTransition
+                    ? subWorkOrderingAvailable && SubWorkDrilldownState.UsePixelWaveTransition
                         ? new Vector2(flipScale, 1f)
                         : new Vector2(1f, flipScale)
                     : Vector2.one;
@@ -262,7 +275,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
 
                 // Text: Apply moved marker color only if color tint is enabled
-                GUI.color = (layout.ShowMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint)
+                GUI.color = (layout.ShowMarker && BWTWorkTabEffectiveSettings.GetBool(
+                    "columns.showMovedColorTint",
+                    BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true))
                     ? HeaderUtility.Colors.MovedMarkerColor
                     : BetterWorkTabMod.Settings.angledHeaderColor;
                 float visibleAlpha = flipAlpha * labelAlpha;
@@ -288,7 +303,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
 
                 // Underline: Traditionally vertical CJK text does not use work-tab-style underlines as they conflict with legibility.
-                if (!BetterWorkTabMod.Settings.removeHeaderUnderline && !isCJKVertical)
+                if (!BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.DragdropRemoveHeaderUnderline,
+                        BetterWorkTabMod.Settings?.removeHeaderUnderline ?? false) &&
+                    !isCJKVertical)
                 {
                     float textWidth = Mathf.Min(layout.UnderlineWidth, drawRect.width);
                     Color underlineColor = HeaderUtility.Colors.HeaderUnderlineColor;
@@ -363,7 +381,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 {
                     drawRect = new Rect(0f, 0f, headerRect.height, size.y) { center = headerRect.center };
                     drawRect.x += horizontalOffset;
-                    if (SubWorkDrilldownState.IsActive)
+                    if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                        SubWorkDrilldownState.IsActive)
                     {
                         drawRect.y += SubWorkDrilldownState.HeaderAnchorVisualOffsetY;
                     }
@@ -374,7 +393,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 GUI.matrix = GetTransformMatrix(originalMatrix, pivotPoint, rotation, Vector2.one);
 
                 Text.Anchor = isCJKVertical ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
-                GUI.color = (currentLayout.ShowMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint)
+                GUI.color = (currentLayout.ShowMarker && BWTWorkTabEffectiveSettings.GetBool(
+                    "columns.showMovedColorTint",
+                    BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true))
                     ? HeaderUtility.Colors.MovedMarkerColor
                     : BetterWorkTabMod.Settings.angledHeaderColor;
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * alpha);
@@ -395,7 +416,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     Widgets.Label(drawRect, parentText);
                 }
 
-                if (!BetterWorkTabMod.Settings.removeHeaderUnderline && !isCJKVertical)
+                if (!BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.DragdropRemoveHeaderUnderline,
+                        BetterWorkTabMod.Settings?.removeHeaderUnderline ?? false) &&
+                    !isCJKVertical)
                 {
                     float underlineWidth = Mathf.Min(size.x, drawRect.width);
                     Color underlineColor = HeaderUtility.Colors.HeaderUnderlineColor;

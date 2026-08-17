@@ -1,4 +1,5 @@
 using UnityEngine;
+using Better_Work_Tab.UI.Settings;
 
 namespace Better_Work_Tab.UI
 {
@@ -45,8 +46,10 @@ namespace Better_Work_Tab.UI
 
         internal static Rect GetFluffyStyleSubWorkPriorityBoxRect(Rect cellRect)
         {
-            bool compact = BetterWorkTabMod.Settings?.useCompactSubWorkPriorityBoxes ??
-                DefaultSettings.useCompactSubWorkPriorityBoxes;
+            bool compact = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.SubWorkCompactPriorityBoxes,
+                BetterWorkTabMod.Settings?.useCompactSubWorkPriorityBoxes ??
+                    DefaultSettings.useCompactSubWorkPriorityBoxes);
             return GetCenteredBoxRect(cellRect, compact ? CompactSubWorkBoxSize : BoxSize);
         }
     }

@@ -60,18 +60,32 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return;
             }
 
-            bool handledTutorial = _tutorialInteractionController.TryHandleInput(inRect, layout, evt);
+            // Contextual settings owns Alt-click before any gameplay handler.
+            // It must still run on Repaint so Spine can register the binding
+            // lease before the corresponding MouseDown arrives.
+            bool handledContextSettings =
+                _contextSettingsInteractionController.TryHandleInput(inRect, layout, evt);
+
+            if (evt.type == EventType.Repaint)
+            {
+                // Repaint is registration-only. Gameplay handlers must not see
+                // the same event that establishes the contextual binding.
+                return;
+            }
+
+            bool handledTutorial = !handledContextSettings &&
+                _tutorialInteractionController.TryHandleInput(inRect, layout, evt);
             if (!handledTutorial)
             {
                 _tutorialInteractionController.ReportInteraction(inRect, layout, evt);
             }
 
             // This order is the compatibility contract for Work-tab input.
-            bool handled = handledTutorial
+            bool handled = handledContextSettings
+                || handledTutorial
                 || _priorityInputHandler.TryHandlePriorityCellInput(layout, evt)
                 || HeaderButtons.TryHandleTopRightFluffyStyleInput(layout, inRect, evt)
                 || FluffyTimeScheduleAssigner.TryHandleInput(evt)
-                || _contextSettingsInteractionController.TryHandleInput(inRect, layout, evt)
                 || _ruleBuilder2InteractionController.TryHandleInput(layout, evt)
                 || TimePriorityScheduleEditor.TryHandleInput(layout, evt)
                 || _subWorkInteractionController.TryHandleSubWorkBackButtonClick(layout)

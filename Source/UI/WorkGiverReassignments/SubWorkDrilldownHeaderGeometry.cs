@@ -2,6 +2,8 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.Headers.Vanilla;
+using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -162,7 +164,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static float GetRequiredHeaderHeight(PawnTable table)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (settings == null || !settings.enableAngledHeaders)
+            bool useAngledHeaders = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.HeadersAngled,
+                settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
+            if (settings == null || !useAngledHeaders)
             {
                 var solver = HeaderDrawingCoordinator.GetVanillaSolver();
                 int maxLevel = solver?.GetMaxLevelUsed() ?? 1;
@@ -186,6 +191,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static float GetExpandBesideAngledHeaderNeededHeight()
         {
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
+            {
+                return 0f;
+            }
+
             float maxHeight = 0f;
             float rotation = AngledLabelDrawer.CurrentRotation;
             float absSin = Mathf.Abs(Mathf.Sin(rotation * Mathf.Deg2Rad));

@@ -34,14 +34,31 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
 
             int changed = 0;
             bool subWorkDataChanged = false;
+            bool authorityBlocked = false;
             try
             {
                 using (ExternalPriorityMirror.Suspend())
                 using (WorkGiverReassignmentManager.BeginMutationBatch())
                 {
-                    List<WorkGiverDef> workGivers = DefDatabase<WorkGiverDef>.AllDefsListForReading;
-                    foreach (Pawn pawn in PawnsFinder.All_AliveOrDead)
+                    if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision))
                     {
+                        BetterWorkTabMod.DebugLog(
+                            "[SleekWorkTab] Child-rank handoff refused because Better Work Tab does not currently own the explicit handoff boundary.",
+                            DebugFeature.ModSupport);
+                        authorityBlocked = true;
+                    }
+
+                    List<WorkGiverDef> workGivers = DefDatabase<WorkGiverDef>.AllDefsListForReading;
+                    foreach (Pawn pawn in authorityBlocked
+                                 ? Enumerable.Empty<Pawn>()
+                                 : PawnsFinder.All_AliveOrDead)
+                    {
+                        if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                        {
+                            authorityBlocked = true;
+                            break;
+                        }
+
                         if (pawn?.workSettings == null || !pawn.workSettings.EverWork)
                         {
                             continue;
@@ -49,6 +66,12 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
 
                         foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
                         {
+                            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                            {
+                                authorityBlocked = true;
+                                break;
+                            }
+
                             if (workType == null || pawn.WorkTypeIsDisabled(workType))
                             {
                                 continue;
@@ -57,6 +80,12 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                             var ranked = new List<RankedWorkGiver>();
                             for (int index = 0; index < workGivers.Count; index++)
                             {
+                                if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                                {
+                                    authorityBlocked = true;
+                                    break;
+                                }
+
                                 WorkGiverDef workGiver = workGivers[index];
                                 if (workGiver?.workType != workType ||
                                     !SleekWorkTabGateway.TryGetSleekWorkGiverOverride(
@@ -76,10 +105,22 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                                             out int currentPriority) ||
                                         currentPriority != WorkPrioritySystem.DisabledPriority)
                                     {
+                                        if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                                        {
+                                            authorityBlocked = true;
+                                            break;
+                                        }
+
                                         WorkGiverReassignmentManager.SetPawnOverrideSynced(
                                             pawn.thingIDNumber,
                                             workGiver.defName,
                                             WorkPrioritySystem.DisabledPriority);
+                                        if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                                        {
+                                            authorityBlocked = true;
+                                            break;
+                                        }
+
                                         changed++;
                                     }
                                     continue;
@@ -95,6 +136,11 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
 
                             if (ranked.Count == 0)
                             {
+                                if (authorityBlocked)
+                                {
+                                    break;
+                                }
+
                                 continue;
                             }
 
@@ -111,12 +157,28 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                                 .ToList();
                             for (int index = 0; index < ranked.Count; index++)
                             {
+                                if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                                {
+                                    authorityBlocked = true;
+                                    break;
+                                }
+
                                 // A Sleek rank is an order, not a BWT priority. Clear an old BWT
                                 // child override for this explicitly ranked giver so stale data
                                 // cannot silently disable or reprioritize the translated order.
                                 WorkGiverReassignmentManager.ClearPawnOverrideSynced(
                                     pawn.thingIDNumber,
                                     ranked[index].Def.defName);
+                                if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                                {
+                                    authorityBlocked = true;
+                                    break;
+                                }
+                            }
+
+                            if (authorityBlocked)
+                            {
+                                break;
                             }
 
                             if (WorkGiverReassignmentManager.SetPawnWorkGiverOrderSynced(
@@ -126,6 +188,17 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                             {
                                 changed++;
                             }
+
+                            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                            {
+                                authorityBlocked = true;
+                                break;
+                            }
+                        }
+
+                        if (authorityBlocked)
+                        {
+                            break;
                         }
                     }
                 }
@@ -148,6 +221,13 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                     WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
                     MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                 }
+            }
+
+            if (authorityBlocked)
+            {
+                BetterWorkTabMod.DebugLog(
+                    "[SleekWorkTab] Child-rank handoff stopped because the BWT handoff authority was unavailable or its generation changed; no external handoff or unsafe rollback was attempted.",
+                    DebugFeature.ModSupport);
             }
 
             return changed;

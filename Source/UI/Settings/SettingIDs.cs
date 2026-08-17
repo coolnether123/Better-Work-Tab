@@ -9,6 +9,7 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedHideSettingResetIcons = "advanced.hideSettingResetIcons";
         public const string AdvancedProfiler = "advanced.profiler";
         public const string AdvancedWorkGridRenderer = "advanced.workGridRenderer";
+        public const string AdvancedWorkloadsLegacy = "advanced.workloadsLegacy";
         public const string ControlsFluffyHeader = "controls.fluffy.header";
         public const string ControlsFluffyExpand = "controls.fluffy.expand";
         public const string ControlsFluffyBatch = "controls.fluffy.batch";

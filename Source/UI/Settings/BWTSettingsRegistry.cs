@@ -5,6 +5,7 @@ using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.ComplexJobs;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -12,6 +13,7 @@ using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.Workloads;
 using Multiplayer.API;
 using RimWorld;
 using Spine.UI.ColourPicker;
@@ -166,6 +168,7 @@ namespace Better_Work_Tab.UI.Settings
                     WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                         WorkTabDirtyFlags.SettingsThemeLanguageScale);
                 };
+                BWTWorkloadSettingsOwnershipPolicy.PrepareDefinition(def);
             }
         }
 
@@ -493,6 +496,15 @@ namespace Better_Work_Tab.UI.Settings
                 .Toggle(WorkloadsWarnOnApply, settings => settings.warnOnApplyWorkload, "Warn before applying Workload", tooltip: "Show a confirmation warning before applying a workload to all colonists.")
                 .DefaultTo(DefaultSettings.warnOnApplyWorkload)
                 .Ordered(1);
+
+            schema.Root.Under(FeaturesWorkloads)
+                .Toggle(AdvancedWorkloadsLegacy, settings => settings.useLegacyWorkloads, "Use legacy Workloads (1.0.5)",
+                        tooltip: "Use the original Workloads behavior from Better Work Tab 1.0.5 instead of the modern Workloads implementation.",
+                        onChanged: settings => BWTWorkloadSettingsOwnershipPolicy.HandleLegacyWorkloadModeChanged(settings))
+                .DefaultTo(DefaultSettings.useLegacyWorkloads)
+                .SearchableBy(new[] { "legacy workloads", "classic workloads", "Workloads 1.0.5", "compatibility", "workload version" })
+                .Ordered(2)
+                .AdvancedOnly();
 
             schema.Root
                 .Toggle(FeaturesSubWorkJobs, settings => settings.enableSubWorkDrilldown, "Specific jobs",
@@ -1078,7 +1090,7 @@ namespace Better_Work_Tab.UI.Settings
                 .AdvancedOnly()
                 .ValueRange(0f, 1f);
 
-            schema.Root.Under(FeaturesDividers).Toggle(DividersShow, settings => settings.enableDividers, "Show Dividers", tooltip: "Toggle visibility of divider rows.").DefaultTo(DefaultSettings.enableDividers).Ordered(107);
+            schema.Root.Under(FeaturesDividers).Toggle(DividersShow, settings => settings.showDividerRows, "Show Dividers", tooltip: "Toggle visibility of divider rows.").DefaultTo(DefaultSettings.showDividerRows).Ordered(107);
 
             schema.Root.Under(FeaturesDividers)
                 .Toggle(DividersCustomColors, settings => settings.allowCustomDividerColors, "Custom divider colors", tooltip: "Choose a different color for each divider.")
@@ -1604,8 +1616,20 @@ namespace Better_Work_Tab.UI.Settings
             {
                 if (settingsObj is BetterWorkTabSettings settings)
                 {
+                    if (BWTWorkloadSettingsOwnershipPolicy.IsBulkSettingsOperationBlocked(out string blockReason))
+                    {
+                        Messages.Message(blockReason, MessageTypeDefOf.RejectInput, false);
+                        return;
+                    }
+
                     Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Restore every Better Work Tab setting to its default? Your current settings will be lost.", () =>
                     {
+                        if (BWTWorkloadSettingsOwnershipPolicy.IsBulkSettingsOperationBlocked(out string confirmationBlockReason))
+                        {
+                            Messages.Message(confirmationBlockReason, MessageTypeDefOf.RejectInput, false);
+                            return;
+                        }
+
                         settings.RestoreDefaults();
                         WorkColumnOrderManager.ResetToVanilla();
                         settings.Write();

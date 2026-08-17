@@ -8,6 +8,7 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
 using RimWorld;
 using Spine.UI.ColourPicker;
@@ -157,7 +158,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
         private void ShowDividerContextMenu(PawnDivider divider)
         {
-            if (!(BetterWorkTabMod.Settings?.enableDividers ?? true))
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.FeaturesDividers,
+                    BetterWorkTabMod.Settings?.enableDividers ?? DefaultSettings.enableDividers))
             {
                 return;
             }
@@ -195,7 +198,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return;
             }
 
-            if (!(BetterWorkTabMod.Settings?.enableDividers ?? true))
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.FeaturesDividers,
+                    BetterWorkTabMod.Settings?.enableDividers ?? DefaultSettings.enableDividers))
             {
                 return;
             }
@@ -215,7 +220,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return;
             }
 
-            if (!(BetterWorkTabMod.Settings?.enableDividers ?? true))
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.FeaturesDividers,
+                    BetterWorkTabMod.Settings?.enableDividers ?? DefaultSettings.enableDividers))
             {
                 return;
             }

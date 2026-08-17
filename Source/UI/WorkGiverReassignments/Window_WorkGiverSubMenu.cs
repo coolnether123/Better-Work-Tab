@@ -5,6 +5,9 @@ using System.Text;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Workloads;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -45,6 +48,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private float DesiredContentHeight => _dynamicHeaderHeight + PriorityRowHeight + FooterHeight + WindowPadding * 2f;
 
+        private static IDisposable PushEffectiveStateScope()
+        {
+            // This submenu is a separate WindowStack entry. Its constructor and
+            // later frames run after MainTabWindow_BetterWork has popped the
+            // Work-tab pass scope, so re-enter the same session provider here.
+            return WorkloadPreviewController.Current?.PushEffectiveStateScope();
+        }
+
         public Window_WorkGiverSubMenu(WorkTypeDef workType, Vector2 triggerPos, Pawn pawn = null)
         {
             _workType = workType;
@@ -73,9 +84,29 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private void RefreshWorkGivers()
         {
-            _workGivers = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(_workType, _pawn).ToList();
+            using (PushEffectiveStateScope())
+            {
+                RefreshWorkGiversScoped();
+            }
+        }
+
+        private void RefreshWorkGiversScoped()
+        {
+            bool specificJobOrderingBlocked =
+                WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked;
+            IReadOnlyList<WorkGiver> source =
+                specificJobOrderingBlocked
+                    ? GetStableWorkGiversForPreview()
+                    : WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
+                    WorkTabEffectiveStateDimension.Schedule)
+                    ? WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(_workType, _pawn)
+                    : WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(_workType, _pawn);
+            _workGivers = source?.ToList() ?? new List<WorkGiver>();
+            ApplyPreviewSpecificJobOrder();
             _baselineTracker = new WorkGiverBaselineTracker(_workType, _workGivers, _pawn);
-            _useAngledHeaders = BetterWorkTabMod.Settings?.enableAngledHeaders ?? true;
+            _useAngledHeaders = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.HeadersAngled,
+                BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
             if (!_useAngledHeaders)
             {
                 RecalculateVanillaHeaderLevels();
@@ -91,6 +122,85 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             
             CalculateHeaderHeight();
             _needsRefresh = false;
+        }
+
+        private IReadOnlyList<WorkGiver> GetStableWorkGiversForPreview()
+        {
+            var result = new List<WorkGiver>();
+            IReadOnlyList<WorkGiverDef> definitions =
+                DefDatabase<WorkGiverDef>.AllDefsListForReading;
+            for (int i = 0; i < definitions.Count; i++)
+            {
+                WorkGiverDef definition = definitions[i];
+                if (definition == null ||
+                    WorkGiverReassignmentManager.GetTargetWorkType(definition) != _workType)
+                {
+                    continue;
+                }
+
+                WorkGiver worker = definition.Worker;
+                if (worker != null)
+                {
+                    result.Add(worker);
+                }
+            }
+
+            result.Sort((left, right) =>
+            {
+                int priority = right.def.priorityInType.CompareTo(left.def.priorityInType);
+                return priority != 0
+                    ? priority
+                    : StringComparer.Ordinal.Compare(left.def.defName, right.def.defName);
+            });
+            return result;
+        }
+
+        private void ApplyPreviewSpecificJobOrder()
+        {
+            if (!WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder) ||
+                _pawn == null ||
+                _workType == null ||
+                _workGivers.Count < 2)
+            {
+                return;
+            }
+
+            var fallbackIndices = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < _workGivers.Count; i++)
+            {
+                string defName = _workGivers[i]?.def?.defName;
+                if (!defName.NullOrEmpty() && !fallbackIndices.ContainsKey(defName))
+                {
+                    fallbackIndices.Add(defName, i);
+                }
+            }
+
+            _workGivers.Sort((left, right) =>
+            {
+                string leftName = left?.def?.defName;
+                string rightName = right?.def?.defName;
+                int leftFallback = leftName.NullOrEmpty() || !fallbackIndices.TryGetValue(leftName, out int leftIndex)
+                    ? int.MaxValue
+                    : leftIndex;
+                int rightFallback = rightName.NullOrEmpty() || !fallbackIndices.TryGetValue(rightName, out int rightIndex)
+                    ? int.MaxValue
+                    : rightIndex;
+                int leftOrder = WorkTabEffectiveStateRuntime.GetSpecificJobOrder(
+                    _pawn,
+                    _workType,
+                    left?.def,
+                    leftFallback);
+                int rightOrder = WorkTabEffectiveStateRuntime.GetSpecificJobOrder(
+                    _pawn,
+                    _workType,
+                    right?.def,
+                    rightFallback);
+                int comparison = leftOrder.CompareTo(rightOrder);
+                return comparison != 0
+                    ? comparison
+                    : leftFallback.CompareTo(rightFallback);
+            });
         }
 
         private void CalculateHeaderHeight()
@@ -169,6 +279,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         public override void DoWindowContents(Rect inRect)
         {
+            using (PushEffectiveStateScope())
+            {
+                DoWindowContentsScoped(inRect);
+            }
+        }
+
+        private void DoWindowContentsScoped(Rect inRect)
+        {
             if (_workType == null)
             {
                 Close();
@@ -181,7 +299,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             var settings = BetterWorkTabMod.Settings;
-            bool desiredAngled = settings?.enableAngledHeaders ?? true;
+            bool desiredAngled = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.HeadersAngled,
+                settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
             if (desiredAngled != _useAngledHeaders)
             {
                 _useAngledHeaders = desiredAngled;
@@ -213,6 +333,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             string titleText = _pawn == null 
                 ? $"Global: {workTypeLabel}"
                 : $"{_pawn.LabelShortCap}: {workTypeLabel}";
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
+            {
+                titleText += _pawn == null
+                    ? " (preview order unavailable)"
+                    : " (preview order staged here)";
+            }
             Widgets.Label(new Rect(0, 0, inRect.width, 24f), titleText.Colorize(Color.gray));
         }
 
@@ -290,7 +416,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 Widgets.DrawHighlight(hoverRect);
             }
 
-            GUI.color = (isMovedFromBaseline && BetterWorkTabMod.Settings.showMovedColumnColorTint)
+            GUI.color = (isMovedFromBaseline && BWTWorkTabEffectiveSettings.GetBool(
+                "columns.showMovedColorTint",
+                BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true))
                 ? HeaderUtility.Colors.MovedMarkerColor
                 : BetterWorkTabMod.Settings.angledHeaderColor;
 
@@ -313,7 +441,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             string label = WorkGiverDisplayNameService.HeaderLabel(wg?.def);
             var settings = BetterWorkTabMod.Settings;
-            if (isMovedFromBaseline && settings != null && settings.showColumnMovedMarker && !label.EndsWith(HeaderUtility.MovedMarker))
+            bool showMovedMarker = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.ColumnsShowMovedIndicator,
+                settings?.showColumnMovedMarker ?? DefaultSettings.showColumnMovedMarker);
+            if (isMovedFromBaseline && showMovedMarker && !label.EndsWith(HeaderUtility.MovedMarker))
             {
                 label += HeaderUtility.MovedMarker;
             }
@@ -498,7 +629,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private void DrawVanillaStem(Rect textRect, float headerBottom)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (settings != null && settings.removeHeaderUnderline)
+            if (BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.DragdropRemoveHeaderUnderline,
+                settings?.removeHeaderUnderline ?? DefaultSettings.removeHeaderUnderline))
                 return;
 
             const float StemBaseHeight = 11f;
@@ -514,6 +647,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private void HandleHeaderDrag(int index, bool isHovered)
         {
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
+            {
+                if (isHovered && Event.current.type == EventType.Repaint)
+                {
+                    TooltipHandler.TipRegion(
+                        new Rect(WindowPadding + index * _columnWidth, HeaderTop, _columnWidth, _dynamicHeaderHeight - HeaderTop),
+                        "Specific-job ordering is not projected in this workload preview.");
+                }
+                return;
+            }
+
             // Guard: Don't start drag if event was already consumed (e.g., by priority box click)
             if (Event.current.type == EventType.Used) return;
 

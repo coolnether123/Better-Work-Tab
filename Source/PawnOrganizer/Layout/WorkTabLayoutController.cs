@@ -15,8 +15,10 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Vanilla;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -312,9 +314,16 @@ namespace Better_Work_Tab.PawnOrganizer
             {
                 var settings = BetterWorkTabMod.Settings;
                 int hash = 17;
-                hash = hash * 31 + ((settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns) ? 1 : 0);
-                hash = hash * 31 + ((settings?.subWorkEvenlyExpandColumns ?? DefaultSettings.subWorkEvenlyExpandColumns) ? 1 : 0);
-                hash = hash * 31 + ((settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders) ? 1 : 0);
+                hash = hash * 31 + (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.SubWorkAutoExpandColumns,
+                    settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns) ? 1 : 0);
+                hash = hash * 31 + (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.SubWorkEvenlyExpandColumns,
+                    settings?.subWorkEvenlyExpandColumns ?? DefaultSettings.subWorkEvenlyExpandColumns) ? 1 : 0);
+                hash = hash * 31 + (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HeadersAngled,
+                    settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders) ? 1 : 0);
+                hash = hash * 31 + (IsPreviewSpecificJobOrderingBlocked() ? 1 : 0);
                 return hash;
             }
         }
@@ -896,7 +905,15 @@ namespace Better_Work_Tab.PawnOrganizer
             var allColumns = _table.Columns;
             var hiddenWorktypes = BetterWorkTabMod.Settings?.hiddenWorktypes;
             float headerHeight = HeaderHeight;
-            if (SubWorkDrilldownState.IsActive)
+            bool blockPreviewSpecificJobOrdering = IsPreviewSpecificJobOrderingBlocked();
+            bool showSubWork = SubWorkDrilldownState.IsActive && !blockPreviewSpecificJobOrdering;
+            if (blockPreviewSpecificJobOrdering)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder,
+                    "Specific-job ordering is not projected in this workload preview; live reassignment order is not used.");
+            }
+            if (showSubWork)
             {
                 EnsureSubWorkMeasurementCacheFresh();
             }
@@ -909,7 +926,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 // corresponding Sleek worker directly into those child cells.  Do not also
                 // publish Sleek's synthetic columns as a second visible set while that
                 // projection is active.
-                if (SubWorkDrilldownState.IsActive &&
+                if (showSubWork &&
                     SleekWorkTabGateway.BetterWorkTabHostsSleek &&
                     SleekWorkTabGateway.IsSleekInlineJobColumn(def))
                 {
@@ -943,7 +960,7 @@ namespace Better_Work_Tab.PawnOrganizer
                      FluffyWorkTabGateway.IsFluffyColumn(def) &&
                      !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(def));
 
-                if (SubWorkDrilldownState.IsActive &&
+                if (showSubWork &&
                     isSourceWorkColumn &&
                     SubWorkDrilldownState.GetVisibleWorkColumnSlot(def) >= 0 &&
                     !SubWorkDrilldownState.IsTransitioning &&
@@ -956,7 +973,8 @@ namespace Better_Work_Tab.PawnOrganizer
 
                 if (isSourceWorkColumn &&
                     def.workType != null &&
-                    !SubWorkDrilldownState.IsActive &&
+                    !showSubWork &&
+                    !blockPreviewSpecificJobOrdering &&
                     SubWorkDrilldownState.GetExpandBesideWidthProgress(def.workType) > 0.001f &&
                     FluffyWorkTabGateway.TryBuildHostedColumnSpecs(
                         def,
@@ -1049,7 +1067,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (visibleColumns[i].IsExpandBesideChild)
                 {
                     w += HostedSubWorkChildColumnPadding;
-                    if (!SubWorkDrilldownState.IsActive)
+                    if (!showSubWork)
                     {
                         w *= SubWorkDrilldownState.GetExpandBesideWidthProgress(visibleColumns[i].SubWorkParent);
                     }
@@ -1062,7 +1080,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             bool preservePawnLabelWidth = ShouldPreservePawnLabelWidth(visibleColumns, fillerIndex);
 
-            if (SubWorkDrilldownState.IsActive)
+            if (showSubWork)
             {
                 float[] transitionStartWidths = (float[])widths.Clone();
                 float surplus = _rowWidth - totalNaturalWidth;
@@ -1070,7 +1088,9 @@ namespace Better_Work_Tab.PawnOrganizer
                 ApplySubWorkPriorityWidthRelief(visibleColumns, widths, surplus);
                 ApplySubWorkTransitionWidths(widths, transitionStartWidths);
             }
-            else if (preservePawnLabelWidth && SubWorkDrilldownState.IsExpandBesideActive)
+            else if (preservePawnLabelWidth &&
+                     SubWorkDrilldownState.IsExpandBesideActive &&
+                     !blockPreviewSpecificJobOrdering)
             {
                 // Fluffy's expanded work-giver columns stay at their natural worker widths.
                 // The Work tab window is sized from the rendered column span, so we do not
@@ -1092,7 +1112,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 float width = widths[i];
 
                 // Ensure the absolute last column hits the edge perfectly to avoid rounding gaps.
-                if (!SubWorkDrilldownState.IsActive && !preservePawnLabelWidth && i == visibleColumns.Count - 1)
+                if (!showSubWork && !preservePawnLabelWidth && i == visibleColumns.Count - 1)
                 {
                     width = Mathf.Max(0f, (_origin.x + _rowWidth) - currentX);
                 }
@@ -1141,7 +1161,9 @@ namespace Better_Work_Tab.PawnOrganizer
                 fillerIndex >= visibleColumns.Count ||
                 surplus <= 0.5f ||
                 !(visibleColumns[fillerIndex].Def.Worker is PawnColumnWorker_Label) ||
-                (BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders))
+                BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HeadersAngled,
+                    BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders))
             {
                 return surplus;
             }
@@ -1252,7 +1274,9 @@ namespace Better_Work_Tab.PawnOrganizer
                 return;
             }
 
-            if (settings?.subWorkEvenlyExpandColumns ?? DefaultSettings.subWorkEvenlyExpandColumns)
+            if (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.SubWorkEvenlyExpandColumns,
+                    settings?.subWorkEvenlyExpandColumns ?? DefaultSettings.subWorkEvenlyExpandColumns))
             {
                 ApplyEvenSubWorkExpansion(widths, surplus, workColumnIndexes);
                 return;
@@ -1306,6 +1330,11 @@ namespace Better_Work_Tab.PawnOrganizer
         private static bool TryGetSubWorkGiverForVisibleColumn(VisibleColumnSpec column, out WorkGiver workGiver)
         {
             workGiver = null;
+            if (IsPreviewSpecificJobOrderingBlocked())
+            {
+                return false;
+            }
+
             if (column.IsExpandBesideChild && column.SubWorkGiver != null)
             {
                 var givers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(column.SubWorkParent);
@@ -1324,23 +1353,34 @@ namespace Better_Work_Tab.PawnOrganizer
             return SubWorkDrilldownState.TryGetWorkGiverForColumn(column.Def, out workGiver, out _);
         }
 
+        private static bool IsPreviewSpecificJobOrderingBlocked()
+        {
+            return WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked;
+        }
+
         private static bool ShouldExpandSubWorkPriorityColumns(BetterWorkTabSettings settings)
         {
-            if (!(settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns))
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.SubWorkAutoExpandColumns,
+                    settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns))
             {
                 return false;
             }
 
             // Compact window mode must retain the natural focused-column span. Filling the
             // vanilla table surplus here would silently prevent the window from shrinking.
-            if (!(settings?.keepVanillaWorkTabMinimumWidth ?? DefaultSettings.keepVanillaWorkTabMinimumWidth))
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.LayoutWorkTabMinimumWidth,
+                    settings?.keepVanillaWorkTabMinimumWidth ?? DefaultSettings.keepVanillaWorkTabMinimumWidth))
             {
                 return false;
             }
 
             // Angled headers already avoid label collisions vertically; horizontal expansion
             // makes the sub-work columns drift away from vanilla compact work-tab spacing.
-            return !(settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
+            return !BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.HeadersAngled,
+                settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
         }
 
         private static void ApplyEvenSubWorkExpansion(

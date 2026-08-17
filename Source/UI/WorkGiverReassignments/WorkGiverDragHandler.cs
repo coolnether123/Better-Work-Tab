@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -90,19 +92,28 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
                     if (hoveredWorkType != null && hoveredWorkType != _workType)
                     {
-                        // Dragged out onto another work type header: reassign to that work type.
-                        if (!WorkGiverReassignmentManager.TryReassignWorkGiver(draggedWg.def.defName, hoveredWorkType.defName, null, out var error))
+                        if (WorkTabEffectiveStateRuntime.IsPreviewActive)
                         {
-                            if (!error.NullOrEmpty())
-                            {
-                                Messages.Message(error, MessageTypeDefOf.RejectInput, false);
-                            }
+                            WorkTabEffectiveStateRuntime.ReportBlocked(
+                                WorkTabEffectiveStateDimension.SpecificJobOrder,
+                                "Cross-work-type work-giver moves are owned by the live layout service.");
                         }
                         else
                         {
-                            SoundDefOf.Tick_High.PlayOneShotOnCamera();
-                            _window.NotifyPriorityChanged(); // Refresh submenu to reflect removal
-                            _window.Close(); // Close current submenu after sending the workgiver away
+                            // Dragged out onto another work type header: reassign to that work type.
+                            if (!WorkGiverReassignmentManager.TryReassignWorkGiver(draggedWg.def.defName, hoveredWorkType.defName, null, out var error))
+                            {
+                                if (!error.NullOrEmpty())
+                                {
+                                    Messages.Message(error, MessageTypeDefOf.RejectInput, false);
+                                }
+                            }
+                            else
+                            {
+                                SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                                _window.NotifyPriorityChanged(); // Refresh submenu to reflect removal
+                                _window.Close(); // Close current submenu after sending the workgiver away
+                            }
                         }
                     }
                     else if (_targetIndex >= 0 && _targetIndex != _draggedIndex)
@@ -118,25 +129,128 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private void CommitReorder(List<WorkGiver> workGivers)
         {
-            if (_draggedIndex < 0 || _draggedIndex >= _originalWorkGivers.Count) return;
-            
-            var draggedWg = _originalWorkGivers[_draggedIndex];
-            
-            // Remove from current list if present
-            workGivers.RemoveAll(wg => wg.def.defName == draggedWg.def.defName);
-            
-            // Insert at target index
-            int insertIndex = Mathf.Clamp(_targetIndex, 0, workGivers.Count);
-            workGivers.Insert(insertIndex, draggedWg);
+            if (_draggedIndex < 0 ||
+                _originalWorkGivers == null ||
+                _draggedIndex >= _originalWorkGivers.Count ||
+                workGivers == null)
+            {
+                return;
+            }
 
+            WorkGiver draggedWg = _originalWorkGivers[_draggedIndex];
+            if (draggedWg == null ||
+                draggedWg.def == null ||
+                draggedWg.def.defName.NullOrEmpty())
+            {
+                return;
+            }
+
+            // Build the candidate first. Preview writes must not touch the
+            // live list until every stable key has passed validation.
+            var reordered = new List<WorkGiver>(workGivers);
+            reordered.RemoveAll(wg => wg?.def?.defName == draggedWg.def.defName);
+
+            int insertIndex = Mathf.Clamp(_targetIndex, 0, reordered.Count);
+            reordered.Insert(insertIndex, draggedWg);
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                Pawn pawn = _window.Pawn;
+                if (pawn == null || pawn.thingIDNumber <= 0 || _workType == null)
+                {
+                    RestoreOriginalOrder(workGivers);
+                    WorkTabEffectiveStateRuntime.ReportBlocked(
+                        WorkTabEffectiveStateDimension.SpecificJobOrder,
+                        "Specific-job ordering requires a valid pawn and work-type key; global layout ordering is not projected.");
+                    return;
+                }
+
+                var currentKeys = new HashSet<string>(StringComparer.Ordinal);
+                for (int i = 0; i < workGivers.Count; i++)
+                {
+                    string defName = workGivers[i]?.def?.defName;
+                    if (defName.NullOrEmpty() || !currentKeys.Add(defName))
+                    {
+                        RestoreOriginalOrder(workGivers);
+                        WorkTabEffectiveStateRuntime.ReportBlocked(
+                            WorkTabEffectiveStateDimension.SpecificJobOrder,
+                            "The current work-giver list does not have unique stable keys.");
+                        return;
+                    }
+                }
+
+                if (!currentKeys.Contains(draggedWg.def.defName))
+                {
+                    RestoreOriginalOrder(workGivers);
+                    WorkTabEffectiveStateRuntime.ReportBlocked(
+                        WorkTabEffectiveStateDimension.SpecificJobOrder,
+                        "The dragged work-giver list changed before its stable key could be projected.");
+                    return;
+                }
+
+                if (!WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
+                        WorkTabEffectiveStateDimension.SpecificJobOrder))
+                {
+                    RestoreOriginalOrder(workGivers);
+                    WorkTabEffectiveStateRuntime.ReportBlocked(
+                        WorkTabEffectiveStateDimension.SpecificJobOrder,
+                        "The active preview provider does not own specific-job ordering.");
+                    return;
+                }
+
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+                for (int i = 0; i < reordered.Count; i++)
+                {
+                    string defName = reordered[i]?.def?.defName;
+                    if (defName.NullOrEmpty() || !seen.Add(defName))
+                    {
+                        RestoreOriginalOrder(workGivers);
+                        WorkTabEffectiveStateRuntime.ReportBlocked(
+                            WorkTabEffectiveStateDimension.SpecificJobOrder,
+                            "The dragged work-giver list does not have unique stable keys.");
+                        return;
+                    }
+                }
+
+                // The draft stores an explicit position for every visible
+                // work-giver. This preserves the complete order and avoids
+                // relying on a live manager mutation as a side effect.
+                for (int i = 0; i < reordered.Count; i++)
+                {
+                    if (!WorkTabEffectiveStateRuntime.TrySetSpecificJobOrder(
+                            pawn,
+                            _workType,
+                            reordered[i].def,
+                            i,
+                            out _))
+                    {
+                        RestoreOriginalOrder(workGivers);
+                        return;
+                    }
+                }
+
+                workGivers.Clear();
+                workGivers.AddRange(reordered);
+                _window.NotifyDragCompleted();
+                SoundDefOf.Tick_High.PlayOneShotOnCamera();
+                return;
+            }
+
+            workGivers.Clear();
+            workGivers.AddRange(reordered);
             WorkGiverReassignmentManager.SetPawnWorkGiverOrderSynced(
-                _window.Pawn?.thingIDNumber ?? -1, 
-                _window.WorkType.defName, 
-                workGivers.Select(wg => wg.def.defName).ToList()
-            );
+                _window.Pawn?.thingIDNumber ?? -1,
+                _window.WorkType.defName,
+                reordered.Select(wg => wg.def.defName).ToList());
             
             _window.NotifyDragCompleted();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
+        }
+
+        private void RestoreOriginalOrder(List<WorkGiver> workGivers)
+        {
+            workGivers.Clear();
+            workGivers.AddRange(_originalWorkGivers);
         }
 
         public void CancelDrag()

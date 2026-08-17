@@ -3,6 +3,7 @@ using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.Settings;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -19,8 +20,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static float _settleStartedAt;
 
         internal static bool IsEnabled =>
-            BetterWorkTabMod.Settings?.enableSubWorkCrossWorkDragDrop ??
-            DefaultSettings.enableSubWorkCrossWorkDragDrop;
+            BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.SubWorkCrossWorkDragDrop,
+                BetterWorkTabMod.Settings?.enableSubWorkCrossWorkDragDrop ??
+                    DefaultSettings.enableSubWorkCrossWorkDragDrop);
 
         internal static bool IsPointerBeyondSubWorkStrip(
             IWorkTabLayoutController layout,

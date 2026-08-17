@@ -4,6 +4,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -159,7 +160,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static bool CanShowChooserComparison(IWorkTabLayoutController layout)
         {
-            if (!FluffyWorkTabGateway.IsSubWorkStyleChooserActive ||
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked ||
+                !FluffyWorkTabGateway.IsSubWorkStyleChooserActive ||
                 layout?.Table == null ||
                 layout.Columns == null)
             {

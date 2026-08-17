@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 
 namespace Better_Work_Tab.UI.Headers.Vanilla
 {
@@ -443,7 +444,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         /// </summary>
         private static int GetMaxLevel()
         {
-            return SubWorkDrilldownState.IsActive ? SubWorkMaxLevel : StandardMaxLevel;
+            return !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                SubWorkDrilldownState.IsActive ? SubWorkMaxLevel : StandardMaxLevel;
         }
 
         private class ColoringProblem

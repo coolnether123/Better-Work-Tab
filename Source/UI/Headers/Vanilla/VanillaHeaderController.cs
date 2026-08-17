@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.Columns;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 
 namespace Better_Work_Tab.UI.Headers.Vanilla
 {
@@ -84,7 +85,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             var evt = Event.current;
             if (!HeaderUtility.ShouldHandleHeader(evt.type)) return false;
 
-            if (SubWorkDrilldownState.IsDrawingExpandBesideChild)
+            if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                SubWorkDrilldownState.IsDrawingExpandBesideChild)
             {
                 return HandleExpandBesideChildDrawAndInput(worker, rect, table, evt);
             }

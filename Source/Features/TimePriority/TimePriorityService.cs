@@ -194,8 +194,13 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
-        internal static void SetPriorityAtHourSynced(TimePriorityTarget target, int hour, int priority, int fallbackPriority)
+        internal static bool SetPriorityAtHourSynced(TimePriorityTarget target, int hour, int priority, int fallbackPriority)
         {
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out _))
+            {
+                return false;
+            }
+
             if (MultiplayerBridge.Active)
             {
                 SyncSetPriorityAtHour(
@@ -206,14 +211,19 @@ namespace Better_Work_Tab.Features.TimePriority
                     hour,
                     priority,
                     fallbackPriority);
-                return;
+                return true;
             }
 
-            SetPriorityAtHour(target, hour, priority, fallbackPriority);
+            return SetPriorityAtHour(target, hour, priority, fallbackPriority);
         }
 
-        internal static void ClearPriorityAtHourSynced(TimePriorityTarget target, int hour)
+        internal static bool ClearPriorityAtHourSynced(TimePriorityTarget target, int hour)
         {
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out _))
+            {
+                return false;
+            }
+
             if (MultiplayerBridge.Active)
             {
                 SyncClearPriorityAtHour(
@@ -222,14 +232,19 @@ namespace Better_Work_Tab.Features.TimePriority
                     target.WorkTypeDefName,
                     target.TargetDefName,
                     hour);
-                return;
+                return true;
             }
 
-            ClearPriorityAtHour(target, hour);
+            return ClearPriorityAtHour(target, hour);
         }
 
-        internal static void SetPrioritiesSynced(TimePriorityTarget target, int[] priorities, int fallbackPriority)
+        internal static bool SetPrioritiesSynced(TimePriorityTarget target, int[] priorities, int fallbackPriority)
         {
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out _))
+            {
+                return false;
+            }
+
             int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
             if (MultiplayerBridge.Active)
             {
@@ -240,10 +255,10 @@ namespace Better_Work_Tab.Features.TimePriority
                     target.TargetDefName,
                     normalizedPriorities,
                     fallbackPriority);
-                return;
+                return true;
             }
 
-            SetPriorities(target, normalizedPriorities, fallbackPriority);
+            return SetPriorities(target, normalizedPriorities, fallbackPriority);
         }
 
         /// <summary>
@@ -271,12 +286,17 @@ namespace Better_Work_Tab.Features.TimePriority
         /// know, such as a paste of a copied schedule, should say so here rather
         /// than let the inference silently drop an hour pinned at the default.
         /// </summary>
-        internal static void SetScheduleSynced(
+        internal static bool SetScheduleSynced(
             TimePriorityTarget target,
             int[] priorities,
             bool[] unlinkedHours,
             int fallbackPriority)
         {
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out _))
+            {
+                return false;
+            }
+
             int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
             int[] pinnedHours = BuildPinnedHourList(unlinkedHours);
             if (MultiplayerBridge.Active)
@@ -289,10 +309,10 @@ namespace Better_Work_Tab.Features.TimePriority
                     normalizedPriorities,
                     pinnedHours,
                     fallbackPriority);
-                return;
+                return true;
             }
 
-            SetSchedule(target, normalizedPriorities, pinnedHours, fallbackPriority);
+            return SetSchedule(target, normalizedPriorities, pinnedHours, fallbackPriority);
         }
 
         // Multiplayer sync marshals plain arrays, so the pinned hours travel as
@@ -328,18 +348,42 @@ namespace Better_Work_Tab.Features.TimePriority
             SetSchedule(target, priorities, pinnedHours, fallbackPriority);
         }
 
-        private static void SetSchedule(
+        private static bool SetSchedule(
             TimePriorityTarget target,
             int[] priorities,
             int[] pinnedHours,
             int fallbackPriority)
         {
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision))
+            {
+                return false;
+            }
+
+            return SetSchedule(
+                target,
+                priorities,
+                pinnedHours,
+                fallbackPriority,
+                authorityRevision);
+        }
+
+        private static bool SetSchedule(
+            TimePriorityTarget target,
+            int[] priorities,
+            int[] pinnedHours,
+            int fallbackPriority,
+            long authorityRevision)
+        {
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
             int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
             if (pinnedHours == null || pinnedHours.Length == 0)
             {
-                ClearSchedule(target);
-                return;
+                return ClearSchedule(target, authorityRevision);
+            }
+
+            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+            {
+                return false;
             }
 
             var schedule = GetOrCreateSchedule(target, fallbackPriority);
@@ -350,11 +394,21 @@ namespace Better_Work_Tab.Features.TimePriority
                 bool wasPinned = schedule.IsUnlinked(hour);
                 if (shouldPin && (!wasPinned || schedule.HourlyPriorities[hour] != normalizedPriorities[hour]))
                 {
+                    if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                    {
+                        return false;
+                    }
+
                     schedule.SetOverride(hour, normalizedPriorities[hour]);
                     changed = true;
                 }
                 else if (!shouldPin && wasPinned)
                 {
+                    if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                    {
+                        return false;
+                    }
+
                     schedule.ClearOverride(hour);
                     changed = true;
                 }
@@ -362,17 +416,34 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (changed)
             {
+                if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                {
+                    return false;
+                }
+
                 MirrorTargetToExternalWorkTab(target);
                 NotifyChanged();
             }
+
+            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
-        internal static void ClearSchedule(TimePriorityTarget target)
+        internal static bool ClearSchedule(TimePriorityTarget target)
+        {
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision))
+            {
+                return false;
+            }
+
+            return ClearSchedule(target, authorityRevision);
+        }
+
+        private static bool ClearSchedule(TimePriorityTarget target, long authorityRevision)
         {
             var schedules = GetSchedules(create: false);
             if (schedules == null)
             {
-                return;
+                return true;
             }
 
             bool changed = false;
@@ -381,6 +452,11 @@ namespace Better_Work_Tab.Features.TimePriority
                 TimePriorityScheduleData schedule = schedules[i];
                 if (schedule == null || schedule.Key == target.Key)
                 {
+                    if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                    {
+                        return false;
+                    }
+
                     schedules.RemoveAt(i);
                     changed = true;
                 }
@@ -388,9 +464,16 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (changed)
             {
+                if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                {
+                    return false;
+                }
+
                 MirrorTargetToExternalWorkTab(target);
                 NotifyChanged();
             }
+
+            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
         [SyncMethod]
@@ -441,41 +524,77 @@ namespace Better_Work_Tab.Features.TimePriority
             SetPriorities(target, priorities, fallbackPriority);
         }
 
-        private static void SetPriorityAtHour(TimePriorityTarget target, int hour, int priority, int fallbackPriority)
+        private static bool SetPriorityAtHour(TimePriorityTarget target, int hour, int priority, int fallbackPriority)
         {
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision))
+            {
+                return false;
+            }
+
             priority = WorkPrioritySystem.ClampPriority(priority);
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
 
             // No early-out when the chosen number matches the box. Pinning an
             // hour to the default is a real instruction -- it means "stay here
             // when the box moves" -- and it is only expressible as an override.
+            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+            {
+                return false;
+            }
+
             var schedule = GetOrCreateSchedule(target, fallbackPriority);
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
             if (schedule.IsUnlinked(hour) && schedule.HourlyPriorities[hour] == priority)
             {
-                return;
+                return true;
+            }
+
+            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+            {
+                return false;
             }
 
             schedule.SetOverride(hour, priority);
+            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+            {
+                return false;
+            }
+
             MirrorTargetToExternalWorkTab(target);
             NotifyChanged();
+            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
         /// <summary>
         /// Puts an hour back under the priority box, so it follows whatever the
         /// box says from now on.
         /// </summary>
-        private static void ClearPriorityAtHour(TimePriorityTarget target, int hour)
+        private static bool ClearPriorityAtHour(TimePriorityTarget target, int hour)
         {
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision))
+            {
+                return false;
+            }
+
             if (!TryGetSchedule(target, out var schedule))
             {
-                return;
+                return true;
             }
 
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
+            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+            {
+                return false;
+            }
+
             if (!schedule.ClearOverride(hour))
             {
-                return;
+                return true;
+            }
+
+            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+            {
+                return false;
             }
 
             // A schedule with nothing pinned is indistinguishable from no
@@ -483,16 +602,21 @@ namespace Better_Work_Tab.Features.TimePriority
             // target as scheduled to every indicator that asks.
             if (!schedule.HasAnyUnlinkedHour)
             {
-                ClearSchedule(target);
-                return;
+                return ClearSchedule(target, authorityRevision);
             }
 
             MirrorTargetToExternalWorkTab(target);
             NotifyChanged();
+            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
-        private static void SetPriorities(TimePriorityTarget target, int[] priorities, int fallbackPriority)
+        private static bool SetPriorities(TimePriorityTarget target, int[] priorities, int fallbackPriority)
         {
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision))
+            {
+                return false;
+            }
+
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
             int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
             bool allFallback = true;
@@ -507,8 +631,12 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (allFallback)
             {
-                ClearSchedule(target);
-                return;
+                return ClearSchedule(target, authorityRevision);
+            }
+
+            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+            {
+                return false;
             }
 
             var schedule = GetOrCreateSchedule(target, fallbackPriority);
@@ -525,11 +653,21 @@ namespace Better_Work_Tab.Features.TimePriority
                 bool wasPinned = schedule.IsUnlinked(i);
                 if (shouldPin && (!wasPinned || schedule.HourlyPriorities[i] != normalizedPriorities[i]))
                 {
+                    if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                    {
+                        return false;
+                    }
+
                     schedule.SetOverride(i, normalizedPriorities[i]);
                     changed = true;
                 }
                 else if (!shouldPin && wasPinned)
                 {
+                    if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                    {
+                        return false;
+                    }
+
                     schedule.ClearOverride(i);
                     changed = true;
                 }
@@ -537,9 +675,16 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (changed)
             {
+                if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                {
+                    return false;
+                }
+
                 MirrorTargetToExternalWorkTab(target);
                 NotifyChanged();
             }
+
+            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
         /// <summary>

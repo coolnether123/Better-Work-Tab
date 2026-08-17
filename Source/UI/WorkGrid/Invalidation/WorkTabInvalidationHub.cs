@@ -1,5 +1,6 @@
 using System.Threading;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 
 namespace Better_Work_Tab.UI.WorkGrid.Invalidation
 {
@@ -18,6 +19,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
         private static int _viewport;
         private static int _windowSize;
         private static int _renderResources;
+        private static long _effectiveStateRevision;
+
+        public static long EffectiveStateRevision => Interlocked.Read(ref _effectiveStateRevision);
 
         public static WorkTabInvalidationVersion Current
         {
@@ -59,9 +63,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             WorkGridInvalidationCategory categories = MapCategories(flags);
             if (categories != WorkGridInvalidationCategory.None)
             {
+                bool effectiveStateChanged = IncrementEffectiveStateRevision(categories);
                 lock (LedgerLock)
                 {
                     Ledger.Invalidate(categories);
+                }
+
+                if (effectiveStateChanged)
+                {
+                    WorkTabEffectiveStateRuntime.InvalidateRenderPass();
                 }
             }
         }
@@ -69,6 +79,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
         public static void InvalidatePriority(int pawnId, ushort workTypeId)
         {
             Interlocked.Increment(ref _presentation);
+            Interlocked.Increment(ref _effectiveStateRevision);
+            WorkTabEffectiveStateRuntime.InvalidateRenderPass();
             lock (LedgerLock)
             {
                 Ledger.InvalidatePriority(new WorkGridPriorityKey(pawnId, workTypeId));
@@ -77,6 +89,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
 
         public static void InvalidateCategory(WorkGridInvalidationCategory categories)
         {
+            bool effectiveStateChanged = IncrementEffectiveStateRevision(categories);
+            if (effectiveStateChanged)
+            {
+                WorkTabEffectiveStateRuntime.InvalidateRenderPass();
+            }
+
             lock (LedgerLock)
             {
                 Ledger.Invalidate(categories);
@@ -121,6 +139,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                           WorkGridInvalidationCategory.SubWorkOverride;
             }
             return result;
+        }
+
+        private static bool IncrementEffectiveStateRevision(WorkGridInvalidationCategory categories)
+        {
+            const WorkGridInvalidationCategory relevantCategories =
+                WorkGridInvalidationCategory.Priority |
+                WorkGridInvalidationCategory.CapabilitySkill |
+                WorkGridInvalidationCategory.ScheduleHour |
+                WorkGridInvalidationCategory.SubWorkOverride |
+                WorkGridInvalidationCategory.SettingsThemeLanguageScale;
+
+            if ((categories & relevantCategories) != WorkGridInvalidationCategory.None)
+            {
+                Interlocked.Increment(ref _effectiveStateRevision);
+                return true;
+            }
+
+            return false;
         }
     }
 }
