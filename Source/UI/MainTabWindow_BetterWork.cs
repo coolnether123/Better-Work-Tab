@@ -234,6 +234,30 @@ namespace Better_Work_Tab.UI
 
         private void DoWindowContentsProfiledCoreScoped(Rect inRect, PawnTable table)
         {
+            AdvanceFrameState();
+            PawnOrganizerSystem organizer = PrepareAndUpdateLayout(inRect, table, out Rect workGridRect);
+
+            _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
+            Event evt = Event.current;
+            RouteFrameInput(inRect, table, organizer, workGridRect, evt);
+            UpdateFrameHover(organizer, inRect, evt);
+            RenderWorkGrid(table, organizer, workGridRect, evt);
+
+            // Begin/EndScrollView must participate in Layout so Unity keeps the same
+            // scroll control state across Layout, input, and Repaint. The drawing surface's
+            // Layout path creates that control without painting rows or headers.
+            if (evt.type == EventType.Layout)
+            {
+                return;
+            }
+
+            DrawFrameOverlaysAndChrome(inRect, table, organizer, evt);
+        }
+
+        // These single-caller methods make the immediate-mode frame order explicit.
+        // They stay on the window because the sequence is its lifecycle contract.
+        private void AdvanceFrameState()
+        {
             UpdateTutorialAcceptKeyState();
             // The tutorial band contributes reserved height, so latch its
             // presence before any geometry below derives a table origin from it.
@@ -261,9 +285,15 @@ namespace Better_Work_Tab.UI
             // invalidation so the active renderer and header solver observe the
             // same frame's lifecycle version.
             _workGridRenderer.PrepareFrame(WorkTabInvalidationHub.Current);
+        }
 
-            var organizer = PawnOrganizerSystem.Instance;
-            Rect workGridRect = _workloadPreviewController.GetWorkGridRect(inRect);
+        private PawnOrganizerSystem PrepareAndUpdateLayout(
+            Rect inRect,
+            PawnTable table,
+            out Rect workGridRect)
+        {
+            PawnOrganizerSystem organizer = PawnOrganizerSystem.Instance;
+            workGridRect = _workloadPreviewController.GetWorkGridRect(inRect);
             float effectiveHeaderHeight = SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(table);
             float previousContentHeight = organizer?.Layout != null
                 ? WorkGridLayoutMetrics.GetHeaderAnchoredContentHeight(organizer.Layout)
@@ -279,7 +309,7 @@ namespace Better_Work_Tab.UI
                 previousContentHeight);
             Vector2 tableOrigin = new Vector2(workGridRect.x, tableOriginY);
             WorkGridInvalidationAudit.PollRoster(table);
-            var snapshot = BuildSnapshotForOrganizer(table);
+            IPawnOrganizerSnapshot snapshot = BuildSnapshotForOrganizer(table);
 
             SubWorkDrilldownState.TickTransition();
             RefreshSubWorkLayoutIfNeeded(organizer);
@@ -323,8 +353,16 @@ namespace Better_Work_Tab.UI
                     PawnOrganizerSystem.Instance?.Layout?.LayoutRevision ?? -1);
             }
 
-            _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
-            Event evt = Event.current;
+            return organizer;
+        }
+
+        private void RouteFrameInput(
+            Rect inRect,
+            PawnTable table,
+            PawnOrganizerSystem organizer,
+            Rect workGridRect,
+            Event evt)
+        {
             BWTWorkTabTutorial.UpdatePointerOwnership(inRect, organizer?.Layout, evt.mousePosition);
             if (evt.type == EventType.Repaint)
             {
@@ -332,45 +370,59 @@ namespace Better_Work_Tab.UI
                 // this dispatch ahead of gameplay input so the following Alt-click
                 // can resolve the binding that was registered for this frame.
                 _workGridInteractionRouter.Route(workGridRect, organizer, evt);
+                return;
             }
-            else if (evt.type != EventType.Layout)
+
+            if (evt.type == EventType.Layout)
             {
-                bool routedWorkloadFooterInput = HeaderButtons.TryHandleWorkloadFooterInput(
-                    inRect,
-                    WorkTabChromeGeometry.GetInfoIconRect(inRect),
-                    evt);
-                bool routedPreviewScroll = !routedWorkloadFooterInput &&
-                    TryRouteWorkloadPreviewScroll(evt, table);
-                bool routedPreviewSurfaceInput = !routedWorkloadFooterInput &&
-                    !routedPreviewScroll &&
-                    _workloadPreviewController.TryHandleSurfaceInput(evt);
-                if (!routedWorkloadFooterInput &&
-                    !routedPreviewScroll &&
-                    !routedPreviewSurfaceInput &&
-                    SpineTiming.Enabled)
-                {
-                    SpineTiming.Time(
-                        "WorkTab.Input",
-                            () => _workGridInteractionRouter.Route(workGridRect, organizer, evt));
-                }
-                else if (!routedWorkloadFooterInput &&
-                         !routedPreviewScroll &&
-                         !routedPreviewSurfaceInput)
-                {
-                    _workGridInteractionRouter.Route(workGridRect, organizer, evt);
-                }
-
-                _subWorkInteractionController.SuppressPriorityMouseDownIfNeeded(evt);
-                _workloadPreviewController.SynchronizeAfterInput();
-                RefreshSubWorkLayoutIfNeeded(organizer);
-                _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
+                return;
             }
 
+            bool routedWorkloadFooterInput = HeaderButtons.TryHandleWorkloadFooterInput(
+                inRect,
+                WorkTabChromeGeometry.GetInfoIconRect(inRect),
+                evt);
+            bool routedPreviewScroll = !routedWorkloadFooterInput &&
+                TryRouteWorkloadPreviewScroll(evt, table);
+            bool routedPreviewSurfaceInput = !routedWorkloadFooterInput &&
+                !routedPreviewScroll &&
+                _workloadPreviewController.TryHandleSurfaceInput(evt);
+            if (!routedWorkloadFooterInput &&
+                !routedPreviewScroll &&
+                !routedPreviewSurfaceInput &&
+                SpineTiming.Enabled)
+            {
+                SpineTiming.Time(
+                    "WorkTab.Input",
+                    () => _workGridInteractionRouter.Route(workGridRect, organizer, evt));
+            }
+            else if (!routedWorkloadFooterInput &&
+                     !routedPreviewScroll &&
+                     !routedPreviewSurfaceInput)
+            {
+                _workGridInteractionRouter.Route(workGridRect, organizer, evt);
+            }
+
+            _subWorkInteractionController.SuppressPriorityMouseDownIfNeeded(evt);
+            _workloadPreviewController.SynchronizeAfterInput();
+            RefreshSubWorkLayoutIfNeeded(organizer);
+            _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
+        }
+
+        private void UpdateFrameHover(PawnOrganizerSystem organizer, Rect inRect, Event evt)
+        {
             if (evt.type != EventType.Layout)
             {
                 _ruleBuilder2InteractionController.UpdateHover(organizer?.Layout, inRect);
             }
+        }
 
+        private void RenderWorkGrid(
+            PawnTable table,
+            PawnOrganizerSystem organizer,
+            Rect workGridRect,
+            Event evt)
+        {
             WorkGridFeatureFlags renderFeatures = WorkGridFeatureFlags.None;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if (BWTWorkTabEffectiveSettings.GetBool(
@@ -415,15 +467,14 @@ namespace Better_Work_Tab.UI
                 new WorkGridRenderConfiguration(renderFeatures, WorkGridLayerFlags.All),
                 WorkGridSelectionScope.Window);
             _workGridRenderer.Render(in renderContext);
+        }
 
-            // Begin/EndScrollView must participate in Layout so Unity keeps the same
-            // scroll control state across Layout, input, and Repaint. The drawing surface's
-            // Layout path creates that control without painting rows or headers.
-            if (evt.type == EventType.Layout)
-            {
-                return;
-            }
-
+        private void DrawFrameOverlaysAndChrome(
+            Rect inRect,
+            PawnTable table,
+            PawnOrganizerSystem organizer,
+            Event evt)
+        {
             TimePriorityScheduleEditor.Draw(organizer?.Layout);
             FluffyTimeScheduleAssigner.Draw(inRect, organizer?.Layout, base.ExtraBottomSpace);
             _subWorkStyleChooserPresenter.Draw(organizer?.Layout, windowRect, inRect);
@@ -438,7 +489,6 @@ namespace Better_Work_Tab.UI
             }
 
             _workTabChrome.DrawTopControls(organizer?.Layout, inRect);
-
             _workTabChrome.DrawBottomControls(organizer?.Layout, inRect);
             _workTabChrome.DrawSubWorkExitButton(inRect);
             _workTabChrome.DrawBottomCounters(inRect, table);
