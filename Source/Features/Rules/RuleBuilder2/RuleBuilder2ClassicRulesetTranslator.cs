@@ -511,8 +511,11 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ConditionKind.CapacityMinimum:
                     warning = condition.Kind.ToString();
                     return false;
-                default:
+                case RuleBuilder2ConditionKind.NoteOnly:
                     return true;
+                default:
+                    warning = "unsupported condition kind " + (int)condition.Kind;
+                    return false;
             }
         }
     }

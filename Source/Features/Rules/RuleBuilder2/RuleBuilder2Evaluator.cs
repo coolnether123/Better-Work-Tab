@@ -259,6 +259,8 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return workType?.alwaysStartActive == true;
                 case RuleBuilder2ConditionKind.ParentHasChildOnMap:
                     return HasChildOnCurrentMap(pawn);
+                case RuleBuilder2ConditionKind.NoteOnly:
+                    return true;
                 // Both mirror the classic validators exactly, so a rule means
                 // the same thing whichever builder wrote it.
                 case RuleBuilder2ConditionKind.CapableOfViolence:
@@ -270,7 +272,11 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ConditionKind.ActiveWorkTypesAtMost:
                     return CountActiveWorkTypes(pawn) <= condition.IntValue;
                 default:
-                    return true;
+                    Log.ErrorOnce(
+                        "[BWT] Rule Builder 2.0 ignored an unsupported condition kind: " +
+                        ((int)condition.Kind) + ". The condition will not match.",
+                        187346921 + (int)condition.Kind);
+                    return false;
             }
         }
 
@@ -365,8 +371,13 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ActionKind.SetTimeSchedule:
                 case RuleBuilder2ActionKind.SetSubWorkSchedule:
                 case RuleBuilder2ActionKind.SetPriority:
-                default:
                     return RuleBuilder2SleekPriorityTranslation.TranslatePriority(action.Priority);
+                default:
+                    Log.ErrorOnce(
+                        "[BWT] Rule Builder 2.0 ignored an unsupported action kind: " +
+                        ((int)action.Kind) + ".",
+                        187346927 + (int)action.Kind);
+                    return WorkPrioritySystem.DisabledPriority;
             }
         }
 
@@ -388,8 +399,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 case RuleBuilder2ActionKind.SetTimeSchedule:
                 case RuleBuilder2ActionKind.SetSubWorkSchedule:
                     return Tr("BWT_RuleBuilder2_ActionText_Schedule", targetLabel);
-                default:
+                case RuleBuilder2ActionKind.SetPriority:
                     return Tr("BWT_RuleBuilder2_ActionText_SetPriority", targetLabel, action.Priority);
+                default:
+                    return Tr("BWT_RuleBuilder2_ActionText_NoAction");
             }
         }
 

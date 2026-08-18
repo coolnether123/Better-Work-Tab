@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Reflection.Emit;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Verse;
 
@@ -45,12 +43,10 @@ namespace Better_Work_Tab.Features.TimePriority
         // repeatedly scanning the legacy collection.
         private int _unlinkedMask;
 
-        private List<int> _hourlyPrioritiesSentinelList;
-        private List<int> _unlinkedHoursSentinelList;
-        private int _hourlyPrioritiesSentinelVersion;
-        private int _unlinkedHoursSentinelVersion;
-        // Canonical values are retained only for mutation reconciliation. The
-        // stable read path checks List<T> versions and never allocates or scans.
+        private List<int> _observedHourlyPriorities;
+        private List<int> _observedUnlinkedHours;
+        // Canonical values are retained for bounded compatibility-audit
+        // reconciliation. Normal reads use the mask and never scan public lists.
         private int[] _canonicalHourlyPriorities;
 
         internal TimePriorityCacheKey CacheKey =>
@@ -117,54 +113,16 @@ namespace Better_Work_Tab.Features.TimePriority
         internal bool HasAnyUnlinkedHour => _unlinkedMask != 0;
 
         /// <summary>
-        /// Repairs direct legacy list edits only when the public list itself has
-        /// changed. List's private mutation version makes this a constant-time,
-        /// allocation-free check on the supported CLR. A changed version is
-        /// reconciled only then, so equivalent edits do not publish a change.
-        /// </summary>
-        internal bool EnsureRuntimeIntegrity()
-        {
-            // The version reader is an optimization, not a correctness
-            // dependency. If a CLR refuses the private-field DynamicMethod,
-            // the compatibility audit owns the bounded semantic scan. Do not
-            // turn every effective-priority read into that scan.
-            if (!ListMutationVersion<int>.IsAvailable)
-            {
-                return false;
-            }
-
-            if (IsRuntimeIntegrityCurrent())
-            {
-                return false;
-            }
-
-            // A reader can become unusable after its delegate was created on
-            // an unusual runtime. Defer to the same audit fallback rather than
-            // repeatedly treating an unreadable version as a dirty hot read.
-            if (HourlyPriorities != null &&
-                UnlinkedHours != null &&
-                (!ListMutationVersion<int>.TryRead(HourlyPriorities, out _) ||
-                 !ListMutationVersion<int>.TryRead(UnlinkedHours, out _)))
-            {
-                return false;
-            }
-
-            bool semanticChange = !MatchesCanonicalState();
-            EnsureValid();
-            return semanticChange;
-        }
-
-        /// <summary>
         /// Performs the compatibility-boundary reconciliation that the hot
-        /// path deliberately cannot perform when List&lt;T&gt;._version is hidden.
+        /// path deliberately does not perform.
         /// The public lists are scanned only here, then normalized and captured
         /// as the new runtime state.
         /// </summary>
         internal bool ReconcileRuntimeIntegrityFromAudit()
         {
             bool listReferenceChanged =
-                !ReferenceEquals(_hourlyPrioritiesSentinelList, HourlyPriorities) ||
-                !ReferenceEquals(_unlinkedHoursSentinelList, UnlinkedHours);
+                !ReferenceEquals(_observedHourlyPriorities, HourlyPriorities) ||
+                !ReferenceEquals(_observedUnlinkedHours, UnlinkedHours);
             bool metadataChanged = Key != TimePriorityService.BuildKey(
                 PawnId,
                 Kind,
@@ -262,53 +220,10 @@ namespace Better_Work_Tab.Features.TimePriority
             CaptureRuntimeIntegrity();
         }
 
-        private bool IsRuntimeIntegrityCurrent()
-        {
-            if (!ReferenceEquals(_hourlyPrioritiesSentinelList, HourlyPriorities) ||
-                !ReferenceEquals(_unlinkedHoursSentinelList, UnlinkedHours))
-            {
-                return false;
-            }
-
-            if (HourlyPriorities == null || UnlinkedHours == null)
-            {
-                return false;
-            }
-
-            if (!ListMutationVersion<int>.IsAvailable)
-            {
-                return false;
-            }
-
-            if (ListMutationVersion<int>.TryRead(HourlyPriorities, out int hourlyVersion) &&
-                ListMutationVersion<int>.TryRead(UnlinkedHours, out int unlinkedVersion))
-            {
-                return _hourlyPrioritiesSentinelVersion == hourlyVersion &&
-                       _unlinkedHoursSentinelVersion == unlinkedVersion;
-            }
-
-            // An unavailable or unreadable version is never treated as current.
-            // EnsureRuntimeIntegrity defers that case to the compatibility audit
-            // so a stable query still remains allocation-free and scan-free.
-            return false;
-        }
-
         private void CaptureRuntimeIntegrity()
         {
-            _hourlyPrioritiesSentinelList = HourlyPriorities;
-            _unlinkedHoursSentinelList = UnlinkedHours;
-
-            if (HourlyPriorities != null &&
-                ListMutationVersion<int>.TryRead(HourlyPriorities, out int hourlyVersion))
-            {
-                _hourlyPrioritiesSentinelVersion = hourlyVersion;
-            }
-
-            if (UnlinkedHours != null &&
-                ListMutationVersion<int>.TryRead(UnlinkedHours, out int unlinkedVersion))
-            {
-                _unlinkedHoursSentinelVersion = unlinkedVersion;
-            }
+            _observedHourlyPriorities = HourlyPriorities;
+            _observedUnlinkedHours = UnlinkedHours;
 
             if (_canonicalHourlyPriorities == null)
             {
@@ -363,68 +278,4 @@ namespace Better_Work_Tab.Features.TimePriority
         }
     }
 
-    /// <summary>
-    /// Reads List&lt;T&gt;'s mutation version without boxing on the hot path. The
-    /// version is private framework state, so the reader is isolated here.
-    /// </summary>
-    internal static class ListMutationVersion<T>
-    {
-        private static readonly Func<List<T>, int> Reader = CreateReader();
-        private static bool _readerFailed;
-
-        internal static bool IsAvailable => Reader != null && !_readerFailed;
-
-        internal static bool TryRead(List<T> values, out int version)
-        {
-            if (Reader == null || values == null)
-            {
-                version = 0;
-                return false;
-            }
-
-            try
-            {
-                version = Reader(values);
-                return true;
-            }
-            catch
-            {
-                // Treat a delegate invocation failure like an unavailable
-                // field. The audit fallback remains the correctness path.
-                _readerFailed = true;
-                version = 0;
-                return false;
-            }
-        }
-
-        private static Func<List<T>, int> CreateReader()
-        {
-            try
-            {
-                FieldInfo versionField = typeof(List<T>).GetField(
-                    "_version",
-                    BindingFlags.Instance | BindingFlags.NonPublic);
-                if (versionField == null)
-                {
-                    return null;
-                }
-
-                var method = new DynamicMethod(
-                    "ReadListVersion",
-                    typeof(int),
-                    new[] { typeof(List<T>) },
-                    typeof(ListMutationVersion<T>),
-                    true);
-                ILGenerator il = method.GetILGenerator();
-                il.Emit(OpCodes.Ldarg_0);
-                il.Emit(OpCodes.Ldfld, versionField);
-                il.Emit(OpCodes.Ret);
-                return (Func<List<T>, int>)method.CreateDelegate(typeof(Func<List<T>, int>));
-            }
-            catch
-            {
-                return null;
-            }
-        }
-    }
 }

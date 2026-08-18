@@ -126,8 +126,12 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return true;
                 case RuleBuilder2ActionKind.Disable:
                 case RuleBuilder2ActionKind.SetPriority:
-                default:
                     return ApplyBasePriority(pawn, workType, workGiver, targetPriority, currentPriority, warnings);
+                default:
+                    AddWarningOnce(
+                        warnings,
+                        "Skipped unsupported Rule Builder 2.0 action kind: " + (int)card.Action.Kind + ".");
+                    return false;
             }
         }
 
