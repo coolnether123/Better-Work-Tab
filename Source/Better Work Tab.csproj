@@ -188,6 +188,7 @@
     <Compile Include="Features\Testing\GameComponent_BWTTutorialQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\Testing\GameComponent_PriorityRangeCacheRegressionTestDriver.cs" Condition="'$(BwtPriorityAuthorityTests)' == 'true' And $([System.String]::Copy('$(DefineConstants)').Contains('DEBUG'))" />
     <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
+    <Compile Include="UI\BWTBottomBarIcons.cs" />
     <Compile Include="UI\BWTBottomBarSelector.cs" />
     <Compile Include="UI\OneTimePromptPresence.cs" />
     <Compile Include="Features\Testing\BWTTutorialAgentHarness.cs" Condition="'$(Configuration)' != '1.6'" />

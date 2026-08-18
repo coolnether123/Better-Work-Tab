@@ -397,7 +397,7 @@ namespace Better_Work_Tab.UI
 
             if (BWTBottomBarSelector.DrawMain(
                     rects.RulesetMain,
-                    "BWT_BottomBar_RulesetCaption".Translate(),
+                    BWTBottomBarIcons.Ruleset,
                     name,
                     hasRuleset,
                     hasRuleset
@@ -498,23 +498,12 @@ namespace Better_Work_Tab.UI
             bool hasValue,
             string tooltip)
         {
-            TextAnchor previousAnchor = Text.Anchor;
-            GameFont previousFont = Text.Font;
-            Color previousColor = GUI.color;
-
-            bool clicked = Widgets.ButtonText(rect, string.Empty);
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Text.Font = GameFont.Small;
-            GUI.color = hasValue ? Color.white : new Color(1f, 1f, 1f, 0.55f);
-            Widgets.Label(
-                new Rect(rect.x + 8f, rect.y, Mathf.Max(1f, rect.width - 16f), rect.height),
-                (value ?? string.Empty).Truncate(Mathf.Max(1f, rect.width - 16f)));
-
-            GUI.color = previousColor;
-            Text.Font = previousFont;
-            Text.Anchor = previousAnchor;
-            TooltipHandler.TipRegion(rect, tooltip);
-            return clicked;
+            return BWTBottomBarSelector.DrawMain(
+                rect,
+                BWTBottomBarIcons.Workload,
+                value,
+                hasValue,
+                tooltip);
         }
 
         private static bool DrawWorkloadMenuControl(Rect rect, string tooltip)
