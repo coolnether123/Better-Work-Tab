@@ -253,6 +253,7 @@
     <Compile Include="Mod Support\BWTModSettingsSection.cs" />
     <Compile Include="Mod Support\OptionalModSettingsAvailability.cs" />
     <Compile Include="Mod Support\ExternalPriorityMirror.cs" />
+    <Compile Include="Mod Support\ExternalWorkTabPriorityArrayNormalizer.cs" />
     <Compile Include="Mod Support\ExternalWorkTabPriorityImportService.cs" />
     <Compile Include="Mod Support\ExternalWorkTabRegistry.cs" />
     <Compile Include="Mod Support\CompatibilityDiagnostics.cs" />
