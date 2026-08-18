@@ -37,7 +37,6 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
         private static readonly SleekWorkTabExternalStore ExternalStore =
             new SleekWorkTabExternalStore();
         private static bool _externalStoreRegistered;
-        private static bool _handoffImporterRegistered;
 
         private static bool? _detected;
         private static bool _detectionComplete;
@@ -142,24 +141,11 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                 !ExternalWorkTabRegistry.IsCurrentStoreRegistration(ExternalStore))
             {
                 _externalStoreRegistered = false;
-                _handoffImporterRegistered = false;
-            }
-
-            if (!_externalStoreRegistered)
-            {
-                _handoffImporterRegistered = false;
             }
 
             if (!_externalStoreRegistered && ExternalWorkTabApi.RegisterStore(ExternalStore))
             {
                 _externalStoreRegistered = true;
-            }
-
-            if (_externalStoreRegistered &&
-                !_handoffImporterRegistered &&
-                ExternalWorkTabRegistry.RegisterHandoffImporter(ExternalStore))
-            {
-                _handoffImporterRegistered = true;
             }
         }
 

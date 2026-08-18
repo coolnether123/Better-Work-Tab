@@ -31,8 +31,6 @@ namespace Better_Work_Tab.ModSupport
             new Dictionary<string, IExternalWorkTabStore>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, ImporterRegistration> Importers =
             new Dictionary<string, ImporterRegistration>(StringComparer.OrdinalIgnoreCase);
-        private static readonly Dictionary<string, ImporterRegistration> HandoffImporters =
-            new Dictionary<string, ImporterRegistration>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, long> StoreRegistrationGenerations =
             new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         private static long registryGeneration;
@@ -524,44 +522,6 @@ namespace Better_Work_Tab.ModSupport
                 currentRegistrationGeneration);
         }
 
-        internal static bool RegisterHandoffImporter(IExternalWorkTabHandoffImporter importer)
-        {
-            string storeId;
-            try
-            {
-                storeId = importer?.StoreId?.Trim();
-            }
-            catch
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(storeId))
-            {
-                return false;
-            }
-
-            lock (SyncRoot)
-            {
-                HandoffImporters[storeId] = new ImporterRegistration(importer);
-            }
-
-            return true;
-        }
-
-        internal static bool UnregisterHandoffImporter(string storeId)
-        {
-            if (string.IsNullOrWhiteSpace(storeId))
-            {
-                return false;
-            }
-
-            lock (SyncRoot)
-            {
-                return HandoffImporters.Remove(storeId.Trim());
-            }
-        }
-
         internal static int ImportFromStore(
             string storeId,
             IExternalWorkTabStore expectedStore,
@@ -589,16 +549,9 @@ namespace Better_Work_Tab.ModSupport
                     return 0;
                 }
 
-                ImporterRegistration registration;
-                if (HandoffImporters.TryGetValue(normalizedStoreId, out registration))
-                {
-                    handoffImporter = registration.HandoffImporter;
-                }
-                else
-                {
-                    handoffImporter = null;
-                }
+                handoffImporter = currentStore as IExternalWorkTabHandoffImporter;
 
+                ImporterRegistration registration;
                 if (Importers.TryGetValue(normalizedStoreId, out registration))
                 {
                     importer = registration.PriorityImporter;
@@ -617,10 +570,7 @@ namespace Better_Work_Tab.ModSupport
                         !IsCurrentStoreRegistration(
                             normalizedStoreId,
                             expectedStore,
-                            expectedRegistrationGeneration) ||
-                        !IsCurrentHandoffImporterRegistration(
-                            normalizedStoreId,
-                            handoffImporter))
+                            expectedRegistrationGeneration))
                     {
                         return 0;
                     }
@@ -1102,23 +1052,6 @@ namespace Better_Work_Tab.ModSupport
             }
         }
 
-        private static bool IsCurrentHandoffImporterRegistration(
-            string storeId,
-            IExternalWorkTabHandoffImporter expectedImporter)
-        {
-            if (string.IsNullOrWhiteSpace(storeId) || expectedImporter == null)
-            {
-                return false;
-            }
-
-            lock (SyncRoot)
-            {
-                ImporterRegistration registration;
-                return HandoffImporters.TryGetValue(storeId.Trim(), out registration) &&
-                       ReferenceEquals(registration.HandoffImporter, expectedImporter);
-            }
-        }
-
         private static bool TryBuildStoreRecord(
             string registeredId,
             IExternalWorkTabStore store,
@@ -1564,14 +1497,12 @@ namespace Better_Work_Tab.ModSupport
 
         private readonly struct ImporterRegistration
         {
-            internal ImporterRegistration(object importer)
+            internal ImporterRegistration(IExternalWorkTabPriorityImporter importer)
             {
-                PriorityImporter = importer as IExternalWorkTabPriorityImporter;
-                HandoffImporter = importer as IExternalWorkTabHandoffImporter;
+                PriorityImporter = importer;
             }
 
             internal readonly IExternalWorkTabPriorityImporter PriorityImporter;
-            internal readonly IExternalWorkTabHandoffImporter HandoffImporter;
         }
 
         private readonly struct AvailableStoresResult
