@@ -374,7 +374,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             Rect sourceRect = new Rect(Verse.UI.screenWidth / 2f - 12f, Verse.UI.screenHeight / 2f - 12f, 24f, 24f);
-            _session = new Session(new TargetInfo(pawn, target, sourceRect, currentPriority));
+            _session = new Session(new TargetInfo(target, sourceRect, currentPriority));
             TimePriorityService.GetPrioritiesForDisplay(target, currentPriority);
             NotifyLayoutChanged();
             Find.MainTabsRoot.SetCurrentTab(DefDatabase<MainButtonDef>.GetNamedSilentFail("Work"));
@@ -401,7 +401,7 @@ namespace Better_Work_Tab.Features.TimePriority
             _closingStartedAt = 0f;
             _closingSourceRect = Rect.zero;
 
-            var info = new TargetInfo(null, target, priorityBoxRect, currentPriority);
+            var info = new TargetInfo(target, priorityBoxRect, currentPriority);
             if (_session != null && _session.Matches(target))
             {
                 if (!_session.PawnIds.Contains(target.PawnId))
@@ -862,11 +862,6 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (GetSessionManualMode())
             {
-                if (evt.button == 1)
-                {
-                    return WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button);
-                }
-
                 return WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button);
             }
 
@@ -2384,7 +2379,6 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private readonly struct TargetInfo
         {
-            public readonly Pawn Pawn;
             public readonly TimePriorityTarget TimeTarget;
             public readonly int PawnId;
             public readonly TimePriorityTargetKind Kind;
@@ -2394,9 +2388,8 @@ namespace Better_Work_Tab.Features.TimePriority
             public readonly Rect PriorityBoxRect;
             public readonly int CurrentPriority;
 
-            public TargetInfo(Pawn pawn, TimePriorityTarget timeTarget, Rect priorityBoxRect, int currentPriority)
+            public TargetInfo(TimePriorityTarget timeTarget, Rect priorityBoxRect, int currentPriority)
             {
-                Pawn = pawn;
                 TimeTarget = timeTarget;
                 PawnId = timeTarget.PawnId;
                 Kind = timeTarget.Kind;
@@ -2410,7 +2403,6 @@ namespace Better_Work_Tab.Features.TimePriority
             public static TargetInfo ForWorkType(Pawn pawn, WorkTypeDef workType, string label, Rect priorityBoxRect, int currentPriority)
             {
                 return new TargetInfo(
-                    pawn,
                     TimePriorityTarget.ForWorkType(pawn, workType, label),
                     priorityBoxRect,
                     currentPriority);
@@ -2419,7 +2411,6 @@ namespace Better_Work_Tab.Features.TimePriority
             public static TargetInfo ForWorkGiver(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver, string label, Rect priorityBoxRect, int currentPriority)
             {
                 return new TargetInfo(
-                    pawn,
                     TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver, label),
                     priorityBoxRect,
                     currentPriority);

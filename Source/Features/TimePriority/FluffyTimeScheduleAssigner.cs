@@ -31,8 +31,6 @@ namespace Better_Work_Tab.Features.TimePriority
         private static Rect _lastBarRect;
         private static Rect _lastWholeDayButtonRect;
         private static Rect _lastNowButtonRect;
-        private static string _lastAppliedTarget = string.Empty;
-        private static int _lastAppliedPriority = -1;
         private static bool _isOpen;
 
         private static bool HasBetterWorkTabScheduleAuthority =>
@@ -161,8 +159,6 @@ namespace Better_Work_Tab.Features.TimePriority
             _isOpen = false;
             SelectWholeDay();
             VisibleHour = -1;
-            _lastAppliedTarget = string.Empty;
-            _lastAppliedPriority = -1;
             ClearInteractiveGeometry();
 
             if (wasOpen)
@@ -293,7 +289,6 @@ namespace Better_Work_Tab.Features.TimePriority
 
             priority = WorkPrioritySystem.ClampPriority(priority);
             TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkType(pawn, workType);
-            RecordAppliedTarget(target, priority);
             if (SelectedHourSet.Count == TimePriorityService.HoursPerDay)
             {
                 WorkPrioritySystem.SetPriority(pawn.workSettings, workType, priority);
@@ -322,7 +317,6 @@ namespace Better_Work_Tab.Features.TimePriority
             int fallback = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
             TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkGiver(pawn, workGiver.workType, workGiver);
             priority = WorkPrioritySystem.ClampPriority(priority);
-            RecordAppliedTarget(target, priority);
 
             if (SelectedHourSet.Count == TimePriorityService.HoursPerDay)
             {
@@ -333,12 +327,6 @@ namespace Better_Work_Tab.Features.TimePriority
 
             ApplySelectedHours(target, fallback, priority);
             return true;
-        }
-
-        private static void RecordAppliedTarget(TimePriorityTarget target, int priority)
-        {
-            _lastAppliedTarget = target.Key;
-            _lastAppliedPriority = priority;
         }
 
         private static void ApplySelectedHours(TimePriorityTarget target, int fallbackPriority, int priority)
