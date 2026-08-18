@@ -13,6 +13,8 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
+using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using Spine.Profiling;
 
 namespace Better_Work_Tab.UI.Headers
@@ -156,7 +158,8 @@ namespace Better_Work_Tab.UI.Headers
                 return;
             }
 
-            if (SubWorkDrilldownState.IsBlankWorkColumn(worker.def))
+            if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                SubWorkDrilldownState.IsBlankWorkColumn(worker.def))
             {
                 return;
             }
@@ -209,7 +212,9 @@ namespace Better_Work_Tab.UI.Headers
             var settings = BetterWorkTabMod.Settings;
             if (settings == null) return;
 
-            bool enableAngled = settings.enableAngledHeaders;
+            bool enableAngled = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.HeadersAngled,
+                settings.enableAngledHeaders);
 
             if (enableAngled)
             {

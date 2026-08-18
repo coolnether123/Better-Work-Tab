@@ -9,10 +9,14 @@ using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.Data;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Multiplayer.API;
 using Spine.Profiling;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Xml;
 using Verse;
 
 namespace Better_Work_Tab.Features.Workloads
@@ -21,6 +25,7 @@ namespace Better_Work_Tab.Features.Workloads
     {
         public List<Worklist> SavedWorklists = new List<Worklist>();
         public Worklist CurrentWorklist = null;
+        internal WorkloadV2PersistenceEnvelope WorkloadsV2 = WorkloadV2PersistenceEnvelope.CreateEmpty();
         public List<string> ColumnCurrentOrder = new List<string>();
         public List<string> ColumnBaselineOrder = new List<string>();
         public int ColumnOrderGeneration;
@@ -32,6 +37,11 @@ namespace Better_Work_Tab.Features.Workloads
         public int BWTWorldSchemaVersion = BWT20UpgradePolicy.CurrentWorldSchemaVersion;
         public int ExternalWorkTabPriorityMigrationVersion;
         public int FluffyWorkTabCompatibilityPromptVersion;
+        internal BWTWorldSchemaState WorldSchemaState { get; private set; } = BWTWorldSchemaState.Current;
+        internal string WorldSchemaDiagnostic { get; private set; } = string.Empty;
+        internal bool IsWorldSchemaReadOnly =>
+            !BWT20UpgradePolicy.CanPersistWorldSchema(BWTWorldSchemaVersion);
+        private bool _worldSchemaMarkerMalformed;
         private int _lastTimePriorityHour = -1;
 
         public GameComponent_BWTWorldSettings(Game game) : base()
@@ -62,8 +72,11 @@ namespace Better_Work_Tab.Features.Workloads
 
             WorkColumnOrderManager.InitializeOnGameLoad();
 
-            if (MultiplayerBridge.Active)
+            if (MultiplayerBridge.Active && BWTLocalProfileStore.IsLoadedForCurrentSession)
                 LoadLocalUiStateIntoRuntime();
+
+            EnsureWorkloadV2Persistence();
+            RefreshWorldSchemaDiagnostics();
 
             DisplayElementPool.Clear();
             EnsureCurrentWorklist();
@@ -82,6 +95,28 @@ namespace Better_Work_Tab.Features.Workloads
 
         public override void ExposeData()
         {
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                // A constructor default is appropriate for a new world, but a
+                // loaded document must prove that it carried a schema marker.
+                BWTWorldSchemaVersion = 0;
+                _worldSchemaMarkerMalformed = HasMalformedWorldSchemaMarker(
+                    Scribe.loader?.curXmlParent);
+                WorkloadsV2 = WorkloadV2PersistenceEnvelope.CreateMissing();
+            }
+
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                RefreshWorldSchemaDiagnostics();
+                if (IsWorldSchemaReadOnly)
+                {
+                    throw new System.InvalidOperationException(
+                        string.IsNullOrEmpty(WorldSchemaDiagnostic)
+                            ? "The Better Work Tab world schema is read-only for diagnostics."
+                            : WorldSchemaDiagnostic);
+                }
+            }
+
             base.ExposeData();
 
             if (Scribe.mode == LoadSaveMode.Saving)
@@ -102,6 +137,13 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Deep.Look(ref WorkGiverReassignments, "workGiverReassignments");
             Scribe_Collections.Look(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
             Scribe_Values.Look(ref BWTWorldSchemaVersion, "bwtWorldSchemaVersion", 0);
+            if (Scribe.mode == LoadSaveMode.LoadingVars && _worldSchemaMarkerMalformed)
+            {
+                // Scribe's numeric loader may fall back to zero for malformed XML. Preserve a
+                // distinct unknown sentinel so a damaged/future document cannot be mistaken for
+                // an old save and then rewritten through the normal path.
+                BWTWorldSchemaVersion = int.MinValue;
+            }
             FluffyWorkTabGateway.ExposePriorityMigrationVersion(ref ExternalWorkTabPriorityMigrationVersion);
             FluffyWorkTabGateway.ExposeCompatibilityPromptVersion(ref FluffyWorkTabCompatibilityPromptVersion);
             Scribe_Collections.Look(ref CustomWorkTypeLabels, "customWorkTypeLabels", LookMode.Value, LookMode.Value);
@@ -115,6 +157,11 @@ namespace Better_Work_Tab.Features.Workloads
 
             if (!MultiplayerBridge.Active)
             {
+                EnsureWorkloadV2Persistence().RefreshDiagnostics();
+                if (Scribe.mode != LoadSaveMode.Saving || WorkloadsV2.ShouldPersist)
+                {
+                    Scribe_Deep.Look(ref WorkloadsV2, WorkloadV2PersistenceKeys.Envelope);
+                }
                 Scribe_Collections.Look(ref SavedWorklists, "SavedWorklists", LookMode.Deep, new object[0]);
                 Scribe_Deep.Look(ref CurrentWorklist, "CurrentWorklist");
                 Scribe_Collections.Look(ref ActiveDividers, "ActiveDividers", LookMode.Deep);
@@ -126,16 +173,19 @@ namespace Better_Work_Tab.Features.Workloads
                     // Local profiles are separate per-player documents. Mark the profile dirty
                     // here, then let GameComponentUpdate save it after the enclosing game save
                     // has released the global Scribe state.
-                    BWTLocalProfileStore.MarkDirty();
+                    PersistLocalUiState();
                 }
             }
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
+                RefreshWorldSchemaDiagnostics();
                 if (ColumnBaselineOrder == null)
                 {
                     ColumnBaselineOrder = new List<string>();
                 }
+
+                EnsureWorkloadV2Persistence().RefreshDiagnostics();
 
                 List<string> loadedColumnOrder = ColumnCurrentOrder ?? new List<string>();
 
@@ -226,8 +276,6 @@ namespace Better_Work_Tab.Features.Workloads
             return normalized;
         }
 
-        private int _profileSaveTimer = 0;
-
         public override void GameComponentUpdate()
         {
             if (SpineTiming.Enabled)
@@ -242,9 +290,6 @@ namespace Better_Work_Tab.Features.Workloads
 
             base.GameComponentUpdate();
 
-            // Save profile every 300 ticks (~5 seconds) if dirty
-            // This avoids Scribe nesting issues when called from ExposeData
-            _profileSaveTimer++;
             if (TimePriorityService.IsRuntimeActive)
             {
                 int currentHour = TimePriorityService.GetCurrentHour(null);
@@ -255,11 +300,29 @@ namespace Better_Work_Tab.Features.Workloads
                 }
             }
 
-            if (_profileSaveTimer > 300)
+            if (!MultiplayerBridge.Active && BWTLocalProfileStore.Current != null)
             {
-                _profileSaveTimer = 0;
-                if (MultiplayerBridge.Active)
-                    BWTLocalProfileStore.SaveIfDirty();
+                // Flush before the standalone profile is discarded when MP is
+                // disabled or the game is torn down.
+                BWTLocalProfileStore.LoadOrCreateForCurrentSession();
+            }
+            else if (MultiplayerBridge.Active && !BWTLocalProfileStore.IsLoadedForCurrentSession)
+            {
+                if (BWTLocalProfileStore.LoadOrCreateForCurrentSession())
+                {
+                    LoadLocalUiStateIntoRuntime();
+                }
+            }
+
+            if (Current.Game == null || Current.ProgramState != ProgramState.Playing)
+            {
+                BWTLocalProfileStore.FlushIfDirty();
+            }
+            else
+            {
+                // A dirty profile is retried every frame after Scribe becomes
+                // inactive; it is never dependent on the old 300-tick window.
+                BWTLocalProfileStore.SaveIfDirty();
             }
         }
 
@@ -366,6 +429,7 @@ namespace Better_Work_Tab.Features.Workloads
                 return;
 
             SavedWorklists = profile.Worklists ?? new List<Worklist>();
+            WorkloadsV2 = profile.WorkloadsV2 ?? WorkloadV2PersistenceEnvelope.CreateEmpty();
             foreach (var worklist in SavedWorklists)
             {
                 worklist?.EnsureCollections();
@@ -396,9 +460,99 @@ namespace Better_Work_Tab.Features.Workloads
                 return;
 
             profile.Worklists = SavedWorklists ?? new List<Worklist>();
+            profile.WorkloadsV2 = EnsureWorkloadV2Persistence();
             profile.ActiveDividers = ActiveDividers ?? new List<PawnDivider>();
             profile.SelectedWorklistName = CurrentWorklist?.RenamableLabel;
             BWTLocalProfileStore.MarkDirty();
+        }
+
+        internal WorkloadV2PersistenceEnvelope EnsureWorkloadV2Persistence()
+        {
+            if (WorkloadsV2 == null)
+            {
+                WorkloadsV2 = WorkloadV2PersistenceEnvelope.CreateMissing();
+            }
+
+            WorkloadsV2.RefreshDiagnostics();
+            return WorkloadsV2;
+        }
+
+        internal void NotifyWorkloadV2Changed()
+        {
+            if (MultiplayerBridge.Active)
+            {
+                PersistLocalUiState();
+            }
+        }
+
+        private void RefreshWorldSchemaDiagnostics()
+        {
+            WorldSchemaState = BWT20UpgradePolicy.ClassifyWorldSchema(BWTWorldSchemaVersion);
+            WorldSchemaDiagnostic = string.Empty;
+
+            switch (WorldSchemaState)
+            {
+                case BWTWorldSchemaState.Missing:
+                    WorldSchemaDiagnostic =
+                        "The Better Work Tab world schema marker is missing; legacy behavior remains active until an explicit upgrade.";
+                    break;
+                case BWTWorldSchemaState.KnownOld:
+                    WorldSchemaDiagnostic =
+                        "The Better Work Tab world schema is known-old; an explicit upgrade remains pending.";
+                    break;
+                case BWTWorldSchemaState.Newer:
+                    WorldSchemaDiagnostic =
+                        "The Better Work Tab world schema is newer than this build; world saves are blocked to prevent downgrade.";
+                    break;
+                case BWTWorldSchemaState.Unknown:
+                    WorldSchemaDiagnostic =
+                        "The Better Work Tab world schema is unknown; world saves are blocked until it is understood.";
+                    break;
+            }
+
+            if (IsWorldSchemaReadOnly)
+            {
+                Log.WarningOnce(
+                    "[BWT] " + WorldSchemaDiagnostic,
+                    154927303);
+            }
+        }
+
+        private static bool HasMalformedWorldSchemaMarker(XmlNode parent)
+        {
+            if (parent == null)
+            {
+                return false;
+            }
+
+            foreach (XmlNode child in parent.ChildNodes)
+            {
+                if (child.NodeType != XmlNodeType.Element)
+                {
+                    continue;
+                }
+
+                if (string.Equals(child.Name, "bwtWorldSchemaVersion", StringComparison.Ordinal))
+                {
+                    if (!int.TryParse(
+                        child.InnerText,
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out _))
+                    {
+                        return true;
+                    }
+
+                    continue;
+                }
+
+                if (HasMalformedWorldSchemaMarker(child))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

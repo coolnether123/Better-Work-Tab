@@ -39,15 +39,31 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// and left the Work grid's snapshot holding the old mode, so it kept
         /// drawing checkboxes while the header said priorities were on.
         /// </summary>
-        internal static void SetManualPriorities(bool enabled)
+        internal static bool SetManualPriorities(bool enabled)
         {
-            if (Find.PlaySettings == null || Find.PlaySettings.useWorkPriorities == enabled)
+            if (Find.PlaySettings == null)
             {
-                return;
+                return false;
+            }
+
+            if (Find.PlaySettings.useWorkPriorities == enabled)
+            {
+                return true;
+            }
+
+            if (!TryCaptureBwtMutationAuthority(out long authorityRevision))
+            {
+                return false;
             }
 
             Find.PlaySettings.useWorkPriorities = enabled;
+            if (!IsBwtMutationAuthorityCurrent(authorityRevision))
+            {
+                return false;
+            }
+
             NotifyManualPrioritiesChanged();
+            return IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
         /// <summary>
@@ -139,38 +155,86 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
 
         /// <summary>
-        /// Writes a work-type priority to Better Work Tab's store, then mirrors it to any external
-        /// work-tab mod.
+        /// Captures the authority revision that protects a Better Work Tab mutation.
+        ///
+        /// The normal path requires a coherent resolver snapshot owned by BWT. The only
+        /// exception is the existing external-import boundary: an importer suspends mirroring
+        /// while the authority transition service temporarily exposes BWT as the write owner.
+        /// That exception is deliberately observable and cannot be entered by ordinary UI code.
+        /// </summary>
+        internal static bool TryCaptureBwtMutationAuthority(out long revision)
+        {
+            revision = 0L;
+            PriorityAuthoritySnapshot snapshot = PriorityAuthorityResolver.Resolve();
+            bool privilegedImport = ExternalPriorityMirror.IsSuspended &&
+                PriorityAuthorityBroker.CurrentAuthority == PriorityAuthorityOwner.BetterWorkTab;
+            if ((!snapshot.IsCoherent ||
+                 snapshot.Owner != PriorityAuthorityOwner.BetterWorkTab) &&
+                !privilegedImport)
+            {
+                return false;
+            }
+
+            revision = PriorityAuthorityResolver.CurrentAuthorityRevision;
+            return IsBwtMutationAuthorityCurrent(revision);
+        }
+
+        /// <summary>
+        /// Revalidates the exact authority revision captured before a mutation.
+        /// </summary>
+        internal static bool IsBwtMutationAuthorityCurrent(long revision)
+        {
+            PriorityAuthoritySnapshot snapshot = PriorityAuthorityResolver.Resolve();
+            bool privilegedImport = ExternalPriorityMirror.IsSuspended &&
+                PriorityAuthorityBroker.CurrentAuthority == PriorityAuthorityOwner.BetterWorkTab;
+            return (privilegedImport ||
+                    (snapshot.IsCoherent &&
+                     snapshot.Owner == PriorityAuthorityOwner.BetterWorkTab)) &&
+                PriorityAuthorityResolver.CurrentAuthorityRevision == revision;
+        }
+
+        /// <summary>
+        /// Writes a work-type priority while Better Work Tab owns a coherent authority snapshot,
+        /// then mirrors it to any external work-tab mod that is observing BWT.
         /// </summary>
         /// <remarks>
-        /// Better Work Tab's store is always written, even when an external mod holds authority, so the
-        /// extended priority survives whatever narrower range that mod supports. The mirror afterwards
-        /// re-states the value within the external mod's limits and repairs any work-giver detail its
-        /// own work-type handling flattened.
+        /// An external owner is never silently shadow-written by this boundary. External adapters may
+        /// still perform their own writes through their own authority contract.
         /// </remarks>
-        internal static void SetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType, int priority)
+        internal static bool SetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType, int priority)
         {
             if (workSettings == null || workType == null)
             {
-                return;
+                return false;
             }
 
             Pawn pawn = GetPawn(workSettings);
             if (pawn?.Dead == true || !workSettings.EverWork ||
                 (pawn != null && pawn.WorkTypeIsDisabled(workType)))
             {
-                return;
+                return false;
+            }
+
+            if (!TryCaptureBwtMutationAuthority(out long authorityRevision))
+            {
+                return false;
             }
 
             workSettings.EnableAndInitializeIfNotAlreadyInitialized();
             if (workSettings.priorities == null)
             {
-                return;
+                return false;
             }
 
             workSettings.SetPriority(workType, ClampPriority(priority));
+            if (!IsBwtMutationAuthorityCurrent(authorityRevision))
+            {
+                return false;
+            }
+
             PriorityRangePolicy.InvalidateCache();
             ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
+            return IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
         [SyncMethod]
@@ -197,42 +261,53 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// <see cref="Pawn_WorkSettings.SetPriority"/> and the Fluffy mirror.
         /// </summary>
         /// <remarks>
-        /// Only for importing <em>out of</em> another work-tab mod. Going through the vanilla setter can
+        /// Only for the existing authority-handoff import path. Going through the vanilla setter can
         /// run that mod's own prefix, which may cascade the value over every work giver of the work type
         /// and so destroy the very data the import is reading. Pair it with
         /// <see cref="ModSupport.ExternalPriorityMirror.Suspend"/>.
         /// </remarks>
-        internal static void SetStoredPriorityWithoutMirroring(
+        internal static bool SetStoredPriorityWithoutMirroring(
             Pawn_WorkSettings workSettings,
             WorkTypeDef workType,
             int priority)
         {
             if (workSettings == null || workType == null)
             {
-                return;
+                return false;
             }
 
             Pawn pawn = GetPawn(workSettings);
             if (pawn?.Dead == true || !workSettings.EverWork)
             {
-                return;
+                return false;
+            }
+
+            if (!TryCaptureBwtMutationAuthority(out long authorityRevision))
+            {
+                return false;
             }
 
             workSettings.EnableAndInitializeIfNotAlreadyInitialized();
             if (workSettings.priorities == null)
             {
-                return;
+                return false;
             }
 
             int clamped = PriorityAuthorityBroker.ClampPriorityForRequest(priority);
             if (clamped != 0 && pawn != null && pawn.WorkTypeIsDisabled(workType))
             {
-                return;
+                return false;
             }
 
             workSettings.priorities[workType] = clamped;
+            if (!IsBwtMutationAuthorityCurrent(authorityRevision))
+            {
+                return false;
+            }
+
             PriorityRangePolicy.InvalidateCache();
             workSettings.Notify_UseWorkPrioritiesChanged();
+            return IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
         internal static int GetPriorityAfterMouseButton(int currentPriority, int button)

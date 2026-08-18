@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.UI.Settings;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -22,8 +23,10 @@ namespace Better_Work_Tab.DragDrop
         internal static bool IsActive => FromPositions.Count > 0 && UseAnimation;
 
         private static bool UseAnimation =>
-            BetterWorkTabMod.Settings?.enableSubWorkTransitionAnimation ??
-            DefaultSettings.enableSubWorkTransitionAnimation;
+            BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.SubWorkTransitionAnimation,
+                BetterWorkTabMod.Settings?.enableSubWorkTransitionAnimation ??
+                    DefaultSettings.enableSubWorkTransitionAnimation);
 
         internal static void Start(IReadOnlyList<WorkTabLayoutColumn> columns)
         {

@@ -5,6 +5,8 @@ using System.Linq;
 using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading.Tasks;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using RimWorld;
 using Verse;
 
 namespace Better_Work_Tab.Features.Workloads
@@ -23,9 +25,80 @@ namespace Better_Work_Tab.Features.Workloads
         Pawn owningPawn;
         Dictionary<WorkTypeDef, int> Priorities;
 
-        public void Apply()
+        internal Pawn OwningPawn => owningPawn;
+
+        /// <summary>
+        /// Checks every reference that Paste would dereference. Legacy workload
+        /// files contain live object references, so a pawn that left the save,
+        /// a missing priority dictionary, or a stale WorkTypeDef must make the
+        /// whole operation fail closed instead of throwing halfway through an
+        /// apply.
+        /// </summary>
+        internal bool TryValidate(out string error)
         {
-            Paste();
+            error = string.Empty;
+            if (owningPawn == null)
+            {
+                error = "A legacy workload entry has no owning pawn.";
+                return false;
+            }
+
+            if (owningPawn.Dead || owningPawn.Destroyed)
+            {
+                error = "A legacy workload entry refers to a dead or destroyed pawn.";
+                return false;
+            }
+
+            IEnumerable<Pawn> allPawns;
+            try
+            {
+                allPawns = PawnsFinder.All_AliveOrDead;
+            }
+            catch (Exception exception)
+            {
+                error = "The current save could not resolve legacy workload pawns: " + exception.Message;
+                return false;
+            }
+
+            if (allPawns == null || !allPawns.Contains(owningPawn))
+            {
+                error = "A legacy workload entry refers to a pawn that is no longer in the current save.";
+                return false;
+            }
+
+            if (owningPawn.workSettings == null)
+            {
+                error = "A legacy workload entry refers to a pawn without work settings.";
+                return false;
+            }
+
+            if (Priorities == null)
+            {
+                error = "A legacy workload entry has no priority data.";
+                return false;
+            }
+
+            foreach (KeyValuePair<WorkTypeDef, int> entry in Priorities)
+            {
+                if (entry.Key == null)
+                {
+                    error = "A legacy workload entry contains a missing WorkTypeDef reference.";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public bool Apply()
+        {
+            if (!TryValidate(out string error))
+            {
+                Log.Warning("[BWT] Skipping invalid legacy workload entry: " + error);
+                return false;
+            }
+
+            return Paste();
         }
 
 
@@ -50,18 +123,35 @@ namespace Better_Work_Tab.Features.Workloads
                 //Log.Message("Stored " + owningPawn.Name + "'s " + worktype.defName + " priority of " + priority);
             }
         }
-        void Paste()
+        bool Paste()
         {
-            foreach(var kvp in Priorities)
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision))
+            {
+                Log.Warning(
+                    "[BWT] Skipping legacy workload entry because Better Work Tab does not currently own coherent priority authority.");
+                return false;
+            }
+
+            foreach (var kvp in Priorities)
             {
                 WorkTypeDef worktype = kvp.Key;
                 int priority = kvp.Value;
-                if (!owningPawn.WorkTypeIsDisabled(worktype))
+                if (worktype != null && owningPawn != null && owningPawn.workSettings != null &&
+                    !owningPawn.WorkTypeIsDisabled(worktype))
                 {
-                    owningPawn.workSettings.SetPriority(worktype, priority);
+                    if (!WorkPrioritySystem.SetPriority(owningPawn.workSettings, worktype, priority) ||
+                        !WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+                    {
+                        Log.Warning(
+                            "[BWT] Stopped legacy workload entry because priority authority changed during apply.");
+                        return false;
+                    }
+
                     BetterWorkTabMod.DebugLog("Set " + owningPawn.Name + " " + worktype.defName + " to " + priority, DebugFeature.Workloads);
                 }
             }
+
+            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
         public void ExposeData()

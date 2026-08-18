@@ -7,6 +7,7 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -17,9 +18,12 @@ using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
+using Better_Work_Tab.UI.Workloads;
 using RimWorld;
 using Spine.Profiling;
 using UnityEngine;
@@ -171,6 +175,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         viewport.ViewRect.width,
                         rowGeometry,
                         visibleRows));
+                    SpineTiming.Time("WorkTab.Rows.DrawWorkloadMembership", () => DrawWorkloadMembershipIndicators(
+                        rowDescriptors,
+                        totalWidth,
+                        rowGeometry,
+                        visibleRows));
+                    SpineTiming.Time("WorkTab.Rows.DrawWorkloadInspection", () => DrawWorkloadInspectionHighlights(
+                        rowDescriptors,
+                        columns,
+                        totalWidth,
+                        rowGeometry,
+                        visibleRows));
                 }
                 else
                 {
@@ -199,15 +214,145 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         viewport.ViewRect.width,
                         rowGeometry,
                         visibleRows);
+
+                    DrawWorkloadMembershipIndicators(
+                        rowDescriptors,
+                        totalWidth,
+                        rowGeometry,
+                        visibleRows);
+
+                    // Inspection is a contextual overlay, not one of the
+                    // optional normal highlight features. Paint it after row
+                    // content so changed cells/rows remain visible even when
+                    // ordinary highlights are disabled or content draws over
+                    // the earlier highlight pass.
+                    DrawWorkloadInspectionHighlights(
+                        rowDescriptors,
+                        columns,
+                        totalWidth,
+                        rowGeometry,
+                        visibleRows);
                 }
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"[BWT] DrawRows failed: {ex}");
             }
             finally
             {
                 Widgets.EndScrollView();
+            }
+        }
+
+        private void DrawWorkloadMembershipIndicators(
+            List<RowDescriptor> rowDescriptors,
+            float totalWidth,
+            WorkGridGeometrySnapshot rowGeometry,
+            WorkGridIndexRange visibleRows)
+        {
+            WorkloadPreviewController preview = WorkloadPreviewController.Current;
+            if (preview == null || !preview.IsActive)
+            {
+                return;
+            }
+
+            WorkloadMembershipSnapshot snapshot;
+            try
+            {
+                snapshot = preview.GetMembershipSnapshot();
+                if (snapshot == null)
+                {
+                    return;
+                }
+            }
+            catch (Exception exception)
+            {
+                // Membership presentation is an optional preview affordance.
+                // It must not quarantine the optimized renderer if a transient
+                // pawn-scope lookup fails during a frame.
+                Log.ErrorOnce(
+                    "[BWT] Workload membership row presentation failed; continuing without scope accents.\n" +
+                    exception,
+                    0x4257544D);
+                return;
+            }
+
+            float currentY = 0f;
+            for (int rowIndex = visibleRows.Start; rowIndex < visibleRows.EndExclusive; rowIndex++)
+            {
+                if (rowGeometry != null)
+                {
+                    currentY = rowGeometry.Rows[rowIndex].OffsetY;
+                }
+
+                RowDescriptor descriptor = rowDescriptors[rowIndex];
+                if (descriptor?.Pawn != null)
+                {
+                    PawnKey pawnKey = WorkTabEffectiveStateIds.ForPawn(descriptor.Pawn);
+                    if (pawnKey.IsValid && snapshot.TryGetClassification(
+                            pawnKey,
+                            out WorkloadMembershipClassification classification))
+                    {
+                        DrawWorkloadMembershipIndicator(
+                            new Rect(0f, currentY, totalWidth, descriptor.Height),
+                            classification);
+                    }
+                }
+
+                if (rowGeometry == null)
+                {
+                    currentY += descriptor?.Height ?? 0f;
+                }
+            }
+        }
+
+        private static void DrawWorkloadMembershipIndicator(
+            Rect rowRect,
+            WorkloadMembershipClassification classification)
+        {
+            Color accent;
+            Color fill = Color.clear;
+            string tooltip;
+            switch (classification)
+            {
+                case WorkloadMembershipClassification.Included:
+                    accent = new Color(0.30f, 0.74f, 0.66f, 0.88f);
+                    tooltip = "Workload preview: represented and included.";
+                    break;
+                case WorkloadMembershipClassification.UnrepresentedNew:
+                    accent = new Color(0.95f, 0.72f, 0.28f, 0.92f);
+                    fill = new Color(0.95f, 0.72f, 0.28f, 0.055f);
+                    tooltip = "Workload preview: new or unrepresented pawn. Include it from Members to stage it.";
+                    break;
+                case WorkloadMembershipClassification.UnchangedOutsideScope:
+                    accent = new Color(0.55f, 0.58f, 0.60f, 0.78f);
+                    fill = new Color(0f, 0f, 0f, 0.09f);
+                    tooltip = "Workload preview: outside this workload's scope; unchanged by Apply.";
+                    break;
+                case WorkloadMembershipClassification.ExplicitlyExcluded:
+                    accent = new Color(0.82f, 0.36f, 0.36f, 0.92f);
+                    fill = new Color(0.70f, 0.16f, 0.16f, 0.07f);
+                    tooltip = "Workload preview: excluded for this application; live values remain unchanged.";
+                    break;
+                case WorkloadMembershipClassification.StaleMissing:
+                    accent = new Color(0.68f, 0.38f, 0.38f, 0.82f);
+                    fill = new Color(0f, 0f, 0f, 0.08f);
+                    tooltip = "Workload preview: represented by the workload but not currently available.";
+                    break;
+                default:
+                    return;
+            }
+
+            if (fill.a > 0f)
+            {
+                Widgets.DrawBoxSolid(rowRect, fill);
+            }
+
+            Rect markerRect = new Rect(
+                rowRect.xMin,
+                rowRect.yMin,
+                Mathf.Min(4f, rowRect.width),
+                rowRect.height);
+            if (markerRect.width > 0f && markerRect.height > 0f)
+            {
+                Widgets.DrawBoxSolid(markerRect, accent);
+                TooltipHandler.TipRegion(markerRect, tooltip);
             }
         }
 
@@ -278,7 +423,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridIndexRange visibleRows)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!settings.ShowPawnAndWorktypeHighlights)
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.FeaturesHighlights,
+                    settings?.ShowPawnAndWorktypeHighlights ?? DefaultSettings.ShowPawnAndWorktypeHighlights))
             {
                 return;
             }
@@ -289,7 +436,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                                          BWTWorkTabTutorial.OwnsCurrentPointer;
 
             // 1. Detect hovered column.
-            if (settings.ShowCursorPawnAndWorktypeHighlight && !timePriorityOwnsMouse)
+            if (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HighlightsHover,
+                    settings?.ShowCursorPawnAndWorktypeHighlight ??
+                        DefaultSettings.ShowCursorPawnAndWorktypeHighlight) &&
+                !timePriorityOwnsMouse)
             {
                 for (int i = 0; i < columns.Count; i++)
                 {
@@ -342,14 +493,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 bool isFloatMenuPawn = descriptor.IsPawn &&
                     highlightedPawn != null &&
                     descriptor.Pawn == highlightedPawn &&
-                    settings.ShowFloatMenuPawnAndWorktypeHighlight;
+                    BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.HighlightsFloatMenu,
+                        settings?.ShowFloatMenuPawnAndWorktypeHighlight ??
+                            DefaultSettings.ShowFloatMenuPawnAndWorktypeHighlight);
 
                 if (isFloatMenuPawn)
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetFloatMenuColor());
                 }
 
-                if (settings.ShowCursorPawnAndWorktypeHighlight &&
+                if (BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.HighlightsHover,
+                        settings?.ShowCursorPawnAndWorktypeHighlight ??
+                            DefaultSettings.ShowCursorPawnAndWorktypeHighlight) &&
                     !timePriorityOwnsMouse &&
                     !floatMenuOpen &&
                     Mouse.IsOver(rowRect))
@@ -359,7 +516,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 else if (!isFloatMenuPawn &&
                          descriptor.IsPawn &&
                          Find.Selector.IsSelected(descriptor.Pawn) &&
-                         settings.DoSelectedPawnHighlight)
+                         BWTWorkTabEffectiveSettings.GetBool(
+                             SettingIDs.HighlightsSelected,
+                             settings?.DoSelectedPawnHighlight ??
+                                 DefaultSettings.DoSelectedPawnHighlight))
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());
                 }
@@ -371,7 +531,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             // 3. Draw divider highlights if active.
-            if (settings.highlightDividersOnHover && settings.enableDividers)
+            if (BWTWorkTabEffectiveSettings.GetBool(
+                    "dividers.highlight",
+                    settings?.highlightDividersOnHover ?? DefaultSettings.highlightDividersOnHover) &&
+                BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.FeaturesDividers,
+                    settings?.enableDividers ?? DefaultSettings.enableDividers))
             {
                 currentY = 0f;
                 for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
@@ -416,7 +581,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 bool isTimePrioritySourceColumn = isWorkColumn &&
                     TimePriorityScheduleEditor.ShouldHighlightSourceColumn(column);
 
-                if (isFloatMenuColumn && settings.ShowFloatMenuPawnAndWorktypeHighlight)
+                if (isFloatMenuColumn && BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.HighlightsFloatMenu,
+                        settings?.ShowFloatMenuPawnAndWorktypeHighlight ??
+                            DefaultSettings.ShowFloatMenuPawnAndWorktypeHighlight))
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetFloatMenuColor());
                 }
@@ -426,7 +594,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetColumnHoverColor());
                 }
                 else if (isWorkColumn &&
-                         settings.ShowCursorPawnAndWorktypeHighlight &&
+                         BWTWorkTabEffectiveSettings.GetBool(
+                             SettingIDs.HighlightsHover,
+                             settings?.ShowCursorPawnAndWorktypeHighlight ??
+                                 DefaultSettings.ShowCursorPawnAndWorktypeHighlight) &&
                          !timePriorityOwnsMouse &&
                          !floatMenuOpen &&
                          hoveredWorkType != null &&
@@ -436,13 +607,127 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
                 else if (!isFloatMenuColumn &&
                          isWorkColumn &&
-                         settings.ShowSimilarWorktypeHighlight &&
+                         BWTWorkTabEffectiveSettings.GetBool(
+                             SettingIDs.HighlightsSimilar,
+                             settings?.ShowSimilarWorktypeHighlight ??
+                                 DefaultSettings.ShowSimilarWorktypeHighlight) &&
                          cachedSimilarWorktypes != null &&
                          cachedSimilarWorktypes.Contains(column.Column.workType))
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetSimilarWorktypeColor());
                 }
 
+            }
+
+        }
+
+        private static void DrawWorkloadInspectionHighlights(
+            List<RowDescriptor> rowDescriptors,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            float totalWidth,
+            WorkGridGeometrySnapshot rowGeometry,
+            WorkGridIndexRange visibleRows)
+        {
+            if (!WorkloadPreviewController.IsInspectionActiveForCurrentTab)
+            {
+                return;
+            }
+
+            WorkloadPreviewController preview = WorkloadPreviewController.Current;
+            float currentY = 0f;
+            for (int rowIndex = visibleRows.Start; rowIndex < visibleRows.EndExclusive; rowIndex++)
+            {
+                if (rowGeometry != null)
+                {
+                    currentY = rowGeometry.Rows[rowIndex].OffsetY;
+                }
+
+                RowDescriptor descriptor = rowDescriptors[rowIndex];
+                if (descriptor?.Pawn == null)
+                {
+                    if (rowGeometry == null)
+                    {
+                        currentY += descriptor?.Height ?? 0f;
+                    }
+
+                    continue;
+                }
+
+                Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
+                bool rowAffected = preview.IsInspectionRowAffected(descriptor.Pawn);
+                bool rowLevelChange = preview.IsInspectionRowLevelChanged(descriptor.Pawn);
+                bool affectedCellFound = false;
+
+                if (!rowLevelChange)
+                {
+                    for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
+                    {
+                        WorkTabLayoutColumn column = columns[columnIndex];
+                        WorkTypeDef workType = column.Column?.workType;
+                        if (workType == null)
+                        {
+                            continue;
+                        }
+
+                        Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
+                            column,
+                            rowRect);
+                        WorkGiver workGiver = null;
+                        WorkTypeDef parentWorkType = null;
+                        SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                            column,
+                            out workGiver,
+                            out parentWorkType,
+                            out _);
+                        if (parentWorkType != null)
+                        {
+                            workType = parentWorkType;
+                        }
+                        if (preview.IsInspectionCellAffected(
+                                descriptor.Pawn,
+                                workType,
+                                workGiver?.def))
+                        {
+                            affectedCellFound = true;
+                            HighlightDrawer.DrawHighlight(
+                                cellRect,
+                                new Color(0.34f, 0.7f, 0.67f, 0.22f));
+                        }
+                        else if (rowAffected)
+                        {
+                            HighlightDrawer.DrawHighlight(
+                                cellRect,
+                                new Color(0.03f, 0.04f, 0.045f, 0.1f));
+                        }
+                    }
+                }
+
+                // Membership changes have no individual cell key. If the row
+                // is affected but no cell (and no schedule row-level value) is
+                // changed, treat it as a deliberate row-level inspection so an
+                // include/exclude action is positively visible rather than only
+                // dimming the row's cells.
+                bool rowLevelInspection = rowLevelChange ||
+                    (rowAffected && !affectedCellFound);
+                if (!rowAffected)
+                {
+                    // Keep the language quiet and neutral: inspection dims
+                    // unrelated rows instead of painting them as errors.
+                    HighlightDrawer.DrawHighlight(
+                        rowRect,
+                        new Color(0.03f, 0.04f, 0.045f, 0.12f));
+                }
+                else if (rowLevelInspection)
+                {
+                    HighlightDrawer.DrawHighlight(
+                        rowRect,
+                        new Color(0.34f, 0.65f, 0.62f, 0.18f));
+                }
+
+                if (rowGeometry == null)
+                {
+                    currentY += descriptor.Height;
+                }
             }
         }
 
@@ -665,7 +950,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 var settings = BetterWorkTabMod.Settings;
                 var dividerColor = divider.DividerColor;
-                if (!(settings?.allowCustomDividerColors ?? true))
+                if (!BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.DividersCustomColors,
+                        settings?.allowCustomDividerColors ?? true))
                 {
                     dividerColor = Color.gray;
                 }
@@ -709,7 +996,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private static void DrawDividerToggle(PawnDivider divider, Rect labelCellRect)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.allowDividerCollapse ?? true) ||
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.DividersCollapse,
+                    settings?.allowDividerCollapse ?? DefaultSettings.allowDividerCollapse) ||
                 TimePriorityScheduleEditor.IsTransientDivider(divider))
             {
                 return;
@@ -746,7 +1035,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.enableDividers ?? true) || !(settings?.allowDividerCollapse ?? true))
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.FeaturesDividers,
+                    settings?.enableDividers ?? DefaultSettings.enableDividers) ||
+                !BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.DividersCollapse,
+                    settings?.allowDividerCollapse ?? DefaultSettings.allowDividerCollapse))
             {
                 return;
             }
@@ -790,6 +1084,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
                     // BWT still publishes active sub-work geometry and owns its header labels,
                     // but mixed mode lets Sleek draw and edit its per-job value in this cell.
+                    if (WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                        SleekWorkTabGateway.BetterWorkTabHostsSleek &&
+                        SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                            column,
+                            out _,
+                            out _,
+                            out _))
+                    {
+                        WorkTabEffectiveStateRuntime.ReportBlocked(
+                            WorkTabEffectiveStateDimension.SpecificJobOverride,
+                            "Sleek owns this mixed cell and has no preview editor bridge.");
+                        continue;
+                    }
+
                     if (SleekWorkTabGateway.BetterWorkTabHostsSleek &&
                         SubWorkDrilldownState.TryGetWorkGiverForColumn(
                             column,
@@ -820,9 +1128,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         if (expandedParentPriorityWorkType != expandedParentWorkType)
                         {
                             expandedParentPriorityWorkType = expandedParentWorkType;
-                            expandedParentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(
+                            expandedParentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
                                 pawn,
-                                expandedParentWorkType);
+                                expandedParentWorkType,
+                                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(
+                                    pawn,
+                                    expandedParentWorkType));
                         }
 
                         WorkGiverPriorityBoxRenderer.DrawPriorityBox(
@@ -834,7 +1145,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         continue;
                     }
 
-                    if (scheduleOpen &&
+                    if (!WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                        scheduleOpen &&
                         !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column) &&
                         column.Column?.workType != null &&
                         FluffyTimeScheduleAssigner.TryDrawWorkTypeCell(cellRect, pawn, column.Column.workType))
@@ -871,7 +1183,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());
             }
 
-            if (Find.Selector.IsSelected(pawn) && (settings?.DoSelectedPawnHighlight ?? true))
+            if (Find.Selector.IsSelected(pawn) && BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HighlightsSelected,
+                    settings?.DoSelectedPawnHighlight ??
+                        DefaultSettings.DoSelectedPawnHighlight))
             {
                 HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetSelectedPawnColor());
             }
@@ -892,7 +1207,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.showDividerLabels ?? true) || labelCellRect.height < 14f)
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.DividersLabels,
+                    settings?.showDividerLabels ?? true) || labelCellRect.height < 14f)
             {
                 return;
             }
@@ -908,7 +1225,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Text.Font = divider.LabelFont;
 
-                bool hasCollapseToggle = (settings?.allowDividerCollapse ?? true) &&
+                bool hasCollapseToggle = BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.DividersCollapse,
+                        settings?.allowDividerCollapse ?? DefaultSettings.allowDividerCollapse) &&
                     !TimePriorityScheduleEditor.IsTransientDivider(divider);
                 float indent = hasCollapseToggle ? 33f : 6f;
                 labelCellRect.xMin += indent;

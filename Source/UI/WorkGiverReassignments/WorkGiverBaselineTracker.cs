@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -22,20 +23,23 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             _workType = workType;
             _movedFromBaseline = new Dictionary<string, bool>();
             
-            if (pawn != null)
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked || pawn == null)
+            {
+                // A workload preview may intentionally refuse to project the
+                // live reassignment sequence. Use the immutable vanilla
+                // definition order for presentation markers instead.
+                _baselineOrder = DefDatabase<WorkGiverDef>.AllDefsListForReading
+                    .Where(wg => WorkGiverReassignmentManager.GetTargetWorkType(wg) == _workType)
+                    .OrderByDescending(wg => wg.priorityInType)
+                    .ThenBy(wg => wg.defName, StringComparer.Ordinal)
+                    .Select(wg => wg.defName)
+                    .ToList();
+            }
+            else if (pawn != null)
             {
                 // Baseline for pawn window is the GLOBAL order
                 _baselineOrder = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(workType, null)
                     .Select(wg => wg.def.defName)
-                    .ToList();
-            }
-            else
-            {
-                // Baseline for global window is VANILLA order
-                _baselineOrder = DefDatabase<WorkGiverDef>.AllDefsListForReading
-                    .Where(wg => WorkGiverReassignmentManager.GetTargetWorkType(wg) == _workType)
-                    .OrderByDescending(wg => wg.priorityInType)
-                    .Select(wg => wg.defName)
                     .ToList();
             }
             

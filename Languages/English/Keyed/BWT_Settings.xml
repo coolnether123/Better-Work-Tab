@@ -252,6 +252,8 @@
     <BWT_Settings_features.workloads_Tooltip>Save the colony&apos;s current pawn work priorities as a named layout and restore it later.</BWT_Settings_features.workloads_Tooltip>
     <BWT_Settings_workloads.warnOnApply>Warn before applying Workload</BWT_Settings_workloads.warnOnApply>
     <BWT_Settings_workloads.warnOnApply_Tooltip>Show a confirmation warning before applying a workload to all colonists.</BWT_Settings_workloads.warnOnApply_Tooltip>
+    <BWT_Settings_advanced.workloadsLegacy>Use legacy Workloads (1.0.5)</BWT_Settings_advanced.workloadsLegacy>
+    <BWT_Settings_advanced.workloadsLegacy_Tooltip>Use the original Workloads behavior from Better Work Tab 1.0.5 instead of the modern Workloads implementation.</BWT_Settings_advanced.workloadsLegacy_Tooltip>
     <BWT_Settings_features.subWorkJobs>Specific jobs</BWT_Settings_features.subWorkJobs>
     <BWT_Settings_features.subWorkJobs_Tooltip>Open a Work column to set priorities for its individual jobs. Use the shortcut below on a Work header or cell; use it again, or press Escape, to return.</BWT_Settings_features.subWorkJobs_Tooltip>
     <BWT_Settings_subWorkJobs.openModifier>Shortcut modifier</BWT_Settings_subWorkJobs.openModifier>

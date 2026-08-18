@@ -2,6 +2,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Better_Work_Tab.UI.Settings;
 using Multiplayer.API;
 using RimWorld;
 using System;
@@ -209,7 +210,10 @@ namespace Better_Work_Tab.UI.Columns
             if (settings == null)
                 return false;
 
-            if (!settings.showColumnMovedMarker)
+            bool showColumnMarker = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.ColumnsShowMovedIndicator,
+                settings.showColumnMovedMarker);
+            if (!showColumnMarker)
                 return false;
 
             if (SubWorkDrilldownState.IsActive)
@@ -226,14 +230,14 @@ namespace Better_Work_Tab.UI.Columns
                     !ReferenceEquals(_columnMarkerCacheGame, Current.Game) ||
                     _columnMarkerCacheColumnsRevision != invalidation.Columns ||
                     _columnMarkerCacheDraggedCount != draggedCount ||
-                    _columnMarkerCacheEnabled != settings.showColumnMovedMarker)
+                    _columnMarkerCacheEnabled != showColumnMarker)
                 {
                     ClearColumnMarkerCache();
                     _columnMarkerCacheSettings = settings;
                     _columnMarkerCacheGame = Current.Game;
                     _columnMarkerCacheColumnsRevision = invalidation.Columns;
                     _columnMarkerCacheDraggedCount = draggedCount;
-                    _columnMarkerCacheEnabled = settings.showColumnMovedMarker;
+                    _columnMarkerCacheEnabled = showColumnMarker;
                 }
                 _columnMarkerCacheValidationFrame = Time.frameCount;
             }

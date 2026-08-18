@@ -3,6 +3,8 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WindowSession;
 using RimWorld;
 using UnityEngine;
@@ -40,7 +42,10 @@ namespace Better_Work_Tab.UI.Headers
             if (table == null) return;
             
             // Only solve for vanilla mode; angled headers do not require this
-            if (!BetterWorkTabMod.Settings.enableAngledHeaders)
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HeadersAngled,
+                    BetterWorkTabMod.Settings?.enableAngledHeaders ??
+                        DefaultSettings.enableAngledHeaders))
             {
                 _vanillaSolver.SolveLayout(table);
             }
@@ -66,7 +71,10 @@ namespace Better_Work_Tab.UI.Headers
         /// <returns>An implementation of IHeaderRenderer (Angled or Vanilla).</returns>
         public static IHeaderRenderer GetActiveRenderer()
         {
-            return BetterWorkTabMod.Settings.enableAngledHeaders
+            return BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HeadersAngled,
+                    BetterWorkTabMod.Settings?.enableAngledHeaders ??
+                        DefaultSettings.enableAngledHeaders)
                 ? (IHeaderRenderer)_angledRenderer
                 : (IHeaderRenderer)_vanillaRenderer;
         }
@@ -87,7 +95,8 @@ namespace Better_Work_Tab.UI.Headers
                 return false;
             }
 
-            if (SubWorkDrilldownState.IsBlankWorkColumn(worker.def))
+            if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                SubWorkDrilldownState.IsBlankWorkColumn(worker.def))
             {
                 return true;
             }
@@ -95,7 +104,9 @@ namespace Better_Work_Tab.UI.Headers
             try
             {
                 HeaderInputController.UpdateCache(Event.current);
-                bool allowNative = settings.enableAngledHeaders
+                bool allowNative = BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.HeadersAngled,
+                        settings.enableAngledHeaders)
                     ? AngledHeaderController.DoHeader(worker, rect, table)
                     : VanillaHeaderController.DoHeader(worker, rect, table);
                 return !allowNative;

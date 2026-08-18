@@ -2,6 +2,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using UnityEngine;
 using Verse;
 
@@ -18,6 +19,11 @@ namespace Better_Work_Tab.UI.Headers
             Rect headerRect,
             float totalHeight)
         {
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
+            {
+                return;
+            }
+
             float alpha = SubWorkDrilldownState.GetBlankColumnFlashAlpha(column.Column);
             if (alpha <= 0.001f)
             {
@@ -39,7 +45,8 @@ namespace Better_Work_Tab.UI.Headers
             IWorkTabLayoutController layout,
             float pinnedRowsHeight)
         {
-            if (layout?.Columns == null ||
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked ||
+                layout?.Columns == null ||
                 !SubWorkDrilldownState.TryGetTransitionWave(out float pivotSlot, out float phase) ||
                 !TryGetSubWorkWaveGeometry(layout, pivotSlot, out Rect workBounds, out float pivotX))
             {

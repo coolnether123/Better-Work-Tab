@@ -15,6 +15,14 @@ namespace Better_Work_Tab.Features.Migration
     /// </summary>
     internal static class BWT20SettingsMigration
     {
+        private enum SettingsDocumentKind
+        {
+            Empty,
+            Public105,
+            Known20,
+            Unclassified
+        }
+
         private static int startupSettingsLoadDepth;
         private static bool migratedDuringStartupLoad;
 
@@ -72,6 +80,27 @@ namespace Better_Work_Tab.Features.Migration
                 return false;
             }
 
+            SettingsDocumentKind documentKind = ClassifySettingsDocument(persistedKeys);
+            if (documentKind == SettingsDocumentKind.Empty ||
+                documentKind == SettingsDocumentKind.Unclassified)
+            {
+                // Missing/unclassified settings are not evidence of a public
+                // 1.0.5 document. Leave the constructor/Scribe defaults and the
+                // missing schema marker alone until a known migration boundary
+                // can be established.
+                return false;
+            }
+
+            if (documentKind == SettingsDocumentKind.Known20)
+            {
+                // This is an explicit migration of a recognizable 2.0-shaped
+                // document whose schema marker is missing/old. Do not apply any
+                // public-1.0.5 compatibility gates or rewrite its preferences.
+                settings.settingsSchemaVersion = BWT20UpgradePolicy.CurrentSettingsSchemaVersion;
+                migratedDuringStartupLoad = true;
+                return true;
+            }
+
             // Keep only the new top-level feature gates off for a public 1.0.5
             // migration. Child preferences must retain their normal defaults so
             // enabling a feature later does not require repairing every option.
@@ -93,6 +122,14 @@ namespace Better_Work_Tab.Features.Migration
                 persistedKeys,
                 nameof(settings.enableTimePrioritySchedules),
                 () => settings.enableTimePrioritySchedules = migrationGates.EnableTimePrioritySchedules);
+
+            // Public 1.0.5 used the legacy Workloads path. Keep that conservative
+            // migration default without opting fresh or private 2.0 settings into it.
+            SetWhenAbsent(
+                persistedKeys,
+                nameof(settings.useLegacyWorkloads),
+                () => settings.useLegacyWorkloads =
+                    BWT20UpgradePolicy.IsPublic105SettingsDocument(persistedKeys));
 
             // These preferences existed in 1.0.5, but their 2.0 defaults changed.
             // Restore the old absent-key defaults while retaining any saved custom color.
@@ -117,6 +154,26 @@ namespace Better_Work_Tab.Features.Migration
             settings.settingsSchemaVersion = BWT20UpgradePolicy.CurrentSettingsSchemaVersion;
             migratedDuringStartupLoad = true;
             return true;
+        }
+
+        private static SettingsDocumentKind ClassifySettingsDocument(HashSet<string> persistedKeys)
+        {
+            if (persistedKeys == null || persistedKeys.Count == 0)
+            {
+                return SettingsDocumentKind.Empty;
+            }
+
+            if (BWT20UpgradePolicy.IsPublic105SettingsDocument(persistedKeys))
+            {
+                return SettingsDocumentKind.Public105;
+            }
+
+            if (BWT20UpgradePolicy.IsKnown20SettingsDocument(persistedKeys))
+            {
+                return SettingsDocumentKind.Known20;
+            }
+
+            return SettingsDocumentKind.Unclassified;
         }
 
         /// <summary>

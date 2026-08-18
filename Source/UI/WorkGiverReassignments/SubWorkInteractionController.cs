@@ -6,11 +6,13 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.Input;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Interaction;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -53,6 +55,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         internal bool TryHandleSubWorkHeaderOpen(IWorkTabLayoutController layout)
         {
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
+            {
+                ClearPendingSubWorkGesture();
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder,
+                    "Specific-job expansion is unavailable while this workload preview owns an unprojected ordering dimension.");
+                return false;
+            }
+
             if (layout == null || SubWorkDrilldownState.IsActive)
             {
                 return false;
@@ -330,6 +341,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             BetterWorkTabSettings.SubWorkDrilldownStyle style,
             int sourceWorkColumnSlot)
         {
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder,
+                    "Specific-job expansion is unavailable while this workload preview owns an unprojected ordering dimension.");
+                return;
+            }
+
             if (workType == null || style == BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen)
             {
                 return;
@@ -383,6 +402,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             bounds = default;
             fromHeader = false;
             targetColumn = default;
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
+            {
+                return false;
+            }
 
             for (int i = 0; i < layout.Columns.Count; i++)
             {
@@ -473,7 +497,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (headerArea.Contains(mousePosition))
             {
                 bounds = headerArea;
-                restoreCursor = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? true;
+                restoreCursor = BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.SubWorkRestoreCursor,
+                    BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? DefaultSettings.restoreCursorOnSubWorkExit);
                 return true;
             }
 
@@ -499,7 +525,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 _bodyRenderer.TryGetPriorityBoxHit(layout, bodyRow, column, mousePosition, out Rect bodyPriorityBoxRect))
             {
                 bounds = bodyPriorityBoxRect;
-                restoreCursor = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkPawnCellExit ?? false;
+                restoreCursor = BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.SubWorkRestoreCursorFromPawnCells,
+                    BetterWorkTabMod.Settings?.restoreCursorOnSubWorkPawnCellExit ?? DefaultSettings.restoreCursorOnSubWorkPawnCellExit);
                 return true;
             }
 

@@ -1,0 +1,393 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+
+namespace Better_Work_Tab.Features.Workloads.V2
+{
+    public sealed class WorkloadCatalog
+    {
+        private readonly ReadOnlyCollection<PawnKey> _pawnIds;
+        private readonly ReadOnlyCollection<WorkTypeKey> _workTypeIds;
+        private readonly ReadOnlyCollection<WorkGiverKey> _workGiverIds;
+        private readonly ReadOnlyCollection<ScheduleKey> _scheduleKeys;
+        private readonly HashSet<PawnKey> _pawnSet;
+        private readonly HashSet<WorkTypeKey> _workTypeSet;
+        private readonly HashSet<WorkGiverKey> _workGiverSet;
+        private readonly HashSet<ScheduleKey> _scheduleSet;
+
+        public WorkloadCatalog(
+            IEnumerable<PawnKey> pawnIds = null,
+            IEnumerable<WorkTypeKey> workTypeIds = null,
+            IEnumerable<WorkGiverKey> workGiverIds = null,
+            IEnumerable<ScheduleKey> scheduleKeys = null)
+        {
+            HasPawnIds = pawnIds != null;
+            HasWorkTypeIds = workTypeIds != null;
+            HasWorkGiverIds = workGiverIds != null;
+            HasScheduleKeys = scheduleKeys != null;
+            _pawnIds = Normalize(pawnIds, out _pawnSet);
+            _workTypeIds = Normalize(workTypeIds, out _workTypeSet);
+            _workGiverIds = Normalize(workGiverIds, out _workGiverSet);
+            _scheduleKeys = Normalize(scheduleKeys, out _scheduleSet);
+        }
+
+        public static WorkloadCatalog Empty
+        {
+            get { return new WorkloadCatalog(); }
+        }
+
+        public bool HasPawnIds { get; private set; }
+        public bool HasWorkTypeIds { get; private set; }
+        public bool HasWorkGiverIds { get; private set; }
+        public bool HasScheduleKeys { get; private set; }
+        public IReadOnlyList<PawnKey> PawnIds => _pawnIds;
+        public IReadOnlyList<WorkTypeKey> WorkTypeIds => _workTypeIds;
+        public IReadOnlyList<WorkGiverKey> WorkGiverIds => _workGiverIds;
+        public IReadOnlyList<ScheduleKey> ScheduleKeys => _scheduleKeys;
+
+        public bool ContainsPawn(PawnKey key)
+        {
+            return _pawnSet.Contains(key ?? new PawnKey(null));
+        }
+
+        public bool ContainsWorkType(WorkTypeKey key)
+        {
+            return _workTypeSet.Contains(key ?? new WorkTypeKey(null));
+        }
+
+        public bool ContainsWorkGiver(WorkGiverKey key)
+        {
+            return _workGiverSet.Contains(key ?? new WorkGiverKey(null));
+        }
+
+        public bool ContainsSchedule(ScheduleKey key)
+        {
+            return _scheduleSet.Contains(key ?? new ScheduleKey(-1));
+        }
+
+        private static ReadOnlyCollection<T> Normalize<T>(IEnumerable<T> source, out HashSet<T> set)
+        {
+            set = new HashSet<T>();
+            if (source != null)
+            {
+                foreach (T item in source)
+                {
+                    if (!ReferenceEquals(item, null)) set.Add(item);
+                }
+            }
+
+            var result = new List<T>(set);
+            result.Sort(CompareValues);
+            return result.AsReadOnly();
+        }
+
+        private static int CompareValues<T>(T left, T right)
+        {
+            var leftComparable = left as IComparable<T>;
+            if (leftComparable != null) return leftComparable.CompareTo(right);
+            return StringComparer.Ordinal.Compare(Convert.ToString(left), Convert.ToString(right));
+        }
+    }
+
+    public enum WorkloadValidationSeverity
+    {
+        Warning = 0,
+        Error = 1
+    }
+
+    public enum WorkloadValidationCode
+    {
+        MissingTemplate = 0,
+        MissingStableId = 1,
+        MissingLabel = 2,
+        InvalidSchemaVersion = 3,
+        NewerSchema = 4,
+        InvalidScopeMode = 5,
+        MissingPawnId = 6,
+        UnknownPawnId = 7,
+        MissingWorkTypeId = 8,
+        UnknownWorkTypeId = 9,
+        MissingWorkGiverId = 10,
+        UnknownWorkGiverId = 11,
+        InvalidScheduleKey = 12,
+        UnknownScheduleKey = 13,
+        MissingPresentationSettingKey = 14,
+        UnknownOwnershipDimension = 15
+    }
+
+    public sealed class WorkloadValidationIssue
+    {
+        public WorkloadValidationIssue(
+            WorkloadValidationSeverity severity,
+            WorkloadValidationCode code,
+            string path,
+            string message)
+        {
+            Severity = severity;
+            Code = code;
+            Path = path ?? string.Empty;
+            Message = message ?? string.Empty;
+        }
+
+        public WorkloadValidationSeverity Severity { get; private set; }
+        public WorkloadValidationCode Code { get; private set; }
+        public string Path { get; private set; }
+        public string Message { get; private set; }
+    }
+
+    public sealed class WorkloadValidationResult
+    {
+        private readonly ReadOnlyCollection<WorkloadValidationIssue> _issues;
+
+        internal WorkloadValidationResult(IEnumerable<WorkloadValidationIssue> issues)
+        {
+            _issues = new List<WorkloadValidationIssue>(issues ?? new WorkloadValidationIssue[0]).AsReadOnly();
+        }
+
+        public IReadOnlyList<WorkloadValidationIssue> Issues => _issues;
+        public bool HasErrors
+        {
+            get
+            {
+                for (int i = 0; i < _issues.Count; i++)
+                {
+                    if (_issues[i].Severity == WorkloadValidationSeverity.Error) return true;
+                }
+
+                return false;
+            }
+        }
+
+        public bool IsNewerSchema
+        {
+            get { return Contains(WorkloadValidationCode.NewerSchema); }
+        }
+
+        public bool CanApply => !HasErrors && !IsNewerSchema;
+
+        public bool Contains(WorkloadValidationCode code)
+        {
+            for (int i = 0; i < _issues.Count; i++)
+            {
+                if (_issues[i].Code == code) return true;
+            }
+
+            return false;
+        }
+    }
+
+    public sealed class WorkloadValidationContext
+    {
+        public WorkloadValidationContext(
+            WorkloadCatalog catalog = null,
+            int supportedSchemaVersion = WorkloadSchema.CurrentVersion)
+        {
+            Catalog = catalog ?? WorkloadCatalog.Empty;
+            SupportedSchemaVersion = supportedSchemaVersion < 0 ? 0 : supportedSchemaVersion;
+        }
+
+        public static WorkloadValidationContext Default
+        {
+            get { return new WorkloadValidationContext(); }
+        }
+
+        public WorkloadCatalog Catalog { get; private set; }
+        public int SupportedSchemaVersion { get; private set; }
+    }
+
+    public static class WorkloadValidator
+    {
+        public static WorkloadValidationResult Validate(
+            WorkloadTemplate template,
+            WorkloadValidationContext context = null)
+        {
+            var issues = new List<WorkloadValidationIssue>();
+            if (template == null)
+            {
+                issues.Add(new WorkloadValidationIssue(
+                    WorkloadValidationSeverity.Error,
+                    WorkloadValidationCode.MissingTemplate,
+                    "template",
+                    "The workload template is missing."));
+                return new WorkloadValidationResult(issues);
+            }
+
+            WorkloadValidationContext safeContext = context ?? WorkloadValidationContext.Default;
+            WorkloadCatalog catalog = safeContext.Catalog ?? WorkloadCatalog.Empty;
+            WorkloadDefinition definition = template.Definition ?? WorkloadDefinition.Empty;
+            if (!definition.StableId.AnyNonWhitespace())
+            {
+                Add(issues, WorkloadValidationCode.MissingStableId, "definition.stableId", "A stable workload ID is required.");
+            }
+
+            if (!definition.Label.AnyNonWhitespace())
+            {
+                Add(issues, WorkloadValidationCode.MissingLabel, "definition.label", "A workload label is required.");
+            }
+
+            if (definition.SchemaVersion <= 0)
+            {
+                Add(issues, WorkloadValidationCode.InvalidSchemaVersion, "definition.schemaVersion", "The schema version must be positive.");
+            }
+            else if (definition.SchemaVersion > safeContext.SupportedSchemaVersion)
+            {
+                Add(issues, WorkloadValidationCode.NewerSchema, "definition.schemaVersion", "The workload uses a newer schema and is read-only until supported.");
+            }
+
+            if (!definition.Scope.IsValidMode)
+            {
+                Add(issues, WorkloadValidationCode.InvalidScopeMode, "definition.scope.mode", "The workload scope mode is unknown.");
+            }
+
+            int knownOwnershipBits = (int)WorkloadOwnershipDimensions.All;
+            if ((((int)definition.OwnershipDimensions) & ~knownOwnershipBits) != 0)
+            {
+                Add(issues, WorkloadValidationCode.UnknownOwnershipDimension, "definition.ownership", "The workload declares an unknown ownership dimension.");
+            }
+
+            for (int i = 0; i < definition.Scope.ExplicitPawnIds.Count; i++)
+            {
+                CheckPawn(issues, catalog, definition.Scope.ExplicitPawnIds[i], "definition.scope.explicitPawnIds[" + i + "]");
+            }
+
+            for (int i = 0; i < definition.Scope.ExcludedPawnIds.Count; i++)
+            {
+                CheckPawn(issues, catalog, definition.Scope.ExcludedPawnIds[i], "definition.scope.excludedPawnIds[" + i + "]");
+            }
+
+            WorkloadProjectedState state = template.ProjectedState ?? WorkloadProjectedState.Empty;
+            for (int i = 0; i < state.ParentPriorities.Count; i++)
+            {
+                WorkloadParentPriorityEntry entry = state.ParentPriorities[i];
+                CheckPawn(issues, catalog, entry.Key.Pawn, "state.parentPriorities[" + i + "].pawn");
+                CheckWorkType(issues, catalog, entry.Key.WorkType, "state.parentPriorities[" + i + "].workType");
+            }
+
+            for (int i = 0; i < state.ManualModes.Count; i++)
+            {
+                WorkloadManualModeEntry entry = state.ManualModes[i];
+                CheckPawn(issues, catalog, entry.Key.Pawn, "state.manualModes[" + i + "].pawn");
+                CheckWorkType(issues, catalog, entry.Key.WorkType, "state.manualModes[" + i + "].workType");
+            }
+
+            for (int i = 0; i < state.Schedules.Count; i++)
+            {
+                WorkloadScheduleEntry entry = state.Schedules[i];
+                CheckPawn(issues, catalog, entry.Pawn, "state.schedules[" + i + "].pawn");
+                if (entry.Schedule == null || !entry.Schedule.IsValid)
+                {
+                    Add(issues, WorkloadValidationCode.InvalidScheduleKey, "state.schedules[" + i + "].schedule", "The schedule key is missing or invalid.");
+                }
+                else if (catalog.HasScheduleKeys && !catalog.ContainsSchedule(entry.Schedule))
+                {
+                    Add(issues, WorkloadValidationCode.UnknownScheduleKey, "state.schedules[" + i + "].schedule", "The schedule key is not present in the supplied catalog.");
+                }
+            }
+
+            for (int i = 0; i < state.SpecificJobOverrides.Count; i++)
+            {
+                WorkloadSpecificJobOverrideEntry entry = state.SpecificJobOverrides[i];
+                CheckSpecificJob(issues, catalog, entry.Key, "state.specificJobOverrides[" + i + "]");
+            }
+
+            for (int i = 0; i < state.SpecificJobOrder.Count; i++)
+            {
+                WorkloadSpecificJobOrderEntry entry = state.SpecificJobOrder[i];
+                CheckSpecificJob(issues, catalog, entry.Key, "state.specificJobOrder[" + i + "]");
+            }
+
+            for (int i = 0; i < state.PresentationSettings.Count; i++)
+            {
+                if (!state.PresentationSettings[i].Key.AnyNonWhitespace())
+                {
+                    Add(issues, WorkloadValidationCode.MissingPresentationSettingKey, "state.presentationSettings[" + i + "].key", "A presentation setting key is required.");
+                }
+            }
+
+            return new WorkloadValidationResult(issues);
+        }
+
+        private static void CheckSpecificJob(
+            List<WorkloadValidationIssue> issues,
+            WorkloadCatalog catalog,
+            WorkloadSpecificJobKey key,
+            string path)
+        {
+            WorkloadSpecificJobKey safeKey = key ?? new WorkloadSpecificJobKey(null, null, null);
+            CheckPawn(issues, catalog, safeKey.Pawn, path + ".pawn");
+            CheckWorkType(issues, catalog, safeKey.WorkType, path + ".workType");
+            CheckWorkGiver(issues, catalog, safeKey.WorkGiver, path + ".workGiver");
+        }
+
+        private static void CheckPawn(
+            List<WorkloadValidationIssue> issues,
+            WorkloadCatalog catalog,
+            PawnKey key,
+            string path)
+        {
+            if (key == null || !key.IsValid)
+            {
+                Add(issues, WorkloadValidationCode.MissingPawnId, path, "A pawn ID is missing.");
+            }
+            else if (catalog.HasPawnIds && !catalog.ContainsPawn(key))
+            {
+                Add(issues, WorkloadValidationCode.UnknownPawnId, path, "The pawn ID is not present in the supplied catalog.");
+            }
+        }
+
+        private static void CheckWorkType(
+            List<WorkloadValidationIssue> issues,
+            WorkloadCatalog catalog,
+            WorkTypeKey key,
+            string path)
+        {
+            if (key == null || !key.IsValid)
+            {
+                Add(issues, WorkloadValidationCode.MissingWorkTypeId, path, "A work type ID is missing.");
+            }
+            else if (catalog.HasWorkTypeIds && !catalog.ContainsWorkType(key))
+            {
+                Add(issues, WorkloadValidationCode.UnknownWorkTypeId, path, "The work type ID is not present in the supplied catalog.");
+            }
+        }
+
+        private static void CheckWorkGiver(
+            List<WorkloadValidationIssue> issues,
+            WorkloadCatalog catalog,
+            WorkGiverKey key,
+            string path)
+        {
+            if (key == null || !key.IsValid)
+            {
+                Add(issues, WorkloadValidationCode.MissingWorkGiverId, path, "A work giver ID is missing.");
+            }
+            else if (catalog.HasWorkGiverIds && !catalog.ContainsWorkGiver(key))
+            {
+                Add(issues, WorkloadValidationCode.UnknownWorkGiverId, path, "The work giver ID is not present in the supplied catalog.");
+            }
+        }
+
+        private static void Add(
+            List<WorkloadValidationIssue> issues,
+            WorkloadValidationCode code,
+            string path,
+            string message)
+        {
+            issues.Add(new WorkloadValidationIssue(WorkloadValidationSeverity.Error, code, path, message));
+        }
+    }
+
+    internal static class WorkloadValidationTextExtensions
+    {
+        public static bool AnyNonWhitespace(this string value)
+        {
+            if (string.IsNullOrEmpty(value)) return false;
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (!char.IsWhiteSpace(value[i])) return true;
+            }
+
+            return false;
+        }
+    }
+}

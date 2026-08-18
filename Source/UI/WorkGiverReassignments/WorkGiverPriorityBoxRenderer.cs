@@ -2,7 +2,9 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Commands;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.Settings;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -48,6 +50,19 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             if (wg?.def == null)
             {
+                return;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                (pawn == null || FluffyTimeScheduleAssigner.IsOpen))
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    pawn == null
+                        ? WorkTabEffectiveStateDimension.SpecificJobOverride
+                        : WorkTabEffectiveStateDimension.Schedule,
+                    pawn == null
+                        ? "Global work-giver authority cannot be represented by a pawn-scoped preview key."
+                        : "Fluffy's live scheduler owns the current work-giver cell.");
                 return;
             }
 
@@ -212,6 +227,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
                     HandlePriorityClick(
                         pawn.thingIDNumber,
+                        workType,
                         wg.def,
                         boxRect,
                         workGiverPriority,
@@ -229,7 +245,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             RegisterGlobalPriorityTarget(wg.def, boxRect);
 
-            if (BetterWorkTabMod.Settings?.useVanillaSubWorkGlobalPriorityBoxes == true)
+            if (BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.SubWorkGlobalVanillaPriorityBoxes,
+                BetterWorkTabMod.Settings?.useVanillaSubWorkGlobalPriorityBoxes ??
+                    DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes))
             {
                 DrawVanillaGlobalPriorityBoxContents(boxRect, workGiverPriority, presentation.HasScheduleIndicator);
             }
@@ -254,7 +273,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     return;
                 }
 
-                HandlePriorityClick(-1, wg.def, boxRect, workGiverPriority);
+                HandlePriorityClick(-1, null, wg.def, boxRect, workGiverPriority);
             }
         }
 
@@ -274,7 +293,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GUI.color = WithVisualAlpha(oldColor);
             GUI.DrawTexture(boxRect, bgTex);
 
-            if (Find.PlaySettings.useWorkPriorities)
+            if (WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
+                    Find.PlaySettings?.useWorkPriorities ?? true))
             {
                 if (priority > WorkPrioritySystem.DisabledPriority)
                 {
@@ -328,7 +348,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GUI.DrawTexture(boxRect, bgTex);
             GUI.color = oldColor;
 
-            if (Find.PlaySettings.useWorkPriorities &&
+            if (WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
+                    Find.PlaySettings?.useWorkPriorities ?? true) &&
                 priority > WorkPrioritySystem.DisabledPriority)
             {
                 Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
@@ -414,7 +435,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WidgetsWork.DrawWorkBoxBackground(boxRect, pawn, workType);
             GUI.color = oldColor;
 
-            if (Find.PlaySettings.useWorkPriorities)
+            if (WorkTabEffectiveStateRuntime.IsManualMode(
+                    pawn,
+                    workType,
+                    Find.PlaySettings?.useWorkPriorities ?? true))
             {
                 if (priority > WorkPrioritySystem.DisabledPriority)
                 {
@@ -516,15 +540,43 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             if (PriorityOverrideRing.EventOverVisibleRing(evt, boxRect))
             {
-                int targetPriority = WorkGiverReassignmentManager.GetInheritedWorkGiverPriority(pawn, workType, wg.def);
-                ClearPawnOverrideWithFeedback(pawn.thingIDNumber, wg.def, boxRect, currentPriority, targetPriority);
+                int targetPriority = WorkTabEffectiveStateRuntime.IsPreviewActive
+                    ? WorkGiverReassignmentManager.GetWorkGiverPriority(
+                        pawn,
+                        wg.def,
+                        WorkTabEffectiveStateRuntime.GetParentPriority(
+                            pawn,
+                            workType,
+                            WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType)))
+                    : WorkGiverReassignmentManager.GetInheritedWorkGiverPriority(
+                        pawn,
+                        workType,
+                        wg.def);
+                ClearPawnOverrideWithFeedback(
+                    pawn,
+                    workType,
+                    wg.def,
+                    boxRect,
+                    currentPriority,
+                    targetPriority);
                 evt.Use();
                 return;
             }
 
             if (PriorityOverrideRing.InnerRect(boxRect).Contains(evt.mousePosition))
             {
-                WorkGiverReassignmentManager.EnableParentWorkTypeSynced(pawn.thingIDNumber, workType.defName);
+                bool accepted = WorkTabEffectiveStateRuntime.IsPreviewActive
+                    ? WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
+                        pawn,
+                        workType,
+                        WorkPrioritySystem.GetDefaultEnabledPriority()))
+                    : EnableParentWorkTypeLive(pawn, workType);
+                if (!accepted)
+                {
+                    evt.Use();
+                    return;
+                }
+
                 SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
                 evt.Use();
             }
@@ -558,22 +610,58 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (evt.type == EventType.ScrollWheel)
             {
                 int direction = evt.delta.y > 0f ? -1 : 1;
-                newPriority = Find.PlaySettings.useWorkPriorities
+                newPriority = WorkTabEffectiveStateRuntime.IsManualMode(
+                        pawn,
+                        workType,
+                        Find.PlaySettings?.useWorkPriorities ?? true)
                     ? WorkPrioritySystem.GetPriorityAfterBoundedStep(WorkPrioritySystem.DisabledPriority, direction)
                     : ToggleNonManualPriority(WorkPrioritySystem.DisabledPriority);
             }
             else
             {
-                newPriority = GetNextPriority(WorkPrioritySystem.DisabledPriority, evt.button);
+                newPriority = GetNextPriority(
+                    WorkPrioritySystem.DisabledPriority,
+                    evt.button,
+                    pawn,
+                    workType);
             }
 
             if (newPriority > WorkPrioritySystem.DisabledPriority)
             {
-                WorkGiverReassignmentManager.EnableParentAndSetOnlySubOverrideSynced(
-                    pawn.thingIDNumber,
-                    workType.defName,
-                    wg.def.defName,
-                    newPriority);
+                bool accepted;
+                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+                {
+                    accepted = WorkPriorityCommandGateway.TryClearPreviewSpecificJobOverrides(
+                        pawn,
+                        workType) &&
+                        WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
+                            pawn,
+                            workType,
+                            WorkPrioritySystem.GetDefaultEnabledPriority())) &&
+                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+                            pawn.thingIDNumber,
+                            wg.def,
+                            newPriority));
+                }
+                else
+                {
+                    accepted = PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData;
+                    if (accepted)
+                    {
+                        WorkGiverReassignmentManager.EnableParentAndSetOnlySubOverrideSynced(
+                            pawn.thingIDNumber,
+                            workType.defName,
+                            wg.def.defName,
+                            newPriority);
+                    }
+                }
+
+                if (!accepted)
+                {
+                    evt.Use();
+                    return;
+                }
+
                 SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
             }
 
@@ -629,6 +717,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static void HandlePriorityClick(
             int pawnId,
+            WorkTypeDef workType,
             WorkGiverDef workGiverDef,
             Rect boxRect,
             int currentPriority,
@@ -666,7 +755,19 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     Rect innerRect = PriorityOverrideRing.InnerRect(boxRect);
                     if (evt.button == 0 && PriorityOverrideRing.EventOverVisibleRing(evt, boxRect))
                     {
-                        ClearPawnOverrideWithFeedback(pawnId, workGiverDef, boxRect, currentPriority, inheritedPriority);
+                        Pawn pawn = ResolvePawn(pawnId);
+                        if (pawn == null ||
+                            !ClearPawnOverrideWithFeedback(
+                                pawn,
+                                workType ?? WorkGiverReassignmentManager.GetTargetWorkType(workGiverDef),
+                                workGiverDef,
+                                boxRect,
+                                currentPriority,
+                                inheritedPriority))
+                        {
+                            evt.Use();
+                            return;
+                        }
                         evt.Use();
                         return;
                     }
@@ -678,18 +779,23 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     }
                 }
 
-                int newPriority = GetNextPriority(currentPriority, evt.button);
+                int newPriority = GetNextPriority(
+                    currentPriority,
+                    evt.button,
+                    ResolvePawn(pawnId),
+                    workType ?? WorkGiverReassignmentManager.GetTargetWorkType(workGiverDef) ??
+                    workGiverDef?.workType);
                 
                 if (newPriority != currentPriority)
                 {
-                    if (!FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(pawnId, workGiverDef, newPriority))
+                    bool accepted = ApplyWorkGiverPriority(
+                        pawnId,
+                        workGiverDef,
+                        newPriority);
+                    if (accepted)
                     {
-                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
-                            pawnId,
-                            workGiverDef,
-                            newPriority));
+                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
                     }
-                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
                 
                 evt.Use();
@@ -705,29 +811,41 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 }
 
                 int direction = evt.delta.y > 0f ? -1 : 1;
-                int newPriority = Find.PlaySettings.useWorkPriorities
+                Pawn pawn = ResolvePawn(pawnId);
+                int newPriority = WorkTabEffectiveStateRuntime.IsManualMode(
+                        pawn,
+                        workType ?? WorkGiverReassignmentManager.GetTargetWorkType(workGiverDef) ??
+                        workGiverDef?.workType,
+                        Find.PlaySettings?.useWorkPriorities ?? true)
                     ? WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction)
                     : ToggleNonManualPriority(currentPriority);
 
                 if (newPriority != currentPriority)
                 {
-                    if (!FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(pawnId, workGiverDef, newPriority))
+                    bool accepted = ApplyWorkGiverPriority(
+                        pawnId,
+                        workGiverDef,
+                        newPriority);
+                    if (accepted)
                     {
-                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
-                            pawnId,
-                            workGiverDef,
-                            newPriority));
+                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
                     }
-                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
 
                 evt.Use();
             }
         }
 
-        private static int GetNextPriority(int currentPriority, int button)
+        private static int GetNextPriority(
+            int currentPriority,
+            int button,
+            Pawn pawn,
+            WorkTypeDef workType)
         {
-            if (Find.PlaySettings.useWorkPriorities)
+            if (WorkTabEffectiveStateRuntime.IsManualMode(
+                    pawn,
+                    workType,
+                    Find.PlaySettings?.useWorkPriorities ?? true))
             {
                 return WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, button);
             }
@@ -740,6 +858,33 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             return currentPriority > WorkPrioritySystem.DisabledPriority
                 ? WorkPrioritySystem.DisabledPriority
                 : WorkPrioritySystem.GetDefaultEnabledPriority();
+        }
+
+        private static bool ApplyWorkGiverPriority(
+            int pawnId,
+            WorkGiverDef workGiverDef,
+            int priority)
+        {
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                return WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+                    pawnId,
+                    workGiverDef,
+                    priority));
+            }
+
+            if (FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(
+                    pawnId,
+                    workGiverDef,
+                    priority))
+            {
+                return true;
+            }
+
+            return WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+                pawnId,
+                workGiverDef,
+                priority));
         }
 
         private static int ToggleNonManualPriority(int currentPriority)
@@ -769,14 +914,43 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GlobalPriorityTargets[workGiverDef.defName] = UnclipRect(boxRect);
         }
 
-        private static void ClearPawnOverrideWithFeedback(
-            int pawnId,
+        private static bool ClearPawnOverrideWithFeedback(
+            Pawn pawn,
+            WorkTypeDef workType,
             WorkGiverDef workGiverDef,
             Rect boxRect,
             int fromPriority,
             int toPriority)
         {
-            if (BetterWorkTabMod.Settings?.enableSubWorkOverrideBreakAnimation ?? DefaultSettings.enableSubWorkOverrideBreakAnimation)
+            if (pawn == null || workGiverDef == null)
+            {
+                return false;
+            }
+
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                !PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
+            {
+                return false;
+            }
+
+            bool accepted = WorkTabEffectiveStateRuntime.IsPreviewActive
+                ? WorkTabEffectiveStateRuntime.TryClearSpecificJobPriority(
+                    pawn,
+                    workType ?? WorkGiverReassignmentManager.GetTargetWorkType(workGiverDef) ??
+                    workGiverDef.workType,
+                    workGiverDef,
+                    out _)
+                : ClearPawnOverrideLive(pawn, workGiverDef);
+            if (!accepted)
+            {
+                return false;
+            }
+
+            int pawnId = pawn.thingIDNumber;
+            if (BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.SubWorkOverrideBreakAnimation,
+                BetterWorkTabMod.Settings?.enableSubWorkOverrideBreakAnimation ??
+                    DefaultSettings.enableSubWorkOverrideBreakAnimation))
             {
                 if (ResetAnimations.Count >= MaximumResetAnimations)
                 {
@@ -792,13 +966,62 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 };
             }
 
-            WorkGiverReassignmentManager.ClearPawnOverrideSynced(pawnId, workGiverDef.defName);
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+            return true;
+        }
+
+        private static bool EnableParentWorkTypeLive(Pawn pawn, WorkTypeDef workType)
+        {
+            if (!PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData ||
+                pawn?.workSettings == null ||
+                workType == null)
+            {
+                return false;
+            }
+
+            WorkGiverReassignmentManager.EnableParentWorkTypeSynced(
+                pawn.thingIDNumber,
+                workType.defName);
+            return true;
+        }
+
+        private static bool ClearPawnOverrideLive(Pawn pawn, WorkGiverDef workGiverDef)
+        {
+            if (!PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
+            {
+                return false;
+            }
+
+            WorkGiverReassignmentManager.ClearPawnOverrideSynced(
+                pawn.thingIDNumber,
+                workGiverDef.defName);
+            return true;
+        }
+
+        private static Pawn ResolvePawn(int pawnId)
+        {
+            if (pawnId < 0)
+            {
+                return null;
+            }
+
+            foreach (Pawn pawn in PawnsFinder.All_AliveOrDead)
+            {
+                if (pawn?.thingIDNumber == pawnId)
+                {
+                    return pawn;
+                }
+            }
+
+            return null;
         }
 
         private static void DrawOverrideResetAnimation(int pawnId, WorkGiverDef workGiverDef, Rect boxRect)
         {
-            if (!(BetterWorkTabMod.Settings?.enableSubWorkOverrideBreakAnimation ?? DefaultSettings.enableSubWorkOverrideBreakAnimation))
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.SubWorkOverrideBreakAnimation,
+                BetterWorkTabMod.Settings?.enableSubWorkOverrideBreakAnimation ??
+                    DefaultSettings.enableSubWorkOverrideBreakAnimation))
             {
                 return;
             }

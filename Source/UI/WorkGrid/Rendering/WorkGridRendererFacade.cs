@@ -1,7 +1,9 @@
 using System;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using Spine.Api;
 using Better_Work_Tab.Foundation;
 using Spine.RimWorld.Rendering;
@@ -22,7 +24,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private readonly IRenderDiagnosticsSink _diagnostics;
         private IWorkGridRenderer _active;
         private string _activeId;
-        private bool _fallbackPending;
 
         public WorkGridRendererFacade(
             IWorkGridDrawingSurface drawingSurface,
@@ -50,30 +51,48 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public void Render(in WorkGridRenderContext context)
         {
+            WorkTabEffectiveStateRuntime.BeginRenderPass();
             WorkGridRendererMode userMode = _selectionMode();
             WorkGridForcedRendererMode forcedMode = WorkGridRendererDiagnostics.ForcedMode;
+            bool nativeOnly = WorkTabEffectiveStateRuntime.IsPreviewActive ||
+                              PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority;
 
-            if (context.EventPhase == ImGuiEventPhase.Layout)
+            if (nativeOnly)
             {
-                _fallbackPending = false;
+                // Preview and external priority authority are correctness
+                // boundaries for the optimized snapshot renderer. Enforce the
+                // boundary immediately, including an input/repaint event that
+                // arrives before the next Layout selection pass.
+                SwitchToRenderer(_vanilla, context);
+                _activeId = VanillaWorkGridRenderer.RendererId;
+                PublishSelection(
+                    userMode,
+                    forcedMode,
+                    new WorkGridFallbackReason(
+                        WorkGridFallbackReasonCode.CapabilityUnavailable,
+                        WorkTabEffectiveStateRuntime.IsPreviewActive
+                            ? "Projected Work-tab state requires the native renderer."
+                            : "External priority authority requires the native renderer."),
+                    context.Scope);
+            }
+            else if (context.EventPhase == ImGuiEventPhase.Layout)
+            {
                 WorkGridRendererSelection selection =
                     _selector.Select(_vanilla, userMode, forcedMode, in context);
-                _active = selection.Renderer;
+                SwitchToRenderer(selection.Renderer, context);
                 _activeId = selection.RendererId;
                 PublishSelection(userMode, forcedMode, selection.Fallback, context.Scope);
             }
-            else if (_fallbackPending)
-            {
-                return;
-            }
 
             IWorkGridRenderer renderer = _active;
+            bool headersDrawn = false;
             try
             {
                 renderer.Prepare(in context);
                 if ((context.Configuration.Layers & WorkGridLayerFlags.Headers) != 0)
                 {
                     _drawingSurface.DrawHeaders(context.Presentation.Table, context.Layout);
+                    headersDrawn = true;
                 }
                 renderer.Draw(in context);
 
@@ -95,10 +114,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
 
                 string failedRendererId = _activeId;
+                ReleaseRenderer(renderer, in context);
                 _selector.Quarantine(context.Scope, failedRendererId);
                 _active = _vanilla;
                 _activeId = VanillaWorkGridRenderer.RendererId;
-                _fallbackPending = true;
                 var fallback = new WorkGridFallbackReason(
                     WorkGridFallbackReasonCode.RendererQuarantined,
                     "Renderer '" + failedRendererId + "' failed during " + context.EventPhase +
@@ -117,6 +136,69 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         failedRendererId,
                         fallback.Detail,
                         exception));
+                }
+
+                // Complete the current event with the native renderer so a
+                // failure does not leave a half-rendered frame until Layout.
+                _vanilla.Prepare(in context);
+                if ((context.Configuration.Layers & WorkGridLayerFlags.Headers) != 0 &&
+                    !headersDrawn)
+                {
+                    _drawingSurface.DrawHeaders(context.Presentation.Table, context.Layout);
+                }
+                _vanilla.Draw(in context);
+                if (context.EventPhase == ImGuiEventPhase.Input)
+                {
+                    _vanilla.HandleEvent(in context);
+                }
+                if (context.EventPhase == ImGuiEventPhase.Repaint)
+                {
+                    _vanilla.ReleaseTransient(in context);
+                }
+            }
+        }
+
+        private void SwitchToRenderer(
+            IWorkGridRenderer renderer,
+            in WorkGridRenderContext context)
+        {
+            IWorkGridRenderer next = renderer ?? _vanilla;
+            if (ReferenceEquals(_active, next))
+            {
+                return;
+            }
+
+            ReleaseRenderer(_active, in context);
+            _active = next;
+        }
+
+        private static void ReleaseRenderer(
+            IWorkGridRenderer renderer,
+            in WorkGridRenderContext context)
+        {
+            if (renderer == null || renderer is VanillaWorkGridRenderer)
+            {
+                return;
+            }
+
+            try
+            {
+                renderer.ReleaseTransient(in context);
+            }
+            catch (Exception exception)
+            {
+                Log.Warning("[BWT] Work-grid renderer cleanup failed: " + exception.Message);
+            }
+
+            if (renderer is IDisposable disposable)
+            {
+                try
+                {
+                    disposable.Dispose();
+                }
+                catch (Exception exception)
+                {
+                    Log.Warning("[BWT] Work-grid renderer resource release failed: " + exception.Message);
                 }
             }
         }

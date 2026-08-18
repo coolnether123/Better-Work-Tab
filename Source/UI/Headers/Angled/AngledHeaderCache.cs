@@ -6,7 +6,9 @@ using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Columns;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -102,10 +104,12 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 hash = hash * 23 + Quantize(horizontalOffset);
                 hash = hash * 23 + Quantize(drawWidthOverride);
                 hash = hash * 23 + CustomLabelStore.Version;
-                if (SubWorkDrilldownState.IsActive)
+                if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                    SubWorkDrilldownState.IsActive)
                 {
                     hash = hash * 23 + SubWorkDrilldownState.LayoutSignature;
                 }
+                hash = hash * 23 + (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked ? 1 : 0);
 
                 return hash;
             }
@@ -166,7 +170,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 drawRect = new Rect(0f, 0f, drawWidth, size.y) { center = rect.center };
                 drawRect.x += horizontalOffset;
 
-                if (SubWorkDrilldownState.IsExpandBesideActive)
+                if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                    SubWorkDrilldownState.IsExpandBesideActive)
                 {
                     drawRect.position += SubWorkDrilldownHeaderGeometry.GetExpandBesideAngledAnchorOffset(
                         null,
@@ -176,7 +181,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                         AngledLabelDrawer.CurrentRotation);
                 }
 
-                if (SubWorkDrilldownState.IsActive)
+                if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                    SubWorkDrilldownState.IsActive)
                 {
                     drawRect = AnchorSubWorkUnderlineToPriorityRow(drawRect, rect, cos, sin, stemGap, horizontalOffset);
                 }
@@ -193,7 +199,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 Layout = isCJKVertical
                     ? new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical, drawRect)
-                    : SubWorkDrilldownState.HasAnyDrilldown || drawWidthOverride > 0f
+                    : (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                       SubWorkDrilldownState.HasAnyDrilldown) || drawWidthOverride > 0f
                         ? new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical, drawRect)
                         : new AngledLabelDrawer.AngledLabelLayout(label, size, pivot, isMoved, isCJKVertical),
                 Quad = quad,
@@ -231,7 +238,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
         {
             var key = new LabelTextMetricsKey(
                 label ?? string.Empty,
-                BetterWorkTabMod.Settings?.useVerticalStackingForCJK ?? true,
+                BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HeadersUseVerticalStackingForCJK,
+                    BetterWorkTabMod.Settings?.useVerticalStackingForCJK ?? true),
                 Quantize(BetterWorkTabMod.Settings?.cjkVerticalKerning ?? 1f));
             if (LabelTextMetricsCache.TryGetValue(key, out CachedTextMetrics metrics))
             {
@@ -333,15 +342,22 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 hash = hash * 23 + (isMoved ? 1 : 0);
                 hash = hash * 23 + (int)labelStyle;
                 hash = hash * 23 + (parentOnly ? 1 : 0);
-                if (!parentOnly)
+                if (!parentOnly && !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
                 {
                     hash = hash * 23 + SubWorkDrilldownState.CurrentDrawingHeaderSignature;
                 }
+                hash = hash * 23 + (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked ? 1 : 0);
                 hash = hash * 23 + CustomLabelStore.Version;
-                hash = hash * 23 + (BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true ? 1 : 0);
-                hash = hash * 23 + (BetterWorkTabMod.Settings?.useVerticalStackingForCJK ?? true ? 1 : 0);
+                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.ColumnsShowMovedIndicator,
+                    BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true) ? 1 : 0);
+                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HeadersUseVerticalStackingForCJK,
+                    BetterWorkTabMod.Settings?.useVerticalStackingForCJK ?? true) ? 1 : 0);
                 hash = hash * 23 + Quantize(BetterWorkTabMod.Settings?.cjkVerticalKerning ?? 1f);
-                if (!parentOnly && SubWorkDrilldownState.IsActive)
+                if (!parentOnly &&
+                    !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                    SubWorkDrilldownState.IsActive)
                 {
                     hash = hash * 23 + SubWorkDrilldownState.MeasurementSignature;
                 }

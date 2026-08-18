@@ -11,6 +11,8 @@ using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Compatibility;
+using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Settings;
 using RimWorld;
 using Spine.Api;
 using Better_Work_Tab.Foundation;
@@ -33,6 +35,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private bool _hasLayoutSignature;
         private WorkGridRevisionSet _revisions;
         private long _snapshotRevision;
+        private WorkTabEffectiveStateRevision _effectiveStateRevision;
+        private bool _hasEffectiveStateRevision;
 
         internal WorkGridSnapshotProvider()
         {
@@ -44,6 +48,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _active?.Clear();
         }
 
+        internal static bool IsActiveEffectiveStateCurrent()
+        {
+            return _active == null ||
+                   (_active._hasEffectiveStateRevision &&
+                    _active._effectiveStateRevision == WorkTabEffectiveStateRuntime.CurrentRevision);
+        }
+
         internal WorkGridSnapshot Current => _slot.Current;
 
         internal WorkGridSnapshot Prepare(
@@ -51,15 +62,40 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             PawnTable table,
             WorkTabInvalidationVersion versions)
         {
+            WorkTabEffectiveStateRevision effectiveStateRevision =
+                WorkTabEffectiveStateRuntime.BeginRenderPass();
             if (layout == null || table == null || layout.GeometrySnapshot == null)
             {
                 return null;
             }
 
+            // Preview rendering is deliberately native/Harmony-backed. Building
+            // a full optimized snapshot here would recache the projected grid
+            // only for the selector to reject it, and would make a staged edit
+            // look like a live cache mutation. The native path reads the scoped
+            // effective provider directly.
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                Clear();
+                return null;
+            }
+
+            // External priority stores do not expose a safe content revision
+            // for this snapshot. Keep the native/Harmony path authoritative
+            // instead of retaining a potentially stale optimized frame.
+            if (PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority)
+            {
+                Clear();
+                return null;
+            }
+
             WorkGridRevisionSet current = versions.CategoryRevisions;
+            bool effectiveStateCurrent = _hasEffectiveStateRevision &&
+                _effectiveStateRevision == effectiveStateRevision;
             if (_slot.Current != null &&
                 ReferenceEquals(_layout, layout) &&
                 _slot.Current.LayoutRevision == layout.LayoutRevision &&
+                effectiveStateCurrent &&
                 EqualConsumedRevisions(_revisions, current))
             {
                 return _slot.Current;
@@ -68,7 +104,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             int layoutSignature = ComputeLayoutSignature(layout);
             var timer = Stopwatch.StartNew();
             if (CanApplySparsePriorityUpdate(layout, current, layoutSignature, versions.PriorityDirtyKeys) &&
-                TryApplySparsePriorityUpdate(layout, current, versions.PriorityDirtyKeys, out int updatedCellCount))
+                TryApplySparsePriorityUpdate(
+                    table,
+                    layout,
+                    current,
+                    effectiveStateRevision,
+                    versions.PriorityDirtyKeys,
+                    out int updatedCellCount))
             {
                 timer.Stop();
                 WorkTabInvalidationHub.ClearConsumedPriorityKeys();
@@ -87,13 +129,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             if (_slot.Current != null &&
                 _hasLayoutSignature &&
                 _layoutSignature == layoutSignature &&
+                effectiveStateCurrent &&
                 EqualConsumedRevisions(_revisions, current))
             {
                 return _slot.Current;
             }
 
             timer.Restart();
-            Build(layout, table, current, layoutSignature);
+            Build(layout, table, current, layoutSignature, effectiveStateRevision);
             timer.Stop();
             WorkTabInvalidationHub.ClearConsumedPriorityKeys();
             WorkGridSnapshot snapshot = _slot.Current;
@@ -115,6 +158,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             IReadOnlyList<WorkGridPriorityKey> dirtyKeys)
         {
             return _slot.Current != null &&
+                   WorkTabEffectiveStateRuntime.CurrentRevision.IsLive &&
+                   !WorkTabEffectiveStateRuntime.IsPreviewActive &&
                    ReferenceEquals(_layout, layout) &&
                    _hasLayoutSignature &&
                    _layoutSignature == layoutSignature &&
@@ -125,8 +170,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         }
 
         private bool TryApplySparsePriorityUpdate(
+            PawnTable table,
             IWorkTabLayoutController layout,
             WorkGridRevisionSet revisions,
+            WorkTabEffectiveStateRevision effectiveStateRevision,
             IReadOnlyList<WorkGridPriorityKey> dirtyKeys,
             out int updatedCellCount)
         {
@@ -143,13 +190,70 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 dirty.Add(dirtyKeys[i]);
             }
 
-            var replacements = new Dictionary<int, WorkCellVisualState>();
-            uint cellRevision = unchecked((uint)(_snapshotRevision + 1));
+            var affectedWorkTypes = new HashSet<ushort>();
+            for (int i = 0; i < dirtyKeys.Count; i++)
+            {
+                affectedWorkTypes.Add(dirtyKeys[i].WorkTypeId);
+            }
+
+            var affectedParentWorkTypes = new HashSet<ushort>();
             IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
             for (int i = 0; i < previous.Cells.Count; i++)
             {
                 WorkCellVisualState cell = previous.Cells[i];
-                if (!dirty.Contains(new WorkGridPriorityKey(cell.PawnId, cell.WorkType?.shortHash ?? 0)))
+                ushort workTypeId = cell.WorkType?.shortHash ?? 0;
+                if (!affectedWorkTypes.Contains(workTypeId) ||
+                    cell.ColumnIndex >= columns.Count)
+                {
+                    continue;
+                }
+
+                WorkTabLayoutColumn column = columns[cell.ColumnIndex];
+                if (column.SubWorkGiver == null)
+                {
+                    affectedParentWorkTypes.Add(workTypeId);
+                }
+            }
+
+            var bestPawnIds = new Dictionary<ushort, int>();
+            for (int i = 0; i < columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = columns[i];
+                WorkTypeDef workType = column.SubWorkParent ?? column.Column?.workType;
+                if (column.SubWorkGiver != null || workType == null ||
+                    !affectedParentWorkTypes.Contains(workType.shortHash) ||
+                    FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column) ||
+                    !WorkGridVanillaCompatibilityPolicy.CanSnapshotVanillaPriorityCells() ||
+                    !WorkGridVanillaCompatibilityPolicy.CanSnapshotPriorityColumn(column.Column) ||
+                    !(column.Column?.Worker is PawnColumnWorker_WorkPriority priorityWorker))
+                {
+                    continue;
+                }
+
+                if (!bestPawnIds.ContainsKey(workType.shortHash))
+                {
+                    bestPawnIds[workType.shortHash] = FindBestPawnId(table, workType, priorityWorker);
+                }
+            }
+
+            foreach (ushort workTypeId in affectedParentWorkTypes)
+            {
+                if (!bestPawnIds.ContainsKey(workTypeId))
+                {
+                    return false;
+                }
+            }
+
+            var replacements = new Dictionary<int, WorkCellVisualState>();
+            uint cellRevision = unchecked((uint)(_snapshotRevision + 1));
+            for (int i = 0; i < previous.Cells.Count; i++)
+            {
+                WorkCellVisualState cell = previous.Cells[i];
+                ushort workTypeId = cell.WorkType?.shortHash ?? 0;
+                bool affected = affectedWorkTypes.Contains(workTypeId);
+                bool dirtyCell = dirty.Contains(
+                    new WorkGridPriorityKey(cell.PawnId, workTypeId));
+                if (!affected && !dirtyCell)
                 {
                     continue;
                 }
@@ -166,9 +270,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     return false;
                 }
 
-                int bestPawnId = (cell.Flags & WorkCellVisualFlags.BestPawn) != 0
-                    ? cell.PawnId
-                    : -1;
+                int bestPawnId = -1;
+                if (column.SubWorkGiver == null &&
+                    !bestPawnIds.TryGetValue(workTypeId, out bestPawnId))
+                {
+                    return false;
+                }
+
                 replacements[i] = BuildCell(
                     cell.Pawn,
                     cell.WorkType,
@@ -180,6 +288,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
 
             _revisions = revisions;
+            _effectiveStateRevision = effectiveStateRevision;
+            _hasEffectiveStateRevision = true;
             _snapshotRevision++;
             _slot.Publish(new WorkGridSnapshot(
                 _snapshotRevision,
@@ -189,7 +299,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 previous.Columns,
                 previous.Cells.WithReplacements(replacements),
                 previous.RetainedCapacityBytes,
-                Find.PlaySettings?.useWorkPriorities ?? previous.ManualPriorities,
+                WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
+                    Find.PlaySettings?.useWorkPriorities ?? previous.ManualPriorities),
                 previous.MaxPriority,
                 previous.UiScaleRevision,
                 previous.FontThemeRevision,
@@ -207,6 +318,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _layoutSignature = 0;
             _hasLayoutSignature = false;
             _revisions = default;
+            _effectiveStateRevision = default;
+            _hasEffectiveStateRevision = false;
             WorkGridRendererDiagnostics.RecordSnapshotCleared();
         }
 
@@ -214,7 +327,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             IWorkTabLayoutController layout,
             PawnTable table,
             WorkGridRevisionSet revisions,
-            int layoutSignature)
+            int layoutSignature,
+            WorkTabEffectiveStateRevision effectiveStateRevision)
         {
             _rows.Clear();
             _columns.Clear();
@@ -229,7 +343,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     var divider = row.Divider;
                     Color color = divider?.DividerColor ?? Color.clear;
                     BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-                    if (!(settings?.allowCustomDividerColors ?? true))
+                    if (!BWTWorkTabEffectiveSettings.GetBool(
+                            SettingIDs.DividersCustomColors,
+                            settings?.allowCustomDividerColors ?? true))
                     {
                         color = Color.gray;
                     }
@@ -277,7 +393,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
 
             IReadOnlyList<WorkTabLayoutColumn> layoutColumns = layout.Columns;
             bool canSnapshotVanillaPriorityCells =
-                      WorkGridVanillaCompatibilityPolicy.CanSnapshotVanillaPriorityCells();
+                      WorkGridVanillaCompatibilityPolicy.CanSnapshotVanillaPriorityCells() &&
+                      !PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority;
             var bestPawnIds = new Dictionary<ushort, int>();
             for (int i = 0; i < layoutColumns.Count; i++)
             {
@@ -355,6 +472,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _layout = layout;
             _hasLayoutSignature = true;
             _revisions = revisions;
+            _effectiveStateRevision = effectiveStateRevision;
+            _hasEffectiveStateRevision = true;
             _snapshotRevision++;
             int retainedBytes = (_rows.Capacity * 40) + (_columns.Capacity * 40) + (_cells.Capacity * 28);
             int maxPriority = WorkPrioritySystem.GetMaxPriority();
@@ -367,7 +486,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 _columns.ToSnapshot(),
                 _cells.ToSnapshot(),
                 retainedBytes,
-                Find.PlaySettings?.useWorkPriorities ?? true,
+                WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
+                    Find.PlaySettings?.useWorkPriorities ?? true),
                 maxPriority,
                 Mathf.RoundToInt(Prefs.UIScale * 1000f),
                 presentationRevision,
@@ -430,7 +550,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
             else
             {
-                priority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+                priority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                    pawn,
+                    workType,
+                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
                 incapable = IsIncapable(pawn, workType);
                 overrideRing = WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent() &&
                                !disabled &&
@@ -537,12 +660,41 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     continue;
                 }
 
-                if (bestPawn == null || worker.Compare(candidate, bestPawn) > 0)
+                if (bestPawn == null || IsBetterPawn(candidate, bestPawn, workType, worker))
                 {
                     bestPawn = candidate;
                 }
             }
             return bestPawn?.thingIDNumber ?? -1;
+        }
+
+        private static bool IsBetterPawn(
+            Pawn candidate,
+            Pawn bestPawn,
+            WorkTypeDef workType,
+            PawnColumnWorker_WorkPriority worker)
+        {
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                return worker.Compare(candidate, bestPawn) > 0;
+            }
+
+            int candidatePriority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                candidate,
+                workType,
+                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(candidate, workType));
+            int bestPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                bestPawn,
+                workType,
+                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(bestPawn, workType));
+            if (candidatePriority != bestPriority)
+            {
+                // RimWorld's Work-priority comparison treats the smallest
+                // enabled number as the preferred assignment.
+                return candidatePriority < bestPriority;
+            }
+
+            return worker.Compare(candidate, bestPawn) > 0;
         }
 
         private static uint PackColor(Color color)

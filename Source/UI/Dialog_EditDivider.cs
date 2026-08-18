@@ -3,6 +3,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer.Data;
 using RimWorld;
 using Spine.UI.ColourPicker;
+using Better_Work_Tab.UI.Settings;
 using UnityEngine;
 using Verse;
 
@@ -58,7 +59,9 @@ namespace Better_Work_Tab.UI
             Widgets.DrawBox(colorStripRect, 1);
 
             Rect colorButtonRect = new Rect(0f, colorStripRect.yMax + 6f, inRect.width, 30f);
-            if (BetterWorkTabMod.Settings?.allowCustomDividerColors ?? true)
+            if (BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.DividersCustomColors,
+                BetterWorkTabMod.Settings?.allowCustomDividerColors ?? DefaultSettings.allowCustomDividerColors))
             {
                 if (Widgets.ButtonText(colorButtonRect, "Divider Color"))
                 {
