@@ -6,6 +6,7 @@
     <BWT_Settings_UI_Settings>Settings</BWT_Settings_UI_Settings>
     <BWT_Settings_UI_Controls>Controls</BWT_Settings_UI_Controls>
     <BWT_Settings_UI_Edit>Edit</BWT_Settings_UI_Edit>
+    <BWT_Settings_UI_AdvancedSearchNotice>Found in Advanced settings: {0} — click to switch to Advanced</BWT_Settings_UI_AdvancedSearchNotice>
     <BWT_Settings_UI_Close>Close</BWT_Settings_UI_Close>
     <BWT_Settings_UI_CurrentSelection>Currently selected</BWT_Settings_UI_CurrentSelection>
     <BWT_Settings_UI_PreviewingOption>Previewing option</BWT_Settings_UI_PreviewingOption>

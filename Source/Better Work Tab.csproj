@@ -420,6 +420,9 @@
     <Compile Include="UI\Settings\BWTSettingsFilters.cs" />
     <Compile Include="UI\Settings\BetterWorkTabSettingsWindowService.cs" />
     <Compile Include="UI\Settings\BWTSettingWidgets.cs" />
+    <Compile Include="UI\Settings\BWTSettingsSearchIndex.cs" />
+    <Compile Include="UI\Settings\BWTSettingsSearchRuntime.cs" />
+    <Compile Include="UI\Settings\BWTSettingsLabelAlignment.cs" />
     <Compile Include="UI\Settings\BWTSettingsContextFocus.cs" />
     <Compile Include="UI\Settings\BWTSettingsFocusRequest.cs" />
     <Compile Include="UI\Settings\BWTWorkTabContextSettingsRouter.cs" />

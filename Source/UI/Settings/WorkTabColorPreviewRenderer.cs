@@ -42,12 +42,17 @@ namespace Better_Work_Tab.UI.Settings
                 case WorkTabColorPreviewTarget.HeaderText:
                     DrawHeaderTextPreview(headerRect, headerLabel, preview.Color);
                     break;
+                case WorkTabColorPreviewTarget.HeaderUnderline:
+                    DrawHeaderUnderlinePreview(headerRect, preview.Color);
+                    break;
                 case WorkTabColorPreviewTarget.Divider:
                     DrawHighlight(dividerRect, preview.Color);
                     break;
+                case WorkTabColorPreviewTarget.SkillNumber:
                 case WorkTabColorPreviewTarget.CellText:
                     DrawCellTextPreview(cellRect, cellText, preview.Color);
                     break;
+                case WorkTabColorPreviewTarget.BestPawn:
                 case WorkTabColorPreviewTarget.CellIndicator:
                     DrawCellIndicatorPreview(cellRect, preview.Color);
                     break;
@@ -249,6 +254,18 @@ namespace Better_Work_Tab.UI.Settings
             Text.Font = oldFont;
             Text.Anchor = oldAnchor;
             Text.WordWrap = oldWordWrap;
+        }
+
+        private static void DrawHeaderUnderlinePreview(Rect rect, Color color)
+        {
+            if (rect.width <= 0f || rect.height <= 0f)
+            {
+                return;
+            }
+
+            Widgets.DrawBoxSolid(
+                new Rect(rect.xMin, rect.yMax - 3f, rect.width, 2f),
+                color);
         }
 
         private static void DrawCellIndicatorPreview(Rect rect, Color color)

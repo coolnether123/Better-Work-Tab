@@ -138,6 +138,7 @@ namespace Better_Work_Tab.UI.Settings
             RegisterAllSettings();
             _hierarchy = new SettingsHierarchy(_schema.Definitions);
             _initialized = true;
+            BWTSettingsAdaptiveSearchAliases.Initialize(_schema.Definitions);
             SettingsConsistencyValidator.ValidateAtStartup();
         }
 
@@ -1338,6 +1339,36 @@ namespace Better_Work_Tab.UI.Settings
                 .DefaultTo(DefaultSettings.Color_SettingFocusHighlight)
                 .Ordered(404)
                 .AdvancedOnly();
+
+            schema.Root.Under(AdvancedHeader)
+                .Custom(
+                    AdvancedSearchAliases,
+                    (rect, label, tooltip, settings, disabled) =>
+                        BWTSettingsAdaptiveSearchAliases.DrawAliasStatus(
+                            rect,
+                            label,
+                            tooltip,
+                            settings,
+                            disabled),
+                    "Learned settings search",
+                    tooltip: "BWT can remember a local search correction after three deliberate confirmations. The alias file stays on this computer and can be reset here.")
+                .SearchableBy(new[]
+                {
+                    "learned search",
+                    "search correction",
+                    "adaptive search",
+                    "search aliases",
+                    "reset search"
+                })
+                .Ordered(405)
+                .AdvancedOnly()
+                .Configure(definition =>
+                {
+                    definition.CustomHasNonDefaultValue = _ =>
+                        BWTSettingsAdaptiveSearchAliases.ActiveAliasCount > 0 ||
+                        BWTSettingsAdaptiveSearchAliases.PendingAliasCount > 0;
+                    definition.CustomReset = _ => BWTSettingsAdaptiveSearchAliases.Reset();
+                });
 
             schema.Root.Under(AdvancedHeader)
                 .Enum(AdvancedWorkGridRenderer, settings => settings.workGridRendererMode, "Work grid renderer",
