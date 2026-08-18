@@ -4,8 +4,6 @@ using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.ComplexJobs;
@@ -27,9 +25,9 @@ namespace Better_Work_Tab.UI.Settings
     // HOW TO ADD A SETTING
     // 1. Add the canonical default to DefaultSettings.
     // 2. Add the BetterWorkTabSettings instance field initialized from DefaultSettings.
-    // 3. Add one typed schema entry here: Id from SettingIDs, field selector, default,
-    //    parent/sort metadata, search keywords, and translation keys in
-    //    Languages/English/Keyed/BWT_Settings.xml.
+    // 3. Add one SettingDefinition here: Id from SettingIDs, FieldName, DefaultValue =
+    //    DefaultSettings.x, widget Type, parent/sort metadata, search keywords, and translation keys
+    //    in Languages/English/Keyed/BWT_Settings.xml.
     // 4. Nothing else is needed for normal preferences. Registry scribing, reset, and the
     //    dev-mode validator pick it up automatically and warn about drift.
 
@@ -140,6 +138,7 @@ namespace Better_Work_Tab.UI.Settings
             RegisterAllSettings();
             _hierarchy = new SettingsHierarchy(_schema.Definitions);
             _initialized = true;
+            BWTSettingsAdaptiveSearchAliases.Initialize(_schema.Definitions);
             SettingsConsistencyValidator.ValidateAtStartup();
         }
 
@@ -162,12 +161,6 @@ namespace Better_Work_Tab.UI.Settings
             Action<object> existingOnChanged = def?.OnChanged;
             if (def != null)
             {
-                if (def.Type == SettingType.Enum)
-                {
-                    def.EnumLabelProvider = def.EnumLabelProvider ?? BWTSettingsTranslation.GetEnumLabel;
-                    def.EnumDescriptionProvider = def.EnumDescriptionProvider ?? BWTSettingsTranslation.GetEnumDescription;
-                }
-
                 def.OnChanged = settingsObject =>
                 {
                     existingOnChanged?.Invoke(settingsObject);
@@ -312,51 +305,117 @@ namespace Better_Work_Tab.UI.Settings
             return false;
         }
 
-        private enum SubWorkTransitionMode
+        private static bool DrawSubWorkTransitionMode(
+            Rect rect,
+            string label,
+            string tooltip,
+            object settingsObject,
+            bool disabled)
         {
-            Off,
-            ClassicGlide,
-            PixelWave
+            if (!(settingsObject is BetterWorkTabSettings settings))
+            {
+                return false;
+            }
+
+            Rect labelRect = rect.LeftPart(0.5f);
+            Rect buttonRect = rect.RightPart(0.48f);
+            Widgets.Label(labelRect, label);
+
+            bool previousEnabled = GUI.enabled;
+            Color previousColor = GUI.color;
+            if (disabled)
+            {
+                GUI.enabled = false;
+                GUI.color = Color.gray;
+            }
+
+            if (Widgets.ButtonText(buttonRect, GetSubWorkTransitionModeLabel(settings)))
+            {
+                var offOption = new FloatMenuOption("Off (instant)", () =>
+                    {
+                        settings.enableSubWorkTransitionAnimation = false;
+                        HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+                        settings.Write();
+                    });
+                var classicOption = new FloatMenuOption(GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash), () =>
+                    {
+                        settings.enableSubWorkTransitionAnimation = true;
+                        settings.subWorkTransitionStyle = BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash;
+                        HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+                        settings.Write();
+                    });
+                var pixelOption = new FloatMenuOption(GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip), () =>
+                    {
+                        settings.enableSubWorkTransitionAnimation = true;
+                        settings.subWorkTransitionStyle = BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip;
+                        HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
+                        settings.Write();
+                    });
+                var options = new List<FloatMenuOption>
+                {
+                    offOption,
+                    classicOption,
+                    pixelOption
+                };
+
+                FloatMenuOption selectedOption = !settings.enableSubWorkTransitionAnimation
+                    ? offOption
+                    : settings.subWorkTransitionStyle == BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip
+                        ? pixelOption
+                        : classicOption;
+                var optionDescriptions = new Dictionary<FloatMenuOption, string>
+                {
+                    [offOption] = "Turns the specific-job transition animation off. Columns change immediately when entering or leaving the specific-job view.",
+                    [classicOption] = "Uses BWT's original transition: columns glide into position with a brief flash while entering or leaving the specific-job view.",
+                    [pixelOption] = "Keeps the columns in place while a grey pixel wave passes across them, progressively revealing or hiding the specific-job view."
+                };
+                Find.WindowStack.Add(new DescribedFloatMenu(options, selectedOption, label, tooltip, optionDescriptions));
+            }
+
+            GUI.enabled = previousEnabled;
+            GUI.color = previousColor;
+
+            if (!string.IsNullOrEmpty(tooltip) && !DescribedFloatMenu.AnyOpen)
+            {
+                TooltipHandler.TipRegion(labelRect, tooltip);
+            }
+
+            return false;
         }
 
-        private static SubWorkTransitionMode GetSubWorkTransitionMode(BetterWorkTabSettings settings)
+        private static string GetSubWorkTransitionModeLabel(BetterWorkTabSettings settings)
         {
             if (settings == null || !settings.enableSubWorkTransitionAnimation)
             {
-                return SubWorkTransitionMode.Off;
+                return "Off (instant)";
             }
 
-            return settings.subWorkTransitionStyle == BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip
-                ? SubWorkTransitionMode.PixelWave
-                : SubWorkTransitionMode.ClassicGlide;
+            return GetSubWorkTransitionStyleLabel(settings.subWorkTransitionStyle);
         }
 
-        private static void SetSubWorkTransitionMode(
-            BetterWorkTabSettings settings,
-            SubWorkTransitionMode mode)
+        private static string GetSubWorkTransitionStyleLabel(BetterWorkTabSettings.SubWorkTransitionStyle style)
         {
-            settings.enableSubWorkTransitionAnimation = mode != SubWorkTransitionMode.Off;
-            if (mode != SubWorkTransitionMode.Off)
-            {
-                settings.subWorkTransitionStyle = mode == SubWorkTransitionMode.PixelWave
-                    ? BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip
-                    : BetterWorkTabSettings.SubWorkTransitionStyle.ClassicGlideFlash;
-            }
+            string key = $"BWT_Enum_SubWorkTransitionStyle_{style}";
+            return key.CanTranslate() ? key.Translate() : style.ToString();
         }
 
-        private static string GetSubWorkTransitionModeLabel(SubWorkTransitionMode mode) =>
-            mode == SubWorkTransitionMode.Off
-                ? "Off (instant)"
-                : mode == SubWorkTransitionMode.PixelWave
-                    ? "Pixel wave reveal"
-                    : "Classic glide";
+        private static bool IsSubWorkTransitionModeNonDefault(object settingsObject)
+        {
+            return settingsObject is BetterWorkTabSettings settings &&
+                (settings.enableSubWorkTransitionAnimation != DefaultSettings.enableSubWorkTransitionAnimation ||
+                 settings.subWorkTransitionStyle != DefaultSettings.subWorkTransitionStyle);
+        }
 
-        private static string GetSubWorkTransitionModeDescription(SubWorkTransitionMode mode) =>
-            mode == SubWorkTransitionMode.Off
-                ? "Turns the transition off so specific-job columns change immediately."
-                : mode == SubWorkTransitionMode.PixelWave
-                    ? "Keeps columns in place while a grey pixel wave progressively reveals or hides them."
-                    : "Uses BWT's original glide and brief flash when entering or leaving the specific-job view.";
+        private static void ResetSubWorkTransitionMode(object settingsObject)
+        {
+            if (!(settingsObject is BetterWorkTabSettings settings))
+            {
+                return;
+            }
+
+            settings.enableSubWorkTransitionAnimation = DefaultSettings.enableSubWorkTransitionAnimation;
+            settings.subWorkTransitionStyle = DefaultSettings.subWorkTransitionStyle;
+        }
 
         /// <summary>
         /// Adds all setting definitions with hierarchy relationships.
@@ -438,8 +497,7 @@ namespace Better_Work_Tab.UI.Settings
 
             schema.Root
                 .Toggle(FeaturesSubWorkJobs, settings => settings.enableSubWorkDrilldown, "Specific jobs",
-                        tooltip: "Open a Work column to set priorities for its individual jobs. Use the shortcut below on a Work header or cell; use it again, or press Escape, to return.",
-                        onChanged: _ => WorkGiverReassignmentManager.OnRuntimeSettingChanged())
+                        tooltip: "Open a Work column to set priorities for its individual jobs. Use the shortcut below on a Work header or cell; use it again, or press Escape, to return.")
                 .DefaultTo(DefaultSettings.enableSubWorkDrilldown)
                 .SearchableBy(SpecificJobSearchKeywords)
                 .ControlsChildren()
@@ -506,18 +564,11 @@ namespace Better_Work_Tab.UI.Settings
                 .ShownIn(false, false);
 
             schema.Root.Under(FeaturesSubWorkJobs)
-                .DerivedEnum(SettingIDs.SubWorkTransitionMode, GetSubWorkTransitionMode, SetSubWorkTransitionMode, "Animation style",
-                             tooltip: "Choose how the Work tab opens specific jobs. Off changes instantly with no transition.",
-                             labelProvider: GetSubWorkTransitionModeLabel,
-                             descriptionProvider: GetSubWorkTransitionModeDescription,
-                             onChanged: _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged())
-                .DefaultTo(!DefaultSettings.enableSubWorkTransitionAnimation
-                    ? SubWorkTransitionMode.Off
-                    : DefaultSettings.subWorkTransitionStyle == BetterWorkTabSettings.SubWorkTransitionStyle.PixelWaveFlip
-                        ? SubWorkTransitionMode.PixelWave
-                        : SubWorkTransitionMode.ClassicGlide)
+                .Custom(SubWorkTransitionMode, (rect, rowLabel, rowTooltip, settings, disabled) => DrawSubWorkTransitionMode(rect, rowLabel, rowTooltip, settings, disabled), "Animation style",
+                        tooltip: "Choose how the Work tab opens specific jobs. Off changes instantly with no transition.", onChanged: _ => HeaderDrawingCoordinator.NotifyAngledHeadersChanged())
                 .Ordered(10)
-                .AdvancedOnly();
+                .AdvancedOnly()
+                .WithCustomReset(IsSubWorkTransitionModeNonDefault, ResetSubWorkTransitionMode);
 
             schema.Root.Under(FeaturesSubWorkJobs)
                 .Enum(SubWorkTransitionStyle, settings => settings.subWorkTransitionStyle, "Transition style", tooltip: "Classic glide is the original sub-work transition. Pixel wave reveal keeps columns in place and fades them as the grey wave passes.",
@@ -671,8 +722,7 @@ namespace Better_Work_Tab.UI.Settings
         ;
 
             schema.Root.Under(PriorityHeader)
-                .Toggle(UiTimePrioritySchedules, settings => settings.enableTimePrioritySchedules, "Priorities by hour", tooltip: "Ctrl-click a work-priority cell to set different priorities by time of day.",
-                        onChanged: _ => TimePriorityService.OnRuntimeSettingChanged())
+                .Toggle(UiTimePrioritySchedules, settings => settings.enableTimePrioritySchedules, "Priorities by hour", tooltip: "Ctrl-click a work-priority cell to set different priorities by time of day.")
                 .DefaultTo(DefaultSettings.enableTimePrioritySchedules)
                 .SearchableBy(HourlyPrioritySearchKeywords)
                 .ControlsChildren()
@@ -766,22 +816,17 @@ namespace Better_Work_Tab.UI.Settings
             {
                 if (settingsObj is BetterWorkTabSettings s)
                 {
-                    WorkTabColorPreviewController.Instance.BeginMasterPicker(s.Color_CursorHighlight);
-                    var dialog = new Dialog_ColourPicker(s.Color_CursorHighlight, (picked, closing) =>
-                    {
-                        s.Color_CursorHighlight = picked;
-                        s.Color_RowHoverHighlight = picked;
-                        s.Color_ColumnHoverHighlight = picked;
-                        s.Color_SelectedPawnHighlight = picked;
-                        s.Color_FloatMenuHighlight = picked;
-                        s.Color_CustomSimilarWorktypeHighlight = picked;
-                        s.Write();
-                        WorkTabColorPreviewController.Instance.PreviewMasterPicker(picked);
-                        Messages.Message("Master color applied to all highlight settings.", MessageTypeDefOf.PositiveEvent, false);
-                    }, previewCallback: WorkTabColorPreviewController.Instance.PreviewMasterPicker);
-                    dialog.onCancel = WorkTabColorPreviewController.Instance.EndMasterPicker;
-                    dialog.onPostClose = WorkTabColorPreviewController.Instance.EndMasterPicker;
-                    Find.WindowStack.Add(dialog);
+                     Find.WindowStack.Add(new Dialog_ColourPicker(s.Color_CursorHighlight, (picked, closing) =>
+                     {
+                         s.Color_CursorHighlight = picked;
+                         s.Color_RowHoverHighlight = picked;
+                         s.Color_ColumnHoverHighlight = picked;
+                         s.Color_SelectedPawnHighlight = picked;
+                         s.Color_FloatMenuHighlight = picked;
+                         s.Color_CustomSimilarWorktypeHighlight = picked;
+                         s.Write();
+                         Messages.Message("Master color applied to all highlight settings.", MessageTypeDefOf.PositiveEvent, false);
+                     }));
                 }
             }
             )
@@ -1034,7 +1079,7 @@ namespace Better_Work_Tab.UI.Settings
                 .AdvancedOnly()
                 .ValueRange(0f, 1f);
 
-            schema.Root.Under(FeaturesDividers).Toggle(DividersShow, settings => settings.enableDividers, "Show Dividers", tooltip: "Toggle visibility of divider rows.").WithoutAutoScribe().DefaultTo(DefaultSettings.enableDividers).Ordered(107);
+            schema.Root.Under(FeaturesDividers).Toggle(DividersShow, settings => settings.enableDividers, "Show Dividers", tooltip: "Toggle visibility of divider rows.").DefaultTo(DefaultSettings.enableDividers).Ordered(107);
 
             schema.Root.Under(FeaturesDividers)
                 .Toggle(DividersCustomColors, settings => settings.allowCustomDividerColors, "Custom divider colors", tooltip: "Choose a different color for each divider.")
@@ -1296,6 +1341,36 @@ namespace Better_Work_Tab.UI.Settings
                 .AdvancedOnly();
 
             schema.Root.Under(AdvancedHeader)
+                .Custom(
+                    AdvancedSearchAliases,
+                    (rect, label, tooltip, settings, disabled) =>
+                        BWTSettingsAdaptiveSearchAliases.DrawAliasStatus(
+                            rect,
+                            label,
+                            tooltip,
+                            settings,
+                            disabled),
+                    "Learned settings search",
+                    tooltip: "BWT can remember a local search correction after three deliberate confirmations. The alias file stays on this computer and can be reset here.")
+                .SearchableBy(new[]
+                {
+                    "learned search",
+                    "search correction",
+                    "adaptive search",
+                    "search aliases",
+                    "reset search"
+                })
+                .Ordered(405)
+                .AdvancedOnly()
+                .Configure(definition =>
+                {
+                    definition.CustomHasNonDefaultValue = _ =>
+                        BWTSettingsAdaptiveSearchAliases.ActiveAliasCount > 0 ||
+                        BWTSettingsAdaptiveSearchAliases.PendingAliasCount > 0;
+                    definition.CustomReset = _ => BWTSettingsAdaptiveSearchAliases.Reset();
+                });
+
+            schema.Root.Under(AdvancedHeader)
                 .Enum(AdvancedWorkGridRenderer, settings => settings.workGridRendererMode, "Work grid renderer",
                       tooltip: "Auto uses BWT's optimized renderer when available and falls back safely. Vanilla always uses the game's native Work grid renderer. Both paths preserve vanilla visuals and interactions.")
                 .DefaultTo(DefaultSettings.workGridRendererMode)
@@ -1491,23 +1566,7 @@ namespace Better_Work_Tab.UI.Settings
                 .ControlsChildren()
                 .Ordered(506)
                 .Configure(definition =>
-                           {
-                               definition.Suppressions = new List<SettingSuppression>
-                               {
-                                   FluffyWorkTabGateway.CreateWorkTabOwnedByFluffySuppression(
-                                       "Fluffy Work Tab is drawing the Work tab headers.")
-                               };
-                               definition.Supersessions = new List<SettingSupersession>
-                               {
-                                   new SettingSupersession
-                                   {
-                                       SupersededSettingId = SubWorkAutoExpandColumns,
-                                       When = settingsObj => ((BetterWorkTabSettings)settingsObj).enableAngledHeaders,
-                                       LinkLabel = "Expand specific-job columns",
-                                       Description = "Angled headers already keep specific-job labels from colliding, so expanded columns are not needed."
-                                   }
-                               };
-                           });
+                           { definition.Suppressions = new List<SettingSuppression> { FluffyWorkTabGateway.CreateWorkTabOwnedByFluffySuppression("Fluffy Work Tab is drawing the Work tab headers.") }; });
 
             schema.Root.Under(HeadersAngled)
                 .Toggle(DragdropRemoveHeaderUnderline, settings => settings.removeHeaderUnderline, "Hide header underline", tooltip: "Remove the line beneath Work header labels.")
@@ -1533,13 +1592,13 @@ namespace Better_Work_Tab.UI.Settings
         ;
 
             schema.Root.Under(HeadersAngled)
-                .Toggle(HeadersUseVerticalStackingForCJK, settings => settings.useVerticalStackingForCJK, "Vertical stacking for CJK",
+                .Toggle("headers.useVerticalStackingForCJK", settings => settings.useVerticalStackingForCJK, "Vertical stacking for CJK",
                         tooltip: "Draw East Asian characters (Korean, Chinese, Japanese) vertically when angled headers are enabled. This is much more legible than rotated text.", onChanged: s => HeaderDrawingCoordinator.NotifyAngledHeadersChanged())
                 .DefaultTo(DefaultSettings.useVerticalStackingForCJK)
                 .Ordered(5072);
 
-            schema.Root.Under(HeadersUseVerticalStackingForCJK)
-                .Float(HeadersCjkVerticalKerning, settings => settings.cjkVerticalKerning, "CJK vertical kerning",
+            schema.Root.Under("headers.useVerticalStackingForCJK")
+                .Float("headers.cjkVerticalKerning", settings => settings.cjkVerticalKerning, "CJK vertical kerning",
                        tooltip: "Adjust the vertical spacing between characters in Asian vertical stacking. Lower values mean tighter spacing.", onChanged: s => HeaderDrawingCoordinator.NotifyAngledHeadersChanged())
                 .DefaultTo(DefaultSettings.cjkVerticalKerning)
                 .Ordered(5073)

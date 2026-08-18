@@ -31,7 +31,6 @@ namespace Better_Work_Tab.UI
                     drawer.EditColorLabel = BWTSettingsTranslation.Edit;
                     drawer.ColorPreviewTooltip = "Hover here or adjust the picker to preview this color live on the Work tab.";
                     drawer.ColorPreviewSink = WorkTabColorPreviewController.Instance;
-                    drawer.ColorPreviewTransactionSink = WorkTabColorPreviewController.Instance;
                     drawer.OnSettingPreview = WorkTabColorPreviewController.Instance.PreviewSetting;
                     drawer.Filters = BWTSettingsFilters.Create();
                     drawer.FilterLabel = "Filter";
@@ -39,11 +38,15 @@ namespace Better_Work_Tab.UI
                     drawer.IndentPerLevel = 20f;
                     drawer.OnSettingTooltipViewed = MarkSettingViewed;
                     drawer.OnSettingInteracted = (definition, _) =>
+                    {
+                        BWTSettingsAdaptiveSearchAliases.ConfirmInteraction(drawer, definition);
                         BWTGeneralTutorial.NotifySettingsRowInteracted(definition?.Id);
+                    };
                 },
                 PrepareDrawer = (drawer, settingsObject) =>
                 {
                     var settings = (BetterWorkTabSettings)settingsObject;
+                    BWTSettingsAdaptiveSearchAliases.Observe(drawer, settings);
                     drawer.ShowResetIcons = !settings.hideSettingResetIcons;
                     drawer.FocusHighlightColor = settings.Color_SettingFocusHighlight;
                     drawer.ImportExportActions = BWTSettingsImportExportActions.Create(

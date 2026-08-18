@@ -1,4 +1,3 @@
-using System;
 using Spine.UI.SettingsFramework;
 using Verse;
 
@@ -23,6 +22,21 @@ namespace Better_Work_Tab.UI.Settings
         /// Translated text for empty search results.
         /// </summary>
         public static string NoResults => "BWT_Settings_UI_NoResults".Translate();
+
+        /// <summary>
+        /// Text shown when a Simple-view search finds an Advanced-only setting.
+        /// The first format argument is the first matching setting label.
+        /// </summary>
+        public static string AdvancedSearchNotice
+        {
+            get
+            {
+                const string key = "BWT_Settings_UI_AdvancedSearchNotice";
+                return key.CanTranslate()
+                    ? key.Translate()
+                    : "Found in Advanced settings: {0} — click to switch to Advanced";
+            }
+        }
 
         /// <summary>
         /// Translated label for the color edit button.
@@ -79,45 +93,6 @@ namespace Better_Work_Tab.UI.Settings
             return def == null
                 ? string.Empty
                 : def.TooltipKey ?? $"BWT_Settings_{def.Id}_Tooltip";
-        }
-
-        public static string GetEnumLabel(object value)
-        {
-            if (value == null)
-            {
-                return string.Empty;
-            }
-
-            Type enumType = value.GetType();
-            string key = $"BWT_Enum_{enumType.Name}_{value}";
-            if (key.CanTranslate())
-            {
-                return key.Translate();
-            }
-
-            if (enumType == typeof(BetterWorkTabSettings.SkillViewHoverMode))
-            {
-                switch ((BetterWorkTabSettings.SkillViewHoverMode)value)
-                {
-                    case BetterWorkTabSettings.SkillViewHoverMode.Standard:
-                        return "Priority";
-                    case BetterWorkTabSettings.SkillViewHoverMode.SkillFocused:
-                        return "Skill";
-                }
-            }
-
-            return value.ToString();
-        }
-
-        public static string GetEnumDescription(object value)
-        {
-            if (value == null)
-            {
-                return null;
-            }
-
-            string key = $"BWT_Enum_{value.GetType().Name}_{value}_Description";
-            return key.CanTranslate() ? key.Translate() : null;
         }
     }
 }

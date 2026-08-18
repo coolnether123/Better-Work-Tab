@@ -1589,27 +1589,30 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             .Ordered(100)
                             .Accented(new Color(0.67f, 0.75f, 0.92f))
                             .ShownWhen(_ => FluffyWorkTabGateway.IsPresent),
-                                                scope.Under(ControlsFluffyHeader).ReadOnly(
+                                                scope.Under(ControlsFluffyHeader).Custom(
                             ControlsFluffyExpand,
-                            _ => "Ctrl-click Work header",
+                            (rect, label, tooltip, _, disabled) =>
+                                BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Ctrl-click Work header", tooltip, disabled),
                             "Open or close specific jobs",
                             tooltip: "Fluffy's native Ctrl-header gesture is preserved. When BWT owns the tab, the configured specific-job shortcut routes through BWT and Expand beside opens Fluffy-style columns."
                         )
                             .SearchableBy(FluffyKeywords("ctrl click", "expand", "collapse", "specific jobs"))
                             .Ordered(101)
                             .ShownWhen(_ => FluffyWorkTabGateway.IsPresent),
-                                                scope.Under(ControlsFluffyHeader).ReadOnly(
+                                                scope.Under(ControlsFluffyHeader).Custom(
                             ControlsFluffyBatch,
-                            _ => "Shift-click / Shift-wheel",
+                            (rect, label, tooltip, _, disabled) =>
+                                BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
                             "Change a whole Work column",
                             tooltip: "Shift-scroll changes all capable pawn priorities. Shift-click changes a whole specific-job column; on root Work headers, BWT's optional grouping action owns Shift-left-click."
                         )
                             .SearchableBy(FluffyKeywords("shift scroll", "shift click", "batch priority", "all pawns"))
                             .Ordered(102)
                             .ShownWhen(_ => FluffyWorkTabGateway.IsPresent),
-                                                scope.Under(ControlsFluffyHeader).ReadOnly(
+                                                scope.Under(ControlsFluffyHeader).Custom(
                             ControlsFluffyPawnRows,
-                            _ => "Shift-click / Shift-wheel",
+                            (rect, label, tooltip, _, disabled) =>
+                                BWTSettingWidgets.DrawReadOnlyValue(rect, label, "Shift-click / Shift-wheel", tooltip, disabled),
                             "Adjust a pawn row",
                             tooltip: "Fluffy's Shift-click and Shift-wheel pawn-name gesture remains available when Fluffy owns the Work tab. BWT-owned layouts keep fixed aligned pawn-row heights."
                         )
