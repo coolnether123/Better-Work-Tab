@@ -12,7 +12,6 @@ namespace Spine.UI.SettingsFramework
     /// <summary>
     /// Draws a scrollable list of hierarchical settings with search and view toggles.
     /// </summary>
-    [StaticConstructorOnStartup]
     public class SettingsListDrawer
     {
         private const float ResetIconSlotWidth = 26f;
@@ -29,10 +28,8 @@ namespace Spine.UI.SettingsFramework
         private const float SupersessionAffordanceSlotWidth = 22f;
         private const float SupersessionAffordanceSize = 18f;
 
-        private static readonly Texture2D ResetIcon =
-            ContentFinder<Texture2D>.Get("UI/Buttons/Dev/Reload");
-        private static readonly Texture2D ClearIcon =
-            ContentFinder<Texture2D>.Get("UI/Widgets/CloseXSmall");
+        private static Texture2D ResetIcon;
+        private static Texture2D ClearIcon;
 
         private readonly SettingsHierarchy _hierarchy;
         private Vector2 _scrollPosition;
@@ -1926,6 +1923,7 @@ namespace Spine.UI.SettingsFramework
                 buttonRect.width + 8f,
                 buttonRect.height + 8f);
             Widgets.DrawHighlightIfMouseover(hitRect);
+            EnsureUiTexturesLoaded();
             GUI.DrawTexture(iconRect, ClearIcon);
             Text.Anchor = TextAnchor.MiddleLeft;
             Widgets.Label(labelRect, label);
@@ -2377,6 +2375,7 @@ namespace Spine.UI.SettingsFramework
 
         private void DrawResetButton(Rect rect, bool disabled, Action resetAction)
         {
+            EnsureUiTexturesLoaded();
             bool oldEnabled = GUI.enabled;
             Color oldColor = GUI.color;
             if (disabled)
@@ -2395,6 +2394,19 @@ namespace Spine.UI.SettingsFramework
             {
                 resetAction?.Invoke();
                 Event.current?.Use();
+            }
+        }
+
+        private static void EnsureUiTexturesLoaded()
+        {
+            if (ResetIcon == null)
+            {
+                ResetIcon = ContentFinder<Texture2D>.Get("UI/Buttons/Dev/Reload");
+            }
+
+            if (ClearIcon == null)
+            {
+                ClearIcon = ContentFinder<Texture2D>.Get("UI/Widgets/CloseXSmall");
             }
         }
 
