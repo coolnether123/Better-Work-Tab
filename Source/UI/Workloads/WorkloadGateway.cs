@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
@@ -16,10 +17,10 @@ using Verse.Sound;
 namespace Better_Work_Tab.UI.Workloads
 {
     /// <summary>
-    /// Coordinates the two workload-only inline surfaces that can be rendered
-    /// by the Work tab. This is deliberately not a WindowStack/window owner:
-    /// both surfaces remain part of the one Work-tab window and only one
-    /// workload popover may own input at a time.
+    /// Coordinates the workload footer and the modern preview session that are
+    /// both hosted by the one Work-tab window. This is deliberately not a
+    /// WindowStack/window owner: the footer picker remains the only secondary
+    /// workload surface and a live preview keeps it guarded.
     /// </summary>
     internal static class WorkloadSurfaceCoordinator
     {
@@ -32,18 +33,12 @@ namespace Better_Work_Tab.UI.Workloads
 
         private static SurfaceOwner _owner;
         private static Action _closeFooter;
-        private static Action _closePreview;
         private static Func<bool> _isPreviewActive;
         private static Action<string> _reportPreviewMessage;
 
         internal static void RegisterFooterCloser(Action closer)
         {
             _closeFooter = closer;
-        }
-
-        internal static void RegisterPreviewCloser(Action closer)
-        {
-            _closePreview = closer;
         }
 
         internal static void RegisterPreviewState(
@@ -54,18 +49,12 @@ namespace Better_Work_Tab.UI.Workloads
             _reportPreviewMessage = reportMessage;
         }
 
-        /// <summary>
-        /// The workload footer and modern preview are sibling surfaces in the
-        /// one Work-tab window. A live preview owns the editing surface, so a
-        /// footer click is rejected in-place rather than closing the preview
-        /// or leaving an invisible footer hit region behind it.
-        /// </summary>
         internal static bool TryOpenFooter()
         {
             if (_isPreviewActive?.Invoke() == true)
             {
                 _reportPreviewMessage?.Invoke(
-                    "Finish, Update, Save As, or Cancel the active workload preview before opening the workload list.");
+                    "Finish, Update, Save As, Apply, or Cancel the active workload preview before opening the workload list.");
                 return false;
             }
 
@@ -74,7 +63,6 @@ namespace Better_Work_Tab.UI.Workloads
                 return true;
             }
 
-            _closePreview?.Invoke();
             _owner = SurfaceOwner.Footer;
             return true;
         }
@@ -398,6 +386,64 @@ namespace Better_Work_Tab.UI.Workloads
                     "V2 preview editing is unavailable while legacy workloads are active.");
         }
 
+        internal static WorkloadOperationResult<WorkloadSession> ExtendV2PreviewBaseline(
+            WorkloadSession candidate,
+            PawnKey pawn)
+        {
+            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern) ||
+                _boundComponent == null)
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.NoCurrentGame,
+                    "There is no current Better Work Tab game.");
+            }
+
+            if (ResolveMode() != WorkloadBackendMode.Modern ||
+                candidate == null ||
+                candidate.RuntimeBaseline == null ||
+                pawn == null)
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The active V2 preview cannot extend its captured live baseline safely.");
+            }
+
+            WorkloadOperationResult<WorkloadLiveBaselineCapture> capture =
+                new WorkloadV2ApplyService(_boundComponent)
+                    .CaptureLiveBaselineCapture(
+                        candidate.SourceTemplate.WithState(candidate.ProjectedState));
+            if (!capture.Succeeded || capture.Value?.RuntimeBaseline == null)
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    capture.Code,
+                    capture.Message);
+            }
+
+            WorkloadOwnershipDimensions ownership =
+                candidate.SourceTemplate.Definition.OwnershipDimensions;
+            bool requiresPawnRuntimeBaseline =
+                ownership.Owns(WorkloadStateDimension.ParentPriorities) ||
+                ownership.Owns(WorkloadStateDimension.SpecificJobOverrides) ||
+                ownership.Owns(WorkloadStateDimension.SpecificJobOrder);
+            if (requiresPawnRuntimeBaseline &&
+                !capture.Value.RuntimeBaseline.ContainsPawn(pawn))
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The newly included pawn has no authoritative live runtime baseline.");
+            }
+
+            PawnKey[] included = { pawn };
+            WorkloadRuntimeBaseline merged = candidate.RuntimeBaseline.ExtendForPawns(
+                capture.Value.RuntimeBaseline,
+                included);
+            WorkloadSession extended = candidate.ExtendCapturedBaseline(
+                included,
+                capture.Value.State,
+                merged);
+            return modern.SetPreviewSession(extended);
+        }
+
         internal static WorkloadOperationResult<WorkloadSession> RevertV2Preview()
         {
             if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
@@ -582,13 +628,10 @@ namespace Better_Work_Tab.UI.Workloads
     /// </summary>
     internal sealed class WorkloadPreviewController
     {
-        private const float PreviewRailWidth = 320f;
-        private const float PreviewRailMinimumGridWidth = 240f;
-        private const float PreviewRailMinimumWidth = 220f;
-        private const float PreviewRailBottomClearance = 52f;
-
         private readonly BwtLiveWorkTabEffectiveStateAdapter _liveAdapter;
         private readonly LiveWorkTabEffectiveStateProvider _liveProvider;
+        private readonly List<QueuedLifecycleAction> _queuedLifecycleActions =
+            new List<QueuedLifecycleAction>();
         private WorkloadSession _session;
         private ProjectedWorkTabEffectiveStateProvider _projectedProvider;
         private GameComponent_BWTWorldSettings _boundComponent;
@@ -605,34 +648,29 @@ namespace Better_Work_Tab.UI.Workloads
         private WorkloadSession _membershipSnapshotSession;
         private long _membershipSnapshotProjectionRevision = long.MinValue;
         private long _membershipSnapshotPawnSetRevision = long.MinValue;
+        private long _projectedEditablePawnSetRevision = long.MinValue;
 
-        private enum InlineSurfacePopoverKind
+        private sealed class QueuedLifecycleAction
         {
-            None,
-            Fork,
-            Membership
+            internal QueuedLifecycleAction(
+                Func<bool> action,
+                Action<bool> completed)
+            {
+                Action = action;
+                Completed = completed;
+            }
+
+            internal Func<bool> Action { get; }
+            internal Action<bool> Completed { get; }
         }
 
-        private Rect _surfaceRect;
-        private Rect _applyRect;
-        private Rect _cancelRect;
-        private Rect _updateRect;
-        private Rect _forkRect;
-        private Rect _membershipRect;
-        private Rect _inspectionPopoverRect;
-        private Rect _inlineSurfacePopoverRect;
-        private InlineSurfacePopoverKind _inlineSurfacePopover;
-        private string _inlineSurfaceName = string.Empty;
-        private Vector2 _membershipScroll;
         private bool _inspectionActive;
         private string _lastMessage = string.Empty;
-        private int _surfaceReadyFrame;
 
         internal WorkloadPreviewController()
         {
             _liveAdapter = new BwtLiveWorkTabEffectiveStateAdapter();
             _liveProvider = _liveAdapter.CreateProvider("bwt.live.workload-preview");
-            WorkloadSurfaceCoordinator.RegisterPreviewCloser(CloseInlineSurfacePopover);
             WorkloadSurfaceCoordinator.RegisterPreviewState(
                 () => IsActive,
                 message => SetMessage(message));
@@ -664,60 +702,6 @@ namespace Better_Work_Tab.UI.Workloads
         internal bool IsInspectionActive => IsActive && _inspectionActive && HasTemplateDiff;
         internal string LastMessage => _lastMessage ?? string.Empty;
 
-        /// <summary>
-        /// Returns the Work-tab content rectangle after reserving the workload
-        /// rail. The normal grid is laid out beside the rail, so the preview
-        /// controls never paint over pawn rows or headers.
-        /// </summary>
-        internal Rect GetWorkGridRect(Rect inRect)
-        {
-            float railWidth = GetPreviewRailWidth(inRect);
-            if (railWidth <= 0f)
-            {
-                return inRect;
-            }
-
-            return new Rect(
-                inRect.xMin + railWidth,
-                inRect.yMin,
-                Mathf.Max(1f, inRect.width - railWidth),
-                inRect.height);
-        }
-
-        private static float GetPreviewRailWidth(Rect inRect)
-        {
-            if (Current == null || !Current.IsActive)
-            {
-                return 0f;
-            }
-
-            float available = Mathf.Max(0f, inRect.width);
-            if (available < PreviewRailMinimumGridWidth + PreviewRailMinimumWidth)
-            {
-                return 0f;
-            }
-
-            return Mathf.Min(
-                PreviewRailWidth,
-                Mathf.Max(PreviewRailMinimumWidth, available - PreviewRailMinimumGridWidth));
-        }
-
-        private float GetPreviewPanelWidth(Rect inRect)
-        {
-            return Mathf.Max(1f, GetPreviewRailWidth(inRect) - 12f);
-        }
-
-        private float GetPreviewPanelHeight(float panelWidth)
-        {
-            List<List<PreviewButtonKind>> rows = BuildPreviewButtonRows(
-                Mathf.Max(1f, panelWidth),
-                HasSemanticDiff);
-            return 68f +
-                   (rows.Count * 22f) +
-                   (Mathf.Max(0, rows.Count - 1) * 4f) +
-                   6f;
-        }
-
         // Update/Fork compare against the stored template, while Apply compares
         // against the live colony baseline captured when the preview opened.
         // Keep both counts visible so a workload that is dirty as a template
@@ -727,10 +711,9 @@ namespace Better_Work_Tab.UI.Workloads
         internal int TemplateDirtyCount => IsActive ? _session.TemplateDiff.Changes.Count : 0;
 
         /// <summary>
-        /// The current runtime has writers only for parent priorities and the
-        /// global manual-mode bridge. Keep all other owned dimensions visibly
-        /// unavailable when they contain state (or a rejected clear), rather
-        /// than presenting actions that can only fail after a click.
+        /// Schedules and presentation settings still have no complete runtime
+        /// writer. Specific-job priorities and ordering do, but every clear
+        /// rejected by the session remains a hard commit boundary.
         /// </summary>
         internal bool HasUnsupportedOwnedPresentationState
         {
@@ -743,18 +726,18 @@ namespace Better_Work_Tab.UI.Workloads
 
                 WorkloadOwnershipDimensions ownership =
                     _session.SourceTemplate.Definition.OwnershipDimensions;
+                if ((_session.UnsupportedClearDimensions?.Count ?? 0) > 0)
+                {
+                    return true;
+                }
+
                 WorkloadStateDimension[] unsupported =
                 {
                     WorkloadStateDimension.Schedules,
-                    WorkloadStateDimension.SpecificJobOverrides,
-                    WorkloadStateDimension.SpecificJobOrder,
                     WorkloadStateDimension.PresentationSettings
                 };
                 WorkloadSemanticDiff templateDiff = _session.TemplateDiff;
                 WorkloadSemanticDiff liveDiff = _session.LiveDiff;
-                IReadOnlyList<WorkloadStateDimension> clearDimensions =
-                    _session.UnsupportedClearDimensions;
-
                 for (int i = 0; i < unsupported.Length; i++)
                 {
                     WorkloadStateDimension dimension = unsupported[i];
@@ -765,7 +748,6 @@ namespace Better_Work_Tab.UI.Workloads
 
                     if (ContainsDimension(templateDiff, dimension) ||
                         ContainsDimension(liveDiff, dimension) ||
-                        ContainsDimension(clearDimensions, dimension) ||
                         HasStateEntries(_session.TemplateBaselineState, dimension) ||
                         HasStateEntries(_session.ProjectedState, dimension))
                     {
@@ -777,13 +759,25 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
-        private string UnsupportedPresentationCommitReason =>
-            "This workload contains an owned dimension without a supported runtime writer. " +
-            "Apply, Update, and Save As are disabled so state cannot be silently dropped.";
+        private string UnsupportedPresentationCommitReason
+        {
+            get
+            {
+                string clearMessage = _session?.GetUnsupportedClearMessage() ?? string.Empty;
+                return clearMessage.AnyNonWhitespace()
+                    ? clearMessage
+                    : "This workload contains schedules or presentation settings without a " +
+                      "supported runtime writer. Apply, Update, and Save As are disabled so " +
+                      "state cannot be silently dropped.";
+            }
+        }
 
-        private bool CanApplyPreview => IsActive && !HasUnsupportedOwnedPresentationState;
-        private bool CanUpdatePreview => IsActive && HasSemanticDiff && !HasUnsupportedOwnedPresentationState;
-        private bool CanForkPreview => IsActive && !HasUnsupportedOwnedPresentationState;
+        internal bool CanApplyPreview => IsActive && !HasUnsupportedOwnedPresentationState;
+        internal bool CanUpdatePreview => IsActive && HasSemanticDiff && !HasUnsupportedOwnedPresentationState;
+        internal bool CanForkPreview => IsActive && !HasUnsupportedOwnedPresentationState;
+        internal string CommitBlockedMessage => HasUnsupportedOwnedPresentationState
+            ? UnsupportedPresentationCommitReason
+            : string.Empty;
 
         private static bool ContainsDimension(
             WorkloadSemanticDiff diff,
@@ -805,26 +799,6 @@ namespace Better_Work_Tab.UI.Workloads
             return false;
         }
 
-        private static bool ContainsDimension(
-            IReadOnlyList<WorkloadStateDimension> dimensions,
-            WorkloadStateDimension dimension)
-        {
-            if (dimensions == null)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < dimensions.Count; i++)
-            {
-                if (dimensions[i] == dimension)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private static bool HasStateEntries(
             WorkloadProjectedState state,
             WorkloadStateDimension dimension)
@@ -838,10 +812,6 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 case WorkloadStateDimension.Schedules:
                     return state.Schedules.Count > 0;
-                case WorkloadStateDimension.SpecificJobOverrides:
-                    return state.SpecificJobOverrides.Count > 0;
-                case WorkloadStateDimension.SpecificJobOrder:
-                    return state.SpecificJobOrder.Count > 0;
                 case WorkloadStateDimension.PresentationSettings:
                     return state.PresentationSettings.Count > 0;
                 default:
@@ -903,16 +873,6 @@ namespace Better_Work_Tab.UI.Workloads
                 AddUnsupportedDimension(
                     blocked,
                     ownership,
-                    WorkloadStateDimension.SpecificJobOverrides,
-                    "specific-job overrides");
-                AddUnsupportedDimension(
-                    blocked,
-                    ownership,
-                    WorkloadStateDimension.SpecificJobOrder,
-                    "specific-job order");
-                AddUnsupportedDimension(
-                    blocked,
-                    ownership,
                     WorkloadStateDimension.PresentationSettings,
                     HasUnsupportedOwnedPresentationState
                         ? "presentation settings (preview-only; commit actions disabled)"
@@ -958,6 +918,19 @@ namespace Better_Work_Tab.UI.Workloads
                 ClearLocalSession();
             }
 
+            bool workloadsEnabled = BetterWorkTabMod.Settings?.enableWorkloads ?? true;
+            if (!workloadsEnabled)
+            {
+                if (IsActive || WorkloadGateway.IsV2PreviewSessionActive)
+                {
+                    WorkloadGateway.CancelV2Preview();
+                }
+
+                ClearLocalSession();
+                _queuedLifecycleActions.Clear();
+                return;
+            }
+
             if (WorkloadGateway.CurrentMode != WorkloadBackendMode.Modern)
             {
                 if (IsActive || WorkloadGateway.IsV2PreviewSessionActive)
@@ -966,6 +939,17 @@ namespace Better_Work_Tab.UI.Workloads
                 }
 
                 ClearLocalSession();
+                _queuedLifecycleActions.Clear();
+                return;
+            }
+
+            if (IsActive)
+            {
+                long pawnSetRevision = ComputeAvailablePawnSetRevision();
+                if (pawnSetRevision != _projectedEditablePawnSetRevision)
+                {
+                    RebuildProjection(_session.ProjectedState);
+                }
             }
         }
 
@@ -974,11 +958,67 @@ namespace Better_Work_Tab.UI.Workloads
             return WorkTabEffectiveStateScope.Push(ScopedProvider);
         }
 
-        internal void SynchronizeAfterInput()
+        internal void QueueLifecycleAction(
+            Func<bool> action,
+            Action<bool> completed = null)
+        {
+            if (action == null)
+            {
+                return;
+            }
+
+            _queuedLifecycleActions.Add(new QueuedLifecycleAction(action, completed));
+        }
+
+        internal void FlushQueuedLifecycleActions()
+        {
+            if (_queuedLifecycleActions.Count == 0)
+            {
+                return;
+            }
+
+            List<QueuedLifecycleAction> actions =
+                new List<QueuedLifecycleAction>(_queuedLifecycleActions);
+            _queuedLifecycleActions.Clear();
+            for (int i = 0; i < actions.Count; i++)
+            {
+                QueuedLifecycleAction queued = actions[i];
+                bool succeeded = false;
+                try
+                {
+                    succeeded = queued.Action();
+                }
+                catch (Exception exception)
+                {
+                    SetMessage("The workload preview operation failed.");
+                    Log.Error("[BWT] Workload preview lifecycle action failed.\n" + exception);
+                }
+
+                if (succeeded)
+                {
+                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                }
+                else
+                {
+                    string message = LastMessage;
+                    if (!message.AnyNonWhitespace())
+                    {
+                        message = "The workload preview operation could not be completed.";
+                    }
+
+                    Messages.Message(message, MessageTypeDefOf.RejectInput, false);
+                    SoundDefOf.ClickReject.PlayOneShotOnCamera();
+                }
+
+                queued.Completed?.Invoke(succeeded);
+            }
+        }
+
+        internal bool SynchronizeAfterInput()
         {
             if (!IsActive)
             {
-                return;
+                return true;
             }
 
             WorkloadProjectedState projected = _projectedProvider.ProjectedState;
@@ -987,7 +1027,7 @@ namespace Better_Work_Tab.UI.Workloads
                 _session.SourceTemplate.Definition.OwnershipDimensions;
             if (_session.ProjectedState.SemanticallyEquals(projected, ownership))
             {
-                return;
+                return true;
             }
 
             WorkloadOperationResult<WorkloadSession> result =
@@ -996,11 +1036,12 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 SetMessage(result.Message);
                 RebuildProjection(_session.ProjectedState);
-                return;
+                return false;
             }
 
             _session = result.Value;
             RebuildProjection(_session.ProjectedState);
+            return true;
         }
 
         internal bool BeginCurrentPreview()
@@ -1056,7 +1097,7 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             SetMessage(
-                "Finish, Update, Save As, or Cancel the active workload preview " +
+                "Finish, Update, Save As, Apply, or Cancel the active workload preview " +
                 "before " + (operation ?? "changing workloads") + ".");
             return false;
         }
@@ -1077,12 +1118,8 @@ namespace Better_Work_Tab.UI.Workloads
                     return true;
                 }
 
-                if (!CanLeavePreviewForWorkloadOperation("switching workloads"))
-                {
-                    return false;
-                }
-
-                CancelPreview();
+                SetMessage(ActivePreviewSwitchBlockedMessage);
+                return false;
             }
 
             WorkloadOperationResult selected = WorkloadGateway.SelectWorkload(stableId);
@@ -1225,13 +1262,16 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
+            if (!SynchronizeAfterInput())
+            {
+                return false;
+            }
+
             if (!CanApplyPreview)
             {
                 SetMessage(UnsupportedPresentationCommitReason);
                 return false;
             }
-
-            SynchronizeAfterInput();
             WorkloadV2CommitResult result = WorkloadGateway.CommitV2Apply();
             if (!result.Succeeded)
             {
@@ -1246,7 +1286,18 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal bool UpdatePreview()
         {
-            if (!IsActive || !HasSemanticDiff)
+            if (!IsActive)
+            {
+                SetMessage("There is no active workload preview.");
+                return false;
+            }
+
+            if (!SynchronizeAfterInput())
+            {
+                return false;
+            }
+
+            if (!HasSemanticDiff)
             {
                 SetMessage("Update is available only when the semantic diff is non-empty.");
                 return false;
@@ -1255,12 +1306,6 @@ namespace Better_Work_Tab.UI.Workloads
             if (!CanUpdatePreview)
             {
                 SetMessage(UnsupportedPresentationCommitReason);
-                return false;
-            }
-
-            SynchronizeAfterInput();
-            if (!IsActive || !HasSemanticDiff)
-            {
                 return false;
             }
 
@@ -1284,13 +1329,16 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
+            if (!SynchronizeAfterInput())
+            {
+                return false;
+            }
+
             if (!CanForkPreview)
             {
                 SetMessage(UnsupportedPresentationCommitReason);
                 return false;
             }
-
-            SynchronizeAfterInput();
             string forkId = Guid.NewGuid().ToString("N");
             WorkloadV2CommitResult result = WorkloadGateway.CommitV2Fork(forkId, label);
             if (!result.Succeeded)
@@ -1314,489 +1362,40 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             ClearLocalSession();
-            _surfaceRect = Rect.zero;
-            _applyRect = Rect.zero;
-            _cancelRect = Rect.zero;
-            _updateRect = Rect.zero;
-            _forkRect = Rect.zero;
-            _membershipRect = Rect.zero;
-            _inspectionPopoverRect = Rect.zero;
-            _inlineSurfacePopoverRect = Rect.zero;
-            _inlineSurfacePopover = InlineSurfacePopoverKind.None;
-            _inlineSurfaceName = string.Empty;
-            _membershipScroll = Vector2.zero;
             _inspectionActive = false;
+            _queuedLifecycleActions.Clear();
         }
 
-        internal bool ShouldRouteInspectionWheel(Event evt)
+        internal string ActivePreviewSwitchBlockedMessage =>
+            "Finish the active workload preview with Apply, Save As, or Cancel before " +
+            "switching workloads. Update is available when the workload has changes.";
+
+        internal bool ShouldRouteInspectionWheel(Event evt, Rect updateRect)
         {
             if (evt == null || evt.type != EventType.ScrollWheel || !HasSemanticDiff)
             {
                 return false;
             }
 
-            bool overInspectionSurface = _updateRect.Contains(evt.mousePosition) ||
-                                          _inspectionPopoverRect.Contains(evt.mousePosition);
-            if (overInspectionSurface)
+            bool overUpdate = updateRect.width > 0f && updateRect.Contains(evt.mousePosition);
+            if (overUpdate)
             {
                 _inspectionActive = true;
             }
 
-            return overInspectionSurface;
+            return overUpdate;
         }
 
-        internal bool TryHandleSurfaceInput(Event evt)
+        internal void UpdateFooterInspectionHover(Rect updateRect)
         {
-            if (evt == null || !IsActive ||
-                (evt.alt && evt.button == 0))
+            if (!IsActive || !HasSemanticDiff || updateRect.width <= 0f)
             {
-                return false;
-            }
-
-            bool mouseEvent = evt.type == EventType.MouseDown ||
-                              evt.type == EventType.MouseUp ||
-                              evt.type == EventType.ScrollWheel;
-            bool inlineEditorKeyboard = _inlineSurfacePopover == InlineSurfacePopoverKind.Fork &&
-                                        (evt.type == EventType.KeyDown ||
-                                         evt.type == EventType.KeyUp ||
-                                         evt.type == EventType.ValidateCommand) &&
-                                        GUI.GetNameOfFocusedControl() == "BWT.WorkloadInlineEditor";
-            if (!mouseEvent && !inlineEditorKeyboard)
-            {
-                return false;
-            }
-
-            if (inlineEditorKeyboard)
-            {
-                return true;
-            }
-
-            bool overInlinePopover = _inlineSurfacePopoverRect.Contains(evt.mousePosition);
-            if (overInlinePopover)
-            {
-                // Keep the event available to TextField, ButtonText, and the
-                // membership scroll view drawn later in this same Work-tab
-                // pass. Returning true is enough to keep the priority router
-                // from seeing it.
-                return true;
-            }
-
-            bool overSurface = _surfaceRect.Contains(evt.mousePosition);
-            bool overPopover = _inspectionPopoverRect.Contains(evt.mousePosition);
-            if (!overSurface && !overPopover)
-            {
-                return false;
-            }
-
-            if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-            {
-                CloseInlineSurfacePopover();
-            }
-
-            if (evt.type == EventType.ScrollWheel)
-            {
-                return false;
-            }
-
-            if (evt.type == EventType.MouseDown && evt.button == 0)
-            {
-                if (_applyRect.Contains(evt.mousePosition))
-                {
-                    if (CanApplyPreview)
-                    {
-                        HandleSurfaceAction(ApplyPreview);
-                    }
-                }
-                else if (_cancelRect.Contains(evt.mousePosition))
-                {
-                    HandleSurfaceAction(CancelPreview);
-                }
-                else if (_updateRect.Contains(evt.mousePosition) && CanUpdatePreview)
-                {
-                    HandleSurfaceAction(UpdatePreview);
-                }
-                else if (_forkRect.Contains(evt.mousePosition) && CanForkPreview)
-                {
-                    OpenForkEditor();
-                }
-                else if (_membershipRect.Contains(evt.mousePosition))
-                {
-                    OpenMembershipPopover();
-                }
-            }
-
-            // Prevent a surface or inspection popover click from falling
-            // through to the priority-cell router underneath it.
-            evt.Use();
-            return true;
-        }
-
-        private enum PreviewButtonKind
-        {
-            Apply,
-            Cancel,
-            Update,
-            SaveAs,
-            Members
-        }
-
-        private static float PreferredPreviewButtonWidth(PreviewButtonKind kind)
-        {
-            switch (kind)
-            {
-                case PreviewButtonKind.Apply:
-                    return 54f;
-                case PreviewButtonKind.Cancel:
-                    return 58f;
-                case PreviewButtonKind.Update:
-                    return 94f;
-                case PreviewButtonKind.SaveAs:
-                    return 88f;
-                case PreviewButtonKind.Members:
-                    return 86f;
-                default:
-                    return 70f;
-            }
-        }
-
-        private static List<List<PreviewButtonKind>> BuildPreviewButtonRows(
-            float availableWidth,
-            bool includeUpdate)
-        {
-            const float gap = 4f;
-            var actions = new List<PreviewButtonKind>
-            {
-                PreviewButtonKind.Apply,
-                PreviewButtonKind.Cancel
-            };
-            if (includeUpdate)
-            {
-                actions.Add(PreviewButtonKind.Update);
-            }
-
-            actions.Add(PreviewButtonKind.SaveAs);
-            actions.Add(PreviewButtonKind.Members);
-
-            var rows = new List<List<PreviewButtonKind>>();
-            var row = new List<PreviewButtonKind>();
-            float rowWidth = 0f;
-            for (int i = 0; i < actions.Count; i++)
-            {
-                PreviewButtonKind action = actions[i];
-                float preferred = PreferredPreviewButtonWidth(action);
-                float required = row.Count == 0 ? preferred : gap + preferred;
-                if (row.Count > 0 && rowWidth + required > availableWidth)
-                {
-                    rows.Add(row);
-                    row = new List<PreviewButtonKind>();
-                    rowWidth = 0f;
-                }
-
-                row.Add(action);
-                rowWidth += row.Count == 1 ? preferred : gap + preferred;
-            }
-
-            if (row.Count > 0)
-            {
-                rows.Add(row);
-            }
-
-            return rows;
-        }
-
-        private void LayoutPreviewButtonRows(
-            Rect panel,
-            IReadOnlyList<List<PreviewButtonKind>> rows)
-        {
-            const float horizontalPadding = 6f;
-            const float gap = 4f;
-            const float buttonHeight = 22f;
-            const float rowGap = 4f;
-            float availableWidth = Mathf.Max(1f, panel.width - (horizontalPadding * 2f));
-            float y = panel.yMin + 68f;
-
-            for (int rowIndex = 0; rowIndex < rows.Count; rowIndex++)
-            {
-                List<PreviewButtonKind> row = rows[rowIndex];
-                float preferredWidth = 0f;
-                for (int i = 0; i < row.Count; i++)
-                {
-                    preferredWidth += PreferredPreviewButtonWidth(row[i]);
-                }
-
-                preferredWidth += Mathf.Max(0, row.Count - 1) * gap;
-                float shrink = preferredWidth > availableWidth
-                    ? availableWidth / Mathf.Max(preferredWidth, 1f)
-                    : 1f;
-                float x = panel.xMin + horizontalPadding;
-                for (int i = 0; i < row.Count; i++)
-                {
-                    float width = PreferredPreviewButtonWidth(row[i]) * shrink;
-                    if (i == row.Count - 1)
-                    {
-                        width = Mathf.Max(1f, (panel.xMax - horizontalPadding) - x);
-                    }
-
-                    Rect rect = new Rect(x, y, Mathf.Max(1f, width), buttonHeight);
-                    SetPreviewButtonRect(row[i], rect);
-                    x = rect.xMax + gap;
-                }
-
-                y += buttonHeight + rowGap;
-            }
-        }
-
-        private void SetPreviewButtonRect(PreviewButtonKind kind, Rect rect)
-        {
-            switch (kind)
-            {
-                case PreviewButtonKind.Apply:
-                    _applyRect = rect;
-                    break;
-                case PreviewButtonKind.Cancel:
-                    _cancelRect = rect;
-                    break;
-                case PreviewButtonKind.Update:
-                    _updateRect = rect;
-                    break;
-                case PreviewButtonKind.SaveAs:
-                    _forkRect = rect;
-                    break;
-                case PreviewButtonKind.Members:
-                    _membershipRect = rect;
-                    break;
-            }
-        }
-
-        internal void DrawSurface(Rect inRect)
-        {
-            if (!IsActive)
-            {
-                if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-                {
-                    CloseInlineSurfacePopover();
-                }
-
-                _surfaceRect = Rect.zero;
-                _applyRect = Rect.zero;
-                _cancelRect = Rect.zero;
-                _updateRect = Rect.zero;
-                _forkRect = Rect.zero;
-                _membershipRect = Rect.zero;
-                _inspectionPopoverRect = Rect.zero;
-                _inlineSurfacePopoverRect = Rect.zero;
                 _inspectionActive = false;
                 return;
             }
 
-            if (_surfaceReadyFrame > Time.frameCount)
-            {
-                ClearSurfaceRects();
-                return;
-            }
-
-            float railWidth = GetPreviewRailWidth(inRect);
-            float panelWidth = GetPreviewPanelWidth(inRect);
-            if (railWidth <= 0f || panelWidth < 180f)
-            {
-                if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-                {
-                    CloseInlineSurfacePopover();
-                }
-
-                ClearSurfaceRects();
-                return;
-            }
-
-            List<List<PreviewButtonKind>> buttonRows = BuildPreviewButtonRows(
-                panelWidth,
-                HasSemanticDiff);
-            float panelHeight = GetPreviewPanelHeight(panelWidth);
-            if (inRect.height < panelHeight + PreviewRailBottomClearance + 12f)
-            {
-                if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-                {
-                    CloseInlineSurfacePopover();
-                }
-
-                ClearSurfaceRects();
-                return;
-            }
-
-            Rect panel = new Rect(
-                inRect.xMin + 6f,
-                inRect.yMax - panelHeight - PreviewRailBottomClearance,
-                panelWidth,
-                panelHeight);
-
-            Rect popover = _inspectionActive && HasSemanticDiff
-                ? new Rect(
-                    panel.xMin,
-                    Mathf.Max(inRect.yMin + 4f, panel.yMin - 126f),
-                    Mathf.Min(panel.width, 460f),
-                    120f)
-                : Rect.zero;
-
-            _surfaceRect = panel;
-            _applyRect = Rect.zero;
-            _cancelRect = Rect.zero;
-            _updateRect = Rect.zero;
-            _forkRect = Rect.zero;
-            _membershipRect = Rect.zero;
-            LayoutPreviewButtonRows(panel, buttonRows);
-            _inspectionPopoverRect = popover;
-            UpdateInspectionPointer(panel, _updateRect, popover);
-            if (_inspectionActive && HasSemanticDiff)
-            {
-                _inspectionPopoverRect = new Rect(
-                    panel.xMin,
-                    Mathf.Max(inRect.yMin + 4f, panel.yMin - 126f),
-                    Mathf.Min(panel.width, 460f),
-                    120f);
-            }
-
-            if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-            {
-                _inspectionActive = false;
-                _inspectionPopoverRect = Rect.zero;
-                _inlineSurfacePopoverRect = BuildInlineSurfacePopoverRect(
-                    inRect,
-                    panel,
-                    _inlineSurfacePopover == InlineSurfacePopoverKind.Membership
-                        ? 250f
-                        : 124f);
-            }
-            else
-            {
-                _inlineSurfacePopoverRect = Rect.zero;
-            }
-
-            Color oldGuiColor = GUI.color;
-            GameFont oldFont = Text.Font;
-            TextAnchor oldAnchor = Text.Anchor;
-            try
-            {
-                Widgets.DrawBoxSolidWithOutline(
-                    panel,
-                    new Color(0.055f, 0.07f, 0.08f, 0.96f),
-                    new Color(0.38f, 0.52f, 0.55f, 0.65f));
-
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = new Color(1f, 1f, 1f, 0.95f);
-                Widgets.Label(
-                    new Rect(panel.xMin + 7f, panel.yMin + 4f, panel.width - 14f, 16f),
-                    "Workload preview: " + SourceLabel);
-                GUI.color = new Color(0.78f, 0.86f, 0.87f, 0.9f);
-                Widgets.Label(
-                    new Rect(panel.xMin + 7f, panel.yMin + 20f, panel.width - 14f, 14f),
-                    "" + DataAuthorityLabel + " | " +
-                    "colony changes " + ColonyImpactCount +
-                    " | workload changes " + TemplateDirtyCount +
-                    " | included " + IncludedCount +
-                    " | unchanged/outside " + UnchangedOutsideScopeCount);
-                Widgets.Label(
-                    new Rect(panel.xMin + 7f, panel.yMin + 34f, panel.width - 14f, 14f),
-                    "new/unrepresented " + UnrepresentedNewCount +
-                    " | excluded " + ExplicitlyExcludedCount +
-                    " | stale/missing " + StaleMissingCount);
-
-                if (ValidationLabel.AnyNonWhitespace())
-                {
-                    GUI.color = new Color(1f, 0.82f, 0.55f, 0.9f);
-                    Widgets.Label(
-                        new Rect(panel.xMin + 7f, panel.yMin + 48f, panel.width - 14f, 14f),
-                        ValidationLabel);
-                }
-                else if (UnsupportedDimensionsLabel.AnyNonWhitespace())
-                {
-                    GUI.color = new Color(0.84f, 0.82f, 0.68f, 0.9f);
-                    Widgets.Label(
-                        new Rect(panel.xMin + 7f, panel.yMin + 48f, panel.width - 14f, 14f),
-                        UnsupportedDimensionsLabel);
-                }
-                else if (LastMessage.AnyNonWhitespace())
-                {
-                    GUI.color = new Color(0.95f, 0.82f, 0.58f, 0.92f);
-                    Widgets.Label(
-                        new Rect(panel.xMin + 7f, panel.yMin + 48f, panel.width - 14f, 14f),
-                        LastMessage.Truncate(Mathf.Max(1f, panel.width - 14f)));
-                }
-                else
-                {
-                    GUI.color = new Color(0.7f, 0.78f, 0.78f, 0.82f);
-                    Widgets.Label(
-                        new Rect(panel.xMin + 7f, panel.yMin + 48f, panel.width - 14f, 14f),
-                        SettingsIntegrationStatus);
-                }
-
-                DrawPreviewButton(
-                    _applyRect,
-                    "Apply",
-                    () => ApplyPreview(),
-                    CanApplyPreview,
-                    UnsupportedPresentationCommitReason);
-                DrawPreviewButton(_cancelRect, "Cancel", () => CancelPreview());
-                if (HasSemanticDiff)
-                {
-                    DrawPreviewButton(
-                        _updateRect,
-                        "Update",
-                        () => UpdatePreview(),
-                        CanUpdatePreview,
-                        UnsupportedPresentationCommitReason);
-                    TooltipHandler.TipRegion(
-                        _updateRect,
-                        HasUnsupportedOwnedPresentationState
-                            ? UnsupportedPresentationCommitReason
-                            : "Update Workload applies this semantic diff and replaces the same template. " +
-                              "Hover to inspect changed pawn/worktype cells. Scroll here to move the Work tab.");
-                }
-
-                DrawPreviewButton(
-                    _forkRect,
-                    "Save As",
-                    () =>
-                    {
-                        OpenForkEditor();
-                        return true;
-                    },
-                    CanForkPreview,
-                    UnsupportedPresentationCommitReason);
-                DrawPreviewButton(
-                    _membershipRect,
-                    "Members",
-                    () =>
-                    {
-                        OpenMembershipPopover();
-                        return true;
-                    });
-                TooltipHandler.TipRegion(
-                    _membershipRect,
-                    "Include or exclude current pawns for this preview session. " +
-                    "Unrepresented pawns are never applied unless explicitly included.");
-
-                if (_inspectionActive && HasSemanticDiff)
-                {
-                    DrawInspectionPopover(_inspectionPopoverRect);
-                }
-
-                if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-                {
-                    DrawInlineSurfacePopover(_inlineSurfacePopoverRect);
-                }
-
-                if (LastMessage.AnyNonWhitespace())
-                {
-                    TooltipHandler.TipRegion(panel, LastMessage);
-                }
-            }
-            finally
-            {
-                GUI.color = oldGuiColor;
-                Text.Font = oldFont;
-                Text.Anchor = oldAnchor;
-            }
+            Vector2 pointer = Event.current?.mousePosition ?? Vector2.zero;
+            _inspectionActive = updateRect.Contains(pointer);
         }
 
         internal bool IsInspectionRowAffected(Pawn pawn)
@@ -1840,11 +1439,6 @@ namespace Better_Work_Tab.UI.Workloads
                 WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver));
         }
 
-        internal IReadOnlyList<WorkloadMembershipRecord> GetMembershipRecords()
-        {
-            return GetMembershipSnapshot().Records;
-        }
-
         internal WorkloadMembershipSnapshot GetMembershipSnapshot()
         {
             // RebuildProjection asks for editable pawn IDs while constructing
@@ -1884,7 +1478,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
-            WorkloadMembershipRecord record = FindMembershipRecord(pawnKey);
+            WorkloadMembershipRecord record = GetMembershipSnapshot().Find(pawnKey);
             if (record == null || !record.IsAvailable)
             {
                 SetMessage("This pawn is stale or missing and cannot be included.");
@@ -1900,141 +1494,40 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (_session.ProjectedState.IsExcluded(pawnKey))
             {
-                if (!SetSessionMembership(pawnKey, true))
+                if (!SetSessionMembership(pawnKey, include: true))
                 {
                     return false;
                 }
 
-                SetMessage("Pawn included for this preview session.");
+                SetMessage("Pawn included for this application.");
                 return true;
             }
 
             if (record.Classification == WorkloadMembershipClassification.UnrepresentedNew)
             {
-                if (scope.Mode != WorkloadScopeMode.CurrentMapFreeColonists)
-                {
-                    SetMessage("This saved workload scope cannot include a new pawn.");
-                    return false;
-                }
-
                 if (!AddCurrentLiveBaseline(pawnKey))
                 {
                     return false;
                 }
 
-                SetMessage("Pawn included with its current live values for this preview.");
+                SetMessage("Pawn included with its current live values for this application.");
                 return true;
             }
 
-            if (record.Classification == WorkloadMembershipClassification.Included)
+            if (record.Classification == WorkloadMembershipClassification.Included &&
+                record.IsRepresented)
             {
-                if (!SetSessionMembership(pawnKey, false))
+                if (!SetSessionMembership(pawnKey, include: false))
                 {
                     return false;
                 }
 
-                SetMessage("Pawn excluded from this preview session; its live values remain unchanged.");
+                SetMessage("Pawn excluded from this application; its live values remain unchanged.");
                 return true;
             }
 
-            SetMessage("This pawn is outside the workload scope and was left unchanged.");
+            SetMessage("This pawn is outside the saved workload scope and was left unchanged.");
             return false;
-        }
-
-        private void OpenSession(WorkloadSession session)
-        {
-            WorkloadSurfaceCoordinator.OpenPreview();
-            _session = session;
-            _boundComponent = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            // Give the next Work-tab pass a chance to lay out the grid beside
-            // the rail before the rail itself is painted.
-            _surfaceReadyFrame = Time.frameCount + 1;
-            RebuildProjection(_session.ProjectedState);
-            SetMessage("Preview open; live work priorities are unchanged until Apply.");
-        }
-
-        private void RebuildProjection(WorkloadProjectedState projectedState)
-        {
-            InvalidateMembershipSnapshot();
-            if (_session == null)
-            {
-                _projectedProvider = null;
-                ClearInspectionIndex();
-                return;
-            }
-
-            var draft = new WorkloadDraft(projectedState ?? WorkloadProjectedState.Empty);
-            _projectedProvider = new ProjectedWorkTabEffectiveStateProvider(
-                draft,
-                _liveProvider,
-                _session.SourceTemplate.Definition.OwnershipDimensions,
-                "bwt.preview",
-                _session.SourceTemplate.Definition.Scope,
-                BuildEditablePawnIds());
-            ClearInspectionIndex();
-        }
-
-        private void ClearLocalSession()
-        {
-            WorkloadSurfaceCoordinator.NotifyPreviewClosed();
-            InvalidateMembershipSnapshot();
-            _session = null;
-            _projectedProvider = null;
-            _inspectionActive = false;
-            _surfaceRect = Rect.zero;
-            _applyRect = Rect.zero;
-            _cancelRect = Rect.zero;
-            _updateRect = Rect.zero;
-            _forkRect = Rect.zero;
-            _membershipRect = Rect.zero;
-            _inspectionPopoverRect = Rect.zero;
-            _inlineSurfacePopoverRect = Rect.zero;
-            _inlineSurfacePopover = InlineSurfacePopoverKind.None;
-            _inlineSurfaceName = string.Empty;
-            _membershipScroll = Vector2.zero;
-            ClearInspectionIndex();
-            _surfaceReadyFrame = 0;
-        }
-
-        private void SetMessage(string message)
-        {
-            _lastMessage = message ?? string.Empty;
-        }
-
-        private void InvalidateMembershipSnapshot()
-        {
-            _membershipSnapshot = null;
-            _membershipSnapshotSession = null;
-            _membershipSnapshotProjectionRevision = long.MinValue;
-            _membershipSnapshotPawnSetRevision = long.MinValue;
-        }
-
-        private int GetMembershipCount(WorkloadMembershipClassification classification)
-        {
-            return GetMembershipSnapshot().GetCount(classification);
-        }
-
-        private IReadOnlyList<PawnKey> BuildEditablePawnIds()
-        {
-            var editable = new List<PawnKey>();
-            IReadOnlyList<WorkloadMembershipRecord> records = GetMembershipRecords();
-            for (int i = 0; i < records.Count; i++)
-            {
-                WorkloadMembershipRecord record = records[i];
-                if (record != null &&
-                    record.Classification == WorkloadMembershipClassification.Included &&
-                    record.IsAvailable)
-                {
-                    editable.Add(record.PawnId);
-                }
-            }
-
-            return editable.AsReadOnly();
-        }
-
-        private WorkloadMembershipRecord FindMembershipRecord(PawnKey pawnKey)
-        {
-            return GetMembershipSnapshot().Find(pawnKey);
         }
 
         private bool SetSessionMembership(PawnKey pawnKey, bool include)
@@ -2066,16 +1559,8 @@ namespace Better_Work_Tab.UI.Workloads
 
             WorkloadOwnershipDimensions ownership =
                 _session.SourceTemplate.Definition.OwnershipDimensions;
-            // Including a new pawn is a complete projection operation. Do not
-            // seed only the dimensions that happen to have a reader today and
-            // then present a partial workload as if it were safe to commit.
-            // The current runtime has live writers only for these two
-            // dimensions; all other owned dimensions fail closed with a
-            // visible explanation instead of being silently dropped.
             WorkloadOwnershipDimensions unsupported =
                 WorkloadOwnershipDimensions.Schedules |
-                WorkloadOwnershipDimensions.SpecificJobOverrides |
-                WorkloadOwnershipDimensions.SpecificJobOrder |
                 WorkloadOwnershipDimensions.PresentationSettings;
             if ((ownership & unsupported) != WorkloadOwnershipDimensions.None)
             {
@@ -2119,6 +1604,53 @@ namespace Better_Work_Tab.UI.Workloads
                             Find.PlaySettings?.useWorkPriorities ?? true));
                     wroteValue = true;
                 }
+
+                if (!ownership.Owns(WorkloadStateDimension.SpecificJobOverrides) &&
+                    !ownership.Owns(WorkloadStateDimension.SpecificJobOrder))
+                {
+                    continue;
+                }
+
+                IReadOnlyList<WorkGiver> workGivers =
+                    WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(
+                        workType,
+                        pawn);
+                for (int workGiverIndex = 0;
+                     workGiverIndex < workGivers.Count;
+                     workGiverIndex++)
+                {
+                    WorkGiverDef workGiver = workGivers[workGiverIndex]?.def;
+                    if (workGiver == null || workGiver.defName.NullOrEmpty())
+                    {
+                        continue;
+                    }
+
+                    WorkloadSpecificJobKey specificKey =
+                        WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver);
+                    if (ownership.Owns(WorkloadStateDimension.SpecificJobOverrides))
+                    {
+                        int inheritedPriority =
+                            WorkGiverReassignmentManager.GetWorkGiverPriority(
+                                pawn,
+                                workGiver,
+                                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(
+                                    pawn,
+                                    workType));
+                        WorkloadScalarValue specificPriority =
+                            _liveProvider.GetSpecificJobOverride(
+                                specificKey,
+                                WorkloadScalarValue.FromInteger(inheritedPriority));
+                        draft.SetSpecificJobOverride(specificKey, specificPriority);
+                        wroteValue = true;
+                    }
+
+                    if (ownership.Owns(WorkloadStateDimension.SpecificJobOrder) &&
+                        _liveProvider.TryGetSpecificJobOrder(specificKey, out int order))
+                    {
+                        draft.SetSpecificJobOrder(specificKey, order);
+                        wroteValue = true;
+                    }
+                }
             }
 
             if (!wroteValue)
@@ -2127,8 +1659,9 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
+            WorkloadSession candidate = _session.EditState(draft.ProjectedState);
             WorkloadOperationResult<WorkloadSession> result =
-                WorkloadGateway.SetV2PreviewState(draft.ProjectedState);
+                WorkloadGateway.ExtendV2PreviewBaseline(candidate, pawnKey);
             if (!result.Succeeded)
             {
                 SetMessage(result.Message);
@@ -2149,22 +1682,94 @@ namespace Better_Work_Tab.UI.Workloads
                 values.Add("schedules");
             }
 
-            if ((dimensions & WorkloadOwnershipDimensions.SpecificJobOverrides) != 0)
-            {
-                values.Add("specific-job overrides");
-            }
-
-            if ((dimensions & WorkloadOwnershipDimensions.SpecificJobOrder) != 0)
-            {
-                values.Add("specific-job order");
-            }
-
             if ((dimensions & WorkloadOwnershipDimensions.PresentationSettings) != 0)
             {
                 values.Add("presentation settings");
             }
 
-            return values.Count == 0 ? "unsupported state" : string.Join(", ", values.ToArray());
+            return values.Count == 0
+                ? "unsupported state"
+                : string.Join(", ", values.ToArray());
+        }
+
+        private void OpenSession(WorkloadSession session)
+        {
+            WorkloadSurfaceCoordinator.OpenPreview();
+            _session = session;
+            _boundComponent = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            RebuildProjection(_session.ProjectedState);
+            SetMessage("Preview open; live work priorities are unchanged until Apply.");
+        }
+
+        private void RebuildProjection(WorkloadProjectedState projectedState)
+        {
+            InvalidateMembershipSnapshot();
+            if (_session == null)
+            {
+                _projectedProvider = null;
+                _projectedEditablePawnSetRevision = long.MinValue;
+                ClearInspectionIndex();
+                return;
+            }
+
+            var draft = new WorkloadDraft(projectedState ?? WorkloadProjectedState.Empty);
+            _projectedProvider = new ProjectedWorkTabEffectiveStateProvider(
+                draft,
+                _liveProvider,
+                _session.SourceTemplate.Definition.OwnershipDimensions,
+                "bwt.preview",
+                _session.SourceTemplate.Definition.Scope,
+                BuildEditablePawnIds());
+            _projectedEditablePawnSetRevision = ComputeAvailablePawnSetRevision();
+            ClearInspectionIndex();
+        }
+
+        private void ClearLocalSession()
+        {
+            WorkloadSurfaceCoordinator.NotifyPreviewClosed();
+            InvalidateMembershipSnapshot();
+            _session = null;
+            _projectedProvider = null;
+            _projectedEditablePawnSetRevision = long.MinValue;
+            _inspectionActive = false;
+            ClearInspectionIndex();
+        }
+
+        private void SetMessage(string message)
+        {
+            _lastMessage = message ?? string.Empty;
+        }
+
+        private void InvalidateMembershipSnapshot()
+        {
+            _membershipSnapshot = null;
+            _membershipSnapshotSession = null;
+            _membershipSnapshotProjectionRevision = long.MinValue;
+            _membershipSnapshotPawnSetRevision = long.MinValue;
+        }
+
+        private int GetMembershipCount(WorkloadMembershipClassification classification)
+        {
+            return GetMembershipSnapshot().GetCount(classification);
+        }
+
+        private IReadOnlyList<PawnKey> BuildEditablePawnIds()
+        {
+            var editable = new List<PawnKey>();
+            IReadOnlyList<WorkloadMembershipRecord> records =
+                GetMembershipSnapshot().Records;
+            for (int i = 0; i < records.Count; i++)
+            {
+                WorkloadMembershipRecord record = records[i];
+                if (record != null &&
+                    record.Classification == WorkloadMembershipClassification.Included &&
+                    record.IsAvailable)
+                {
+                    editable.Add(record.PawnId);
+                }
+            }
+
+            return editable.AsReadOnly();
         }
 
         private WorkloadProjectedState BuildStateWithSessionExclusions(
@@ -2363,397 +1968,6 @@ namespace Better_Work_Tab.UI.Workloads
             _changedPawns.Clear();
         }
 
-        private void UpdateInspectionPointer(Rect panel, Rect updateRect, Rect popover)
-        {
-            if (!HasSemanticDiff)
-            {
-                _inspectionActive = false;
-                return;
-            }
-
-            Vector2 pointer = Event.current?.mousePosition ?? Vector2.zero;
-            bool overUpdate = updateRect.width > 0f && updateRect.Contains(pointer);
-            bool overSurface = panel.Contains(pointer);
-            bool overPopover = popover.width > 0f && popover.Contains(pointer);
-            if (overUpdate)
-            {
-                _inspectionActive = true;
-            }
-            else if (!overSurface && !overPopover)
-            {
-                _inspectionActive = false;
-            }
-        }
-
-        private void DrawInspectionPopover(Rect rect)
-        {
-            if (rect.width <= 0f || rect.height <= 0f)
-            {
-                return;
-            }
-
-            Widgets.DrawBoxSolidWithOutline(
-                rect,
-                new Color(0.055f, 0.07f, 0.08f, 0.97f),
-                new Color(0.42f, 0.58f, 0.6f, 0.7f));
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = new Color(0.9f, 0.96f, 0.96f, 0.96f);
-            Widgets.Label(
-                new Rect(rect.xMin + 7f, rect.yMin + 5f, rect.width - 14f, 16f),
-                "Update inspection: changed cells use stable pawn/worktype IDs");
-            GUI.color = new Color(0.74f, 0.83f, 0.84f, 0.9f);
-            int shown = 0;
-            IReadOnlyList<WorkloadChange> changes = _session.TemplateDiff.Changes;
-            for (int i = 0; i < changes.Count && shown < 4; i++)
-            {
-                WorkloadChange change = changes[i];
-                string line = "- " + ChangeDimensionLabel(change.Dimension) +
-                              " - " + Trim(change.CanonicalKey, 34);
-                Widgets.Label(
-                    new Rect(rect.xMin + 8f, rect.yMin + 22f + shown * 15f, rect.width - 16f, 15f),
-                    line);
-                shown++;
-            }
-
-            GUI.color = new Color(0.82f, 0.88f, 0.88f, 0.92f);
-            Widgets.Label(
-                new Rect(rect.xMin + 8f, rect.yMax - 21f, rect.width - 16f, 16f),
-                "Scroll wheel over this panel to move the Work tab.");
-            TooltipHandler.TipRegion(
-                rect,
-                "Inspection remains active over the panel. Scrolling moves the Work tab and never edits a priority cell.");
-        }
-
-        private static Rect BuildInlineSurfacePopoverRect(
-            Rect inRect,
-            Rect panel,
-            float desiredHeight)
-        {
-            float width = Mathf.Min(panel.width, 360f);
-            float height = Mathf.Min(
-                desiredHeight,
-                Mathf.Max(90f, inRect.height - 8f));
-            float x = Mathf.Clamp(
-                panel.xMin,
-                inRect.xMin + 4f,
-                Mathf.Max(inRect.xMin + 4f, inRect.xMax - width - 4f));
-            float y = panel.yMin - height - 5f;
-            if (y < inRect.yMin + 4f)
-            {
-                y = panel.yMax + 5f;
-            }
-
-            y = Mathf.Clamp(
-                y,
-                inRect.yMin + 4f,
-                Mathf.Max(inRect.yMin + 4f, inRect.yMax - height - 4f));
-            return new Rect(x, y, width, height);
-        }
-
-        private void DrawInlineSurfacePopover(Rect rect)
-        {
-            if (rect.width <= 0f || rect.height <= 0f)
-            {
-                return;
-            }
-
-            Widgets.DrawBoxSolidWithOutline(
-                rect,
-                new Color(0.055f, 0.07f, 0.08f, 0.98f),
-                new Color(0.42f, 0.58f, 0.6f, 0.75f));
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = new Color(0.92f, 0.97f, 0.97f, 0.98f);
-
-            if (_inlineSurfacePopover == InlineSurfacePopoverKind.Fork)
-            {
-                DrawInlineForkPopover(rect);
-            }
-            else
-            {
-                DrawInlineMembershipPopover(rect);
-            }
-        }
-
-        private void DrawInlineForkPopover(Rect rect)
-        {
-            Widgets.Label(
-                new Rect(rect.xMin + 8f, rect.yMin + 6f, rect.width - 16f, 20f),
-                "Save workload as");
-            Rect field = new Rect(
-                rect.xMin + 8f,
-                rect.yMin + 31f,
-                rect.width - 16f,
-                26f);
-            GUI.SetNextControlName("BWT.WorkloadInlineEditor");
-            _inlineSurfaceName = Widgets.TextField(field, _inlineSurfaceName, 64);
-
-            float buttonWidth = (rect.width - 20f) * 0.5f;
-            Rect save = new Rect(rect.xMin + 8f, rect.yMax - 30f, buttonWidth, 24f);
-            Rect cancel = new Rect(save.xMax + 4f, save.yMin, buttonWidth, 24f);
-            if (Widgets.ButtonText(save, "Save As"))
-            {
-                CommitInlineFork();
-            }
-
-            if (Widgets.ButtonText(cancel, "Cancel"))
-            {
-                CloseInlineSurfacePopover();
-            }
-
-            Event evt = Event.current;
-            if (evt != null &&
-                evt.type == EventType.KeyDown &&
-                GUI.GetNameOfFocusedControl() == "BWT.WorkloadInlineEditor")
-            {
-                if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
-                {
-                    CommitInlineFork();
-                    evt.Use();
-                }
-                else if (evt.keyCode == KeyCode.Escape)
-                {
-                    CloseInlineSurfacePopover();
-                    evt.Use();
-                }
-            }
-        }
-
-        private void DrawInlineMembershipPopover(Rect rect)
-        {
-            Widgets.Label(
-                new Rect(rect.xMin + 8f, rect.yMin + 6f, rect.width - 16f, 20f),
-                "Workload membership (preview)");
-            GUI.color = new Color(0.76f, 0.84f, 0.85f, 0.95f);
-            Widgets.Label(
-                new Rect(rect.xMin + 8f, rect.yMin + 27f, rect.width - 16f, 18f),
-                "Choose which available pawns this session affects.");
-            GUI.color = Color.white;
-
-            IReadOnlyList<WorkloadMembershipRecord> records = GetMembershipRecords();
-            Rect listRect = new Rect(
-                rect.xMin + 6f,
-                rect.yMin + 48f,
-                rect.width - 12f,
-                Mathf.Max(28f, rect.height - 54f));
-            float viewWidth = Mathf.Max(1f, listRect.width - 16f);
-            float viewHeight = Mathf.Max(listRect.height, records.Count * 24f);
-            Widgets.BeginScrollView(
-                listRect,
-                ref _membershipScroll,
-                new Rect(0f, 0f, viewWidth, viewHeight));
-
-            int rowIndex = 0;
-            WorkloadScope scope = _session.SourceTemplate.Definition.Scope ?? WorkloadScope.Empty;
-            for (int i = 0; i < records.Count; i++)
-            {
-                WorkloadMembershipRecord record = records[i];
-                if (record == null)
-                {
-                    continue;
-                }
-
-                Pawn pawn = ResolvePawn(record.PawnId);
-                string label = pawn?.LabelShortCap ?? record.PawnId.Value;
-                bool savedExcluded = scope.IsExplicitlyExcluded(record.PawnId);
-                bool outsideScope = record.Classification ==
-                    WorkloadMembershipClassification.UnchangedOutsideScope;
-                bool actionable = record.IsAvailable && !savedExcluded && !outsideScope;
-                string rowLabel;
-                if (savedExcluded)
-                {
-                    rowLabel = label + " (saved scope: excluded)";
-                }
-                else if (outsideScope)
-                {
-                    rowLabel = label + " (outside saved scope)";
-                }
-                else
-                {
-                    bool include = _session.ProjectedState.IsExcluded(record.PawnId) ||
-                                   record.Classification == WorkloadMembershipClassification.UnrepresentedNew;
-                    rowLabel = (include ? "Include " : "Exclude ") +
-                               label + " (" + MembershipLabel(record.Classification) + ")";
-                }
-
-                Rect row = new Rect(
-                    0f,
-                    rowIndex * 24f,
-                    viewWidth,
-                    22f);
-                if (actionable)
-                {
-                    if (Widgets.ButtonText(row, rowLabel))
-                    {
-                        if (!ToggleMembership(record.PawnId))
-                        {
-                            Messages.Message(LastMessage, MessageTypeDefOf.RejectInput, false);
-                        }
-                    }
-                }
-                else
-                {
-                    GUI.color = new Color(0.62f, 0.68f, 0.69f, 0.9f);
-                    Widgets.Label(row, rowLabel);
-                    GUI.color = Color.white;
-                }
-
-                rowIndex++;
-            }
-
-            if (rowIndex == 0)
-            {
-                GUI.color = new Color(0.72f, 0.79f, 0.8f, 0.9f);
-                Widgets.Label(new Rect(8f, 8f, viewWidth - 16f, 20f), "No current pawns are available.");
-                GUI.color = Color.white;
-            }
-
-            Widgets.EndScrollView();
-            TooltipHandler.TipRegion(
-                rect,
-                "Membership changes remain session-local until Apply, Update, or Save As is confirmed.");
-        }
-
-        private void DrawPreviewButton(
-            Rect rect,
-            string label,
-            Func<bool> action,
-            bool enabled = true,
-            string disabledTooltip = null)
-        {
-            if (rect.width <= 0f)
-            {
-                return;
-            }
-
-            if (!enabled)
-            {
-                Widgets.ButtonText(rect, label, active: false);
-                if (disabledTooltip.AnyNonWhitespace())
-                {
-                    TooltipHandler.TipRegion(rect, disabledTooltip);
-                }
-
-                return;
-            }
-
-            if (Widgets.ButtonText(rect, label, active: true))
-            {
-                if (action != null && !action())
-                {
-                    SoundDefOf.ClickReject.PlayOneShotOnCamera();
-                    Messages.Message(LastMessage, MessageTypeDefOf.RejectInput, false);
-                }
-                else
-                {
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                }
-            }
-        }
-
-        private void HandleSurfaceAction(Func<bool> action)
-        {
-            if (action == null || action())
-            {
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                return;
-            }
-
-            SoundDefOf.ClickReject.PlayOneShotOnCamera();
-            Messages.Message(LastMessage, MessageTypeDefOf.RejectInput, false);
-        }
-
-        private void OpenForkEditor()
-        {
-            if (!IsActive)
-            {
-                return;
-            }
-
-            WorkloadSurfaceCoordinator.OpenPreview();
-            _inspectionActive = false;
-            _inlineSurfacePopover = InlineSurfacePopoverKind.Fork;
-            _inlineSurfaceName = SourceLabel + " copy";
-        }
-
-        private void OpenMembershipPopover()
-        {
-            if (!IsActive)
-            {
-                return;
-            }
-
-            WorkloadSurfaceCoordinator.OpenPreview();
-            _inspectionActive = false;
-            _inlineSurfacePopover = InlineSurfacePopoverKind.Membership;
-            _membershipScroll = Vector2.zero;
-        }
-
-        private void CloseInlineSurfacePopover()
-        {
-            _inlineSurfacePopover = InlineSurfacePopoverKind.None;
-            _inlineSurfaceName = string.Empty;
-            _inlineSurfacePopoverRect = Rect.zero;
-            _membershipScroll = Vector2.zero;
-            // Closing Fork/Members only closes that inline child surface. The
-            // preview rail still owns the Work-tab editing surface until the
-            // session itself is applied, canceled, updated, forked, or torn
-            // down with the window.
-        }
-
-        private void ClearSurfaceRects()
-        {
-            _surfaceRect = Rect.zero;
-            _applyRect = Rect.zero;
-            _cancelRect = Rect.zero;
-            _updateRect = Rect.zero;
-            _forkRect = Rect.zero;
-            _membershipRect = Rect.zero;
-            _inspectionPopoverRect = Rect.zero;
-            _inlineSurfacePopoverRect = Rect.zero;
-            _inspectionActive = false;
-        }
-
-        private void CommitInlineFork()
-        {
-            string label = (_inlineSurfaceName ?? string.Empty).Trim();
-            if (label.Length == 0)
-            {
-                SetMessage("A workload name is required.");
-                Messages.Message(LastMessage, MessageTypeDefOf.RejectInput, false);
-                return;
-            }
-
-            if (!ForkPreview(label))
-            {
-                Messages.Message(LastMessage, MessageTypeDefOf.RejectInput, false);
-                return;
-            }
-
-            CloseInlineSurfacePopover();
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-        }
-
-        private static string MembershipLabel(WorkloadMembershipClassification classification)
-        {
-            switch (classification)
-            {
-                case WorkloadMembershipClassification.Included:
-                    return "included";
-                case WorkloadMembershipClassification.UnchangedOutsideScope:
-                    return "outside scope";
-                case WorkloadMembershipClassification.UnrepresentedNew:
-                    return "new/unrepresented";
-                case WorkloadMembershipClassification.ExplicitlyExcluded:
-                    return "excluded";
-                case WorkloadMembershipClassification.StaleMissing:
-                    return "stale/missing";
-                default:
-                    return classification.ToString();
-            }
-        }
-
         private IReadOnlyList<PawnScopeCandidate> BuildAvailableCandidates()
         {
             var candidates = new List<PawnScopeCandidate>();
@@ -2782,6 +1996,30 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             return candidates;
+        }
+
+        private static Pawn ResolvePawn(PawnKey key)
+        {
+            if (key == null || !int.TryParse(key.Value, out int thingId))
+            {
+                return null;
+            }
+
+            IReadOnlyList<Pawn> pawns = PawnsFinder.All_AliveOrDead;
+            if (pawns == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < pawns.Count; i++)
+            {
+                if (pawns[i] != null && pawns[i].thingIDNumber == thingId)
+                {
+                    return pawns[i];
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -2823,30 +2061,6 @@ namespace Better_Work_Tab.UI.Workloads
 
                 return revision;
             }
-        }
-
-        private static Pawn ResolvePawn(PawnKey key)
-        {
-            if (key == null || !int.TryParse(key.Value, out int thingId))
-            {
-                return null;
-            }
-
-            IReadOnlyList<Pawn> pawns = PawnsFinder.All_AliveOrDead;
-            if (pawns == null)
-            {
-                return null;
-            }
-
-            for (int i = 0; i < pawns.Count; i++)
-            {
-                if (pawns[i] != null && pawns[i].thingIDNumber == thingId)
-                {
-                    return pawns[i];
-                }
-            }
-
-            return null;
         }
 
         private static bool TryDecodeChangeKey(
@@ -2952,27 +2166,6 @@ namespace Better_Work_Tab.UI.Workloads
             return true;
         }
 
-        private static string ChangeDimensionLabel(WorkloadStateDimension dimension)
-        {
-            switch (dimension)
-            {
-                case WorkloadStateDimension.ParentPriorities:
-                    return "parent priority";
-                case WorkloadStateDimension.ManualModes:
-                    return "manual mode";
-                case WorkloadStateDimension.Schedules:
-                    return "schedule";
-                case WorkloadStateDimension.SpecificJobOverrides:
-                    return "specific-job override";
-                case WorkloadStateDimension.SpecificJobOrder:
-                    return "specific-job order";
-                case WorkloadStateDimension.PresentationSettings:
-                    return "presentation setting";
-                default:
-                    return dimension.ToString();
-            }
-        }
-
         private static void AddUnsupportedDimension(
             List<string> values,
             WorkloadOwnershipDimensions ownership,
@@ -2983,14 +2176,6 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 values.Add(label);
             }
-        }
-
-        private static string Trim(string value, int maxLength)
-        {
-            string safe = value ?? string.Empty;
-            return safe.Length <= maxLength
-                ? safe
-                : safe.Substring(0, Math.Max(0, maxLength - 1)) + "...";
         }
 
         private static bool ContainsParentPriority(

@@ -84,7 +84,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return false;
             }
 
-            priority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            // A preview may fall through to the live provider for a value that it does not own.
+            // Keep that fallback observational: the ordinary priority read owns transition
+            // processing, while the preview read only observes the current authority snapshot.
+            priority = WorkTabEffectiveStateRuntime.IsPreviewActive
+                ? PriorityAuthorityBroker.GetObservationalEffectivePriority(pawn, workType)
+                : WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
             return true;
         }
 
@@ -243,7 +248,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 long effectiveState,
                 int timeVersion,
                 int subWorkVersion,
-                int authority,
+                long authorityRevision,
                 bool manualMode,
                 long registryGeneration,
                 long explicitAuthorityGeneration)
@@ -251,7 +256,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 EffectiveState = effectiveState;
                 TimeVersion = timeVersion;
                 SubWorkVersion = subWorkVersion;
-                Authority = authority;
+                AuthorityRevision = authorityRevision;
                 ManualMode = manualMode;
                 RegistryGeneration = registryGeneration;
                 ExplicitAuthorityGeneration = explicitAuthorityGeneration;
@@ -260,7 +265,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             private long EffectiveState { get; }
             private int TimeVersion { get; }
             private int SubWorkVersion { get; }
-            private int Authority { get; }
+            private long AuthorityRevision { get; }
             private bool ManualMode { get; }
             private long RegistryGeneration { get; }
             private long ExplicitAuthorityGeneration { get; }
@@ -271,7 +276,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     WorkTabInvalidationHub.EffectiveStateRevision,
                     TimePriorityService.CurrentVersion,
                     WorkGiverReassignmentManager.CurrentSyncVersion,
-                    (int)PriorityAuthorityBroker.CurrentAuthority,
+                    PriorityAuthorityBroker.GetObservationalAuthorityRevision(),
                     Find.PlaySettings?.useWorkPriorities ?? true,
                     ExternalWorkTabRegistry.RegistryGeneration,
                     PriorityAuthorityResolver.ExplicitAuthorityGeneration);
@@ -282,7 +287,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return EffectiveState == other.EffectiveState &&
                        TimeVersion == other.TimeVersion &&
                        SubWorkVersion == other.SubWorkVersion &&
-                       Authority == other.Authority &&
+                       AuthorityRevision == other.AuthorityRevision &&
                        ManualMode == other.ManualMode &&
                        RegistryGeneration == other.RegistryGeneration &&
                        ExplicitAuthorityGeneration == other.ExplicitAuthorityGeneration;
@@ -300,7 +305,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     int hash = EffectiveState.GetHashCode();
                     hash = (hash * 397) ^ TimeVersion;
                     hash = (hash * 397) ^ SubWorkVersion;
-                    hash = (hash * 397) ^ Authority;
+                    hash = (hash * 397) ^ AuthorityRevision.GetHashCode();
                     hash = (hash * 397) ^ (ManualMode ? 1 : 0);
                     hash = (hash * 397) ^ RegistryGeneration.GetHashCode();
                     return (hash * 397) ^ ExplicitAuthorityGeneration.GetHashCode();

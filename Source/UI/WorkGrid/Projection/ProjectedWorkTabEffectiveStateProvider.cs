@@ -20,7 +20,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         private readonly string _providerId;
         private readonly WorkloadScope _scope;
         private readonly HashSet<PawnKey> _editablePawnIds;
-        private readonly bool _hasEditablePawnBoundary;
+        private bool _hasEditablePawnBoundary;
 
         private readonly Dictionary<WorkloadParentPriorityKey, int> _parentPriorities =
             new Dictionary<WorkloadParentPriorityKey, int>();
@@ -131,6 +131,38 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         }
 
         /// <summary>
+        /// Returns the projected global manual-priority value from a represented,
+        /// currently editable parent key. Manual mode is global in RimWorld, but
+        /// the preview model stores it on parent keys; never infer the display
+        /// value from an arbitrary live pawn outside this provider's boundary.
+        /// </summary>
+        public bool TryGetProjectedManualModeForDisplay(out bool manualMode)
+        {
+            manualMode = false;
+            RefreshProjection();
+            if (!Owns(WorkloadStateDimension.ManualModes))
+            {
+                return false;
+            }
+
+            IReadOnlyList<WorkloadManualModeEntry> entries =
+                _projectedState?.ManualModes;
+            for (int i = 0; entries != null && i < entries.Count; i++)
+            {
+                WorkloadManualModeEntry entry = entries[i];
+                if (entry != null &&
+                    entry.Key != null &&
+                    IsEditablePawn(entry.Key.Pawn, _projectedState) &&
+                    _manualModes.TryGetValue(entry.Key, out manualMode))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Marks an out-of-band mutation of the exposed draft. Normal preview
         /// edits go through this provider's editor and are stamped
         /// automatically; this method keeps the legacy Draft escape hatch
@@ -140,6 +172,46 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         {
             _draftRevision = unchecked(_draftRevision + 1L);
             WorkTabEffectiveStateRuntime.InvalidateRenderPass();
+        }
+
+        /// <summary>
+        /// Replaces the live editable-pawn boundary without rebuilding the
+        /// provider or mutating the draft. A null or invalid source is treated
+        /// as an empty boundary, which fails closed. Indexes and the provider
+        /// revision are refreshed together so a pawn cannot retain stale
+        /// projected editability or stale render-pass data.
+        /// </summary>
+        public bool ReplaceEditablePawnBoundary(IEnumerable<PawnKey> editablePawnIds)
+        {
+            RefreshProjection();
+            var replacement = new HashSet<PawnKey>();
+            if (editablePawnIds != null)
+            {
+                foreach (PawnKey pawn in editablePawnIds)
+                {
+                    if (pawn != null && pawn.IsValid)
+                    {
+                        replacement.Add(pawn);
+                    }
+                }
+            }
+
+            if (_hasEditablePawnBoundary && _editablePawnIds.SetEquals(replacement))
+            {
+                return false;
+            }
+
+            _editablePawnIds.Clear();
+            foreach (PawnKey pawn in replacement)
+            {
+                _editablePawnIds.Add(pawn);
+            }
+
+            _hasEditablePawnBoundary = true;
+            RebuildIndexes();
+            _revision = unchecked(_revision + 1L);
+            WorkTabEffectiveStateRuntime.InvalidateRenderPass();
+            return true;
         }
 
         /// <summary>
@@ -469,6 +541,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             WorkTabEffectiveStateDimension dimension,
             string reason)
         {
+            // A clear is a tombstone operation, not the same as omitting a
+            // projected entry. Until tombstones are represented by the
+            // projection/commit contract, reject every clear so a live fallback
+            // can never be mistaken for an intentional projected clear.
             RefreshProjection();
             return WorkTabEffectiveStateMutationResult.Blocked(
                 dimension,

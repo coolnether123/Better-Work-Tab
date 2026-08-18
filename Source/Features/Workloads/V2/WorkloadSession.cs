@@ -86,6 +86,277 @@ namespace Better_Work_Tab.Features.Workloads.V2
         public bool IsSideEffectFree => true;
     }
 
+    /// <summary>
+    /// Runtime-only optimistic-concurrency capture for a preview session. This
+    /// is deliberately not part of the workload model or its persistence
+    /// fingerprint: it describes the live BWT-owned values that must still be
+    /// true when an Apply crosses into the writer boundary.
+    /// </summary>
+    internal sealed class WorkloadRuntimeBaseline
+    {
+        private readonly Dictionary<WorkloadParentPriorityKey, int> _parentPriorities;
+        private readonly Dictionary<WorkloadSpecificJobKey, WorkloadSpecificJobRuntimeBaseline> _specificJobOverrides;
+        private readonly Dictionary<WorkloadParentPriorityKey, WorkloadSpecificJobOrderRuntimeBaseline> _specificJobOrders;
+
+        internal WorkloadRuntimeBaseline(
+            IEnumerable<WorkloadParentPriorityEntry> parentPriorities = null,
+            bool hasManualMode = false,
+            bool manualMode = false,
+            IEnumerable<WorkloadSpecificJobRuntimeBaseline> specificJobOverrides = null,
+            IEnumerable<WorkloadSpecificJobOrderRuntimeBaseline> specificJobOrders = null,
+            bool hasSpecificJobRevision = false,
+            int specificJobRevision = 0)
+        {
+            _parentPriorities = new Dictionary<WorkloadParentPriorityKey, int>();
+            if (parentPriorities != null)
+            {
+                foreach (WorkloadParentPriorityEntry entry in parentPriorities)
+                {
+                    if (entry?.Key != null) _parentPriorities[entry.Key] = entry.Priority;
+                }
+            }
+
+            _specificJobOverrides = new Dictionary<WorkloadSpecificJobKey, WorkloadSpecificJobRuntimeBaseline>();
+            if (specificJobOverrides != null)
+            {
+                foreach (WorkloadSpecificJobRuntimeBaseline entry in specificJobOverrides)
+                {
+                    if (entry?.Key != null) _specificJobOverrides[entry.Key] = entry;
+                }
+            }
+
+            _specificJobOrders = new Dictionary<WorkloadParentPriorityKey, WorkloadSpecificJobOrderRuntimeBaseline>();
+            if (specificJobOrders != null)
+            {
+                foreach (WorkloadSpecificJobOrderRuntimeBaseline entry in specificJobOrders)
+                {
+                    if (entry?.Parent != null) _specificJobOrders[entry.Parent] = entry;
+                }
+            }
+
+            HasManualMode = hasManualMode;
+            ManualMode = manualMode;
+            HasSpecificJobRevision = hasSpecificJobRevision;
+            SpecificJobRevision = specificJobRevision;
+        }
+
+        internal bool HasManualMode { get; private set; }
+        internal bool ManualMode { get; private set; }
+        internal bool HasSpecificJobRevision { get; private set; }
+        internal int SpecificJobRevision { get; private set; }
+        internal IEnumerable<KeyValuePair<WorkloadParentPriorityKey, int>> ParentPriorities =>
+            _parentPriorities;
+        internal IEnumerable<WorkloadSpecificJobRuntimeBaseline> SpecificJobOverrides =>
+            _specificJobOverrides.Values;
+        internal IEnumerable<WorkloadSpecificJobOrderRuntimeBaseline> SpecificJobOrders =>
+            _specificJobOrders.Values;
+
+        internal bool TryGetParentPriority(WorkloadParentPriorityKey key, out int priority)
+        {
+            return _parentPriorities.TryGetValue(key, out priority);
+        }
+
+        internal bool TryGetSpecificJobOverride(
+            WorkloadSpecificJobKey key,
+            out bool hasOverride,
+            out int priority)
+        {
+            WorkloadSpecificJobRuntimeBaseline baseline;
+            if (_specificJobOverrides.TryGetValue(key, out baseline))
+            {
+                hasOverride = baseline.HasOverride;
+                priority = baseline.Priority;
+                return true;
+            }
+
+            hasOverride = false;
+            priority = WorkloadScalarValue.Empty.IntegerValue;
+            return false;
+        }
+
+        internal bool TryGetSpecificJobOrder(
+            WorkloadParentPriorityKey parent,
+            out WorkloadSpecificJobOrderRuntimeBaseline baseline)
+        {
+            return _specificJobOrders.TryGetValue(parent, out baseline);
+        }
+
+        internal bool ContainsPawn(PawnKey pawn)
+        {
+            PawnKey safePawn = pawn ?? new PawnKey(null);
+            foreach (WorkloadParentPriorityKey key in _parentPriorities.Keys)
+            {
+                if (key.Pawn.Equals(safePawn)) return true;
+            }
+
+            foreach (WorkloadSpecificJobKey key in _specificJobOverrides.Keys)
+            {
+                if (key.Pawn.Equals(safePawn)) return true;
+            }
+
+            foreach (WorkloadParentPriorityKey key in _specificJobOrders.Keys)
+            {
+                if (key.Pawn.Equals(safePawn)) return true;
+            }
+
+            return false;
+        }
+
+        internal WorkloadRuntimeBaseline ExtendForPawns(
+            WorkloadRuntimeBaseline extension,
+            IEnumerable<PawnKey> pawns)
+        {
+            if (extension == null) return this;
+
+            // Extensions must belong to the same optimistic global snapshot.
+            // Mixing manual mode or specific-job revisions would make the
+            // newly included pawn appear validated against a state that never
+            // existed atomically.
+            if (HasManualMode != extension.HasManualMode
+                || (HasManualMode && ManualMode != extension.ManualMode)
+                || HasSpecificJobRevision != extension.HasSpecificJobRevision
+                || (HasSpecificJobRevision
+                    && SpecificJobRevision != extension.SpecificJobRevision))
+            {
+                return null;
+            }
+
+            var included = new HashSet<PawnKey>(pawns ?? new PawnKey[0]);
+            var parentPriorities = new List<WorkloadParentPriorityEntry>();
+            foreach (KeyValuePair<WorkloadParentPriorityKey, int> entry in _parentPriorities)
+            {
+                parentPriorities.Add(new WorkloadParentPriorityEntry(entry.Key, entry.Value));
+            }
+
+            foreach (KeyValuePair<WorkloadParentPriorityKey, int> entry in extension._parentPriorities)
+            {
+                if (included.Contains(entry.Key.Pawn))
+                {
+                    parentPriorities.Add(new WorkloadParentPriorityEntry(entry.Key, entry.Value));
+                }
+            }
+
+            var specificOverrides = new List<WorkloadSpecificJobRuntimeBaseline>(
+                _specificJobOverrides.Values);
+            foreach (WorkloadSpecificJobRuntimeBaseline entry in extension._specificJobOverrides.Values)
+            {
+                if (included.Contains(entry.Key.Pawn)) specificOverrides.Add(entry);
+            }
+
+            var specificOrders = new List<WorkloadSpecificJobOrderRuntimeBaseline>(
+                _specificJobOrders.Values);
+            foreach (WorkloadSpecificJobOrderRuntimeBaseline entry in extension._specificJobOrders.Values)
+            {
+                if (included.Contains(entry.Parent.Pawn)) specificOrders.Add(entry);
+            }
+
+            return new WorkloadRuntimeBaseline(
+                parentPriorities,
+                HasManualMode || extension.HasManualMode,
+                HasManualMode ? ManualMode : extension.ManualMode,
+                specificOverrides,
+                specificOrders,
+                HasSpecificJobRevision || extension.HasSpecificJobRevision,
+                HasSpecificJobRevision ? SpecificJobRevision : extension.SpecificJobRevision);
+        }
+
+        internal bool Preserves(WorkloadRuntimeBaseline original)
+        {
+            if (original == null) return true;
+            if (HasManualMode != original.HasManualMode ||
+                (HasManualMode && ManualMode != original.ManualMode) ||
+                HasSpecificJobRevision != original.HasSpecificJobRevision ||
+                (HasSpecificJobRevision &&
+                 SpecificJobRevision != original.SpecificJobRevision))
+            {
+                return false;
+            }
+
+            foreach (KeyValuePair<WorkloadParentPriorityKey, int> entry in
+                     original._parentPriorities)
+            {
+                if (!_parentPriorities.TryGetValue(entry.Key, out int value) ||
+                    value != entry.Value)
+                {
+                    return false;
+                }
+            }
+
+            foreach (KeyValuePair<WorkloadSpecificJobKey, WorkloadSpecificJobRuntimeBaseline> entry in
+                     original._specificJobOverrides)
+            {
+                if (!_specificJobOverrides.TryGetValue(entry.Key, out WorkloadSpecificJobRuntimeBaseline value) ||
+                    value.HasOverride != entry.Value.HasOverride ||
+                    value.Priority != entry.Value.Priority)
+                {
+                    return false;
+                }
+            }
+
+            foreach (KeyValuePair<WorkloadParentPriorityKey, WorkloadSpecificJobOrderRuntimeBaseline> entry in
+                     original._specificJobOrders)
+            {
+                if (!_specificJobOrders.TryGetValue(entry.Key, out WorkloadSpecificJobOrderRuntimeBaseline value) ||
+                    value.HasStoredOrder != entry.Value.HasStoredOrder ||
+                    !SequenceEqual(
+                        value.OrderedWorkGiverNames,
+                        entry.Value.OrderedWorkGiverNames))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool SequenceEqual(
+            IReadOnlyList<string> left,
+            IReadOnlyList<string> right)
+        {
+            if (left == null || right == null || left.Count != right.Count) return false;
+            for (int i = 0; i < left.Count; i++)
+            {
+                if (!StringComparer.Ordinal.Equals(left[i], right[i])) return false;
+            }
+
+            return true;
+        }
+    }
+
+    internal sealed class WorkloadSpecificJobRuntimeBaseline
+    {
+        internal WorkloadSpecificJobRuntimeBaseline(
+            WorkloadSpecificJobKey key,
+            bool hasOverride,
+            int priority)
+        {
+            Key = key ?? new WorkloadSpecificJobKey(null, null, null);
+            HasOverride = hasOverride;
+            Priority = priority;
+        }
+
+        internal WorkloadSpecificJobKey Key { get; private set; }
+        internal bool HasOverride { get; private set; }
+        internal int Priority { get; private set; }
+    }
+
+    internal sealed class WorkloadSpecificJobOrderRuntimeBaseline
+    {
+        internal WorkloadSpecificJobOrderRuntimeBaseline(
+            WorkloadParentPriorityKey parent,
+            bool hasStoredOrder,
+            IEnumerable<string> orderedWorkGiverNames)
+        {
+            Parent = parent ?? new WorkloadParentPriorityKey(null, null);
+            HasStoredOrder = hasStoredOrder;
+            OrderedWorkGiverNames = new List<string>(orderedWorkGiverNames ?? new string[0]).AsReadOnly();
+        }
+
+        internal WorkloadParentPriorityKey Parent { get; private set; }
+        internal bool HasStoredOrder { get; private set; }
+        internal IReadOnlyList<string> OrderedWorkGiverNames { get; private set; }
+    }
+
     public sealed class WorkloadSession
     {
         private readonly WorkloadValidationContext _validationContext;
@@ -98,7 +369,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadSessionStatus status,
             WorkloadValidationContext validationContext,
             string sourceIdentity,
-            bool hasCapturedLiveBaseline)
+            bool hasCapturedLiveBaseline,
+            WorkloadRuntimeBaseline runtimeBaseline)
         {
             SourceTemplate = sourceTemplate ?? WorkloadTemplate.Empty;
             TemplateBaselineState = templateBaselineState ?? WorkloadProjectedState.Empty;
@@ -108,6 +380,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             _validationContext = validationContext ?? WorkloadValidationContext.Default;
             SourceIdentity = sourceIdentity ?? string.Empty;
             HasCapturedLiveBaseline = hasCapturedLiveBaseline;
+            RuntimeBaseline = runtimeBaseline;
         }
 
         public static WorkloadSession Open(
@@ -128,7 +401,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 WorkloadSessionStatus.Open,
                 validationContext ?? WorkloadValidationContext.Default,
                 string.Empty,
-                false);
+                false,
+                null);
         }
 
         /// <summary>
@@ -143,7 +417,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadTemplate template,
             WorkloadProjectedState liveBaselineState,
             string sourceIdentity,
-            WorkloadValidationContext validationContext = null)
+            WorkloadValidationContext validationContext = null,
+            WorkloadRuntimeBaseline runtimeBaseline = null)
         {
             WorkloadTemplate safeTemplate = template ?? WorkloadTemplate.Empty;
             if (liveBaselineState == null ||
@@ -169,7 +444,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 WorkloadSessionStatus.Open,
                 validationContext ?? WorkloadValidationContext.Default,
                 sourceIdentity,
-                true);
+                true,
+                runtimeBaseline);
         }
 
         internal static string GetSourceIdentity(WorkloadTemplate template)
@@ -187,6 +463,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
         public WorkloadProjectedState BaseState => TemplateBaselineState;
         public WorkloadProjectedState ProjectedState { get; private set; }
         public bool HasCapturedLiveBaseline { get; private set; }
+        internal WorkloadRuntimeBaseline RuntimeBaseline { get; private set; }
         internal string SourceIdentity { get; private set; }
 
         /// <summary>
@@ -250,9 +527,9 @@ namespace Better_Work_Tab.Features.Workloads.V2
         /// The projected state format has no persisted tombstone representation
         /// yet. Removing an owned value would therefore make the renderer fall
         /// through to live state while Apply interprets the same removal as a
-        /// write (for example Disabled for a parent priority). Such removals
-        /// are rejected at the runtime boundary instead of being presented as
-        /// a misleading staged edit.
+        /// write. Until projection carries explicit tombstones, every owned
+        /// removal remains fail-closed even when the live manager exposes an
+        /// exact clear primitive.
         /// </summary>
         public bool HasUnsupportedClears
         {
@@ -298,6 +575,66 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             if (IsTerminal) return this;
             return NewSession(ProjectedState.IncludePawn(pawn), WorkloadSessionStatus.Editing);
+        }
+
+        internal WorkloadSession ExtendCapturedBaseline(
+            IEnumerable<PawnKey> pawns,
+            WorkloadProjectedState liveBaselineExtension,
+            WorkloadRuntimeBaseline runtimeBaseline)
+        {
+            if (IsTerminal || runtimeBaseline == null) return this;
+            var included = new HashSet<PawnKey>(pawns ?? new PawnKey[0]);
+            if (included.Count == 0) return this;
+
+            var draft = new WorkloadDraft(LiveBaselineState);
+            WorkloadProjectedState extensionState =
+                liveBaselineExtension ?? WorkloadProjectedState.Empty;
+            for (int i = 0; i < extensionState.ParentPriorities.Count; i++)
+            {
+                WorkloadParentPriorityEntry entry = extensionState.ParentPriorities[i];
+                if (included.Contains(entry.Key.Pawn))
+                {
+                    draft.SetParentPriority(entry.Key, entry.Priority);
+                }
+            }
+
+            for (int i = 0; i < extensionState.ManualModes.Count; i++)
+            {
+                WorkloadManualModeEntry entry = extensionState.ManualModes[i];
+                if (included.Contains(entry.Key.Pawn))
+                {
+                    draft.SetManualMode(entry.Key, entry.Manual);
+                }
+            }
+
+            for (int i = 0; i < extensionState.SpecificJobOverrides.Count; i++)
+            {
+                WorkloadSpecificJobOverrideEntry entry = extensionState.SpecificJobOverrides[i];
+                if (included.Contains(entry.Key.Pawn))
+                {
+                    draft.SetSpecificJobOverride(entry.Key, entry.Value);
+                }
+            }
+
+            for (int i = 0; i < extensionState.SpecificJobOrder.Count; i++)
+            {
+                WorkloadSpecificJobOrderEntry entry = extensionState.SpecificJobOrder[i];
+                if (included.Contains(entry.Key.Pawn))
+                {
+                    draft.SetSpecificJobOrder(entry.Key, entry.Order);
+                }
+            }
+
+            return new WorkloadSession(
+                SourceTemplate,
+                TemplateBaselineState,
+                draft.ProjectedState,
+                ProjectedState,
+                Status,
+                _validationContext,
+                SourceIdentity,
+                HasCapturedLiveBaseline,
+                runtimeBaseline);
         }
 
         public WorkloadSession Revert()
@@ -424,7 +761,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 status,
                 _validationContext,
                 SourceIdentity,
-                HasCapturedLiveBaseline);
+                HasCapturedLiveBaseline,
+                RuntimeBaseline);
         }
 
         private WorkloadSession TerminalSession(WorkloadTemplate resultTemplate, WorkloadSessionStatus status)
@@ -438,7 +776,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 status,
                 _validationContext,
                 string.Empty,
-                false);
+                false,
+                null);
         }
 
         private static WorkloadProjectedState NormalizeState(
@@ -717,9 +1056,15 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
         private bool HasRemovedSpecificJobOverride()
         {
-            for (int i = 0; i < TemplateBaselineState.SpecificJobOverrides.Count; i++)
+            return HasRemovedSpecificJobOverride(TemplateBaselineState) ||
+                HasRemovedSpecificJobOverride(LiveBaselineState);
+        }
+
+        private bool HasRemovedSpecificJobOverride(WorkloadProjectedState baseline)
+        {
+            for (int i = 0; i < baseline.SpecificJobOverrides.Count; i++)
             {
-                WorkloadSpecificJobOverrideEntry entry = TemplateBaselineState.SpecificJobOverrides[i];
+                WorkloadSpecificJobOverrideEntry entry = baseline.SpecificJobOverrides[i];
                 if (!ProjectedState.IsExcluded(entry.Key.Pawn) &&
                     !ContainsSpecificOverride(ProjectedState.SpecificJobOverrides, entry.Key))
                 {
@@ -732,9 +1077,15 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
         private bool HasRemovedSpecificJobOrder()
         {
-            for (int i = 0; i < TemplateBaselineState.SpecificJobOrder.Count; i++)
+            return HasRemovedSpecificJobOrder(TemplateBaselineState) ||
+                HasRemovedSpecificJobOrder(LiveBaselineState);
+        }
+
+        private bool HasRemovedSpecificJobOrder(WorkloadProjectedState baseline)
+        {
+            for (int i = 0; i < baseline.SpecificJobOrder.Count; i++)
             {
-                WorkloadSpecificJobOrderEntry entry = TemplateBaselineState.SpecificJobOrder[i];
+                WorkloadSpecificJobOrderEntry entry = baseline.SpecificJobOrder[i];
                 if (!ProjectedState.IsExcluded(entry.Key.Pawn) &&
                     !ContainsSpecificOrder(ProjectedState.SpecificJobOrder, entry.Key))
                 {

@@ -32,6 +32,32 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static bool _cachedHasAnyData;
         private static BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
 
+        /// <summary>
+        /// Exact persisted state for one pawn/work-type order. The effective
+        /// display order is not enough for rollback because it can be inherited
+        /// from the global order; HasStoredOrder preserves that distinction.
+        /// </summary>
+        internal sealed class PawnWorkGiverOrderSnapshot
+        {
+            internal PawnWorkGiverOrderSnapshot(
+                int pawnId,
+                string workTypeDefName,
+                bool hasStoredOrder,
+                IEnumerable<string> orderedWorkGiverNames)
+            {
+                PawnId = pawnId;
+                WorkTypeDefName = workTypeDefName ?? string.Empty;
+                HasStoredOrder = hasStoredOrder;
+                OrderedWorkGiverNames = new List<string>(
+                    orderedWorkGiverNames ?? new string[0]);
+            }
+
+            internal int PawnId { get; private set; }
+            internal string WorkTypeDefName { get; private set; }
+            internal bool HasStoredOrder { get; private set; }
+            internal IReadOnlyList<string> OrderedWorkGiverNames { get; private set; }
+        }
+
         private static WorkGiverReassignmentData ExistingData
         {
             get
@@ -61,6 +87,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         internal static int CurrentSyncVersion => Data?.SyncVersion ?? 0;
+
+        internal static bool CanSynchronouslyAcknowledgeExactPawnOrderMutation =>
+            !MultiplayerBridge.Active;
 
         internal static bool HasActiveData
         {
@@ -207,7 +236,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return new MutationBatchScope();
         }
 
-        internal static bool CommitMutationBatch()
+        internal static bool CommitMutationBatch(bool notifyDependents = false)
         {
             if (_mutationBatchDepth != 0 || !_mutationBatchChanged)
             {
@@ -216,6 +245,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             _mutationBatchChanged = false;
             InvalidateCaches();
+            if (notifyDependents)
+            {
+                NotifySubWorkDependentsChanged();
+            }
             return true;
         }
 
@@ -598,6 +631,175 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return data.PawnWorkGiverOrdering.TryGetValue(pawn.thingIDNumber, out var orders) && 
                    orders != null && 
                    orders.ContainsKey(workType.defName);
+        }
+
+        /// <summary>
+        /// Reads the exact BWT-owned pawn order without falling back to the
+        /// global order. This is a runtime transaction seam, not a new
+        /// persistence shape.
+        /// </summary>
+        internal static PawnWorkGiverOrderSnapshot CapturePawnWorkGiverOrderSnapshot(
+            int pawnId,
+            string workTypeDefName)
+        {
+            WorkGiverReassignmentData data = ExistingData;
+            bool hasStoredOrder = false;
+            List<string> orderedNames = null;
+            if (data?.PawnWorkGiverOrdering != null &&
+                data.PawnWorkGiverOrdering.TryGetValue(pawnId, out var pawnOrders) &&
+                pawnOrders != null &&
+                pawnOrders.TryGetValue(workTypeDefName ?? string.Empty, out orderedNames))
+            {
+                hasStoredOrder = true;
+            }
+
+            return new PawnWorkGiverOrderSnapshot(
+                pawnId,
+                workTypeDefName,
+                hasStoredOrder,
+                orderedNames);
+        }
+
+        internal static PawnWorkGiverOrderSnapshot CapturePawnWorkGiverOrderSnapshot(
+            Pawn pawn,
+            WorkTypeDef workType)
+        {
+            return CapturePawnWorkGiverOrderSnapshot(
+                pawn?.thingIDNumber ?? -1,
+                workType?.defName);
+        }
+
+        /// <summary>
+        /// Restores an exact pawn order, including the absence of a pawn-local
+        /// override. The caller owns the transaction and may suppress the
+        /// normal notification while it is rolling back.
+        /// </summary>
+        internal static bool RestorePawnWorkGiverOrderSnapshot(
+            PawnWorkGiverOrderSnapshot snapshot,
+            bool notify = true)
+        {
+            if (snapshot == null || snapshot.PawnId < 0 || snapshot.WorkTypeDefName.NullOrEmpty())
+            {
+                return false;
+            }
+
+            return snapshot.HasStoredOrder
+                ? SetPawnWorkGiverOrderExact(
+                    snapshot.PawnId,
+                    snapshot.WorkTypeDefName,
+                    snapshot.OrderedWorkGiverNames,
+                    notify)
+                : ClearPawnWorkGiverOrderExact(
+                    snapshot.PawnId,
+                    snapshot.WorkTypeDefName,
+                    notify);
+        }
+
+        /// <summary>
+        /// Removes only the exact pawn-local order entry. It intentionally does
+        /// not touch global ordering, reassignment mapping, or priority
+        /// overrides.
+        /// </summary>
+        internal static bool ClearPawnWorkGiverOrderExact(
+            int pawnId,
+            string workTypeDefName,
+            bool notify = true)
+        {
+            if (pawnId < 0 || workTypeDefName.NullOrEmpty() ||
+                !CanSynchronouslyAcknowledgeExactPawnOrderMutation)
+            {
+                return false;
+            }
+
+            WorkGiverReassignmentData data = ExistingData;
+            if (data == null || data.PawnWorkGiverOrdering == null ||
+                !data.PawnWorkGiverOrdering.TryGetValue(pawnId, out var pawnOrders) ||
+                pawnOrders == null || !pawnOrders.Remove(workTypeDefName))
+            {
+                return true;
+            }
+
+            if (pawnOrders.Count == 0)
+            {
+                data.PawnWorkGiverOrdering.Remove(pawnId);
+            }
+
+            data.SyncVersion++;
+            if (notify) NotifySubWorkDataChanged();
+            return true;
+        }
+
+        /// <summary>
+        /// Writes a previously captured exact pawn order without normalizing or
+        /// appending entries. The list must still be a permutation of the
+        /// currently resolvable work-givers for the work type; otherwise the
+        /// operation fails closed.
+        /// </summary>
+        internal static bool SetPawnWorkGiverOrderExact(
+            int pawnId,
+            string workTypeDefName,
+            IReadOnlyList<string> orderedWorkGiverNames,
+            bool notify = true)
+        {
+            if (pawnId < 0 || workTypeDefName.NullOrEmpty() || orderedWorkGiverNames == null ||
+                !CanSynchronouslyAcknowledgeExactPawnOrderMutation)
+            {
+                return false;
+            }
+
+            WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
+            if (workType == null || !IsExactWorkGiverOrder(workType, orderedWorkGiverNames))
+            {
+                return false;
+            }
+
+            WorkGiverReassignmentData data = Data;
+            if (data == null) return false;
+            data.EnsureCollections();
+            if (!data.PawnWorkGiverOrdering.TryGetValue(pawnId, out var pawnOrders) || pawnOrders == null)
+            {
+                pawnOrders = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+                data.PawnWorkGiverOrdering[pawnId] = pawnOrders;
+            }
+
+            var exact = new List<string>(orderedWorkGiverNames);
+            if (pawnOrders.TryGetValue(workTypeDefName, out var existing) &&
+                existing != null && existing.SequenceEqual(exact))
+            {
+                return true;
+            }
+
+            pawnOrders[workTypeDefName] = exact;
+            data.SyncVersion++;
+            if (notify) NotifySubWorkDataChanged();
+            return true;
+        }
+
+        private static bool IsExactWorkGiverOrder(
+            WorkTypeDef workType,
+            IReadOnlyList<string> orderedWorkGiverNames)
+        {
+            var expected = GetDisplayWorkGiversForWorkType(workType)
+                .Where(workGiver => workGiver?.def != null)
+                .Select(workGiver => workGiver.def.defName)
+                .ToList();
+            if (expected.Count != orderedWorkGiverNames.Count)
+            {
+                return false;
+            }
+
+            var expectedSet = new HashSet<string>(expected, StringComparer.Ordinal);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < orderedWorkGiverNames.Count; i++)
+            {
+                string name = orderedWorkGiverNames[i];
+                if (name.NullOrEmpty() || !expectedSet.Contains(name) || !seen.Add(name))
+                {
+                    return false;
+                }
+            }
+
+            return seen.Count == expectedSet.Count;
         }
 
         internal static bool ShouldShowMovedWorkGiverMarker(WorkTypeDef workType, WorkGiverDef workGiverDef)
@@ -1524,6 +1726,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return;
             }
 
+            NotifySubWorkDependentsChanged();
+        }
+
+        private static void NotifySubWorkDependentsChanged()
+        {
             UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.SubWorkOverride |
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.Columns |

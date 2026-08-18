@@ -67,6 +67,17 @@ namespace Better_Work_Tab.Features.Rules
             WorkTypeDef worktype = null
         )
         {
+            return Apply(pawn, currentPawns, worktype, out _);
+        }
+
+        internal bool Apply(
+            Pawn pawn,
+            List<Pawn> currentPawns,
+            WorkTypeDef worktype,
+            out bool mutationFailed)
+        {
+            mutationFailed = false;
+
             // Determine which worktype this rule applies to
             var assigningWorktype = DetermineWorktype(worktype);
             if (assigningWorktype == null)
@@ -98,7 +109,11 @@ namespace Better_Work_Tab.Features.Rules
                 return false;
 
             // All checks passed - assign the priority.
-            WorkPrioritySystem.SetPriority(pawn.workSettings, assigningWorktype, Parameters.Priority);
+            if (!WorkPrioritySystem.SetPriority(pawn.workSettings, assigningWorktype, Parameters.Priority))
+            {
+                mutationFailed = true;
+                return false;
+            }
 
             return validationResult.ShouldSkipRemainingPawns;
         }

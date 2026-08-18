@@ -647,7 +647,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private void HandleHeaderDrag(int index, bool isHovered)
         {
-            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                _pawn == null)
             {
                 if (isHovered && Event.current.type == EventType.Repaint)
                 {

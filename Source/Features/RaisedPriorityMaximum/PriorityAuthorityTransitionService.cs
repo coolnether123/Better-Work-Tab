@@ -29,6 +29,19 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static bool authorityRefreshDeferred;
         private const int MaxSynchronousAuthorityRefreshPasses = 8;
 
+        // Authority resolution can observe a registry callback that asks BWT to refresh its
+        // authority. Preview reads must be able to resolve the same snapshot without allowing
+        // that callback to enter the transition/handoff owner. Keep this guard thread-local so
+        // an observational read cannot suppress a normal authority transition on another thread.
+        [ThreadStatic]
+        private static int authorityObservationDepth;
+
+        [ThreadStatic]
+        private static bool hasObservationSnapshot;
+
+        [ThreadStatic]
+        private static PriorityAuthoritySnapshot observationSnapshot;
+
         internal static PriorityAuthorityOwner CurrentAuthority
         {
             get
@@ -36,6 +49,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 if (handoffInProgress && handoffAuthorityOverride.HasValue)
                 {
                     return handoffAuthorityOverride.Value;
+                }
+
+                if (authorityObservationDepth > 0)
+                {
+                    return GetObservationOwner();
                 }
 
                 if (!handoffInProgress && ExternalWorkTabRegistry.RegisteredStoreEntryCount == 0)
@@ -61,6 +79,63 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
         }
 
+        /// <summary>
+        /// Resolves an authority snapshot for observation only. This path never drains a pending
+        /// transition through <see cref="EnsureTransitionApplied"/> and suppresses registry
+        /// callbacks that would otherwise re-enter the handoff owner while the snapshot is being
+        /// assembled. Normal callers must continue to use <see cref="CurrentAuthority"/>.
+        /// </summary>
+        internal static PriorityAuthoritySnapshot GetObservationalSnapshot()
+        {
+            BeginAuthorityObservation();
+            try
+            {
+                return ResolveObservationalSnapshot();
+            }
+            finally
+            {
+                EndAuthorityObservation();
+            }
+        }
+
+        /// <summary>
+        /// Returns the resolver-owned cache revision without allowing a preview read to perform a
+        /// transition or handoff. The resolver is intentionally asked for the revision while the
+        /// observation guard is active because its registry probe can drain deferred refresh work.
+        /// </summary>
+        internal static long GetObservationalRevision()
+        {
+            BeginAuthorityObservation();
+            try
+            {
+                ResolveObservationalSnapshot();
+                return PriorityAuthorityResolver.CurrentAuthorityRevision;
+            }
+            finally
+            {
+                EndAuthorityObservation();
+            }
+        }
+
+        /// <summary>
+        /// Reads the normal effective priority algorithm under the observational authority guard.
+        /// This keeps external-store and time-priority semantics identical while preventing a
+        /// projected provider fallback read from becoming a transition owner.
+        /// </summary>
+        internal static int GetObservationalEffectivePriority(Pawn pawn, WorkTypeDef workType)
+        {
+            BeginAuthorityObservation();
+            try
+            {
+                ResolveObservationalSnapshot();
+                return WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            }
+            finally
+            {
+                EndAuthorityObservation();
+            }
+        }
+
         internal static bool IsBetterWorkTabAuthority =>
             CurrentAuthority == PriorityAuthorityOwner.BetterWorkTab;
 
@@ -72,6 +147,14 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static void NotifyPotentialAuthorityChanged(bool refreshRegistry = true)
         {
+            if (authorityObservationDepth > 0)
+            {
+                // A resolver callback may request a refresh while a preview is observing. The
+                // observation must remain side-effect free; the normal owner will process the
+                // registry change on its next non-preview authority path.
+                return;
+            }
+
             if (refreshRegistry)
             {
                 ExternalWorkTabRegistry.NotifyAvailabilityChanged();
@@ -107,6 +190,12 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return false;
             }
 
+            if (authorityObservationDepth > 0)
+            {
+                store = GetObservationStore();
+                return store != null;
+            }
+
             // The empty immutable registry snapshot is the common path. Do not initialize or audit
             // optional integrations from the vanilla/BWT getter when there are no usable stores.
             if (ExternalWorkTabRegistry.RegisteredStoreEntryCount == 0)
@@ -130,6 +219,14 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         private static void InvalidateAuthorityAndRefresh()
         {
+            if (authorityObservationDepth > 0)
+            {
+                // Explicit invalidation is safe to record while observing, but it must not start
+                // the synchronous transition loop. The next normal authority read owns refresh.
+                PriorityAuthorityResolver.Invalidate();
+                return;
+            }
+
             PriorityAuthorityResolver.Invalidate();
             bool shouldRefresh = false;
             lock (authorityRefreshSyncRoot)
@@ -392,6 +489,66 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                    left.StoreRegistrationGeneration == right.StoreRegistrationGeneration &&
                    (left.AuthoritativeStore == null ||
                     ReferenceEquals(left.AuthoritativeStore, right.AuthoritativeStore));
+        }
+
+        private static PriorityAuthoritySnapshot ResolveObservationalSnapshot()
+        {
+            PriorityAuthoritySnapshot snapshot = PriorityAuthorityResolver.Resolve();
+            observationSnapshot = snapshot;
+            hasObservationSnapshot = true;
+            return snapshot;
+        }
+
+        private static void BeginAuthorityObservation()
+        {
+            authorityObservationDepth++;
+        }
+
+        private static void EndAuthorityObservation()
+        {
+            if (authorityObservationDepth > 0)
+            {
+                authorityObservationDepth--;
+            }
+
+            if (authorityObservationDepth == 0)
+            {
+                hasObservationSnapshot = false;
+                observationSnapshot = default(PriorityAuthoritySnapshot);
+            }
+        }
+
+        private static PriorityAuthoritySnapshot GetObservationSnapshot()
+        {
+            return hasObservationSnapshot
+                ? observationSnapshot
+                : authorityInitialized
+                    ? lastAuthoritySnapshot
+                    : default(PriorityAuthoritySnapshot);
+        }
+
+        private static PriorityAuthorityOwner GetObservationOwner()
+        {
+            PriorityAuthoritySnapshot snapshot = GetObservationSnapshot();
+            return snapshot.IsCoherent &&
+                   snapshot.RegistryGeneration == ExternalWorkTabRegistry.RegistryGeneration
+                ? snapshot.Owner
+                : PriorityAuthorityOwner.BetterWorkTab;
+        }
+
+        private static IExternalWorkTabStore GetObservationStore()
+        {
+            PriorityAuthoritySnapshot snapshot = GetObservationSnapshot();
+            if (!snapshot.IsCoherent ||
+                snapshot.RegistryGeneration != ExternalWorkTabRegistry.RegistryGeneration ||
+                snapshot.Owner == PriorityAuthorityOwner.BetterWorkTab ||
+                snapshot.AuthoritativeStore == null ||
+                snapshot.StoreRegistrationGeneration == 0)
+            {
+                return null;
+            }
+
+            return snapshot.AuthoritativeStore;
         }
     }
 }

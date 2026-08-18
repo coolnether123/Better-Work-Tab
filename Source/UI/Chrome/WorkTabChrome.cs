@@ -417,7 +417,9 @@ namespace Better_Work_Tab.UI.Chrome
                         inRect.y,
                         Mathf.Max(0f, textRight - inRect.x - 6f),
                         inRect.height);
-                    Widgets.Label(textRect, string.Join(" | ", instructions));
+                    Widgets.Label(
+                        textRect,
+                        string.Join(" | ", instructions).Truncate(Mathf.Max(1f, textRect.width)));
                 }
             }
             GUI.color = Color.white;

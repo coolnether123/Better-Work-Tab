@@ -334,6 +334,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             WorkGiverDef workGiver,
             out WorkTabEffectiveStateMutationResult result)
         {
+            // Keep this operation fail closed. A specific-job clear is a
+            // tombstone, and omitting the projected entry would expose the live
+            // override again until the projection has an explicit tombstone
+            // representation.
             result = default(WorkTabEffectiveStateMutationResult);
             if (!TryGetPreviewEditor(out IWorkTabEffectiveStateEditor editor) ||
                 pawn == null || workType == null || workGiver == null)
@@ -556,11 +560,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         }
 
         /// <summary>
-        /// Resolves the global manual-mode display value without making the
-        /// projection pretend that the vanilla flag is its authority. The
-        /// effective-state contract keys manual mode by parent so a preview
-        /// stores the same value for the visible pawn/work-type keys; the
-        /// first valid key supplies the Work-tab-wide display value.
+        /// Resolves the global manual-mode display value from the projected
+        /// provider's in-scope editable parent key. The effective-state
+        /// contract keys manual mode by parent even though RimWorld stores one
+        /// global flag; no arbitrary live pawn is consulted during preview.
         /// </summary>
         public static bool GetManualModeForDisplay(bool fallbackManualMode)
         {
@@ -569,26 +572,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return fallbackManualMode;
             }
 
-            IReadOnlyList<WorkTypeDef> workTypes =
-                DefDatabase<WorkTypeDef>.AllDefsListForReading;
-            foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
+            if (CurrentProvider is ProjectedWorkTabEffectiveStateProvider projected &&
+                projected.TryGetProjectedManualModeForDisplay(out bool manualMode))
             {
-                if (pawn?.workSettings == null || !pawn.workSettings.EverWork)
-                {
-                    continue;
-                }
-
-                for (int i = 0; i < workTypes.Count; i++)
-                {
-                    WorkTypeDef workType = workTypes[i];
-                    if (workType != null &&
-                        CurrentProvider.TryGetManualMode(
-                            WorkTabEffectiveStateIds.ForParentPriority(pawn, workType),
-                            out bool manualMode))
-                    {
-                        return manualMode;
-                    }
-                }
+                return manualMode;
             }
 
             return fallbackManualMode;
