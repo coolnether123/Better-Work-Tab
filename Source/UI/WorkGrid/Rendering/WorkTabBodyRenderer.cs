@@ -1098,21 +1098,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         continue;
                     }
 
-                    if (SleekWorkTabGateway.BetterWorkTabHostsSleek &&
-                        SubWorkDrilldownState.TryGetWorkGiverForColumn(
-                            column,
-                            out WorkGiver mixedWorkGiver,
-                            out _,
-                            out _) &&
-                        SleekWorkTabGateway.TryDrawMixedSleekWorkGiverCell(
-                            cellRect,
-                            pawn,
-                            table,
-                            mixedWorkGiver?.def))
-                    {
-                        continue;
-                    }
-
                     // Expand-beside children are owned by BWT. Sending them through the
                     // vanilla WorkPriority worker only for Harmony to intercept and route
                     // them back here adds a prefix, global drawing scope, and virtual call
