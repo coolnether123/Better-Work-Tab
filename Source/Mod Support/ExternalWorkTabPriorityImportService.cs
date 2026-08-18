@@ -94,7 +94,9 @@ namespace Better_Work_Tab.ModSupport
         {
             int importedMax = records
                 .SelectMany(record => record.WorkGivers)
-                .SelectMany(record => NormalizePriorities(record.Priorities, WorkPrioritySystem.DisabledPriority))
+                .SelectMany(record => ExternalWorkTabPriorityArrayNormalizer.Normalize(
+                    record.Priorities,
+                    WorkPrioritySystem.DisabledPriority))
                 .DefaultIfEmpty(PriorityConstants.VanillaMax)
                 .Max();
             int changed = EnsurePriorityRangeForImport(importedMax) ? 1 : 0;
@@ -143,7 +145,7 @@ namespace Better_Work_Tab.ModSupport
                     foreach (ExternalWorkGiverPriorityRecord workGiverPriority in workGiverPriorities)
                     {
                         WorkGiverDef workGiver = workGiverPriority.WorkGiver;
-                        int[] normalizedPriorities = NormalizePriorities(
+                        int[] normalizedPriorities = ExternalWorkTabPriorityArrayNormalizer.Normalize(
                             workGiverPriority.Priorities,
                             parentFallback);
                         if (workGiver == null)
@@ -247,7 +249,7 @@ namespace Better_Work_Tab.ModSupport
             int[] priorities,
             int fallbackPriority)
         {
-            int[] normalized = NormalizePriorities(priorities, fallbackPriority);
+            int[] normalized = ExternalWorkTabPriorityArrayNormalizer.Normalize(priorities, fallbackPriority);
             TimePriorityService.SetScheduleSynced(
                 target,
                 normalized,
@@ -293,7 +295,9 @@ namespace Better_Work_Tab.ModSupport
         private static int[] BuildWorkTypePriorities(List<ExternalWorkGiverPriorityRecord> workGiverPriorities)
         {
             List<int[]> normalizedPriorities = workGiverPriorities
-                .Select(record => NormalizePriorities(record.Priorities, WorkPrioritySystem.DisabledPriority))
+                .Select(record => ExternalWorkTabPriorityArrayNormalizer.Normalize(
+                    record.Priorities,
+                    WorkPrioritySystem.DisabledPriority))
                 .ToList();
             var result = new int[TimePriorityService.HoursPerDay];
             for (int hour = 0; hour < result.Length; hour++)
@@ -321,7 +325,7 @@ namespace Better_Work_Tab.ModSupport
 
         private static int ChooseFallbackPriority(int[] priorities)
         {
-            return NormalizePriorities(priorities, WorkPrioritySystem.DisabledPriority)
+            return ExternalWorkTabPriorityArrayNormalizer.Normalize(priorities, WorkPrioritySystem.DisabledPriority)
                 .Where(priority => priority > WorkPrioritySystem.DisabledPriority)
                 .GroupBy(priority => priority)
                 .OrderByDescending(group => group.Count())
@@ -329,28 +333,6 @@ namespace Better_Work_Tab.ModSupport
                 .Select(group => group.Key)
                 .DefaultIfEmpty(WorkPrioritySystem.DisabledPriority)
                 .First();
-        }
-
-        private static int[] NormalizePriorities(int[] priorities, int fallbackPriority)
-        {
-            var normalized = new int[TimePriorityService.HoursPerDay];
-            fallbackPriority = ClampImportedPriority(fallbackPriority);
-            for (int i = 0; i < normalized.Length; i++)
-            {
-                normalized[i] = ClampImportedPriority(
-                    priorities != null && i < priorities.Length
-                        ? priorities[i]
-                        : fallbackPriority);
-            }
-
-            return normalized;
-        }
-
-        private static int ClampImportedPriority(int priority)
-        {
-            return Math.Max(
-                WorkPrioritySystem.DisabledPriority,
-                Math.Min(PriorityConstants.ExtendedHardMax, priority));
         }
 
         private static bool ArraysEqual(int[] left, int[] right)

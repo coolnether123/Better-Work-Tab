@@ -11,6 +11,7 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using HarmonyLib;
 using RimWorld;
@@ -329,7 +330,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static int[] ReadPriorityArray(object workPriority)
         {
             PropertyInfo prioritiesProperty = AccessTools.Property(workPriority.GetType(), "Priorities");
-            return NormalizePriorities(prioritiesProperty?.GetValue(workPriority, null) as int[], WorkPrioritySystem.DisabledPriority);
+            return ExternalWorkTabPriorityArrayNormalizer.Normalize(
+                prioritiesProperty?.GetValue(workPriority, null) as int[],
+                WorkPrioritySystem.DisabledPriority);
         }
 
         private static bool TryParsePriorityString(string prioritiesText, out int[] priorities)
@@ -359,30 +362,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 parsed.Add(parsed[parsed.Count - 1]);
             }
 
-            priorities = NormalizePriorities(parsed.Take(TimePriorityService.HoursPerDay).ToArray(), WorkPrioritySystem.DisabledPriority);
+            priorities = ExternalWorkTabPriorityArrayNormalizer.Normalize(
+                parsed.Take(TimePriorityService.HoursPerDay).ToArray(),
+                WorkPrioritySystem.DisabledPriority);
             return true;
-        }
-
-        private static int[] NormalizePriorities(int[] priorities, int fallbackPriority)
-        {
-            var normalized = new int[TimePriorityService.HoursPerDay];
-            fallbackPriority = ClampImportedPriority(fallbackPriority);
-            for (int i = 0; i < normalized.Length; i++)
-            {
-                normalized[i] = ClampImportedPriority(
-                    priorities != null && i < priorities.Length
-                        ? priorities[i]
-                        : fallbackPriority);
-            }
-
-            return normalized;
-        }
-
-        private static int ClampImportedPriority(int priority)
-        {
-            return Math.Max(
-                WorkPrioritySystem.DisabledPriority,
-                Math.Min(PriorityConstants.ExtendedHardMax, priority));
         }
 
         private static Dictionary<string, Pawn> BuildPawnLoadIdMap()
