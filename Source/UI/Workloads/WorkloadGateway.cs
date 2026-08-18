@@ -166,13 +166,6 @@ namespace Better_Work_Tab.UI.Workloads
                 NoCurrentGameMessage);
         }
 
-        private static WorkloadOperationResult V2Unavailable(string message)
-        {
-            return WorkloadOperationResult.Fail(
-                WorkloadDiagnosticCode.UnsupportedOperation,
-                message);
-        }
-
         private static WorkloadOperationResult<T> V2Unavailable<T>(string message)
         {
             return WorkloadOperationResult<T>.Fail(
@@ -315,6 +308,13 @@ namespace Better_Work_Tab.UI.Workloads
         /// </summary>
         internal static WorkloadOperationResult TryTransitionMode(WorkloadBackendMode targetMode)
         {
+            return TryTransitionMode(targetMode, persistSettings: true);
+        }
+
+        internal static WorkloadOperationResult TryTransitionMode(
+            WorkloadBackendMode targetMode,
+            bool persistSettings)
+        {
             if (targetMode != WorkloadBackendMode.Legacy && targetMode != WorkloadBackendMode.Modern)
             {
                 return WorkloadOperationResult.Fail(
@@ -345,7 +345,11 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             settings.useLegacyWorkloads = targetMode == WorkloadBackendMode.Legacy;
-            settings.Write();
+            if (persistSettings)
+            {
+                settings.Write();
+            }
+
             return WorkloadOperationResult.Ok();
         }
 

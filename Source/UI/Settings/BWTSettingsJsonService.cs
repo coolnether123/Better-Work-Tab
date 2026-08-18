@@ -13,6 +13,8 @@ using Spine.UI.ColourPicker;
 using Spine.UI.SettingsFramework;
 using UnityEngine;
 using Better_Work_Tab.UI.Workloads;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Verse;
 
 namespace Better_Work_Tab.UI.Settings
@@ -191,6 +193,9 @@ namespace Better_Work_Tab.UI.Settings
 
             string path = TemporaryExportPath("Import");
             bool ownsLoader = false;
+            bool workloadModeChanged = false;
+            bool settingsWriteSucceeded = false;
+            bool previousLegacyMode = false;
             try
             {
                 File.WriteAllBytes(path, Convert.FromBase64String(encodedData));
@@ -221,22 +226,7 @@ namespace Better_Work_Tab.UI.Settings
                     return false;
                 }
 
-                // The workload transition is the only live mutation allowed before
-                // the staged settings graph is transferred. Its success also authorizes
-                // the one preference field that must not be notified a second time.
-                if (data.Settings.useLegacyWorkloads != destination.useLegacyWorkloads)
-                {
-                    WorkloadOperationResult workloadTransition = WorkloadGateway.TryTransitionMode(
-                        data.Settings.useLegacyWorkloads
-                            ? WorkloadBackendMode.Legacy
-                            : WorkloadBackendMode.Modern);
-                    if (!workloadTransition.Succeeded)
-                    {
-                        report = workloadTransition.Message;
-                        return false;
-                    }
-                }
-
+                previousLegacyMode = destination.useLegacyWorkloads;
                 var previousPreferenceValues = new Dictionary<string, object>();
                 foreach (SettingDefinition definition in BWTSettingsRegistry.Definitions)
                 {
@@ -256,6 +246,22 @@ namespace Better_Work_Tab.UI.Settings
                     }
 
                     previousPreferenceValues.Add(definition.FieldName, field.GetValue(destination));
+                }
+
+                if (data.Settings.useLegacyWorkloads != destination.useLegacyWorkloads)
+                {
+                    WorkloadOperationResult workloadTransition = WorkloadGateway.TryTransitionMode(
+                        data.Settings.useLegacyWorkloads
+                            ? WorkloadBackendMode.Legacy
+                            : WorkloadBackendMode.Modern,
+                        persistSettings: false);
+                    if (!workloadTransition.Succeeded)
+                    {
+                        report = workloadTransition.Message;
+                        return false;
+                    }
+
+                    workloadModeChanged = true;
                 }
 
                 TransferLoadedSettingsState(data.Settings, destination);
@@ -288,19 +294,34 @@ namespace Better_Work_Tab.UI.Settings
                     }
                 }
 
-                // TryTransitionMode already handled this field and wrote its
-                // successful transition; never invoke its registered reaction twice.
+                // The gateway owns this field's transition; never invoke its
+                // registered reaction a second time during the import.
                 changedPreferenceFields.Remove(nameof(BetterWorkTabSettings.useLegacyWorkloads));
                 BWTSettingsRegistry.Schema.NotifyPreferenceChanges(
                     destination,
                     changedPreferenceFields);
-                destination.Write();
                 RecentColours.ReplaceAll(data.RecentColors, data.PinnedColors);
+                destination.Write();
+                settingsWriteSucceeded = true;
+                if (workloadModeChanged)
+                {
+                    // The settings commit is complete before the ownership
+                    // observer and Work-tab presentation are synchronized.
+                    BWTWorkloadSettingsOwnershipPolicy.Refresh();
+                    WorkTabInvalidationHub.Invalidate(
+                        WorkTabDirtyFlags.SettingsThemeLanguageScale);
+                }
+
                 report = "Imported all settings data, including settings history, rulesets, layout state, and recent colors.";
                 return true;
             }
             catch (Exception ex)
             {
+                if (workloadModeChanged && !settingsWriteSucceeded)
+                {
+                    destination.useLegacyWorkloads = previousLegacyMode;
+                }
+
                 report = "The settings export could not be imported: " + ex.Message;
                 return false;
             }
