@@ -131,7 +131,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     return true;
                 }
 
-                SubWorkTransitionPerfDiagnostics.CountAngledHeaderCacheKeyChange();
             }
             else
             {
@@ -143,7 +142,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             // Calculation
-            SubWorkTransitionPerfDiagnostics.CountAngledHeaderCacheRebuild();
             bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(workType);
             CachedTextMetrics textMetrics = GetHeaderTextMetrics(workType, isMoved);
             string label = textMetrics.Label;
@@ -273,7 +271,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
             bool oldWordWrap = Text.WordWrap;
             Text.Font = GameFont.Small;
             Text.WordWrap = false;
-            SubWorkTransitionPerfDiagnostics.CountHeaderCalcSize();
             Vector2 size = Text.CalcSize(label);
 
             if (isCJKVertical)

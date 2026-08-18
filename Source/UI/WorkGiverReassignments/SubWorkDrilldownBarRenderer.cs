@@ -46,7 +46,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             float alpha = 0.72f * visualAlpha;
             Widgets.DrawBoxSolid(rowRect, new Color(0.08f, 0.1f, 0.11f, alpha));
             Rect separatorRect = new Rect(rowRect.xMin, rowRect.yMax - 3f, rowRect.width, 1f);
-            WorkTabGeometryDiagnostics.RecordSubWorkSeparator(separatorRect);
             Color oldColor = GUI.color;
             GUI.color = new Color(1f, 1f, 1f, 0.28f * visualAlpha);
             Widgets.DrawLineHorizontal(separatorRect.xMin, separatorRect.yMin, separatorRect.width);

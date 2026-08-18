@@ -89,8 +89,6 @@ namespace Better_Work_Tab.Features.Patches
                 !FluffyWorkTabGateway.ShouldRunBetterWorkTabFeatures)
                 return;
 
-            SubWorkTransitionPerfDiagnostics.CountPawnTableRecachePostfix();
-
             if (CachedRowHeightsField == null || CachedSizeField == null)
                 return;
 
@@ -147,7 +145,6 @@ namespace Better_Work_Tab.Features.Patches
             // Including them here makes the table body one pinned row taller than its content,
             // which presents as a blank row at the bottom when sub-work is opened.
             // ---------------------------------------------------------------------------
-            SubWorkTransitionPerfDiagnostics.CountPawnTableSyncWrite();
             CachedRowHeightsField.SetValue(__instance, state.RowHeights);
             CachedSizeField.SetValue(__instance, new Vector2(width, totalHeight));
         }

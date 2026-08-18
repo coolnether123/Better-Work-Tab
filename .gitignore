@@ -1,16 +1,8 @@
-/decompiled/
-/Source/html/
-/Source/latex/
-/Source/docs/
-
-# IDE state and upgrade leftovers
-/.vs/
+# Local editor and operating-system state
 *.user
 *.suo
 Thumbs.db
 .DS_Store
-/Source/MigrationBackup/
-**/UpgradeLog*.htm
 
 # Build intermediates
 **/obj/

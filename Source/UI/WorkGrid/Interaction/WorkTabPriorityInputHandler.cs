@@ -41,7 +41,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
             if (RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab)
             {
-                WorkTabGeometryDiagnostics.RecordPriorityInputTrace("rule-builder owner", evt);
                 return false;
             }
 
@@ -56,19 +55,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                     return true;
                 }
 
-                WorkTabGeometryDiagnostics.RecordPriorityInputTrace("fluffy scheduler owner", evt);
                 return false;
             }
 
             if (SubWorkDrilldownInput.MatchesGesture(evt))
             {
-                WorkTabGeometryDiagnostics.RecordPriorityInputTrace("sub-work gesture", evt);
                 return false;
             }
 
             if (TimePriorityScheduleEditor.OwnsMousePosition(evt.mousePosition))
             {
-                WorkTabGeometryDiagnostics.RecordPriorityInputTrace("time-priority owner", evt);
                 return false;
             }
 
@@ -88,37 +84,31 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                     return true;
                 }
 
-                WorkTabGeometryDiagnostics.RecordPriorityInputTrace("sleek cell owner", evt);
                 return false;
             }
 
             if (!_bodyRenderer.TryGetRowAt(layout, evt.mousePosition, out WorkTabLayoutRow row))
             {
-                WorkTabGeometryDiagnostics.RecordPriorityInputTrace("row miss", evt);
                 return false;
             }
 
             if (row.Pawn == null)
             {
-                WorkTabGeometryDiagnostics.RecordPriorityInputTrace("non-pawn row", evt);
                 return false;
             }
 
             if (!_bodyRenderer.TryGetBodyColumnAt(layout, evt.mousePosition, out WorkTabLayoutColumn column))
             {
-                WorkTabGeometryDiagnostics.RecordPriorityInputTrace("column miss", evt);
                 return false;
             }
 
             if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority))
             {
-                WorkTabGeometryDiagnostics.RecordPriorityInputTrace("non-priority column", evt);
                 return false;
             }
 
             if (!_bodyRenderer.TryGetPriorityBoxHit(layout, row, column, evt.mousePosition, out Rect priorityBoxRect))
             {
-                WorkTabGeometryDiagnostics.RecordPriorityInputTrace("priority-box miss", evt);
                 return false;
             }
 
@@ -138,9 +128,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                     row.Pawn,
                     priorityBoxRect,
                     parentPriority);
-                WorkTabGeometryDiagnostics.RecordPriorityInputTrace(
-                    handled ? "sub-work handled" : "sub-work rejected",
-                    evt);
                 return handled;
             }
 
@@ -156,9 +143,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 rootCellRect,
                 row.Pawn,
                 workType);
-            WorkTabGeometryDiagnostics.RecordPriorityInputTrace(
-                parentHandled ? "parent handled" : "parent rejected",
-                evt);
             return parentHandled;
         }
 

@@ -88,7 +88,7 @@ namespace Better_Work_Tab.Features.Workloads
 
             SpineTiming.Configure(
                 message => BetterWorkTabMod.DebugLog(message, DebugFeature.Performance),
-                () => WorkTabProfilingState.OpenSeconds,
+                () => WorkTabUsageState.OpenSeconds,
                 "Work tab open");
             SpineTiming.Enabled = BetterWorkTabMod.Settings?.enableProfiler ?? false;
         }

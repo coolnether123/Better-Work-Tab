@@ -79,8 +79,6 @@ Shift-click remains reserved for BWT's grouped column dragging, so it does not d
 
 The optimized Work-grid renderer uses caching, viewport culling, and targeted invalidation for large colonies. A vanilla-compatible renderer remains available as a fallback in advanced settings.
 
-For source-level performance comparisons, use `Tools/Invoke-BwtPairedBenchmark.ps1`. It runs the old and new builds side by side with the same save, mod list, settings, and profiling window. Older benchmark runs can provide background, but they should not be used to attribute a performance change to a specific code revision.
-
 ## Credits
 
 - Colour picker by Karel Kroeze (MIT License)

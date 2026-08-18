@@ -324,9 +324,6 @@ namespace Better_Work_Tab.UI
             }
 
             _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
-            TimePriorityScheduleEditor.TryOpenAgentRequestedSession(organizer?.Layout);
-            FluffyTimeScheduleAssigner.ProcessAgentRequest();
-
             Event evt = Event.current;
             BWTWorkTabTutorial.UpdatePointerOwnership(inRect, organizer?.Layout, evt.mousePosition);
             if (evt.type == EventType.Repaint)
@@ -338,11 +335,6 @@ namespace Better_Work_Tab.UI
             }
             else if (evt.type != EventType.Layout)
             {
-                if (evt.type == EventType.MouseDown || evt.type == EventType.ScrollWheel)
-                {
-                    WorkTabGeometryDiagnostics.RecordPriorityInputTrace("work-tab input entry", evt);
-                }
-
                 bool routedWorkloadFooterInput = HeaderButtons.TryHandleWorkloadFooterInput(
                     inRect,
                     WorkTabChromeGeometry.GetInfoIconRect(inRect),
@@ -464,7 +456,6 @@ namespace Better_Work_Tab.UI
             }
             NativeCursorPosition.ProcessPendingMove();
             NativeCursorPosition.DrawPendingMoveCue();
-            SubWorkTransitionPerfDiagnostics.RecordWorkTabRepaint();
         }
 
         private bool TryRouteWorkloadPreviewScroll(
@@ -586,7 +577,7 @@ namespace Better_Work_Tab.UI
                 Verse.UI.screenWidth,
                 Verse.UI.screenHeight,
                 PawnOrganizerSystem.Instance?.Layout?.LayoutRevision ?? -1);
-            WorkTabProfilingState.NotifyOpen(true);
+            WorkTabUsageState.NotifyOpen(true);
             BWT20UpgradePrompt.ShowIfNeeded(
                 BetterWorkTabMod.Settings,
                 Current.Game?.GetComponent<GameComponent_BWTWorldSettings>());
@@ -621,7 +612,7 @@ namespace Better_Work_Tab.UI
         {
             base.PreClose();
             HighlightManager.ClearHighlight();
-            WorkTabProfilingState.NotifyOpen(false);
+            WorkTabUsageState.NotifyOpen(false);
 
             // === PRESENCE FEATURE DISABLED ===
             /*

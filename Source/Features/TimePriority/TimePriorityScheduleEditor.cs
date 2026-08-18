@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -48,7 +47,6 @@ namespace Better_Work_Tab.Features.TimePriority
         private static readonly List<CopyPasteHit> LastCopyPasteHits = new List<CopyPasteHit>(8);
         private static readonly List<ScheduleCellDiagnostic> LastScheduleCellDiagnostics = new List<ScheduleCellDiagnostic>(HoursPerDay * 4);
         private static int _tutorialEditRevision;
-        private const string AgentOpenRequestFileName = "BWTTimePriorityOpen.request";
         private static readonly PawnDivider ActiveDivider = new PawnDivider
         {
             DividerColor = new Color(0.16f, 0.17f, 0.14f, 0.92f),
@@ -426,56 +424,6 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
-        internal static void TryOpenAgentRequestedSession(IWorkTabLayoutController layout)
-        {
-            if (!IsEnabled ||
-                !HasBetterWorkTabScheduleAuthority ||
-                layout == null ||
-                !IsDiagnosticsEnabled())
-            {
-                return;
-            }
-
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
-            {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    "Agent-requested hourly schedule sessions are blocked during preview.");
-                return;
-            }
-
-            string requestPath = DiagnosticsFileAccess.GetPath(
-                AgentOpenRequestFileName);
-            if (!File.Exists(requestPath))
-            {
-                return;
-            }
-
-            string requestedWorkType = string.Empty;
-            try
-            {
-                requestedWorkType = File.ReadAllText(requestPath).Trim();
-                File.Delete(requestPath);
-            }
-            catch (Exception ex)
-            {
-                Log.Warning("[BWT] Could not consume time-priority agent request: " + ex.Message);
-            }
-
-            bool foundTarget = string.Equals(requestedWorkType, "first-visible", StringComparison.OrdinalIgnoreCase)
-                ? TryFindFirstVisiblePriorityTarget(layout, out TargetInfo target)
-                : TryFindAgentWorkTypeTarget(layout, requestedWorkType, out target);
-            if (!foundTarget)
-            {
-                Log.Warning("[BWT] Time-priority agent request could not find a target for work type: " + requestedWorkType);
-                return;
-            }
-
-            _session = new Session(target);
-            TimePriorityService.GetPrioritiesForDisplay(target.TimeTarget, target.CurrentPriority);
-            NotifyLayoutChanged();
-        }
-
         internal static bool ToggleFirstVisiblePrioritySchedule(IWorkTabLayoutController layout)
         {
             if (!IsEnabled || !HasBetterWorkTabScheduleAuthority || layout == null)
@@ -571,11 +519,6 @@ namespace Better_Work_Tab.Features.TimePriority
         internal static bool HasToggleTargetAt(IWorkTabLayoutController layout, Vector2 mousePosition)
         {
             return TryGetToggleTarget(layout, mousePosition, out _);
-        }
-
-        private static bool IsDiagnosticsEnabled()
-        {
-            return DiagnosticsFileAccess.IsEnabled();
         }
 
         internal static void Draw(IWorkTabLayoutController layout)
@@ -1403,45 +1346,6 @@ namespace Better_Work_Tab.Features.TimePriority
                    !BetterWorkTabLocalState.IsHeaderDragging &&
                    TryGetPriorityTarget(layout, mousePosition, out target) &&
                    target.PriorityBoxRect.Contains(mousePosition);
-        }
-
-        private static bool TryFindAgentWorkTypeTarget(IWorkTabLayoutController layout, string requestedWorkType, out TargetInfo target)
-        {
-            target = default;
-            if (layout?.Rows == null || layout.Columns == null)
-            {
-                return false;
-            }
-
-            WorkTypeDef requested = string.IsNullOrEmpty(requestedWorkType)
-                ? null
-                : DefDatabase<WorkTypeDef>.GetNamedSilentFail(requestedWorkType);
-
-            WorkTabLayoutColumn selectedColumn = default;
-            bool foundColumn = false;
-            for (int i = 0; i < layout.Columns.Count; i++)
-            {
-                WorkTabLayoutColumn column = layout.Columns[i];
-                if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
-                    column.Column.workType == null)
-                {
-                    continue;
-                }
-
-                if (requested == null || column.Column.workType == requested)
-                {
-                    selectedColumn = column;
-                    foundColumn = true;
-                    break;
-                }
-            }
-
-            if (!foundColumn)
-            {
-                return false;
-            }
-
-            return TryBuildTargetForColumn(layout, selectedColumn, out target);
         }
 
         private static bool TryFindFirstVisiblePriorityTarget(IWorkTabLayoutController layout, out TargetInfo target)

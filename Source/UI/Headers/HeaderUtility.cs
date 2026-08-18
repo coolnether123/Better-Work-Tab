@@ -55,7 +55,6 @@ namespace Better_Work_Tab.UI.Headers
                 return cached;
             }
 
-            SubWorkTransitionPerfDiagnostics.CountHeaderTextBuild();
             string label;
             if (workType == null)
             {
@@ -102,7 +101,6 @@ namespace Better_Work_Tab.UI.Headers
                 return cached;
             }
 
-            SubWorkTransitionPerfDiagnostics.CountHeaderTextBuild();
             string label = BuildParentHeaderText(workType, isMoved);
             HeaderTextCache[key] = label;
             return label;

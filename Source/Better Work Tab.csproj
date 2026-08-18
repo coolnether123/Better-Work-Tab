@@ -182,24 +182,10 @@
     <Compile Include="Features\Workloads\V2\Runtime\LegacyWorkloadBackend.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\Workload2Backend.cs" />
     <Compile Include="Diagnostics\WorkTabDiagnostics.cs" />
-    <Compile Include="Features\Testing\AgentFloatMenuHighlightTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
-    <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
-    <Compile Include="Features\Testing\GameComponent_BWTSettingsCohortQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
-    <Compile Include="Features\Testing\GameComponent_BWTTutorialQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
-    <Compile Include="Features\Testing\GameComponent_PriorityRangeCacheRegressionTestDriver.cs" Condition="'$(BwtPriorityAuthorityTests)' == 'true' And $([System.String]::Copy('$(DefineConstants)').Contains('DEBUG'))" />
-    <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
+    <Compile Include="Diagnostics\WorkTabUsageState.cs" />
     <Compile Include="UI\BWTBottomBarIcons.cs" />
     <Compile Include="UI\BWTBottomBarSelector.cs" />
     <Compile Include="UI\OneTimePromptPresence.cs" />
-    <Compile Include="Features\Testing\BWTTutorialAgentHarness.cs" Condition="'$(Configuration)' != '1.6'" />
-    <Compile Include="Features\Testing\RuleBuilder2AgentHarness.cs" Condition="'$(Configuration)' != '1.6'" />
-    <Compile Include="Features\Testing\SubWorkTransitionPerfDiagnostics.cs" />
-    <Compile Include="Features\Testing\WorkTabGeometryContractValidator.cs" />
-    <Compile Include="Features\Testing\WorkTabGeometryDiagnostics.cs" />
-    <Compile Include="Features\Testing\WorkTabProfilingState.cs" />
-    <Compile Include="Features\Testing\WorkGridRendererExceptionProbe.cs" Condition="'$(Configuration)' != '1.6'" />
-    <Compile Include="Features\Testing\RuleBuilder2ConditionSeeder.cs" Condition="'$(Configuration)' != '1.6'" />
-    <Compile Include="Features\Testing\RuleBuilder2ClassicRoundTripSelfTest.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\TimePriority\Patch_CopyPasteWorkPriorities_TimePriority.cs" />
     <Compile Include="Features\TimePriority\TimePriorityEvaluation.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleClipboard.cs" />
@@ -219,7 +205,6 @@
     <Compile Include="Features\Tutorial\BWTTutorialLessonCatalog.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialFeedback.cs" />
     <Compile Include="Features\Feedback\BWTDiagnosticContext.cs" />
-    <Compile Include="Features\Testing\BWTTutorialAwarenessSelfTest.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\Tutorial\BWTTutorialFeatureDiscovery.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialPriorUse.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialProgress.cs" />
@@ -567,24 +552,6 @@
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!--
-    Runs unconditionally so that an unverifiable mirror is reported rather than
-    skipped. Gating the whole target on StandaloneSpineRoot made verification
-      depend on the building machine's checkout layout, and a build that could not
-      verify looked exactly like one that did. The shared build control plane
-      supplies the resolved root; direct MSBuild callers must pass it explicitly.
-  -->
-  <Target Name="VerifyStandaloneSpineMirror" BeforeTargets="PrepareForBuild">
-    <Error
-      Condition="'$(StandaloneSpineRoot)' == '' and '$(RequireSpineMirrorVerification)' == 'true'"
-      Text="Shared-Spine mirror could not be verified: the build control plane did not supply a standalone Spine root. A shipping build must verify the mirror. Pass /p:StandaloneSpineRoot=&lt;path to Spine repo&gt; only as an explicit override." />
-    <Warning
-      Condition="'$(StandaloneSpineRoot)' == '' and '$(RequireSpineMirrorVerification)' != 'true'"
-      Text="Shared-Spine mirror NOT verified: no standalone Spine checkout resolved, so embedded Spine sources may be stale. This build is not release-eligible." />
-    <Exec
-      Condition="'$(StandaloneSpineRoot)' != ''"
-      Command="powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\Tools\Sync-StandaloneSpine.ps1&quot; -Mode $(SpineMirrorMode) -StandaloneRoot &quot;$(StandaloneSpineRoot)&quot;" />
-  </Target>
   <Target Name="RequireStandaloneSpineReference" BeforeTargets="ResolveReferences" Condition="'$(UseStandaloneSpine)' == 'true'">
     <Error
       Condition="'$(SpineAssemblyPath)' == '' or !Exists('$(SpineAssemblyPath)')"

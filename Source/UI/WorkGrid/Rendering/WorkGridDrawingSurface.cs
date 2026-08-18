@@ -185,10 +185,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
             }
 
-            if (!layoutEvent)
-            {
-                WorkTabGeometryDiagnostics.DumpHeaderLayoutIfRequested(layout);
-            }
         }
 
         private static float GetTableViewportWidth(IWorkTabLayoutController layout)
