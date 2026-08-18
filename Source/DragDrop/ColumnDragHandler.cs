@@ -15,7 +15,9 @@ using UnityEngine;
 using Verse;
 using Verse.Sound;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 
 namespace Better_Work_Tab.DragDrop
 {
@@ -164,7 +166,9 @@ namespace Better_Work_Tab.DragDrop
             }
 
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.showColumnBaselineLine ?? true))
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.ColumnsShowBaselineLine,
+                settings?.showColumnBaselineLine ?? DefaultSettings.showColumnBaselineLine))
             {
                 return;
             }
@@ -618,6 +622,14 @@ namespace Better_Work_Tab.DragDrop
                 int maxIndex = Mathf.Max(0, (current?.Count ?? 0) - 1);
                 int insertIndex = Mathf.Clamp(TargetIndex, 0, maxIndex);
 
+                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+                {
+                    WorkTabEffectiveStateRuntime.ReportBlocked(
+                        WorkTabEffectiveStateDimension.SpecificJobOrder,
+                        "Global sub-work layout ordering cannot be represented by a pawn-scoped preview key.");
+                    return;
+                }
+
                 ColumnReorderAnimationState.Start(Layout.Columns);
                 WorkGiverReassignmentManager.MoveWithinWorkTypeSynced(
                     _subWorkType.defName,
@@ -687,6 +699,14 @@ namespace Better_Work_Tab.DragDrop
 
             if (!_crossWorkDropTargetValid)
             {
+                return true;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder,
+                    "Cross-work-type specific-job moves are owned by the live layout service.");
                 return true;
             }
 

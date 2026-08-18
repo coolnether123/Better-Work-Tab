@@ -11,8 +11,10 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -65,12 +67,47 @@ namespace Better_Work_Tab.Features.TimePriority
         private static Rect _closingSourceRect;
 
         internal static bool IsEnabled =>
-            BetterWorkTabMod.Settings?.enableTimePrioritySchedules ??
-            DefaultSettings.enableTimePrioritySchedules;
+            BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.UiTimePrioritySchedules,
+                BetterWorkTabMod.Settings?.enableTimePrioritySchedules ??
+                DefaultSettings.enableTimePrioritySchedules);
 
-        internal static bool IsOpen => IsEnabled && _session != null && !_isClosing;
+        private static bool HasBetterWorkTabScheduleAuthority =>
+            !PriorityAuthorityResolver.ShouldBlockBetterWorkTabPriorityDataAccess;
 
-        internal static bool IsVisible => IsEnabled && _session != null;
+        internal static bool CanUseBetterWorkTabScheduleUi =>
+            IsEnabled && HasBetterWorkTabScheduleAuthority;
+
+        private static bool EnsureBetterWorkTabScheduleAuthority()
+        {
+            if (HasBetterWorkTabScheduleAuthority)
+            {
+                return true;
+            }
+
+            if (_session != null || _isClosing)
+            {
+                FinishClose(notifyLayout: false);
+            }
+
+            return false;
+        }
+
+        internal static bool IsOpen
+        {
+            get
+            {
+                return IsEnabled &&
+                    _session != null &&
+                    !_isClosing &&
+                    EnsureBetterWorkTabScheduleAuthority();
+            }
+        }
+
+        internal static bool IsVisible =>
+            IsEnabled &&
+            _session != null &&
+            EnsureBetterWorkTabScheduleAuthority();
 
         // Geometry automation must sample the settled 24-hour cells. Exposing the
         // transition state here keeps the test seam aligned with the animation owner.
@@ -164,8 +201,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool OwnsMousePosition(Vector2 mousePosition)
         {
-            return IsEnabled &&
-                _session != null &&
+            return IsVisible &&
                 _lastPanelRect.width > 0f &&
                 _lastPanelRect.height > 0f &&
                 _lastPanelRect.Contains(mousePosition);
@@ -184,8 +220,10 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             if (!IsEnabled ||
                 _session == null ||
-                !(BetterWorkTabMod.Settings?.keepTimePrioritySourceColumnHighlighted ??
-                  DefaultSettings.keepTimePrioritySourceColumnHighlighted) ||
+                !BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.UiTimePrioritySourceColumnHighlight,
+                    BetterWorkTabMod.Settings?.keepTimePrioritySourceColumnHighlighted ??
+                    DefaultSettings.keepTimePrioritySourceColumnHighlighted) ||
                 !WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column))
             {
                 return false;
@@ -276,7 +314,7 @@ namespace Better_Work_Tab.Features.TimePriority
         /// </summary>
         internal static bool IsSchedulingPawn(Pawn pawn)
         {
-            if (pawn == null || !IsEnabled || _session == null || _isClosing || _session.IsGlobal)
+            if (pawn == null || !CanUseBetterWorkTabScheduleUi || _session == null || _isClosing || _session.IsGlobal)
             {
                 return false;
             }
@@ -294,8 +332,19 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void OpenForFloatMenu(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver = null)
         {
-            if (!IsEnabled || pawn == null || workType == null)
+            if (!IsEnabled ||
+                !HasBetterWorkTabScheduleAuthority ||
+                pawn == null ||
+                workType == null)
             {
+                return;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "The existing hourly schedule editor cannot represent the preview ScheduleKey contract.");
                 return;
             }
 
@@ -303,8 +352,17 @@ namespace Better_Work_Tab.Features.TimePriority
             TimePriorityTarget target;
             if (workGiver != null)
             {
-                int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
-                currentPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
+                int parentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                    pawn,
+                    workType,
+                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+                currentPriority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
+                    pawn,
+                    workType,
+                    workGiver,
+                    out int specificPriority)
+                    ? WorkPrioritySystem.ClampPriority(specificPriority)
+                    : WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
                 target = TimePriorityTarget.ForWorkGiver(
                     pawn,
                     workType,
@@ -313,7 +371,10 @@ namespace Better_Work_Tab.Features.TimePriority
             }
             else
             {
-                currentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+                currentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                    pawn,
+                    workType,
+                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
                 target = TimePriorityTarget.ForWorkType(pawn, workType);
             }
 
@@ -326,8 +387,18 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool OpenForPriorityBox(TimePriorityTarget target, Rect priorityBoxRect, int currentPriority)
         {
-            if (!IsEnabled || string.IsNullOrEmpty(target.WorkTypeDefName))
+            if (!IsEnabled ||
+                !HasBetterWorkTabScheduleAuthority ||
+                string.IsNullOrEmpty(target.WorkTypeDefName))
             {
+                return false;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "The existing hourly schedule editor cannot represent the preview ScheduleKey contract.");
                 return false;
             }
 
@@ -357,8 +428,19 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void TryOpenAgentRequestedSession(IWorkTabLayoutController layout)
         {
-            if (!IsEnabled || layout == null || !IsDiagnosticsEnabled())
+            if (!IsEnabled ||
+                !HasBetterWorkTabScheduleAuthority ||
+                layout == null ||
+                !IsDiagnosticsEnabled())
             {
+                return;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "Agent-requested hourly schedule sessions are blocked during preview.");
                 return;
             }
 
@@ -396,8 +478,16 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool ToggleFirstVisiblePrioritySchedule(IWorkTabLayoutController layout)
         {
-            if (!IsEnabled || layout == null)
+            if (!IsEnabled || !HasBetterWorkTabScheduleAuthority || layout == null)
             {
+                return false;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "Hourly schedule sessions are blocked during preview.");
                 return false;
             }
 
@@ -425,9 +515,25 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
+            if (!EnsureBetterWorkTabScheduleAuthority())
+            {
+                return false;
+            }
+
             if (layout == null || evt == null)
             {
                 return false;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                _session != null &&
+                (evt.type == EventType.MouseDown || evt.type == EventType.ScrollWheel))
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "Hourly schedule edits are blocked while a preview provider is active.");
+                evt.Use();
+                return true;
             }
 
             if (_session != null && evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
@@ -474,6 +580,21 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static void Draw(IWorkTabLayoutController layout)
         {
+            if (!HasBetterWorkTabScheduleAuthority)
+            {
+                FinishClose(notifyLayout: false);
+                return;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive && _session != null)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "The live hourly schedule surface is hidden during preview.");
+                FinishClose(notifyLayout: false);
+                return;
+            }
+
             FinishCloseIfComplete();
             if (TimePriorityScheduleTransferFeedback.ConsumeCloseRequest())
             {
@@ -481,7 +602,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             EventType eventType = Event.current.type;
-            if (!IsEnabled ||
+            if (!CanUseBetterWorkTabScheduleUi ||
                 _session == null ||
                 layout == null ||
                 (eventType != EventType.Repaint &&
@@ -598,7 +719,10 @@ namespace Better_Work_Tab.Features.TimePriority
                 return true;
             }
 
-            if (evt.type == EventType.ScrollWheel && !(BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false))
+            if (evt.type == EventType.ScrollWheel &&
+                !BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.AdvancedScrollWheelPriority,
+                    BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false))
             {
                 return false;
             }
@@ -609,7 +733,17 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static bool TryHandleTimeCellInput(Event evt)
         {
-            if (evt.type == EventType.ScrollWheel && !(BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false))
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                !HasBetterWorkTabScheduleAuthority)
+            {
+                evt.Use();
+                return true;
+            }
+
+            if (evt.type == EventType.ScrollWheel &&
+                !BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.AdvancedScrollWheelPriority,
+                    BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false))
             {
                 return false;
             }
@@ -621,6 +755,15 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (TryFindCellHit(evt.mousePosition, out CellHit hit))
             {
+                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+                {
+                    WorkTabEffectiveStateRuntime.ReportBlocked(
+                        WorkTabEffectiveStateDimension.Schedule,
+                        "Hourly schedule edits are blocked while a preview provider is active.");
+                    evt.Use();
+                    return true;
+                }
+
                 if (IsControlHeld(evt))
                 {
                     StartCloseAnimation(GetPointRect(evt.mousePosition));
@@ -676,7 +819,10 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static bool TryHandleCopyPasteInput(Event evt)
         {
-            if (evt.type != EventType.MouseDown || evt.button != 0 || !ShowCopyPasteButtons)
+            if (!HasBetterWorkTabScheduleAuthority ||
+                evt.type != EventType.MouseDown ||
+                evt.button != 0 ||
+                !ShowCopyPasteButtons)
             {
                 return false;
             }
@@ -707,6 +853,15 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void CopySchedule(CopyPasteHit hit)
         {
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive ||
+                !HasBetterWorkTabScheduleAuthority)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "Schedule copy cannot be represented by the preview ScheduleKey contract.");
+                return;
+            }
+
             TimePriorityScheduleClipboard.CopyFrom(hit.Target, hit.FallbackPriority, hit.Label);
             TimePriorityScheduleTransferFeedback.StartCopy(hit.Target);
             Messages.Message("Copied " + hit.Label + " time priorities.", MessageTypeDefOf.PositiveEvent, false);
@@ -714,6 +869,15 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void PasteSchedule(CopyPasteHit hit)
         {
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive ||
+                !HasBetterWorkTabScheduleAuthority)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "Schedule paste cannot be represented by the preview ScheduleKey contract.");
+                return;
+            }
+
             if (!TimePriorityScheduleClipboard.TryGetSnapshot(out TimePriorityScheduleSnapshot snapshot))
             {
                 return;
@@ -751,12 +915,12 @@ namespace Better_Work_Tab.Features.TimePriority
             if (evt.type == EventType.ScrollWheel)
             {
                 int direction = evt.delta.y > 0f ? -1 : 1;
-                return Find.PlaySettings.useWorkPriorities
+                return GetSessionManualMode()
                     ? WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction)
                     : ToggleNonManualPriority(currentPriority);
             }
 
-            if (Find.PlaySettings.useWorkPriorities)
+            if (GetSessionManualMode())
             {
                 if (evt.button == 1)
                 {
@@ -798,7 +962,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 return currentPriority <= WorkPrioritySystem.DisabledPriority;
             }
 
-            int topPriority = Find.PlaySettings.useWorkPriorities
+            int topPriority = GetSessionManualMode()
                 ? WorkPrioritySystem.GetMaxPriority()
                 : WorkPrioritySystem.GetDefaultEnabledPriority();
             return currentPriority >= topPriority;
@@ -838,6 +1002,15 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void ToggleTarget(TargetInfo target)
         {
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive ||
+                !HasBetterWorkTabScheduleAuthority)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "Hourly schedule sessions are blocked during preview.");
+                return;
+            }
+
             if (_session != null && _session.Matches(target))
             {
                 int existingIndex = _session.PawnIds.IndexOf(target.PawnId);
@@ -891,7 +1064,7 @@ namespace Better_Work_Tab.Features.TimePriority
             NotifyLayoutChanged();
         }
 
-        private static void FinishClose()
+        private static void FinishClose(bool notifyLayout = true)
         {
             TimePriorityScheduleTransferFeedback.ResetForWindowClose();
             _session = null;
@@ -901,7 +1074,10 @@ namespace Better_Work_Tab.Features.TimePriority
             LastCopyPasteHits.Clear();
             LastScheduleCellDiagnostics.Clear();
             ForgetPanelGeometry();
-            NotifyLayoutChanged();
+            if (notifyLayout)
+            {
+                NotifyLayoutChanged();
+            }
         }
 
         /// <summary>
@@ -923,6 +1099,8 @@ namespace Better_Work_Tab.Features.TimePriority
         internal static bool TryDrawScheduleCopyPasteWorkPrioritiesCell(Rect rect, Pawn pawn)
         {
             if (!IsEnabled ||
+                !HasBetterWorkTabScheduleAuthority ||
+                WorkTabEffectiveStateRuntime.IsPreviewActive ||
                 _session == null ||
                 pawn == null ||
                 pawn.Dead ||
@@ -952,7 +1130,9 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool TryGetCopyPasteSettingsContext(Vector2 mousePosition)
         {
-            if (!IsEnabled || !ShowCopyPasteButtons)
+            if (!IsEnabled ||
+                !HasBetterWorkTabScheduleAuthority ||
+                !ShowCopyPasteButtons)
             {
                 return false;
             }
@@ -1036,6 +1216,27 @@ namespace Better_Work_Tab.Features.TimePriority
             out bool unlinked,
             out int displayedPriority)
         {
+            if (!HasBetterWorkTabScheduleAuthority)
+            {
+                hour = -1;
+                fallbackPriority = 0;
+                unlinked = false;
+                displayedPriority = 0;
+                return false;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "Hourly schedule link state is unavailable because the preview ScheduleKey has no hourly projection.");
+                hour = -1;
+                fallbackPriority = 0;
+                unlinked = false;
+                displayedPriority = 0;
+                return false;
+            }
+
             if (index < 0 || index >= LastCellHits.Count)
             {
                 hour = -1;
@@ -1100,7 +1301,9 @@ namespace Better_Work_Tab.Features.TimePriority
         /// </summary>
         internal static bool OwnsPointForInput(Vector2 point)
         {
-            return _session != null && _lastPanelRect.Contains(point);
+            return HasBetterWorkTabScheduleAuthority &&
+                _session != null &&
+                _lastPanelRect.Contains(point);
         }
 
         private static void FinishCloseIfComplete()
@@ -1149,8 +1352,15 @@ namespace Better_Work_Tab.Features.TimePriority
                     return false;
                 }
 
-                int fallback = WorkPrioritySystem.GetPriorityForPawnWorkType(row.Pawn, parentWorkType);
-                int currentPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(row.Pawn, workGiver.def, fallback);
+                int fallback = WorkTabEffectiveStateRuntime.GetParentPriority(
+                    row.Pawn,
+                    parentWorkType,
+                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(row.Pawn, parentWorkType));
+                int currentPriority = GetEffectiveWorkGiverPriority(
+                    row.Pawn,
+                    parentWorkType,
+                    workGiver.def,
+                    fallback);
                 target = TargetInfo.ForWorkGiver(
                     row.Pawn,
                     parentWorkType,
@@ -1167,7 +1377,10 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            int priority = WorkPrioritySystem.GetPriorityForPawnWorkType(row.Pawn, workType);
+            int priority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                row.Pawn,
+                workType,
+                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(row.Pawn, workType));
             target = TargetInfo.ForWorkType(
                 row.Pawn,
                 workType,
@@ -1184,6 +1397,7 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             target = default;
             return IsEnabled &&
+                   HasBetterWorkTabScheduleAuthority &&
                    layout != null &&
                    !_isClosing &&
                    !BetterWorkTabLocalState.IsHeaderDragging &&
@@ -1299,9 +1513,13 @@ namespace Better_Work_Tab.Features.TimePriority
                     workGiver?.def != null &&
                     parentWorkType != null)
                 {
-                    int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(row.Pawn, parentWorkType);
-                    int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
+                    int parentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
                         row.Pawn,
+                        parentWorkType,
+                        WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(row.Pawn, parentWorkType));
+                    int workGiverPriority = GetEffectiveWorkGiverPriority(
+                        row.Pawn,
+                        parentWorkType,
                         workGiver.def,
                         parentPriority);
                     target = TargetInfo.ForWorkGiver(
@@ -1320,7 +1538,10 @@ namespace Better_Work_Tab.Features.TimePriority
                     return false;
                 }
 
-                int priority = WorkPrioritySystem.GetPriorityForPawnWorkType(row.Pawn, workType);
+                int priority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                    row.Pawn,
+                    workType,
+                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(row.Pawn, workType));
                 target = TargetInfo.ForWorkType(
                     row.Pawn,
                     workType,
@@ -1501,7 +1722,11 @@ namespace Better_Work_Tab.Features.TimePriority
         private static Rect GetHeaderHighlightRect(WorkTabLayoutColumn column)
         {
             WorkTypeDef workType = column.Column?.workType;
-            if ((BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders) &&
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            bool angledHeaders = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.HeadersAngled,
+                settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
+            if (angledHeaders &&
                 workType != null &&
                 AngledHeaderCache.TryGetBounds(workType, out Rect angledBounds) &&
                 angledBounds.width > 1f &&
@@ -1711,8 +1936,10 @@ namespace Better_Work_Tab.Features.TimePriority
             bool drawChronos = ChronosPointerSupport.ShouldReserveTimePriorityTimelineHeight;
             Rect chronosRect = drawChronos ? GetInlineChronosRect(timelineRect, dividerProgress) : Rect.zero;
             Rect hourLabelRect = GetInlineHourLabelRect(timelineRect, dividerProgress);
-            if (BetterWorkTabMod.Settings?.showTimePriorityHourDivider ??
-                DefaultSettings.showTimePriorityHourDivider)
+            if (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.UiTimePriorityHourDivider,
+                    BetterWorkTabMod.Settings?.showTimePriorityHourDivider ??
+                    DefaultSettings.showTimePriorityHourDivider))
             {
                 GUI.color = new Color(0.95f, 0.85f, 0.55f, 0.38f * progress * dividerProgress);
                 Widgets.DrawLineHorizontal(visibleTimelineRect.xMin, hourLabelRect.yMin - 1f, visibleTimelineRect.width);
@@ -1724,8 +1951,10 @@ namespace Better_Work_Tab.Features.TimePriority
                     chronosRect,
                     priorityRowsRect,
                     progress * dividerProgress,
-                    BetterWorkTabMod.Settings?.chronosPointerTimePriorityIncidentOverlay ??
-                    DefaultSettings.chronosPointerTimePriorityIncidentOverlay);
+                    BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.UiChronosPointerTimePriorityIncidents,
+                        BetterWorkTabMod.Settings?.chronosPointerTimePriorityIncidentOverlay ??
+                        DefaultSettings.chronosPointerTimePriorityIncidentOverlay));
             }
 
             Text.Font = GameFont.Tiny;
@@ -1890,8 +2119,10 @@ namespace Better_Work_Tab.Features.TimePriority
         }
 
         private static bool ShowCopyPasteButtons =>
-            BetterWorkTabMod.Settings?.showTimePriorityCopyPasteButtons ??
-            DefaultSettings.showTimePriorityCopyPasteButtons;
+            BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.UiTimePriorityCopyPasteButtons,
+                BetterWorkTabMod.Settings?.showTimePriorityCopyPasteButtons ??
+                DefaultSettings.showTimePriorityCopyPasteButtons);
 
         private static Rect GetAccordionRect(Rect fullRect, float progress)
         {
@@ -2297,7 +2528,10 @@ namespace Better_Work_Tab.Features.TimePriority
                     return WorkPrioritySystem.GetDefaultEnabledPriority();
                 }
 
-                return WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
+                return WorkTabEffectiveStateRuntime.GetParentPriority(
+                    pawn,
+                    workType,
+                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
             }
 
             WorkTypeDef parent = DefDatabase<WorkTypeDef>.GetNamedSilentFail(_session.WorkTypeDefName);
@@ -2307,8 +2541,66 @@ namespace Better_Work_Tab.Features.TimePriority
                 return WorkGiverReassignmentManager.GetWorkGiverPriority(null, giver, WorkPrioritySystem.GetDefaultEnabledPriority());
             }
 
-            int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, parent);
-            return WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, giver, parentPriority);
+            int parentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                pawn,
+                parent,
+                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, parent));
+            return GetEffectiveWorkGiverPriority(pawn, parent, giver, parentPriority);
+        }
+
+        private static int GetEffectiveWorkGiverPriority(
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiver,
+            int parentPriority)
+        {
+            if (WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
+                    pawn,
+                    workType,
+                    workGiver,
+                    out int specificPriority))
+            {
+                return WorkPrioritySystem.ClampPriority(specificPriority);
+            }
+
+            return WorkGiverReassignmentManager.GetWorkGiverPriority(
+                pawn,
+                workGiver,
+                parentPriority);
+        }
+
+        private static bool GetSessionManualMode()
+        {
+            bool fallback = Find.PlaySettings?.useWorkPriorities ?? true;
+            if (_session == null)
+            {
+                return fallback;
+            }
+
+            WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(
+                _session.WorkTypeDefName);
+            Pawn pawn = _session.PawnIds.Count > 0
+                ? ResolvePawn(_session.PawnIds[0])
+                : null;
+            return WorkTabEffectiveStateRuntime.IsManualMode(pawn, workType, fallback);
+        }
+
+        private static Pawn ResolvePawn(int pawnId)
+        {
+            if (pawnId < 0)
+            {
+                return null;
+            }
+
+            foreach (Pawn pawn in PawnsFinder.All_AliveOrDead)
+            {
+                if (pawn?.thingIDNumber == pawnId)
+                {
+                    return pawn;
+                }
+            }
+
+            return null;
         }
 
         private static float GetProgress()

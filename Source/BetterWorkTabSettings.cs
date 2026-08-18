@@ -11,6 +11,8 @@ using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Xml;
 using Unity.Burst.Intrinsics;
 using Unity.Mathematics;
 using UnityEngine;
@@ -67,7 +69,9 @@ namespace Better_Work_Tab
         public static bool enableAutoAssignFeature = true;
         public static bool enableDragDropReordering = true;
         public static bool enableDividers = true;
+        public static bool showDividerRows = true;
         public static bool enableWorkloads = true;
+        public static bool useLegacyWorkloads = false;
         public static bool enableSubWorkDrilldown = BWT20CohortPolicy.FreshInstall.EnableSubWorkDrilldown;
         public static bool enableFluffyStyleFeatures = BWT20CohortPolicy.FreshInstall.EnableFluffyStyleFeatures;
         public static bool showFluffyStyleTopButtons = false;
@@ -293,6 +297,23 @@ namespace Better_Work_Tab
     // Contains all configurable settings for Better Work Tab mod
     public class BetterWorkTabSettings : ModSettings
     {
+        private const int CurrentSettingsSchemaVersion = BWT20UpgradePolicy.CurrentSettingsSchemaVersion;
+        private static readonly HashSet<string> AllowedSettingsEnvelopeAttributes =
+            new HashSet<string>(StringComparer.Ordinal)
+            {
+                "Class",
+                "IsNull",
+                "MayRequire",
+                "MayRequireAnyOf",
+                "MayRequireAllOf"
+            };
+
+        [NonSerialized]
+        private bool _settingsPersistenceReadOnly;
+
+        [NonSerialized]
+        private string _settingsPersistenceDiagnostic = string.Empty;
+
         public int settingsSchemaVersion = BWT20UpgradePolicy.CurrentSettingsSchemaVersion;
         public bool v2UpgradePromptPending;
         public int fluffyWorkTabActivePromptVersion;
@@ -308,6 +329,15 @@ namespace Better_Work_Tab
             // Initialize rulesets immediately on construction
             //InitializeRulesets();
         }
+
+        /// <summary>
+        /// True when the settings document contained a schema or root shape
+        /// this build cannot prove it can preserve. The settings may still be
+        /// inspected in memory, but all subsequent Scribe writes fail closed.
+        /// </summary>
+        internal bool IsPersistenceReadOnly => _settingsPersistenceReadOnly;
+
+        internal string PersistenceDiagnostic => _settingsPersistenceDiagnostic;
 
         public enum SettingsViewMode
         {
@@ -329,7 +359,9 @@ namespace Better_Work_Tab
         public bool enableAutoAssignFeature = DefaultSettings.enableAutoAssignFeature;
         public bool enableDragDropReordering = DefaultSettings.enableDragDropReordering;
         public bool enableDividers = DefaultSettings.enableDividers;
+        public bool showDividerRows = DefaultSettings.showDividerRows;
         public bool enableWorkloads = DefaultSettings.enableWorkloads;
+        public bool useLegacyWorkloads = DefaultSettings.useLegacyWorkloads;
         public bool enableSubWorkDrilldown = DefaultSettings.enableSubWorkDrilldown;
         public bool enableFluffyStyleFeatures = DefaultSettings.enableFluffyStyleFeatures;
         public bool showFluffyStyleTopButtons = DefaultSettings.showFluffyStyleTopButtons;
@@ -879,6 +911,32 @@ namespace Better_Work_Tab
 
         public override void ExposeData()
         {
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                if (_settingsPersistenceReadOnly)
+                {
+                    throw new InvalidOperationException(
+                        string.IsNullOrEmpty(_settingsPersistenceDiagnostic)
+                            ? "The Better Work Tab settings document is read-only for diagnostics."
+                            : _settingsPersistenceDiagnostic);
+                }
+
+                if (settingsSchemaVersion < 0 || settingsSchemaVersion > CurrentSettingsSchemaVersion)
+                {
+                    throw new InvalidOperationException(
+                        "The Better Work Tab settings document uses an unsupported schema version and cannot be rewritten.");
+                }
+            }
+
+            XmlNode settingsXml = Scribe.mode == LoadSaveMode.LoadingVars
+                ? Scribe.loader?.curXmlParent
+                : null;
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                _settingsPersistenceReadOnly = false;
+                _settingsPersistenceDiagnostic = string.Empty;
+            }
+
             HashSet<string> persistedKeys = BWT20SettingsMigration.CapturePersistedKeys();
             Scribe_Values.Look(ref settingsSchemaVersion, "settingsSchemaVersion", 0);
             Scribe_Values.Look(ref v2UpgradePromptPending, "v2UpgradePromptPending", false);
@@ -889,9 +947,24 @@ namespace Better_Work_Tab
 
             // Add new settings in BWTSettingsRegistry's HOW TO ADD A SETTING block.
             BWTSettingsRegistry.EnsureInitialized();
+
+            bool unsafeSettingsEnvelope = Scribe.mode == LoadSaveMode.LoadingVars &&
+                (settingsSchemaVersion < 0 ||
+                 settingsSchemaVersion > CurrentSettingsSchemaVersion ||
+                 HasUnknownSettingsEnvelopeShape(settingsXml));
+            if (unsafeSettingsEnvelope)
+            {
+                _settingsPersistenceReadOnly = true;
+                _settingsPersistenceDiagnostic = settingsSchemaVersion > CurrentSettingsSchemaVersion
+                    ? "The Better Work Tab settings document uses a newer schema and cannot be safely rewritten."
+                    : settingsSchemaVersion < 0
+                        ? "The Better Work Tab settings document uses an unsupported schema version and cannot be safely rewritten."
+                        : "The Better Work Tab settings document contains fields this build cannot preserve.";
+            }
+
             BWTSettingsRegistry.Schema.Scribe(this);
 
-            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            if (Scribe.mode == LoadSaveMode.LoadingVars && !_settingsPersistenceReadOnly)
             {
                 MigrateLegacySettings();
             }
@@ -986,10 +1059,11 @@ namespace Better_Work_Tab
             }
 
             EnsureRuleBuilder2Rulesets();
-            bool migratedSettings = BWT20SettingsMigration.ApplyIfNeeded(this, persistedKeys);
+            bool migratedSettings = !_settingsPersistenceReadOnly &&
+                                     BWT20SettingsMigration.ApplyIfNeeded(this, persistedKeys);
             bool migratedFromPublic105 = migratedSettings &&
                                           BWT20UpgradePolicy.IsPublic105SettingsDocument(persistedKeys);
-            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            if (Scribe.mode == LoadSaveMode.LoadingVars && !_settingsPersistenceReadOnly)
             {
                 BWTTutorialProgressMigration.Apply(this, migratedFromPublic105);
             }
@@ -999,11 +1073,133 @@ namespace Better_Work_Tab
             EnsureDebugFeatureTogglesInitialized();
         }
 
+        private static bool HasUnknownSettingsEnvelopeShape(XmlNode settingsXml)
+        {
+            if (settingsXml == null)
+            {
+                return false;
+            }
+
+            if (settingsXml.Attributes != null)
+            {
+                foreach (XmlAttribute attribute in settingsXml.Attributes)
+                {
+                    if (attribute == null || AllowedSettingsEnvelopeAttributes.Contains(attribute.Name))
+                    {
+                        continue;
+                    }
+
+                    return true;
+                }
+            }
+
+            var knownKeys = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "settingsSchemaVersion",
+                "v2UpgradePromptPending",
+                "fluffyWorkTabActivePromptVersion",
+                "workTabOwnerSelectionMade",
+                "sleekWorkTabChoicePromptDismissed",
+                "sleekWorkTabUseMixedByDefault",
+                "hiddenWorktypes",
+                "enableExtendedPriorities",
+                "delegateToExternalPriorityMods",
+                "selectedPriorityProviderId",
+                "priorityMode",
+                "firstTimeSetupDone",
+                "subWorkCtrlClickNoticeDismissed",
+                "tutorialFlowVersion",
+                "tutorialWelcomeCompleted",
+                "activeTutorialLessonId",
+                "tutorialLessonPhase",
+                "completedTutorialLessonIds",
+                "tutorialProgressSchemaVersion",
+                "selectedTutorialCourse",
+                "tutorialMigratedFromPublic105",
+                "skippedTutorialLessonIds",
+                "tutorialLessonIdsAlreadyUsed",
+                "tutorialDiscoveryOfferAcknowledged",
+                "tutorialLessonFeedback",
+                "tutorialOverallFeedback",
+                "betaFeedbackWorkTabSeconds",
+                "betaFeedbackPromptAnswered",
+                "betaFeatureRatings",
+                "betaProblemReports",
+                "betaOverallFeedback",
+                "betaTesterHandle",
+                "defaultAutoAssignRuleset",
+                "currentRulesetName",
+                "currentRuleBuilder2RulesetStableId",
+                "SavedRulesets",
+                "SavedRuleBuilder2Rulesets",
+                "workGiverReassignments",
+                "workColumnOrderDefNames",
+                "storedColumnWidths",
+                "debugFeatureToggles",
+                "viewedSettingIds",
+                "playerDraggedColumns",
+                // Retired 1.x keys are still read by MigrateLegacySettings.
+                "disableBestPawnHighlight",
+                "workTabMaxHeight",
+                "enableRowColumnHighlights",
+                "showDividers",
+                "enableUIElements",
+                "UseCustomMouseHoverHighlight",
+                "Color_CustomMouseHighlight"
+            };
+
+            foreach (FieldInfo field in typeof(BetterWorkTabSettings).GetFields(
+                         BindingFlags.Instance | BindingFlags.Public))
+            {
+                knownKeys.Add(field.Name);
+            }
+
+            foreach (SettingDefinition definition in BWTSettingsRegistry.Schema.Definitions)
+            {
+                string key = BWTSettingsRegistry.Schema.EffectiveScribeKey(definition);
+                if (!string.IsNullOrEmpty(key))
+                {
+                    knownKeys.Add(key);
+                }
+            }
+
+            foreach (XmlNode child in settingsXml.ChildNodes)
+            {
+                if (child.NodeType != XmlNodeType.Element)
+                {
+                    continue;
+                }
+
+                if (!knownKeys.Contains(child.Name))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>
         /// Restores all settings to their default values.
         /// </summary>
         public void RestoreDefaults()
         {
+            // RestoreDefaults mutates this object in place. Do not let a
+            // global reset tear down the presentation baseline underneath an
+            // active workload projection; the settings ownership policy is
+            // also used by JSON import and the settings drawer.
+            if (BWTWorkloadSettingsOwnershipPolicy.IsBulkSettingsOperationBlocked(
+                    out string blockedReason))
+            {
+                Messages.Message(
+                    string.IsNullOrEmpty(blockedReason)
+                        ? "Restore defaults is disabled while a workload preview owns presentation settings."
+                        : blockedReason,
+                    MessageTypeDefOf.RejectInput,
+                    false);
+                return;
+            }
+
             IReadOnlyCollection<string> changedPreferenceFields = ApplyRegisteredDefaults();
 
             workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
@@ -1096,6 +1292,7 @@ namespace Better_Work_Tab
             if (!showDividers)
             {
                 enableDividers = false;
+                showDividerRows = false;
             }
 
             if (!enableUIElements)

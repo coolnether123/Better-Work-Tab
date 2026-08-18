@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -29,6 +30,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static int _lastParentPawnId = int.MinValue;
         private static ushort _lastParentWorkTypeHash;
         private static int _lastParentPriority;
+        private static WorkTabEffectiveStateRevision _effectiveStateRevision;
+        private static long _effectiveStateRenderPassId = -1L;
+        private static bool _externalPriorityAuthority;
+        private static bool _hasEffectiveStateRevision;
 
         internal static CellPresentation Resolve(
             WorkGiver workGiver,
@@ -46,10 +51,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             bool lockedOverrides = WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent();
             var key = new CellKey(pawnId, workType?.shortHash ?? 0, workGiver?.def?.shortHash ?? 0);
             int dynamicStateVersion = WorkGiverPresentationInvalidation.GetPawnDynamicVersion(pawn);
+            CellPresentation cached = null;
+            bool hasCached = !_externalPriorityAuthority &&
+                             Entries.TryGetValue(key, out cached);
 
-            if (Entries.TryGetValue(key, out CellPresentation cached) &&
+            if (hasCached &&
                 cached.SubWorkVersion == _subWorkVersion &&
                 cached.ScheduleVersion == _scheduleVersion &&
+                cached.EffectiveStateRevision == _effectiveStateRevision &&
                 cached.ParentPriority == parentPriority &&
                 cached.Hour == hour &&
                 cached.LockedOverrides == lockedOverrides &&
@@ -58,7 +67,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return cached;
             }
 
-            if (cached == null && Entries.Count >= MaximumEntries)
+            if (!_externalPriorityAuthority && !hasCached && Entries.Count >= MaximumEntries)
             {
                 Entries.Clear();
             }
@@ -72,7 +81,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 lockedOverrides,
                 cached);
 
-            if (cached == null)
+            if (!_externalPriorityAuthority && !hasCached)
             {
                 Entries[key] = resolved;
             }
@@ -89,50 +98,85 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             CellPresentation presentation)
         {
             WorkGiverDef workGiverDef = workGiver?.def;
-            bool hasPawnOverride = pawn != null &&
-                                   WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, workGiverDef);
-            int basePriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
-                pawn,
-                workGiverDef,
-                parentPriority);
-            TimePriorityEvaluation evaluation = TimePriorityService.EvaluateWorkGiverPriority(
+            bool hasProjectedOverride = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
                 pawn,
                 workType,
                 workGiverDef,
-                basePriority);
+                out int projectedPriority);
+            bool hasPawnOverride = pawn != null &&
+                                   (hasProjectedOverride ||
+                                    WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, workGiverDef));
+            int basePriority = hasProjectedOverride
+                ? WorkPrioritySystem.ClampPriority(projectedPriority)
+                : WorkGiverReassignmentManager.GetWorkGiverPriority(
+                    pawn,
+                    workGiverDef,
+                    parentPriority);
+            bool projectedScheduleOwnsCell =
+                WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
+                    WorkTabEffectiveStateDimension.Schedule);
+            int effectivePriority = basePriority;
 
             TimePriorityTarget scheduleTarget = default(TimePriorityTarget);
             int scheduleFallbackPriority = basePriority;
-            bool hasScheduleIndicator;
+            bool hasScheduleIndicator = false;
             int inheritedPriority = parentPriority;
-            if (pawn != null)
+            if (!projectedScheduleOwnsCell)
             {
-                hasScheduleIndicator = TimePriorityService.TryGetWorkGiverScheduleIndicatorTarget(
+                TimePriorityEvaluation evaluation = TimePriorityService.EvaluateWorkGiverPriority(
                     pawn,
                     workType,
                     workGiverDef,
-                    basePriority,
-                    out scheduleTarget,
-                    out scheduleFallbackPriority);
-                inheritedPriority = WorkGiverReassignmentManager.GetInheritedWorkGiverPriority(
-                    pawn,
-                    workType,
-                    workGiverDef);
+                    basePriority);
+                effectivePriority = evaluation.EffectivePriority;
+
+                if (pawn != null)
+                {
+                    hasScheduleIndicator = TimePriorityService.TryGetWorkGiverScheduleIndicatorTarget(
+                        pawn,
+                        workType,
+                        workGiverDef,
+                        basePriority,
+                        out scheduleTarget,
+                        out scheduleFallbackPriority);
+                    inheritedPriority = WorkTabEffectiveStateRuntime.IsPreviewActive
+                        ? WorkGiverReassignmentManager.GetWorkGiverPriority(
+                            pawn,
+                            workGiverDef,
+                            parentPriority)
+                        : WorkGiverReassignmentManager.GetInheritedWorkGiverPriority(
+                            pawn,
+                            workType,
+                            workGiverDef);
+                }
+                else
+                {
+                    scheduleTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiverDef);
+                    hasScheduleIndicator = TimePriorityService.HasCustomSchedule(scheduleTarget, basePriority);
+                }
             }
-            else
+            else if (pawn != null)
             {
-                scheduleTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiverDef);
-                hasScheduleIndicator = TimePriorityService.HasCustomSchedule(scheduleTarget, basePriority);
+                // The projected schedule contract currently carries only an
+                // opaque ScheduleKey. It cannot safely answer hourly priority
+                // or link-state questions, so the cell remains at its
+                // effective non-schedule priority and hides the live schedule
+                // indicator rather than reading TimePriorityService.
+                inheritedPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
+                    pawn,
+                    workGiverDef,
+                    parentPriority);
             }
 
             presentation ??= new CellPresentation();
             presentation.SubWorkVersion = _subWorkVersion;
             presentation.ScheduleVersion = _scheduleVersion;
+            presentation.EffectiveStateRevision = _effectiveStateRevision;
             presentation.ParentPriority = parentPriority;
             presentation.Hour = hour;
             presentation.LockedOverrides = lockedOverrides;
             presentation.BasePriority = basePriority;
-            presentation.EffectivePriority = evaluation.EffectivePriority;
+            presentation.EffectivePriority = effectivePriority;
             presentation.HasPawnOverride = hasPawnOverride;
             presentation.HasScheduleIndicator = hasScheduleIndicator;
             presentation.ScheduleTarget = scheduleTarget;
@@ -168,6 +212,24 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static void RefreshFrameState()
         {
+            long renderPassId = WorkTabEffectiveStateRuntime.CurrentRenderPassId;
+            if (!_hasEffectiveStateRevision ||
+                _effectiveStateRenderPassId != renderPassId)
+            {
+                WorkTabEffectiveStateRevision currentRevision =
+                    WorkTabEffectiveStateRuntime.CurrentRevision;
+                renderPassId = WorkTabEffectiveStateRuntime.CurrentRenderPassId;
+                Entries.Clear();
+                PawnHours.Clear();
+                ParentPriorities.Clear();
+                _lastParentPawnId = int.MinValue;
+                _effectiveStateRevision = currentRevision;
+                _effectiveStateRenderPassId = renderPassId;
+                _externalPriorityAuthority =
+                    PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority;
+                _hasEffectiveStateRevision = true;
+            }
+
             int frame = Time.frameCount;
             if (_frame == frame)
             {
@@ -199,7 +261,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return priority;
             }
 
-            priority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            priority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                pawn,
+                workType,
+                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
             ParentPriorities[key] = priority;
             _lastParentPawnId = pawnId;
             _lastParentWorkTypeHash = workTypeHash;
@@ -308,6 +373,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             internal int SubWorkVersion;
             internal int ScheduleVersion;
+            internal WorkTabEffectiveStateRevision EffectiveStateRevision;
             internal int ParentPriority;
             internal int Hour;
             internal bool LockedOverrides;

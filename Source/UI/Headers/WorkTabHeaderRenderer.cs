@@ -9,10 +9,12 @@ using Better_Work_Tab.UI.Columns;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -72,7 +74,9 @@ namespace Better_Work_Tab.UI.Headers
             bool ruleBuilderListening = RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab;
             bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            bool showCursorHighlight = settings.ShowCursorPawnAndWorktypeHighlight;
+            bool showCursorHighlight = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.HighlightsHover,
+                settings?.ShowCursorPawnAndWorktypeHighlight ?? DefaultSettings.ShowCursorPawnAndWorktypeHighlight);
 
             foreach (var column in layout.Columns)
             {
@@ -288,7 +292,8 @@ namespace Better_Work_Tab.UI.Headers
             }
             else
             {
-                float stableDrawWidth = SubWorkDrilldownState.HasAnyDrilldown
+                float stableDrawWidth = !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                    SubWorkDrilldownState.HasAnyDrilldown
                     ? SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(table, headerRect.height)
                     : headerRect.height;
                 drawRect = new Rect(0f, 0f, Mathf.Max(stableDrawWidth, labelSize.x), labelSize.y)
@@ -368,19 +373,26 @@ namespace Better_Work_Tab.UI.Headers
                 return false;
             }
 
+            bool specificJobOrderingBlocked =
+                WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked;
             WorkTypeDef parentWorkType = column.SubWorkParent ?? column.Column?.workType;
-            WorkGiverDef workGiver = column.SubWorkGiver ?? FluffyWorkTabGateway.TryGetFluffyWorkGiver(column.Column);
-            bool resolvedFocusedWorkGiver = SubWorkDrilldownState.TryGetWorkGiverForColumn(
-                column,
-                out WorkGiver focusedWorkGiver,
-                out WorkTypeDef focusedParentWorkType,
-                out _);
+            WorkGiverDef workGiver = column.SubWorkGiver ??
+                (specificJobOrderingBlocked ? null : FluffyWorkTabGateway.TryGetFluffyWorkGiver(column.Column));
+            WorkGiver focusedWorkGiver = null;
+            WorkTypeDef focusedParentWorkType = null;
+            bool resolvedFocusedWorkGiver = !specificJobOrderingBlocked &&
+                SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                    column,
+                    out focusedWorkGiver,
+                    out focusedParentWorkType,
+                    out _);
             if (resolvedFocusedWorkGiver)
             {
                 workGiver = focusedWorkGiver.def;
                 parentWorkType = focusedParentWorkType;
             }
-            else if (SubWorkDrilldownState.IsActive &&
+            else if (!specificJobOrderingBlocked &&
+                     SubWorkDrilldownState.IsActive &&
                      SubWorkDrilldownState.GetVisibleWorkColumnSlot(column.Column) >= 0)
             {
                 return true;
@@ -454,6 +466,11 @@ namespace Better_Work_Tab.UI.Headers
             string childLabel)
         {
             if (parentWorkType == null || workGiver == null || childLabel.NullOrEmpty())
+            {
+                return false;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
             {
                 return false;
             }
@@ -572,7 +589,9 @@ namespace Better_Work_Tab.UI.Headers
 
         private static bool AreAngledHeadersEnabled()
         {
-            return BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders;
+            return BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.HeadersAngled,
+                BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
         }
 
         private static void DrawColumnHighlightAroundTutorialBand(

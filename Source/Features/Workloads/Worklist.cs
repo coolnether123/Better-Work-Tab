@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Unity.Properties;
+using RimWorld;
 using Verse;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.PawnOrganizer.Data;
@@ -41,11 +42,58 @@ namespace Better_Work_Tab.Features.Workloads
 
         public void Apply()
         {
+            if (!TryValidate(out string error))
+            {
+                Log.Warning("[BWT] Skipping invalid legacy workload: " + error);
+                return;
+            }
+
             WorkPrioritySystem.SetManualPriorities(UseAdvancedMode);
             foreach (var pw in PawnWorklists)
             {
                 pw.Apply();
             }
+        }
+
+        /// <summary>
+        /// Validates the complete legacy object graph immediately before it is
+        /// applied. This is intentionally runtime validation: old saves can
+        /// contain pawn references that were valid when saved but no longer
+        /// resolve in the current game.
+        /// </summary>
+        public bool TryValidate(out string error)
+        {
+            error = string.Empty;
+            if (PawnWorklists == null)
+            {
+                error = "The legacy workload has no pawn entries.";
+                return false;
+            }
+
+            var seenPawns = new HashSet<Pawn>();
+            for (int i = 0; i < PawnWorklists.Count; i++)
+            {
+                PawnWorkload workload = PawnWorklists[i];
+                if (workload == null)
+                {
+                    error = "The legacy workload contains a missing pawn entry.";
+                    return false;
+                }
+
+                if (workload.OwningPawn == null || !seenPawns.Add(workload.OwningPawn))
+                {
+                    error = "The legacy workload contains a missing or duplicate pawn entry.";
+                    return false;
+                }
+
+                if (!workload.TryValidate(out string workloadError))
+                {
+                    error = workloadError;
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public void ExposeData()

@@ -1,8 +1,10 @@
+using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using Verse;
 
@@ -33,6 +35,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
     /// </summary>
     internal static class WorkPriorityCommandGateway
     {
+        private const string ExternalPriorityAuthorityReason =
+            "Better Work Tab is read-only while an external priority authority is active.";
+
         private static IWorkGridCommandObserver _observer;
 
         internal static IWorkGridCommandObserver Observer
@@ -45,7 +50,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
         {
             bool accepted = ExecutePriorityMutation(command.Pawn, command.WorkType, command.Priority);
 
-            Observe(command.Kind, accepted, accepted ? command.WorkType.defName : "invalid priority target or bounds");
+            Observe(
+                command.Kind,
+                accepted,
+                accepted
+                    ? command.WorkType.defName
+                    : PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData
+                        ? "invalid priority target or bounds"
+                        : ExternalPriorityAuthorityReason);
             return accepted;
         }
 
@@ -58,7 +70,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 command.Pawn,
                 command.WorkType,
                 nextPriority);
-            Observe(command.Kind, accepted, accepted ? "stepped" : "invalid priority target");
+            Observe(
+                command.Kind,
+                accepted,
+                accepted
+                    ? "stepped"
+                    : PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData
+                        ? "invalid priority target"
+                        : ExternalPriorityAuthorityReason);
             return accepted;
         }
 
@@ -68,13 +87,21 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 ? WorkPrioritySystem.DisabledPriority
                 : WorkPrioritySystem.GetDefaultEnabledPriority();
             bool accepted = ExecutePriorityMutation(command.Pawn, command.WorkType, nextPriority);
-            Observe(command.Kind, accepted, accepted ? "toggled" : "invalid priority target");
+            Observe(
+                command.Kind,
+                accepted,
+                accepted
+                    ? "toggled"
+                    : PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData
+                        ? "invalid priority target"
+                        : ExternalPriorityAuthorityReason);
             return accepted;
         }
 
         internal static bool Execute(in PaintPriorityRangeCommand command)
         {
-            bool accepted = command.Targets != null &&
+            bool accepted = PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData &&
+                            command.Targets != null &&
                             WorkGridCommandMath.IsValidPriority(
                                 command.Priority,
                                 WorkPrioritySystem.GetRequestableMaxPriority());
@@ -91,7 +118,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 }
             }
 
-            Observe(command.Kind, accepted, accepted ? "painted=" + command.Targets.Count : "invalid paint range");
+            Observe(
+                command.Kind,
+                accepted,
+                accepted
+                    ? "painted=" + command.Targets.Count
+                    : PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData
+                        ? "invalid paint range"
+                        : ExternalPriorityAuthorityReason);
             return accepted;
         }
 
@@ -101,8 +135,32 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                             WorkGridCommandMath.IsValidPriority(
                                 command.Priority,
                                 WorkPrioritySystem.GetRequestableMaxPriority());
+            if (accepted && !PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
+            {
+                Observe(command.Kind, false, ExternalPriorityAuthorityReason);
+                return false;
+            }
+
             if (accepted)
             {
+                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+                {
+                    WorkTypeDef targetWorkType =
+                        WorkGiverReassignmentManager.GetTargetWorkType(command.WorkGiver) ??
+                        command.WorkGiver.workType;
+                    accepted = WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(
+                        command.PawnId,
+                        targetWorkType,
+                        command.WorkGiver,
+                        command.Priority,
+                        out WorkTabEffectiveStateMutationResult result);
+                    Observe(
+                        command.Kind,
+                        accepted,
+                        accepted ? result.ToString() : result.Reason);
+                    return accepted;
+                }
+
                 WorkGiverReassignmentManager.SetPawnOverrideSynced(
                     command.PawnId,
                     command.WorkGiver.defName,
@@ -115,6 +173,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
 
         internal static bool Execute(in OpenScheduleCommand command)
         {
+            if (!PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    ExternalPriorityAuthorityReason);
+                Observe(command.Kind, false, ExternalPriorityAuthorityReason);
+                return false;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "The live hourly schedule editor has no safe projection adapter.");
+                Observe(command.Kind, false, "preview schedule editing is blocked");
+                return false;
+            }
+
             bool accepted = WorkGridCommandMath.IsValidPriority(
                                 command.FallbackPriority,
                                 WorkPrioritySystem.GetRequestableMaxPriority()) &&
@@ -154,6 +230,26 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
         internal static bool Execute(in MoveWorkGiverCommand command, out string errorMessage)
         {
             errorMessage = null;
+            if (!PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
+            {
+                errorMessage = ExternalPriorityAuthorityReason;
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder,
+                    errorMessage);
+                Observe(command.Kind, false, errorMessage);
+                return false;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                errorMessage = "Specific-job ordering is blocked in preview because the active Work-tab layout owner cannot consume projected order.";
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder,
+                    errorMessage);
+                Observe(command.Kind, false, errorMessage);
+                return false;
+            }
+
             bool accepted = WorkGridCommandMath.IsValidMove(
                                 command.WorkGiverDefName,
                                 command.WorkTypeDefName,
@@ -172,6 +268,85 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
             return accepted;
         }
 
+        internal static bool TryClearPreviewSpecificJobOverrides(
+            Pawn pawn,
+            WorkTypeDef workType)
+        {
+            if (pawn == null || workType == null)
+            {
+                return false;
+            }
+
+            if (!PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOverride,
+                    ExternalPriorityAuthorityReason);
+                return false;
+            }
+
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                WorkGiverReassignmentManager.ClearPawnOverridesForWorkTypeSynced(
+                    pawn.thingIDNumber,
+                    workType.defName);
+                return true;
+            }
+
+            var seen = new HashSet<string>(System.StringComparer.Ordinal);
+            bool attempted = false;
+            IList<WorkGiverDef> definitions = workType.workGiversByPriority;
+            for (int i = 0; definitions != null && i < definitions.Count; i++)
+            {
+                WorkGiverDef workGiver = definitions[i];
+                if (workGiver?.defName == null || !seen.Add(workGiver.defName))
+                {
+                    continue;
+                }
+
+                attempted = true;
+                if (!WorkTabEffectiveStateRuntime.TryClearSpecificJobPriority(
+                        pawn,
+                        workType,
+                        workGiver,
+                        out _))
+                {
+                    return false;
+                }
+            }
+
+            IReadOnlyList<WorkGiver> display =
+                WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType, pawn);
+            for (int i = 0; display != null && i < display.Count; i++)
+            {
+                WorkGiverDef workGiver = display[i]?.def;
+                if (workGiver?.defName == null || !seen.Add(workGiver.defName))
+                {
+                    continue;
+                }
+
+                attempted = true;
+                if (!WorkTabEffectiveStateRuntime.TryClearSpecificJobPriority(
+                        pawn,
+                        workType,
+                        workGiver,
+                        out _))
+                {
+                    return false;
+                }
+            }
+
+            if (!attempted)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOverride,
+                    "No specific-job keys were available for the requested work type.");
+                return false;
+            }
+
+            return true;
+        }
+
         private static void Observe(WorkGridCommandKind kind, bool accepted, string detail)
         {
             var observation = new WorkGridCommandObservation(kind, accepted, detail);
@@ -186,6 +361,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 !WorkGridCommandMath.IsValidPriority(priority, WorkPrioritySystem.GetRequestableMaxPriority()))
             {
                 return false;
+            }
+
+            if (!PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.ParentPriority,
+                    ExternalPriorityAuthorityReason);
+                return false;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                return WorkTabEffectiveStateRuntime.TrySetParentPriority(
+                    pawn,
+                    workType,
+                    priority,
+                    out _);
             }
 
             int basePriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);

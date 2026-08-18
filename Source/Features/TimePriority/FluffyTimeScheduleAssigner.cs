@@ -39,6 +39,27 @@ namespace Better_Work_Tab.Features.TimePriority
         private static readonly bool AgentEnabled =
             DiagnosticsFileAccess.IsEnabled();
         private static int _nextAgentRequestFrame;
+        private static bool _isOpen;
+
+        private static bool HasBetterWorkTabScheduleAuthority =>
+            !PriorityAuthorityResolver.ShouldBlockBetterWorkTabPriorityDataAccess;
+
+        private static bool EnsureBetterWorkTabScheduleAuthority()
+        {
+            if (HasBetterWorkTabScheduleAuthority)
+            {
+                return true;
+            }
+
+            if (_isOpen)
+            {
+                _isOpen = false;
+                ClearInteractiveGeometry();
+                NotifyLayoutChanged();
+            }
+
+            return false;
+        }
 
         internal static bool IsAvailable =>
             FluffyWorkTabGateway.IsPresent &&
@@ -52,7 +73,7 @@ namespace Better_Work_Tab.Features.TimePriority
             (BetterWorkTabMod.Settings?.enableFluffyScheduleAssigner ??
              DefaultSettings.enableFluffyScheduleAssigner);
 
-        internal static bool IsOpen { get; private set; }
+        internal static bool IsOpen => _isOpen && EnsureBetterWorkTabScheduleAuthority();
 
         internal static int VisibleHour { get; private set; } = -1;
 
@@ -63,7 +84,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool TryHandleInput(Event evt)
         {
-            if (!IsOpen || evt == null ||
+            if (!EnsureBetterWorkTabScheduleAuthority() || !_isOpen || evt == null ||
                 (evt.type != EventType.MouseDown && evt.type != EventType.MouseDrag))
             {
                 return false;
@@ -112,13 +133,13 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool Toggle()
         {
-            if (!IsEnabled)
+            if (!IsEnabled || !EnsureBetterWorkTabScheduleAuthority())
             {
                 return false;
             }
 
-            IsOpen = !IsOpen;
-            if (IsOpen)
+            _isOpen = !_isOpen;
+            if (_isOpen)
             {
                 TimePriorityScheduleEditor.CloseForWorkModeTransition();
             }
@@ -177,15 +198,15 @@ namespace Better_Work_Tab.Features.TimePriority
                 return;
             }
 
-            IsOpen = false;
+            _isOpen = false;
             ClearInteractiveGeometry();
             NotifyLayoutChanged();
         }
 
         internal static void ResetForWindowClose()
         {
-            bool wasOpen = IsOpen;
-            IsOpen = false;
+            bool wasOpen = _isOpen;
+            _isOpen = false;
             SelectWholeDay();
             VisibleHour = -1;
             _lastAppliedTarget = string.Empty;

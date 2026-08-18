@@ -24,6 +24,21 @@ namespace Better_Work_Tab.UI.Settings
         public static string NoResults => "BWT_Settings_UI_NoResults".Translate();
 
         /// <summary>
+        /// Text shown when a Simple-view search finds an Advanced-only setting.
+        /// The first format argument is the first matching setting label.
+        /// </summary>
+        public static string AdvancedSearchNotice
+        {
+            get
+            {
+                const string key = "BWT_Settings_UI_AdvancedSearchNotice";
+                return key.CanTranslate()
+                    ? key.Translate()
+                    : "Found in Advanced settings: {0} — click to switch to Advanced";
+            }
+        }
+
+        /// <summary>
         /// Translated label for the color edit button.
         /// </summary>
         public static string Edit => "BWT_Settings_UI_Edit".Translate();

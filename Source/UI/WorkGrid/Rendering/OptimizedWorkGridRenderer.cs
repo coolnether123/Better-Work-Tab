@@ -2,12 +2,16 @@ using System;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.DragDrop;
 using RimWorld;
@@ -40,7 +44,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public bool IsAvailable(in WorkGridRenderContext context)
         {
-            return context.Presentation.Snapshot != null &&
+            // The optimized layer stores a single snapshot-wide manual-mode
+            // flag and optimized vanilla cells cannot consume projected
+            // specific-job state. Let the selector choose the permanent
+            // vanilla fallback for this pass while the Harmony paths read the
+            // scoped effective provider.
+            return !WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                   !PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority &&
+                   WorkGridSnapshotProvider.IsActiveEffectiveStateCurrent() &&
+                   context.Presentation.Snapshot != null &&
                    context.Presentation.Geometry != null &&
                    context.Layout != null &&
                    context.Presentation.Table != null;
@@ -60,8 +72,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
+            bool skillOverlayEnabled = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.FeaturesOverlay,
+                (context.Configuration.Features & WorkGridFeatureFlags.SkillOverlay) != 0);
             _delegateFeatureCells =
-                ((context.Configuration.Features & WorkGridFeatureFlags.SkillOverlay) != 0 &&
+                (skillOverlayEnabled &&
                  ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted) ||
                 SubWorkDrilldownState.HasAnyDrilldown ||
                 FluffyTimeScheduleAssigner.IsOpen ||
@@ -159,6 +174,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             WorkCellVisualState cell = _snapshot.Cells[cellIndex];
+            if (IsNativeHoverOwned(cellRect, cell.WorkType))
+            {
+                // Harmony/native DoCell owns hover-sensitive visuals and
+                // tooltips. Returning false lets the body renderer delegate
+                // this cell without changing ownership of input handling.
+                EndCellBatch();
+                return false;
+            }
+
             if (!_cellBatchActive)
             {
                 _cellBatchState = GuiStateScope.Capture();
@@ -269,6 +293,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             DrawStaticFeatureOverlays(boxRect, cell);
         }
 
+        private static bool IsNativeHoverOwned(Rect cellRect, WorkTypeDef workType)
+        {
+            if (TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
+                BWTWorkTabTutorial.OwnsCurrentPointer)
+            {
+                return false;
+            }
+
+            return Mouse.IsOver(cellRect) ||
+                   (workType != null &&
+                    PawnColumnWorker_WorkPriority_DoHeader_Patch.HoveredWorkType == workType);
+        }
+
         private void DrawCachedWorkBoxBackground(Rect boxRect, WorkCellVisualState cell)
         {
             Texture2D baseTexture;
@@ -338,7 +375,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         boxRect.ExpandedBy(1f),
                         Color.clear,
                         settings.Color_BestPawnForSkillSquare,
-                        settings.bestPawnHighlightThickness);
+                        BWTWorkTabEffectiveSettings.GetInt(
+                            SettingIDs.HighlightsBestPawnBackground,
+                            settings.bestPawnHighlightThickness));
                 }
             }
 

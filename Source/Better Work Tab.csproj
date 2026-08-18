@@ -167,6 +167,20 @@
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownInput.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
+    <Compile Include="Features\Workloads\V2\WorkloadCanonical.cs" />
+    <Compile Include="Features\Workloads\V2\WorkloadDefinition.cs" />
+    <Compile Include="Features\Workloads\V2\WorkloadDiff.cs" />
+    <Compile Include="Features\Workloads\V2\WorkloadKeys.cs" />
+    <Compile Include="Features\Workloads\V2\WorkloadMembership.cs" />
+    <Compile Include="Features\Workloads\V2\WorkloadScope.cs" />
+    <Compile Include="Features\Workloads\V2\WorkloadSession.cs" />
+    <Compile Include="Features\Workloads\V2\WorkloadState.cs" />
+    <Compile Include="Features\Workloads\V2\WorkloadValidation.cs" />
+    <Compile Include="Features\Workloads\V2\Runtime\WorkloadBackendContracts.cs" />
+    <Compile Include="Features\Workloads\V2\Runtime\WorkloadV2Persistence.cs" />
+    <Compile Include="Features\Workloads\V2\Runtime\WorkloadV2RecordConverter.cs" />
+    <Compile Include="Features\Workloads\V2\Runtime\LegacyWorkloadBackend.cs" />
+    <Compile Include="Features\Workloads\V2\Runtime\Workload2Backend.cs" />
     <Compile Include="Diagnostics\WorkTabDiagnostics.cs" />
     <Compile Include="Features\Testing\AgentFloatMenuHighlightTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\Testing\GameComponent_BWTModernQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
@@ -174,6 +188,7 @@
     <Compile Include="Features\Testing\GameComponent_BWTTutorialQuickTestDriver.cs" Condition="'$(Configuration)' != '1.6'" />
     <Compile Include="Features\Testing\GameComponent_PriorityRangeCacheRegressionTestDriver.cs" Condition="'$(BwtPriorityAuthorityTests)' == 'true' And $([System.String]::Copy('$(DefineConstants)').Contains('DEBUG'))" />
     <Compile Include="Features\Testing\AgentHarnessUtility.cs" />
+    <Compile Include="UI\BWTBottomBarIcons.cs" />
     <Compile Include="UI\BWTBottomBarSelector.cs" />
     <Compile Include="UI\OneTimePromptPresence.cs" />
     <Compile Include="Features\Testing\BWTTutorialAgentHarness.cs" Condition="'$(Configuration)' != '1.6'" />
@@ -367,6 +382,13 @@
     <Compile Include="UI\WorkGiverReassignments\SubWorkInteractionController.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkStyleChooserPresenter.cs" />
     <Compile Include="UI\WorkGrid\Contracts\WorkGridRenderContracts.cs" />
+    <Compile Include="UI\WorkGrid\Projection\WorkTabEffectiveStateContracts.cs" />
+    <Compile Include="UI\WorkGrid\Projection\WorkTabEffectiveStateRevisionContract.cs" />
+    <Compile Include="UI\WorkGrid\Projection\WorkTabEffectiveStateScope.cs" />
+    <Compile Include="UI\WorkGrid\Projection\WorkTabEffectiveStateRuntime.cs" />
+    <Compile Include="UI\WorkGrid\Projection\LiveWorkTabEffectiveStateProvider.cs" />
+    <Compile Include="UI\WorkGrid\Projection\BwtLiveWorkTabEffectiveStateAdapter.cs" />
+    <Compile Include="UI\WorkGrid\Projection\ProjectedWorkTabEffectiveStateProvider.cs" />
     <Compile Include="UI\WorkGrid\Commands\WorkGridCommandMath.cs" />
     <Compile Include="UI\WorkGrid\Commands\WorkGridCommands.cs" />
     <Compile Include="UI\WorkGrid\Commands\WorkPriorityCommandGateway.cs" />
@@ -420,6 +442,9 @@
     <Compile Include="UI\Settings\BWTSettingsFilters.cs" />
     <Compile Include="UI\Settings\BetterWorkTabSettingsWindowService.cs" />
     <Compile Include="UI\Settings\BWTSettingWidgets.cs" />
+    <Compile Include="UI\Settings\BWTSettingsSearchIndex.cs" />
+    <Compile Include="UI\Settings\BWTSettingsSearchRuntime.cs" />
+    <Compile Include="UI\Settings\BWTSettingsLabelAlignment.cs" />
     <Compile Include="UI\Settings\BWTSettingsContextFocus.cs" />
     <Compile Include="UI\Settings\BWTSettingsFocusRequest.cs" />
     <Compile Include="UI\Settings\BWTWorkTabContextSettingsRouter.cs" />
@@ -462,6 +487,7 @@
     <Compile Include="UI\MouseStateManager.cs" />
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />
+    <Compile Include="UI\Workloads\WorkloadGateway.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderGateway.cs" />
     <Compile Include="UI\RuleBuilder\Window_PriorityNumberPicker.cs" />
     <Compile Include="UI\RuleBuilder\Window_RulesetBuilder.cs" />

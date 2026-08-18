@@ -6,6 +6,9 @@ using Verse.Sound;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Commands;
+using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Settings;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -87,6 +90,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 bool isCtrlLeftDiscovery =
                     SubWorkDrilldownInput.ShouldOfferCtrlLeftDiscovery(evt) &&
                     workType != null &&
+                    !IsPreviewSpecificJobOrderingBlocked() &&
                     WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType).Count > 0;
                 if (SubWorkDrilldownInput.MatchesGesture(evt) || isCtrlLeftDiscovery)
                 {
@@ -143,7 +147,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static string GetTooltip(PawnColumnWorker_WorkPriority worker, PawnTable table)
         {
-            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+            if (!IsPreviewSpecificJobOrderingBlocked() &&
+                SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
                     worker.def,
                     out _,
                     out _,
@@ -152,7 +157,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return GetSubWorkTooltip(worker, table);
             }
 
-            if (SubWorkDrilldownState.IsActive)
+            if (!IsPreviewSpecificJobOrderingBlocked() && SubWorkDrilldownState.IsActive)
             {
                 return GetSubWorkTooltip(worker, table);
             }
@@ -172,11 +177,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
             
             if (!Verse.Steam.SteamDeck.IsSteamDeckInNonKeyboardMode)
             {
-                if (BetterWorkTabMod.Settings?.enableColumnGrouping ?? true)
+                if (BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.DragdropEnableGrouping,
+                        BetterWorkTabMod.Settings?.enableColumnGrouping ?? true))
                 {
                     tooltip += "\n" + "Shift + click: Select column for group dragging.".Colorize(ColoredText.SubtleGrayColor);
                 }
-                else if (Find.PlaySettings.useWorkPriorities)
+                else if (WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
+                             Find.PlaySettings?.useWorkPriorities ?? true))
                 {
                     tooltip += "\n" + "WorkPriorityShiftClickTip".Translate().Colorize(ColoredText.SubtleGrayColor);
                 }
@@ -223,11 +231,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 tooltip.Append("\n\n").Append("ClickToSortByThisColumn".Translate().Colorize(ColoredText.SubtleGrayColor));
             }
 
-            if (BetterWorkTabMod.Settings?.enableColumnGrouping ?? true)
+            if (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.DragdropEnableGrouping,
+                    BetterWorkTabMod.Settings?.enableColumnGrouping ?? true))
             {
                 tooltip.Append("\n").Append("Shift + click: Select column for group dragging.".Colorize(ColoredText.SubtleGrayColor));
             }
-            else if (Find.PlaySettings.useWorkPriorities)
+            else if (WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
+                         Find.PlaySettings?.useWorkPriorities ?? true))
             {
                 tooltip.Append("\n").Append("WorkPriorityShiftClickTip".Translate().Colorize(ColoredText.SubtleGrayColor));
             }
@@ -251,6 +262,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// </summary>
         private static string SpecificWorkListString(WorkTypeDef def)
         {
+            if (IsPreviewSpecificJobOrderingBlocked())
+            {
+                return "Specific-job ordering is not projected in this workload preview.";
+            }
+
             System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder();
             var workGivers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(def);
             int appended = 0;
@@ -282,12 +298,18 @@ namespace Better_Work_Tab.UI.Headers.Angled
             string label = WorkGiverDisplayNameService.FullLabel(workGiverDef);
             bool isMoved = WorkGiverReassignmentManager.ShouldShowMovedWorkGiverMarker(workType, workGiverDef);
             var settings = BetterWorkTabMod.Settings;
-            if (isMoved && settings != null && settings.showColumnMovedMarker && !label.EndsWith(HeaderUtility.MovedMarker))
+            bool showMovedMarker = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.ColumnsShowMovedIndicator,
+                settings?.showColumnMovedMarker ?? DefaultSettings.showColumnMovedMarker);
+            bool showMovedTint = BWTWorkTabEffectiveSettings.GetBool(
+                "columns.showMovedColorTint",
+                settings?.showMovedColumnColorTint ?? DefaultSettings.showMovedColumnColorTint);
+            if (isMoved && showMovedMarker && !label.EndsWith(HeaderUtility.MovedMarker))
             {
                 label += HeaderUtility.MovedMarker;
             }
 
-            if (isMoved && (settings?.showMovedColumnColorTint ?? true))
+            if (isMoved && showMovedTint)
             {
                 label = label.Colorize(HeaderUtility.Colors.MovedMarkerColor);
             }
@@ -299,7 +321,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
         {
             try
             {
-                var workGivers = workType == null
+                var workGivers = IsPreviewSpecificJobOrderingBlocked() || workType == null
                     ? null
                     : WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
                 if (!SubWorkDrilldownInput.IsEnabled ||
@@ -336,7 +358,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void HandleLeftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, Event evt)
         {
-            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+            if (!IsPreviewSpecificJobOrderingBlocked() &&
+                SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
                     worker.def,
                     out var movedWorkGiver,
                     out var parentWorkType,
@@ -381,14 +404,16 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void HandleRightClick(PawnColumnWorker_WorkPriority worker, PawnTable table, Event evt)
         {
-            if (SubWorkDrilldownState.IsActive &&
+            if (!IsPreviewSpecificJobOrderingBlocked() &&
+                SubWorkDrilldownState.IsActive &&
                 SubWorkDrilldownState.TryGetWorkGiverForColumn(worker.def, out var workGiver, out _))
             {
                 HeaderContextMenu.ShowForWorkGiver(worker, table, workGiver.def);
                 return;
             }
 
-            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+            if (!IsPreviewSpecificJobOrderingBlocked() &&
+                SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
                     worker.def,
                     out var drawingWorkGiver,
                     out _,
@@ -404,7 +429,16 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void HandleShiftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, int button)
         {
-            if (SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+            // Shift-click is a bulk priority gesture. BWT may still render an external
+            // authority's values, but it must not write them through the shared pawn store or
+            // accidentally turn a presentation gesture into an authority handoff.
+            if (!PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
+            {
+                return;
+            }
+
+            if (!IsPreviewSpecificJobOrderingBlocked() &&
+                SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
                     worker.def,
                     out var workGiver,
                     out var parentWorkType,
@@ -416,7 +450,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             var workType = worker.def.workType;
             List<Pawn> pawns = table.PawnsListForReading;
-            bool useWorkPriorities = Find.PlaySettings.useWorkPriorities;
+            bool useWorkPriorities = WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
+                Find.PlaySettings?.useWorkPriorities ?? true);
 
             bool changed = false;
             for (int i = 0; i < pawns.Count; i++)
@@ -425,27 +460,42 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType))
                     continue;
 
-                int curPriority = pawn.workSettings.GetPriority(workType);
+                int curPriority = WorkTabEffectiveStateRuntime.IsPreviewActive
+                    ? WorkTabEffectiveStateRuntime.GetParentPriority(
+                        pawn,
+                        workType,
+                        WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType))
+                    : pawn.workSettings.GetPriority(workType);
+                int nextPriority;
 
                 if (useWorkPriorities)
                 {
                     int direction = button == 0 ? 1 : -1;
-                    int nextPriority = WorkPrioritySystem.GetPriorityAfterBoundedStep(curPriority, direction);
-                    WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
+                    nextPriority = WorkPrioritySystem.GetPriorityAfterBoundedStep(curPriority, direction);
                 }
                 else
                 {
                     // Vanilla Priorities (On/Off)
                     if (button == 0)
                     {
-                        WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.GetDefaultEnabledPriority());
+                        nextPriority = WorkPrioritySystem.GetDefaultEnabledPriority();
                     }
                     else
                     {
-                        WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.DisabledPriority);
+                        nextPriority = WorkPrioritySystem.DisabledPriority;
                     }
                 }
-                changed = true;
+
+                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+                {
+                    changed |= WorkPriorityCommandGateway.Execute(
+                        new SetPriorityCommand(pawn, workType, nextPriority));
+                }
+                else
+                {
+                    WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
+                    changed = true;
+                }
             }
 
             if (changed)
@@ -457,7 +507,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 else
                     SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera();
 
-                table.SetDirty();
+                if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
+                {
+                    table.SetDirty();
+                }
             }
         }
 
@@ -473,17 +526,20 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return false;
             }
 
-            bool isSubWork = SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
-                worker.def,
-                out _,
-                out _,
-                out _);
+            bool isSubWork = !IsPreviewSpecificJobOrderingBlocked() &&
+                SubWorkDrilldownState.TryGetCurrentDrawingWorkGiver(
+                    worker.def,
+                    out _,
+                    out _,
+                    out _);
             if (evt.type == EventType.MouseDown && (evt.button == 0 || evt.button == 1))
             {
                 if (allowRootGrouping &&
                     !isSubWork &&
                     evt.button == 0 &&
-                    (BetterWorkTabMod.Settings?.enableColumnGrouping ?? false))
+                    BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.DragdropEnableGrouping,
+                        BetterWorkTabMod.Settings?.enableColumnGrouping ?? false))
                 {
                     Better_Work_Tab.DragDrop.ColumnSelectionManager.ToggleSelection(worker.def);
                     SoundDefOf.Tick_High.PlayOneShotOnCamera();
@@ -497,7 +553,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             if (evt.type != EventType.ScrollWheel ||
-                !(BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) ||
+                !BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.AdvancedScrollWheelPriority,
+                    BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) ||
                 Mathf.Abs(evt.delta.y) < 0.01f)
             {
                 return false;
@@ -510,8 +568,72 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
         private static void HandleSubWorkShiftClick(WorkTypeDef workType, WorkGiverDef workGiverDef, PawnTable table, int button)
         {
+            if (!PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
+            {
+                return;
+            }
+
             List<Pawn> pawns = table.PawnsListForReading;
-            bool useWorkPriorities = Find.PlaySettings.useWorkPriorities;
+            bool useWorkPriorities = WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
+                Find.PlaySettings?.useWorkPriorities ?? true);
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                bool changedInPreview = false;
+                for (int i = 0; i < pawns.Count; i++)
+                {
+                    Pawn pawn = pawns[i];
+                    if (pawn == null || pawn.Dead || pawn.workSettings == null ||
+                        !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType))
+                    {
+                        continue;
+                    }
+
+                    int parentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                        pawn,
+                        workType,
+                        WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+                    int currentPriority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
+                        pawn,
+                        workType,
+                        workGiverDef,
+                        out int projectedPriority)
+                        ? WorkPrioritySystem.ClampPriority(projectedPriority)
+                        : WorkGiverReassignmentManager.GetWorkGiverPriority(
+                            pawn,
+                            workGiverDef,
+                            parentPriority);
+                    int nextPriority = useWorkPriorities
+                        ? WorkPrioritySystem.GetPriorityAfterBoundedStep(
+                            currentPriority,
+                            button == 0 ? 1 : -1)
+                        : button == 0
+                            ? WorkPrioritySystem.GetDefaultEnabledPriority()
+                            : WorkPrioritySystem.DisabledPriority;
+
+                    if (nextPriority != currentPriority)
+                    {
+                        changedInPreview |= WorkPriorityCommandGateway.Execute(
+                            new SetWorkGiverPriorityCommand(
+                                pawn.thingIDNumber,
+                                workGiverDef,
+                                nextPriority));
+                    }
+                }
+
+                if (changedInPreview)
+                {
+                    if (useWorkPriorities)
+                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                    else if (button == 0)
+                        SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
+                    else
+                        SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera();
+                }
+
+                return;
+            }
+
             var pawnIds = new List<int>();
             var priorities = new List<int>();
 
@@ -599,6 +721,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 _pendingClickColumn = null;
             }
+        }
+
+        private static bool IsPreviewSpecificJobOrderingBlocked()
+        {
+            return WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked;
         }
     }
 }

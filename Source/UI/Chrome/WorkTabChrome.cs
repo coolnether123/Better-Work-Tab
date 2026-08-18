@@ -15,6 +15,7 @@ using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using Spine.Profiling;
 using Spine.UI.WidgetExtensions;
@@ -115,7 +116,8 @@ namespace Better_Work_Tab.UI.Chrome
 
         internal void DrawSubWorkExitButton(Rect inRect)
         {
-            if (!SubWorkDrilldownState.IsActive)
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked ||
+                !SubWorkDrilldownState.IsActive)
             {
                 return;
             }
@@ -146,8 +148,12 @@ namespace Better_Work_Tab.UI.Chrome
             {
                 return;
             }
-            bool showPawns = settings.showPawnCountAtBottom;
-            bool showBeds = settings.showBedCountAtBottom;
+            bool showPawns = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.LayoutPawnCount,
+                settings.showPawnCountAtBottom);
+            bool showBeds = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.LayoutBedCount,
+                settings.showBedCountAtBottom);
             if (!showPawns && !showBeds)
             {
                 return;
@@ -203,7 +209,9 @@ namespace Better_Work_Tab.UI.Chrome
         internal void DrawContextSettingsHint(Rect inRect)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.showContextSettingsHint ?? true))
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.UiContextSettingsHint,
+                    settings?.showContextSettingsHint ?? true))
             {
                 return;
             }
@@ -221,7 +229,9 @@ namespace Better_Work_Tab.UI.Chrome
         private void DrawManualPrioritiesCheckbox()
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.showManualPrioritiesCheckbox ?? true))
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.UiManualPriorities,
+                    settings?.showManualPrioritiesCheckbox ?? true))
             {
                 return;
             }
@@ -232,14 +242,24 @@ namespace Better_Work_Tab.UI.Chrome
             Rect rect = new Rect(5f, 5f, 140f, 30f);
             int maxPriority = WorkPrioritySystem.GetMaxPriority();
             EnsureUiTextCache(maxPriority);
-            bool wasEnabled = Current.Game.playSettings.useWorkPriorities;
-            Widgets.CheckboxLabeled(rect, _manualPrioritiesText, ref Current.Game.playSettings.useWorkPriorities);
-            bool isEnabled = Current.Game.playSettings.useWorkPriorities;
-            if (wasEnabled != isEnabled)
+            bool wasEnabled = WorkTabEffectiveStateRuntime.IsPreviewActive
+                ? WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
+                    Find.PlaySettings?.useWorkPriorities ?? true)
+                : Current.Game.playSettings.useWorkPriorities;
+            bool requestedEnabled = wasEnabled;
+            Widgets.CheckboxLabeled(rect, _manualPrioritiesText, ref requestedEnabled);
+            if (wasEnabled != requestedEnabled &&
+                !WorkTabEffectiveStateRuntime.TrySetManualMode(requestedEnabled))
             {
-                WorkPrioritySystem.NotifyManualPrioritiesChanged();
+                // A preview mutation that the active provider cannot own is
+                // rejected without ever touching PlaySettings.
+                requestedEnabled = wasEnabled;
             }
-            if (Current.Game.playSettings.useWorkPriorities)
+
+            bool isEnabled = WorkTabEffectiveStateRuntime.IsPreviewActive
+                ? requestedEnabled
+                : Current.Game.playSettings.useWorkPriorities;
+            if (isEnabled)
             {
                 using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))
                 {
@@ -256,7 +276,9 @@ namespace Better_Work_Tab.UI.Chrome
         private void DrawPriorityLegend(Rect rect)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!(settings?.showPriorityLegend ?? true))
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.UiPriorityLegend,
+                    settings?.showPriorityLegend ?? true))
             {
                 return;
             }
@@ -265,7 +287,9 @@ namespace Better_Work_Tab.UI.Chrome
             Text.Anchor = TextAnchor.UpperCenter;
             Text.Font = GameFont.Tiny;
             EnsureUiTextCache(WorkPrioritySystem.GetMaxPriority());
-            Rect contextHintRect = (settings?.showContextSettingsHint ?? true)
+            Rect contextHintRect = BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.UiContextSettingsHint,
+                    settings?.showContextSettingsHint ?? true)
                 ? WorkTabChromeGeometry.GetContextSettingsHintRect(rect)
                 : Rect.zero;
             if (contextHintRect.width > 0f)
@@ -318,10 +342,14 @@ namespace Better_Work_Tab.UI.Chrome
             Text.Anchor = TextAnchor.LowerLeft;
 
             var settings = BetterWorkTabMod.Settings;
-            if (settings?.showDragInstructions ?? DefaultSettings.showDragInstructions)
+            if (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.UiDragInstructions,
+                    settings?.showDragInstructions ?? DefaultSettings.showDragInstructions))
             {
                 var instructions = new List<string>();
-                if (settings?.enableSkillOverlayFeature ?? DefaultSettings.enableSkillOverlayFeature)
+                if (BWTWorkTabEffectiveSettings.GetBool(
+                        SettingIDs.FeaturesOverlay,
+                        settings?.enableSkillOverlayFeature ?? DefaultSettings.enableSkillOverlayFeature))
                 {
                     instructions.Add(
                         ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted
@@ -343,7 +371,8 @@ namespace Better_Work_Tab.UI.Chrome
                     {
                         instructions.Add("BWT_Footer_CtrlClickSchedule".Translate());
                     }
-                    else if (SubWorkDrilldownInput.IsEnabled)
+                    else if (SubWorkDrilldownInput.IsEnabled &&
+                             !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
                     {
                         bool hasDrilldownAction;
                         string action;

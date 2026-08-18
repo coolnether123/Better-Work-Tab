@@ -379,7 +379,23 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
             PawnTable table,
             WorkGiverDef workGiver)
         {
-            if (!BetterWorkTabHostsSleek || pawn == null || table == null || workGiver == null)
+            // A mixed BWT host keeps BWT as the priority-data authority. Do not let Sleek's
+            // inline worker write its sidecar in that mode; returning false hands the cell back
+            // to BWT's own specific-job renderer. The worker is only allowed to edit while Sleek
+            // is the verified external authority for the complete Work tab.
+            if (BetterWorkTabHostsSleek ||
+                pawn == null ||
+                table == null ||
+                workGiver == null)
+            {
+                return false;
+            }
+
+            // This method is normally reached from the mixed BWT host. That host keeps BWT as
+            // the shared priority-data owner, so never delegate a writable cell to Sleek there.
+            // Keep the verified-owner check for defensive callers that reuse this gateway from
+            // Sleek's strict window.
+            if (!IsVerifiedSleekPriorityAuthority(out _))
             {
                 return false;
             }
@@ -567,7 +583,8 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
         /// <summary>
         /// Writes a Rule Builder sub-work result into Sleek's own per-job
         /// store. BWT's legacy reassignment sidecar cannot be read by Sleek's
-        /// cells, so this bridge is required whenever Sleek code is active.
+        /// cells, so this bridge is required while Sleek is the verified
+        /// external priority authority.
         /// A read-back confirms that Sleek accepted the write instead of
         /// silently ignoring it because its board is not active yet.
         /// </summary>
@@ -576,7 +593,8 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
             WorkGiverDef workGiver,
             int priority)
         {
-            if (!SleekCodeRuns || pawn == null || workGiver == null)
+            if (pawn == null || workGiver == null ||
+                !IsVerifiedSleekPriorityAuthority(out long authorityRevision))
             {
                 return false;
             }
@@ -601,10 +619,13 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                     store,
                     new object[] { pawn, workGiver, priority });
 
-                return _sleekGetOverrideMethod.Invoke(
+                bool accepted = _sleekGetOverrideMethod.Invoke(
                            store,
                            new object[] { pawn, workGiver }) is int stored &&
                        stored == RuleBuilder2SleekPriorityTranslation.TranslatePriority(priority);
+                return accepted &&
+                    IsVerifiedSleekPriorityAuthority(out long afterRevision) &&
+                    afterRevision == authorityRevision;
             }
             catch (Exception exception)
             {
@@ -614,6 +635,31 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                     DebugFeature.ModSupport);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Verifies that Sleek is the current, generation-validated external priority owner.
+        /// Mixed BWT/Sleek rendering does not satisfy this: BWT remains the shared data owner
+        /// there and Sleek's inline worker must be read-only/fallback-rendered.
+        /// </summary>
+        private static bool IsVerifiedSleekPriorityAuthority(out long authorityRevision)
+        {
+            authorityRevision = 0L;
+            if (!SleekOwnsWorkTab)
+            {
+                return false;
+            }
+
+            if (!PriorityAuthorityResolver.TryGetVerifiedExternalStore(
+                    out IExternalWorkTabStore store,
+                    out authorityRevision) ||
+                !ReferenceEquals(store, ExternalStore))
+            {
+                authorityRevision = 0L;
+                return false;
+            }
+
+            return true;
         }
 
         internal static int GetSharedWorkTypePriority(Pawn pawn, WorkTypeDef workType)

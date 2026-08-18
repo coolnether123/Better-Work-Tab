@@ -11,6 +11,7 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
 using RimWorld;
 using UnityEngine;
@@ -46,6 +47,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
             if (FluffyTimeScheduleAssigner.IsOpen)
             {
+                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+                {
+                    WorkTabEffectiveStateRuntime.ReportBlocked(
+                        WorkTabEffectiveStateDimension.Schedule,
+                        "Fluffy's live scheduler owns this input surface.");
+                    evt.Use();
+                    return true;
+                }
+
                 WorkTabGeometryDiagnostics.RecordPriorityInputTrace("fluffy scheduler owner", evt);
                 return false;
             }
@@ -69,6 +79,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             // interactions later in this router.
             if (SleekWorkTabGateway.BetterWorkTabHostsSleek)
             {
+                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+                {
+                    WorkTabEffectiveStateRuntime.ReportBlocked(
+                        WorkTabEffectiveStateDimension.ParentPriority,
+                        "Sleek owns this visible cell and has no preview editor bridge.");
+                    evt.Use();
+                    return true;
+                }
+
                 WorkTabGeometryDiagnostics.RecordPriorityInputTrace("sleek cell owner", evt);
                 return false;
             }
@@ -109,7 +128,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                     out WorkTypeDef parentWorkType,
                     out _))
             {
-                int parentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(row.Pawn, parentWorkType);
+                int parentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                    row.Pawn,
+                    parentWorkType,
+                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(row.Pawn, parentWorkType));
                 bool handled = WorkGiverPriorityBoxRenderer.TryHandleRootInput(
                     workGiver,
                     parentWorkType,

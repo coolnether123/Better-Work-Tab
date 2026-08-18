@@ -9,6 +9,8 @@ namespace Better_Work_Tab.UI.Settings
         public const string AdvancedHideSettingResetIcons = "advanced.hideSettingResetIcons";
         public const string AdvancedProfiler = "advanced.profiler";
         public const string AdvancedWorkGridRenderer = "advanced.workGridRenderer";
+        public const string AdvancedSearchAliases = "advanced.searchAliases";
+        public const string AdvancedWorkloadsLegacy = "advanced.workloadsLegacy";
         public const string ControlsFluffyHeader = "controls.fluffy.header";
         public const string ControlsFluffyExpand = "controls.fluffy.expand";
         public const string ControlsFluffyBatch = "controls.fluffy.batch";
@@ -168,6 +170,10 @@ namespace Better_Work_Tab.UI.Settings
         public const string HeadersYOffset = "headers.yOffset";
         public const string HeadersDebugLog = "headers.debugLog";
         public const string HeadersUseVerticalStackingForCJK = "headers.useVerticalStackingForCJK";
+        // Kept as a compatibility alias for the existing contextual-settings router.
+        // The staged settings registry uses the literal ID while that router remains
+        // on the pre-redesign integration path in this scoped import.
+        public const string HeadersCjkVerticalKerning = "headers.cjkVerticalKerning";
         public const string HeadersUnderlineColor = "headers.underlineColor";
     }
 }

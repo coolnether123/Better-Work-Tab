@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Input;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -1204,13 +1205,28 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return -1f;
             }
 
-            int defaultPriority = Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, _activeWorkType);
-            int priority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiverDef, defaultPriority);
-            priority = Better_Work_Tab.Features.TimePriority.TimePriorityService.GetEffectiveWorkGiverPriority(
+            int defaultPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                pawn,
+                _activeWorkType,
+                Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(
+                    pawn,
+                    _activeWorkType));
+            int priority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
                 pawn,
                 _activeWorkType,
                 workGiverDef,
-                priority);
+                out int projectedPriority)
+                ? Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.ClampPriority(projectedPriority)
+                : WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiverDef, defaultPriority);
+            if (!WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
+                    WorkTabEffectiveStateDimension.Schedule))
+            {
+                priority = Better_Work_Tab.Features.TimePriority.TimePriorityService.GetEffectiveWorkGiverPriority(
+                    pawn,
+                    _activeWorkType,
+                    workGiverDef,
+                    priority);
+            }
             if (priority <= Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.DisabledPriority)
             {
                 return -1f;

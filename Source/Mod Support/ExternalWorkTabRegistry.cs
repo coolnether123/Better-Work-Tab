@@ -1014,6 +1014,30 @@ namespace Better_Work_Tab.ModSupport
                    ReferenceEquals(currentStore, expectedStore);
         }
 
+        internal static bool IsCurrentAuthoritativeStore(
+            string storeId,
+            IExternalWorkTabStore expectedStore,
+            long expectedRegistrationGeneration)
+        {
+            if (!IsCurrentStoreRegistration(
+                    storeId,
+                    expectedStore,
+                    expectedRegistrationGeneration))
+            {
+                return false;
+            }
+
+            AuthoritativeStoreResult selection = FindAuthoritativeStore();
+            return selection.IsCoherent &&
+                   selection.Generation == RegistryGeneration &&
+                   selection.RegistrationGeneration == expectedRegistrationGeneration &&
+                   string.Equals(
+                       selection.StoreId,
+                       storeId,
+                       StringComparison.OrdinalIgnoreCase) &&
+                   ReferenceEquals(selection.Store, expectedStore);
+        }
+
         private static bool TryGetCurrentStoreRegistration(
             string storeId,
             out IExternalWorkTabStore currentStore,

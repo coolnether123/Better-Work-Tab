@@ -23,30 +23,48 @@ namespace Better_Work_Tab.UI
                 RowHeight = 32f,
                 ConfigureDrawer = (drawer, _) =>
                 {
-                    drawer.GetLabel = BWTSettingsTranslation.GetLabel;
-                    drawer.GetTooltip = BWTSettingsTranslation.GetTooltip;
+                    drawer.GetLabel = definition => BWTWorkloadSettingsOwnershipPolicy.DecorateLabel(
+                        definition,
+                        BWTSettingsTranslation.GetLabel(definition));
+                    drawer.GetTooltip = definition => BWTWorkloadSettingsOwnershipPolicy.DecorateTooltip(
+                        definition,
+                        BWTSettingsTranslation.GetTooltip(definition));
                     drawer.SimpleLabel = BWTSettingsTranslation.Simple;
                     drawer.AdvancedLabel = BWTSettingsTranslation.Advanced;
                     drawer.NoResultsLabel = BWTSettingsTranslation.NoResults;
                     drawer.EditColorLabel = BWTSettingsTranslation.Edit;
                     drawer.ColorPreviewTooltip = "Hover here or adjust the picker to preview this color live on the Work tab.";
                     drawer.ColorPreviewSink = WorkTabColorPreviewController.Instance;
+                    drawer.OnSettingPreview = WorkTabColorPreviewController.Instance.PreviewSetting;
                     drawer.Filters = BWTSettingsFilters.Create();
                     drawer.FilterLabel = "Filter";
                     drawer.AllSettingsFilterLabel = "All Settings";
                     drawer.IndentPerLevel = 20f;
                     drawer.OnSettingTooltipViewed = MarkSettingViewed;
-                    drawer.OnSettingInteracted = (definition, _) =>
+                    drawer.OnSettingInteracted = (definition, settingsObject) =>
+                    {
+                        BWTSettingsAdaptiveSearchAliases.ConfirmInteraction(drawer, definition);
+                        BWTWorkloadSettingsOwnershipPolicy.CaptureBeforeSettingInteraction(
+                            definition,
+                            settingsObject);
                         BWTGeneralTutorial.NotifySettingsRowInteracted(definition?.Id);
+                    };
                 },
                 PrepareDrawer = (drawer, settingsObject) =>
                 {
                     var settings = (BetterWorkTabSettings)settingsObject;
+                    BWTSettingsAdaptiveSearchAliases.Observe(drawer, settings);
+                    BWTWorkloadSettingsOwnershipPolicy.Refresh();
                     drawer.ShowResetIcons = !settings.hideSettingResetIcons;
                     drawer.FocusHighlightColor = settings.Color_SettingFocusHighlight;
-                    drawer.ImportExportActions = BWTSettingsImportExportActions.Create(
-                        settings,
-                        NotifySettingsChanged);
+                    bool bulkOperationsBlocked =
+                        BWTWorkloadSettingsOwnershipPolicy.IsBulkSettingsOperationBlocked(
+                            out string unusedBulkBlockReason);
+                    drawer.ImportExportActions = bulkOperationsBlocked
+                        ? null
+                        : BWTSettingsImportExportActions.Create(
+                            settings,
+                            NotifySettingsChanged);
                     if (BWTSettingsContextFocus.TryConsume(out BWTSettingsFocusRequest request))
                     {
                         drawer.ApplyContextFilter(
@@ -57,6 +75,7 @@ namespace Better_Work_Tab.UI
                 PrepareContentRect = (rect, _) =>
                 {
                     FluffyWorkTabGateway.DrawSettingsBannerIfNeeded(ref rect);
+                    BWTWorkloadSettingsOwnershipPolicy.DrawPreviewBannerIfNeeded(ref rect);
                     return rect;
                 },
                 ReadViewMode = settingsObject =>
@@ -107,7 +126,7 @@ namespace Better_Work_Tab.UI
                 host,
                 settings,
                 BWTSettingsRegistry.Definitions,
-                settings.Write,
+                () => BWTWorkloadSettingsOwnershipPolicy.WriteSettings(settings),
                 PageOptions);
             return _page;
         }
