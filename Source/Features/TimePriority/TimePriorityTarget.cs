@@ -1,4 +1,3 @@
-using System;
 using RimWorld;
 using Verse;
 
@@ -113,12 +112,5 @@ namespace Better_Work_Tab.Features.TimePriority
                 true);
         }
 
-        internal bool Matches(TimePriorityTarget other)
-        {
-            return PawnId == other.PawnId &&
-                   Kind == other.Kind &&
-                   string.Equals(WorkTypeDefName, other.WorkTypeDefName, StringComparison.Ordinal) &&
-                   string.Equals(TargetDefName, other.TargetDefName, StringComparison.Ordinal);
-        }
     }
 }
