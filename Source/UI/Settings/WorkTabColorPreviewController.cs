@@ -15,17 +15,23 @@ namespace Better_Work_Tab.UI.Settings
         RowAndColumn,
         Header,
         HeaderText,
+        HeaderUnderline,
         Divider,
         LegendOnly
     }
 
     internal readonly struct WorkTabColorPreview
     {
-        internal WorkTabColorPreview(string label, Color color, WorkTabColorPreviewTarget target)
+        internal WorkTabColorPreview(
+            string label,
+            Color color,
+            WorkTabColorPreviewTarget target,
+            string fieldName)
         {
             Label = label;
             Color = color;
             Target = target;
+            FieldName = fieldName;
         }
 
         internal string Label { get; }
