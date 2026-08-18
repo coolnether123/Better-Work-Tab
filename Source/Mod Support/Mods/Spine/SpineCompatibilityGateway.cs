@@ -91,7 +91,7 @@ namespace Better_Work_Tab.ModSupport.Mods.Spine
                 ", capabilities=" + descriptor.Capabilities + ".";
             if (decision.IsCompatible)
             {
-                Log.Message(message);
+                BetterWorkTabMod.DebugLog(message, DebugFeature.General);
             }
             else
             {
