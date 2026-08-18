@@ -618,72 +618,23 @@ namespace Better_Work_Tab.Features.TimePriority
 
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
             int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
-            bool allFallback = true;
-            for (int i = 0; i < normalizedPriorities.Length; i++)
+            var pinnedHours = new List<int>();
+            for (int hour = 0; hour < normalizedPriorities.Length; hour++)
             {
-                if (normalizedPriorities[i] != fallbackPriority)
+                // Numeric bulk writes carry no link state, so a value that differs
+                // from the clamped fallback is the only value that can infer a pin.
+                if (normalizedPriorities[hour] != fallbackPriority)
                 {
-                    allFallback = false;
-                    break;
+                    pinnedHours.Add(hour);
                 }
             }
 
-            if (allFallback)
-            {
-                return ClearSchedule(target, authorityRevision);
-            }
-
-            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
-            {
-                return false;
-            }
-
-            var schedule = GetOrCreateSchedule(target, fallbackPriority);
-            bool changed = false;
-            for (int i = 0; i < HoursPerDay; i++)
-            {
-                // A bulk write carries plain numbers with no link state, so the
-                // only safe reading is the one it used to have: an hour that
-                // differs from the box was pinned, the rest follow it. Pasting a
-                // schedule therefore cannot yet reproduce an hour deliberately
-                // pinned at the default -- that needs the clipboard to carry
-                // link state, and is tracked separately.
-                bool shouldPin = normalizedPriorities[i] != fallbackPriority;
-                bool wasPinned = schedule.IsUnlinked(i);
-                if (shouldPin && (!wasPinned || schedule.HourlyPriorities[i] != normalizedPriorities[i]))
-                {
-                    if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
-                    {
-                        return false;
-                    }
-
-                    schedule.SetOverride(i, normalizedPriorities[i]);
-                    changed = true;
-                }
-                else if (!shouldPin && wasPinned)
-                {
-                    if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
-                    {
-                        return false;
-                    }
-
-                    schedule.ClearOverride(i);
-                    changed = true;
-                }
-            }
-
-            if (changed)
-            {
-                if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
-                {
-                    return false;
-                }
-
-                MirrorTargetToExternalWorkTab(target);
-                NotifyChanged();
-            }
-
-            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
+            return SetSchedule(
+                target,
+                normalizedPriorities,
+                pinnedHours.ToArray(),
+                fallbackPriority,
+                authorityRevision);
         }
 
         /// <summary>
