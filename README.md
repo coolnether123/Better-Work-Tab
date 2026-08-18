@@ -2,11 +2,22 @@
 
 # Better Work Tab 2.0
 
-Better Work Tab rebuilds RimWorld's Work tab around faster colony setup, detailed job control, reusable rules, and a layout you can shape around the way you play.
+Better Work Tab expands RimWorld's Work tab with faster setup, finer job control, reusable rules, and flexible layouts.
+
+## Transpiler architecture
+
+BWT uses profile-based IL patches for RimWorld 1.6. Each profile identifies a
+target method and the instruction patterns BWT expects. BWT verifies those
+patterns before applying a patch and leaves the original code unchanged when a
+profile does not match.
+
+This implementation lives in `Source/Transpilers/BwtExactProfile` and is built
+into BWT. It is not part of standalone Spine. The older Fluent Transpiler code
+is no longer used by BWT.
 
 ## What 2.0 adds
 
-- **Guided tutorial** — choose a focused “What’s new in 2.0” course or the complete Better Work Tab walkthrough. Lessons point at the real controls and ask you to perform the action.
+- **Guided tutorial** — choose a focused “What’s new in 2.0” course or the complete Better Work Tab walkthrough. Lessons point to the relevant controls and guide the required actions.
 - **Rule Builder 2.0** — create card-based rulesets from work targets, conditions, priority actions, and map checks; preview matches before applying. The classic rule builder remains available.
 - **Specific-job drilldown** — open a Work type into its individual jobs, set shared or pawn-specific priorities, rename jobs, reorder them, and move them between Work columns.
 - **Two specific-job layouts** — use a clean focused full-tab view or Fluffy-inspired right-expanding columns.
@@ -30,12 +41,12 @@ Every major 2.0 system is independently toggleable in Mod Settings.
 
 ## Fresh installs and 1.x upgrades
 
-Better Work Tab deliberately gives these cohorts different first launches:
+BWT handles new 2.0 installs and upgrades from the public 1.0.5 release differently:
 
-- A **fresh 2.0 install** starts with specific-job drilldown, Rule Builder 2.0, time-priority schedules, and the guided tutorial enabled.
-- A player **upgrading from public 1.0.5** keeps the new top-level feature gates off. The upgrade prompt can enable the supported 2.0 feature set and start the tour while preserving the player's current priority provider. Keeping the current setup preserves the familiar 1.x-style surface until the player enables features in settings; renderer and compatibility improvements remain active either way.
+- New 2.0 installs start with specific-job drilldown, Rule Builder 2.0, time-priority schedules, and the guided tutorial enabled.
+- Upgrades keep the new 2.0 features disabled initially. The upgrade prompt can enable them through a tutorial course, or the familiar 1.x interface can remain in place while features are enabled later from settings.
 
-The migration preserves saved 1.x preferences and rulesets, stamps the new settings schema once, and does not treat later imports as a startup migration. Back up important saves before changing any mod list.
+Saved 1.x preferences and rulesets are preserved. BWT applies the settings update once; importing settings later does not repeat the upgrade process. Back up important saves before changing the mod list.
 
 ## Specific jobs and Fluffy-style coverage
 
@@ -68,17 +79,7 @@ Shift-click remains reserved for BWT's grouped column dragging, so it does not d
 
 The optimized Work-grid renderer uses caching, viewport culling, and targeted invalidation for large colonies. A vanilla-compatible renderer remains available as a fallback in advanced settings.
 
-Source-level performance comparisons use the private Better Work Tab tests
-repository at `A:\Dev\RimWorld\Infrastructure\Better-Work-Tab-Tests` (or its
-configured checkout) and `tools/Invoke-BwtPairedBenchmark.ps1`. The gate runs
-reference and candidate builds simultaneously through identical muted harness
-lanes, save/mod snapshots, and profiler intervals; independent historical
-captures are suitable for context, not regression attribution.
-
-The private repository owns deterministic tests, the developer runtime mod,
-fixtures, benchmarks, and verification scripts. BWT keeps only production code
-and the optional `WorkTabDiagnostics` observation contract; the player project
-does not reference the private repository.
+For source-level performance comparisons, use `Tools/Invoke-BwtPairedBenchmark.ps1`. It runs the old and new builds side by side with the same save, mod list, settings, and profiling window. Older benchmark runs can provide background, but they should not be used to attribute a performance change to a specific code revision.
 
 ## Credits
 

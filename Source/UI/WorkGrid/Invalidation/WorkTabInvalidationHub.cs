@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 
@@ -11,11 +10,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
     {
         private static readonly object LedgerLock = new object();
         private static readonly WorkGridInvalidationLedger Ledger = new WorkGridInvalidationLedger();
-        // The returned array is a private copy of the ledger set. Keep it stable
-        // while the set is unchanged so repeated Current reads in one UI pass do
-        // not recopy the same sparse keys. Never mutate a published array; replace
-        // it when the ledger set changes so earlier versions remain immutable.
-        private static WorkGridPriorityKey[] _priorityDirtyKeysSnapshot;
         private static int _presentation;
         private static int _rows;
         private static int _columns;
@@ -34,12 +28,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                 lock (LedgerLock)
                 {
                     revisions = Ledger.Current;
-                    priorityDirtyKeys = _priorityDirtyKeysSnapshot;
-                    if (priorityDirtyKeys == null)
-                    {
-                        priorityDirtyKeys = Ledger.CopyPriorityDirtyKeys();
-                        _priorityDirtyKeysSnapshot = priorityDirtyKeys;
-                    }
+                    priorityDirtyKeys = Ledger.CopyPriorityDirtyKeys();
                 }
 
                 return new WorkTabInvalidationVersion(
@@ -73,10 +62,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                 lock (LedgerLock)
                 {
                     Ledger.Invalidate(categories);
-                    if ((categories & WorkGridInvalidationCategory.Priority) != 0)
-                    {
-                        _priorityDirtyKeysSnapshot = null;
-                    }
                 }
             }
         }
@@ -87,7 +72,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             lock (LedgerLock)
             {
                 Ledger.InvalidatePriority(new WorkGridPriorityKey(pawnId, workTypeId));
-                _priorityDirtyKeysSnapshot = null;
             }
         }
 
@@ -96,10 +80,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             lock (LedgerLock)
             {
                 Ledger.Invalidate(categories);
-                if ((categories & WorkGridInvalidationCategory.Priority) != 0)
-                {
-                    _priorityDirtyKeysSnapshot = null;
-                }
             }
         }
 
@@ -108,22 +88,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             lock (LedgerLock)
             {
                 Ledger.ClearPriorityDirtyKeys();
-                _priorityDirtyKeysSnapshot = null;
-            }
-        }
-
-        internal static void ClearConsumedPriorityKeys(
-            IReadOnlyList<WorkGridPriorityKey> consumedKeys)
-        {
-            lock (LedgerLock)
-            {
-                if (!ReferenceEquals(_priorityDirtyKeysSnapshot, consumedKeys))
-                {
-                    return;
-                }
-
-                Ledger.ClearPriorityDirtyKeys();
-                _priorityDirtyKeysSnapshot = null;
             }
         }
 
@@ -133,7 +97,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             lock (LedgerLock)
             {
                 Ledger.ClearPriorityDirtyKeys();
-                _priorityDirtyKeysSnapshot = null;
             }
         }
 

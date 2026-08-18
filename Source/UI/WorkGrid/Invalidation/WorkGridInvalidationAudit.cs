@@ -43,6 +43,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             }
 
             _nextAuditTick = ticks + AuditIntervalTicks;
+            TimePriorityService.ReconcileDirectMutationsFromAudit();
             int signature = ComputeSignature(table);
             WorkGridRevisionSet revisions = WorkTabInvalidationHub.Current.CategoryRevisions;
             bool knownTrackedChange =
@@ -107,6 +108,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                     (LanguageDatabase.activeLanguage?.folderName?.GetHashCode() ?? 0);
                 hash = (hash * 397) ^ TimePriorityService.CurrentVersion;
                 hash = (hash * 397) ^ WorkGiverReassignmentManager.CurrentSyncVersion;
+                hash = (hash * 397) ^ TimePriorityService.ComputePresentationAuditSignature();
+                hash = (hash * 397) ^ WorkGiverReassignmentManager.ComputePresentationAuditSignature();
                 if (table?.cachedPawns == null || table.Columns == null)
                 {
                     return hash;

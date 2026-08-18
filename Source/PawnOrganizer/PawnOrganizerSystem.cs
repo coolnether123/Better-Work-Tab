@@ -8,8 +8,6 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers.Angled;
 using RimWorld;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using Verse;
 
@@ -51,7 +49,6 @@ namespace Better_Work_Tab.PawnOrganizer
         /// </summary>
         private PawnColumnDef _pendingColumn;
         private WorkTabLayoutColumn? _pendingLayoutColumn;
-        private List<PawnColumnDef> _pendingSelectedColumns;
 
         /// <summary>
         /// Minimum mouse movement before a drag starts.
@@ -299,12 +296,6 @@ namespace Better_Work_Tab.PawnOrganizer
                     _pendingStartMouse = mousePos;
                     _pendingColumn = column.Column;
                     _pendingLayoutColumn = column;
-                    _pendingSelectedColumns = ColumnSelectionManager.IsSelected(column.Column)
-                        ? ColumnSelectionManager.GetSelectedInOrder(
-                            _layoutController.Columns
-                                .Where(candidate => candidate.Column?.Worker is PawnColumnWorker_WorkPriority)
-                                .Select(candidate => candidate.Column))
-                        : null;
                     _pendingPawn = null;
                     _pendingDivider = null;
                 }
@@ -360,7 +351,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return;
             }
 
-            _activeColumnDrag = new ColumnDragHandler(_layoutController, column, _pendingSelectedColumns);
+            _activeColumnDrag = new ColumnDragHandler(_layoutController, column);
             AngledHeaderInteraction.NotifyColumnDragStarted(_pendingColumn);
         }
 
@@ -467,7 +458,6 @@ namespace Better_Work_Tab.PawnOrganizer
             _pendingDivider = null;
             _pendingColumn = null;
             _pendingLayoutColumn = null;
-            _pendingSelectedColumns = null;
         }
 
         public void CancelActiveDrag()

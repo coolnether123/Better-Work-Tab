@@ -58,7 +58,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </summary>
         internal static void NotifyManualPrioritiesChanged()
         {
-            TimePriorityService.NotifyFallbacksChanged();
             foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
             {
                 if (pawn.Faction == Faction.OfPlayer && pawn.workSettings != null)
@@ -170,6 +169,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             workSettings.SetPriority(workType, ClampPriority(priority));
+            PriorityRangePolicy.InvalidateCache();
             ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
         }
 
@@ -231,8 +231,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             workSettings.priorities[workType] = clamped;
+            PriorityRangePolicy.InvalidateCache();
             workSettings.Notify_UseWorkPrioritiesChanged();
-            TimePriorityService.NotifyFallbacksChanged();
         }
 
         internal static int GetPriorityAfterMouseButton(int currentPriority, int button)

@@ -91,16 +91,6 @@ namespace Better_Work_Tab.API
             return WorkGiverReassignmentManager.IsReassigned(workGiver);
         }
 
-        /// <summary>
-        /// Notifies Better Work Tab that an integration directly changed the
-        /// saved sub-work reassignment payload. Call this after the complete
-        /// edit; the runtime intentionally performs no recurring save-data audit.
-        /// </summary>
-        public static void NotifySavedReassignmentDataChanged()
-        {
-            WorkGiverReassignmentManager.NotifyExternalDataChanged();
-        }
-
         public static string[] GetOrderedWorkGiverDefNamesForWorkType(string workTypeDefName)
         {
             WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);

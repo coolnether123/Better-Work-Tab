@@ -7,7 +7,6 @@ using Better_Work_Tab.API;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using HarmonyLib;
-using UnityEngine;
 
 namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 {
@@ -16,23 +15,65 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static readonly object SyncRoot = new object();
         private static readonly Dictionary<string, IMaxPriorityProvider> Providers =
             new Dictionary<string, IMaxPriorityProvider>(StringComparer.OrdinalIgnoreCase);
+        private static readonly IMaxPriorityProvider VanillaProvider = new VanillaPriorityProvider();
+        private static readonly IMaxPriorityProvider BetterWorkTabProvider =
+            new BetterWorkTabPriorityProvider();
+        private static readonly IMaxPriorityProvider[] SafeFallbackProviders =
+        {
+            VanillaProvider,
+            BetterWorkTabProvider
+        };
+        private static readonly PriorityProviderRecord[] SafeFallbackProviderRecords =
+        {
+            new PriorityProviderRecord(
+                VanillaProvider,
+                PriorityConstants.VanillaProviderId,
+                "Vanilla RimWorld",
+                0,
+                PriorityConstants.VanillaMax,
+                PriorityConstants.VanillaDefaultEnabled),
+            new PriorityProviderRecord(
+                BetterWorkTabProvider,
+                PriorityConstants.BwtProviderId,
+                "Better Work Tab",
+                int.MaxValue,
+                PriorityConstants.ExtendedHardMax,
+                PriorityConstants.VanillaDefaultEnabled)
+        };
 
         private static bool initialized;
-        private static int externalProviderCount;
         private static long providerGeneration;
-        private static int runtimePolicyFrame = -1;
-        private static long runtimePolicyProviderGeneration = -1;
-        private static int runtimePolicyAutoMax = -1;
-        private static string runtimePolicySelectedProviderId;
+        private static long availabilityGeneration;
+        private static int externalProviderCount;
+        private static int registeredProviderCount;
+        private static ProviderAvailabilitySnapshot availableSnapshot =
+            ProviderAvailabilitySnapshot.Empty;
+        private static RuntimeProviderPolicy runtimePolicy;
+        private static bool availabilityRefreshInProgress;
+        private static bool availabilityRefreshPending;
+        private static bool availabilityRefreshDeferred;
+        private static int discoveryInProgress;
+        private const int MaxSynchronousAvailabilityRefreshPasses = 8;
+        private static readonly int[] SafeRuntimeAutoMax = CreateDefaultRuntimeAutoMax();
 
         internal static long Generation => Interlocked.Read(ref providerGeneration);
-        private static int[] runtimeAutoMaxByRequestedPriority = CreateDefaultRuntimeAutoMax();
-        private static int runtimeSelectedProviderMax = PriorityConstants.VanillaMax;
+
+        internal static long AvailabilityGeneration => Interlocked.Read(ref availabilityGeneration);
 
         internal static int ExternalProviderCount
         {
-            get { return Volatile.Read(ref externalProviderCount); }
+            get
+            {
+                ProviderAvailabilitySnapshot snapshot = Volatile.Read(ref availableSnapshot);
+                return snapshot.IsCoherent &&
+                       snapshot.RegistrationGeneration == Generation &&
+                       snapshot.AvailabilityGeneration == AvailabilityGeneration
+                    ? Volatile.Read(ref externalProviderCount)
+                    : 0;
+            }
         }
+
+        internal static int RegisteredProviderCount => Volatile.Read(ref registeredProviderCount);
 
         internal static int GetRuntimeAutoMax(int requestedPriority)
         {
@@ -41,13 +82,35 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 : requestedPriority >= PriorityConstants.ExtendedHardMax
                     ? PriorityConstants.ExtendedHardMax
                     : requestedPriority;
-            return runtimeAutoMaxByRequestedPriority[index];
+            RuntimeProviderPolicy policy = Volatile.Read(ref runtimePolicy);
+            return policy != null &&
+                   policy.RegistrationGeneration == Generation &&
+                   policy.AvailabilityGeneration == AvailabilityGeneration
+                ? policy.AutoMaxByRequestedPriority[index]
+                : PriorityConstants.VanillaMax;
         }
 
-        internal static int RuntimeSelectedProviderMax => runtimeSelectedProviderMax;
+        internal static int RuntimeSelectedProviderMax
+        {
+            get
+            {
+                RuntimeProviderPolicy policy = Volatile.Read(ref runtimePolicy);
+                return policy != null &&
+                       policy.RegistrationGeneration == Generation &&
+                       policy.AvailabilityGeneration == AvailabilityGeneration
+                    ? policy.SelectedProviderMax
+                    : PriorityConstants.VanillaMax;
+            }
+        }
 
         internal static void EnsureInitialized()
         {
+            bool shouldDiscover;
+            if (Volatile.Read(ref initialized))
+            {
+                return;
+            }
+
             lock (SyncRoot)
             {
                 if (initialized)
@@ -55,50 +118,199 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                     return;
                 }
 
-                Providers[PriorityConstants.VanillaProviderId] = new VanillaPriorityProvider();
-                Providers[PriorityConstants.BwtProviderId] = new BetterWorkTabPriorityProvider();
+                Providers[PriorityConstants.VanillaProviderId] = VanillaProvider;
+                Providers[PriorityConstants.BwtProviderId] = BetterWorkTabProvider;
+                Interlocked.Exchange(ref discoveryInProgress, 1);
                 initialized = true;
+                shouldDiscover = true;
+            }
 
-                ReflectionPriorityProviderDiscovery.RegisterKnownProviders();
+            // Discovery can call back into RegisterProvider. Keep every third-party probe outside
+            // SyncRoot, including the initial discovery pass.
+            if (shouldDiscover)
+            {
+                try
+                {
+                    ReflectionPriorityProviderDiscovery.RegisterKnownProviders();
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref discoveryInProgress, 0);
+                }
+
+                RequestAvailabilityRefresh();
             }
         }
 
-        internal static void RefreshRuntimePolicy(int autoMaxPriority, string selectedProviderId)
+        private static void DrainDeferredAvailabilityRefresh()
         {
-            EnsureInitialized();
-            autoMaxPriority = PriorityAuthorityBroker.ClampMaxPriority(autoMaxPriority);
-            int[] autoMaxByRequestedPriority = new int[PriorityConstants.ExtendedHardMax + 1];
-            List<RuntimeProviderRange> ranges = new List<RuntimeProviderRange>();
-
+            bool shouldRefresh = false;
             lock (SyncRoot)
             {
-                foreach (IMaxPriorityProvider provider in Providers.Values)
+                if (availabilityRefreshDeferred && !availabilityRefreshInProgress)
                 {
-                    if (IsBuiltInProviderId(provider?.ProviderId) || !IsProviderAvailable(provider))
-                    {
-                        continue;
-                    }
-
-                    if (!provider.TryGetMaxPriority(out int maxPriority))
-                    {
-                        continue;
-                    }
-
-                    ranges.Add(new RuntimeProviderRange(
-                        PriorityAuthorityBroker.ClampMaxPriority(maxPriority),
-                        provider.DisplayName,
-                        provider.ProviderId));
+                    availabilityRefreshDeferred = false;
+                    availabilityRefreshInProgress = true;
+                    shouldRefresh = true;
                 }
             }
 
-            int selectedMax = PriorityConstants.VanillaMax;
-            for (int i = 0; i < ranges.Count; i++)
+            if (shouldRefresh)
             {
-                RuntimeProviderRange range = ranges[i];
-                if (string.Equals(range.ProviderId, selectedProviderId, StringComparison.OrdinalIgnoreCase))
+                RunBoundedAvailabilityRefresh();
+            }
+        }
+
+        private static void RunBoundedAvailabilityRefresh()
+        {
+            bool published = false;
+            try
+            {
+                for (int attempt = 0; attempt < MaxSynchronousAvailabilityRefreshPasses; attempt++)
                 {
-                    selectedMax = range.MaxPriority;
-                    break;
+                    lock (SyncRoot)
+                    {
+                        availabilityRefreshPending = false;
+                    }
+
+                    KeyValuePair<string, IMaxPriorityProvider>[] providers;
+                    long observedRegistrationGeneration;
+                    long observedAvailabilityGeneration;
+                    lock (SyncRoot)
+                    {
+                        observedRegistrationGeneration = providerGeneration;
+                        observedAvailabilityGeneration = availabilityGeneration;
+                        providers = Providers.ToArray();
+                    }
+
+                    var records = new List<PriorityProviderRecord>(providers.Length);
+                    for (int i = 0; i < providers.Length; i++)
+                    {
+                        PriorityProviderRecord record;
+                        if (TryBuildProviderRecord(providers[i].Key, providers[i].Value, out record))
+                        {
+                            records.Add(record);
+                        }
+                    }
+
+                    records.Sort(CompareProviderRecords);
+                    var recordArray = records.ToArray();
+                    var providerArray = new IMaxPriorityProvider[recordArray.Length];
+                    int usableExternalCount = 0;
+                    for (int i = 0; i < recordArray.Length; i++)
+                    {
+                        providerArray[i] = recordArray[i].Provider;
+                        if (!IsBuiltInProviderId(recordArray[i].ProviderId))
+                        {
+                            usableExternalCount++;
+                        }
+                    }
+
+                    var next = new ProviderAvailabilitySnapshot(
+                        recordArray,
+                        providerArray,
+                        observedRegistrationGeneration,
+                        observedAvailabilityGeneration,
+                        true);
+                    lock (SyncRoot)
+                    {
+                        if (providerGeneration != observedRegistrationGeneration ||
+                            availabilityGeneration != observedAvailabilityGeneration)
+                        {
+                            continue;
+                        }
+
+                        Volatile.Write(ref availableSnapshot, next);
+                        Volatile.Write(ref externalProviderCount, usableExternalCount);
+                        Volatile.Write(ref runtimePolicy, null);
+                        published = true;
+                        return;
+                    }
+                }
+            }
+            finally
+            {
+                lock (SyncRoot)
+                {
+                    availabilityRefreshInProgress = false;
+                    if (!published)
+                    {
+                        availabilityRefreshPending = false;
+                        availabilityRefreshDeferred = true;
+                        Volatile.Write(
+                            ref availableSnapshot,
+                            ProviderAvailabilitySnapshot.Unstable(
+                                providerGeneration,
+                                availabilityGeneration));
+                        Volatile.Write(ref externalProviderCount, 0);
+                        Volatile.Write(ref runtimePolicy, null);
+                    }
+                    else if (!availabilityRefreshPending)
+                    {
+                        availabilityRefreshDeferred = false;
+                    }
+                }
+            }
+        }
+
+        internal static void EnsureRuntimePolicy(int autoMaxPriority, string selectedProviderId)
+        {
+            if (RegisteredProviderCount == 0)
+            {
+                Volatile.Write(ref runtimePolicy, null);
+                return;
+            }
+
+            if (Volatile.Read(ref availabilityRefreshDeferred))
+            {
+                DrainDeferredAvailabilityRefresh();
+            }
+
+            autoMaxPriority = PriorityRangePolicy.ClampMaxPriority(autoMaxPriority);
+            long registrationGeneration = Generation;
+            long currentAvailabilityGeneration = AvailabilityGeneration;
+            ProviderAvailabilitySnapshot available = Volatile.Read(ref availableSnapshot);
+            if (!available.IsCoherent ||
+                available.RegistrationGeneration != registrationGeneration ||
+                available.AvailabilityGeneration != currentAvailabilityGeneration ||
+                ExternalProviderCount == 0)
+            {
+                if (Generation == registrationGeneration &&
+                    AvailabilityGeneration == currentAvailabilityGeneration)
+                {
+                    Volatile.Write(
+                        ref runtimePolicy,
+                        new RuntimeProviderPolicy(
+                            registrationGeneration,
+                            currentAvailabilityGeneration,
+                            autoMaxPriority,
+                            selectedProviderId,
+                            PriorityConstants.VanillaMax,
+                            SafeRuntimeAutoMax));
+                }
+
+                return;
+            }
+
+            RuntimeProviderPolicy existing = Volatile.Read(ref runtimePolicy);
+            if (existing != null &&
+                existing.RegistrationGeneration == registrationGeneration &&
+                existing.AvailabilityGeneration == currentAvailabilityGeneration &&
+                existing.AutoMaxPriority == autoMaxPriority &&
+                string.Equals(existing.SelectedProviderId, selectedProviderId, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            PriorityProviderRecord[] records = available.Records;
+            int[] autoMaxByRequestedPriority = CreateDefaultRuntimeAutoMax();
+            int selectedMax = PriorityConstants.VanillaMax;
+            for (int i = 0; i < records.Length; i++)
+            {
+                PriorityProviderRecord record = records[i];
+                if (string.Equals(record.ProviderId, selectedProviderId, StringComparison.OrdinalIgnoreCase))
+                {
+                    selectedMax = record.MaxPriority;
                 }
             }
 
@@ -108,23 +320,24 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 int bestMax = int.MaxValue;
                 string bestDisplayName = null;
                 string bestProviderId = null;
-                for (int i = 0; i < ranges.Count; i++)
+                for (int i = 0; i < records.Length; i++)
                 {
-                    RuntimeProviderRange range = ranges[i];
-                    int limitedMax = Math.Min(range.MaxPriority, autoMaxPriority);
-                    if (limitedMax < required ||
-                        limitedMax > bestMax ||
-                        (limitedMax == bestMax &&
-                         (string.Compare(range.DisplayName, bestDisplayName, StringComparison.OrdinalIgnoreCase) > 0 ||
-                          (string.Equals(range.DisplayName, bestDisplayName, StringComparison.OrdinalIgnoreCase) &&
-                           string.Compare(range.ProviderId, bestProviderId, StringComparison.OrdinalIgnoreCase) >= 0))))
+                    PriorityProviderRecord record = records[i];
+                    if (IsBuiltInProviderId(record.ProviderId))
+                    {
+                        continue;
+                    }
+
+                    int limitedMax = Math.Min(record.MaxPriority, autoMaxPriority);
+                    if (limitedMax < required || limitedMax > bestMax ||
+                        (limitedMax == bestMax && CompareProviderNames(record.DisplayName, record.ProviderId, bestDisplayName, bestProviderId) >= 0))
                     {
                         continue;
                     }
 
                     bestMax = limitedMax;
-                    bestDisplayName = range.DisplayName;
-                    bestProviderId = range.ProviderId;
+                    bestDisplayName = record.DisplayName;
+                    bestProviderId = record.ProviderId;
                 }
 
                 autoMaxByRequestedPriority[requested] = bestMax == int.MaxValue
@@ -132,50 +345,57 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                     : bestMax;
             }
 
-            runtimeAutoMaxByRequestedPriority = autoMaxByRequestedPriority;
-            runtimeSelectedProviderMax = selectedMax;
-            runtimePolicyFrame = Time.frameCount;
-            runtimePolicyProviderGeneration = Generation;
-            runtimePolicyAutoMax = autoMaxPriority;
-            runtimePolicySelectedProviderId = selectedProviderId;
-        }
-
-        internal static void EnsureRuntimePolicy(int autoMaxPriority, string selectedProviderId)
-        {
-            if (ExternalProviderCount == 0)
-            {
-                return;
-            }
-
-            autoMaxPriority = PriorityAuthorityBroker.ClampMaxPriority(autoMaxPriority);
-            int frame = Time.frameCount;
-            long generation = Generation;
-            if (runtimePolicyFrame == frame &&
-                runtimePolicyProviderGeneration == generation &&
-                runtimePolicyAutoMax == autoMaxPriority &&
-                string.Equals(
-                    runtimePolicySelectedProviderId,
+            Volatile.Write(
+                ref runtimePolicy,
+                new RuntimeProviderPolicy(
+                    registrationGeneration,
+                    currentAvailabilityGeneration,
+                    autoMaxPriority,
                     selectedProviderId,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
-            RefreshRuntimePolicy(autoMaxPriority, selectedProviderId);
+                    selectedMax,
+                    autoMaxByRequestedPriority));
         }
 
         internal static IEnumerable<IMaxPriorityProvider> GetAvailableProviders()
         {
             EnsureInitialized();
-            lock (SyncRoot)
+            if (Volatile.Read(ref discoveryInProgress) != 0)
             {
-                return Providers.Values
-                    .Where(IsProviderAvailable)
-                    .OrderBy(provider => provider.SortOrder)
-                    .ThenBy(provider => provider.DisplayName, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(provider => provider.ProviderId, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+                return SafeFallbackProviders;
             }
+
+            if (Volatile.Read(ref availabilityRefreshDeferred))
+            {
+                DrainDeferredAvailabilityRefresh();
+            }
+
+            ProviderAvailabilitySnapshot snapshot = Volatile.Read(ref availableSnapshot);
+            return snapshot.IsCoherent &&
+                   snapshot.RegistrationGeneration == Generation &&
+                   snapshot.AvailabilityGeneration == AvailabilityGeneration
+                ? snapshot.Providers
+                : SafeFallbackProviders;
+        }
+
+        internal static PriorityProviderRecord[] GetAvailableProviderRecords()
+        {
+            EnsureInitialized();
+            if (Volatile.Read(ref discoveryInProgress) != 0)
+            {
+                return SafeFallbackProviderRecords;
+            }
+
+            if (Volatile.Read(ref availabilityRefreshDeferred))
+            {
+                DrainDeferredAvailabilityRefresh();
+            }
+
+            ProviderAvailabilitySnapshot snapshot = Volatile.Read(ref availableSnapshot);
+            return snapshot.IsCoherent &&
+                   snapshot.RegistrationGeneration == Generation &&
+                   snapshot.AvailabilityGeneration == AvailabilityGeneration
+                ? snapshot.Records
+                : SafeFallbackProviderRecords;
         }
 
         internal static bool TryFindByProviderId(string providerId, out IMaxPriorityProvider provider)
@@ -191,6 +411,55 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             {
                 return Providers.TryGetValue(providerId.Trim(), out provider);
             }
+        }
+
+        internal static bool IsCurrentProviderRegistration(IMaxPriorityProvider expectedProvider)
+        {
+            string providerId;
+            try
+            {
+                providerId = expectedProvider?.ProviderId?.Trim();
+            }
+            catch
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(providerId))
+            {
+                return false;
+            }
+
+            EnsureInitialized();
+            lock (SyncRoot)
+            {
+                IMaxPriorityProvider currentProvider;
+                return Providers.TryGetValue(providerId, out currentProvider) &&
+                       ReferenceEquals(currentProvider, expectedProvider);
+            }
+        }
+
+        internal static bool TryFindAvailableProviderRecord(
+            string providerId,
+            out PriorityProviderRecord record)
+        {
+            record = default(PriorityProviderRecord);
+            if (string.IsNullOrWhiteSpace(providerId))
+            {
+                return false;
+            }
+
+            PriorityProviderRecord[] records = GetAvailableProviderRecords();
+            for (int i = 0; i < records.Length; i++)
+            {
+                if (string.Equals(records[i].ProviderId, providerId.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    record = records[i];
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public static bool RegisterProvider(IMaxPriorityProvider provider)
@@ -209,16 +478,13 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             EnsureInitialized();
             lock (SyncRoot)
             {
-                if (!Providers.ContainsKey(providerId))
-                {
-                    externalProviderCount++;
-                }
-
                 Providers[providerId] = provider;
                 providerGeneration++;
+                Volatile.Write(ref registeredProviderCount, Providers.Count - 2);
             }
 
-            PriorityAuthorityBroker.InvalidateCaches();
+            NotifyAvailabilityChanged();
+            PriorityAuthorityTransitionService.InvalidateCaches(refreshProviderRegistry: false);
             return true;
         }
 
@@ -236,24 +502,111 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 removed = Providers.Remove(providerId.Trim());
                 if (removed)
                 {
-                    externalProviderCount--;
                     providerGeneration++;
+                    Volatile.Write(ref registeredProviderCount, Providers.Count - 2);
                 }
             }
 
             if (removed)
             {
-                PriorityAuthorityBroker.InvalidateCaches();
+                NotifyAvailabilityChanged();
+                PriorityAuthorityTransitionService.InvalidateCaches(refreshProviderRegistry: false);
             }
 
             return removed;
         }
 
-        private static bool IsProviderAvailable(IMaxPriorityProvider provider)
+        internal static void NotifyAvailabilityChanged()
         {
+            if (!Volatile.Read(ref initialized) && RegisteredProviderCount == 0)
+            {
+                return;
+            }
+
+            EnsureInitialized();
+            RequestAvailabilityRefresh();
+        }
+
+        private static void RequestAvailabilityRefresh()
+        {
+            if (Volatile.Read(ref discoveryInProgress) != 0)
+            {
+                return;
+            }
+
+            lock (SyncRoot)
+            {
+                Interlocked.Increment(ref availabilityGeneration);
+            }
+
+            bool shouldRefresh = false;
+            lock (SyncRoot)
+            {
+                if (availabilityRefreshInProgress)
+                {
+                    availabilityRefreshPending = true;
+                }
+                else
+                {
+                    availabilityRefreshInProgress = true;
+                    availabilityRefreshDeferred = false;
+                    shouldRefresh = true;
+                }
+            }
+
+            if (shouldRefresh)
+            {
+                RunBoundedAvailabilityRefresh();
+            }
+        }
+
+        internal static void InvalidateRuntimePolicy()
+        {
+            Volatile.Write(ref runtimePolicy, null);
+        }
+
+        private static bool TryBuildProviderRecord(
+            string registeredId,
+            IMaxPriorityProvider provider,
+            out PriorityProviderRecord record)
+        {
+            record = default(PriorityProviderRecord);
             try
             {
-                return provider != null && provider.IsAvailable;
+                if (provider == null || !provider.IsAvailable)
+                {
+                    return false;
+                }
+
+                int maxPriority;
+                if (!provider.TryGetMaxPriority(out maxPriority))
+                {
+                    return false;
+                }
+
+                string providerId = string.IsNullOrWhiteSpace(provider.ProviderId)
+                    ? registeredId
+                    : provider.ProviderId.Trim();
+                string displayName = provider.DisplayName;
+                if (string.IsNullOrWhiteSpace(displayName))
+                {
+                    displayName = providerId;
+                }
+
+                int defaultPriority;
+                if (!provider.TryGetDefaultEnabledPriority(out defaultPriority))
+                {
+                    defaultPriority = PriorityConstants.VanillaDefaultEnabled;
+                }
+
+                record = new PriorityProviderRecord(
+                    provider,
+                    providerId,
+                    displayName,
+                    provider.SortOrder,
+                    PriorityRangePolicy.ClampMaxPriority(maxPriority),
+                    PriorityRangePolicy.ClampDefaultEnabledPriority(defaultPriority, maxPriority));
+                return true;
             }
             catch
             {
@@ -279,24 +632,123 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return defaults;
         }
 
-        private readonly struct RuntimeProviderRange
+        private static int CompareProviderRecords(PriorityProviderRecord left, PriorityProviderRecord right)
         {
-            internal RuntimeProviderRange(int maxPriority, string displayName, string providerId)
+            int result = left.SortOrder.CompareTo(right.SortOrder);
+            return result != 0 ? result : CompareProviderNames(left.DisplayName, left.ProviderId, right.DisplayName, right.ProviderId);
+        }
+
+        private static int CompareProviderNames(
+            string leftDisplayName,
+            string leftProviderId,
+            string rightDisplayName,
+            string rightProviderId)
+        {
+            int result = string.Compare(leftDisplayName, rightDisplayName, StringComparison.OrdinalIgnoreCase);
+            return result != 0
+                ? result
+                : string.Compare(leftProviderId, rightProviderId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private sealed class ProviderAvailabilitySnapshot
+        {
+            internal static readonly ProviderAvailabilitySnapshot Empty =
+                new ProviderAvailabilitySnapshot(
+                    new PriorityProviderRecord[0],
+                    new IMaxPriorityProvider[0],
+                    0,
+                    0,
+                    true);
+
+            internal ProviderAvailabilitySnapshot(
+                PriorityProviderRecord[] records,
+                IMaxPriorityProvider[] providers,
+                long registrationGeneration,
+                long availabilityGeneration,
+                bool isCoherent)
             {
-                MaxPriority = maxPriority;
-                DisplayName = displayName;
-                ProviderId = providerId;
+                Records = records;
+                Providers = providers;
+                RegistrationGeneration = registrationGeneration;
+                AvailabilityGeneration = availabilityGeneration;
+                IsCoherent = isCoherent;
             }
 
-            internal int MaxPriority { get; }
-            internal string DisplayName { get; }
-            internal string ProviderId { get; }
+            internal readonly PriorityProviderRecord[] Records;
+            internal readonly IMaxPriorityProvider[] Providers;
+            internal readonly long RegistrationGeneration;
+            internal readonly long AvailabilityGeneration;
+            internal readonly bool IsCoherent;
+
+            internal static ProviderAvailabilitySnapshot Unstable(
+                long registrationGeneration,
+                long availabilityGeneration)
+            {
+                return new ProviderAvailabilitySnapshot(
+                    new PriorityProviderRecord[0],
+                    new IMaxPriorityProvider[0],
+                    registrationGeneration,
+                    availabilityGeneration,
+                    false);
+            }
+        }
+
+        private sealed class RuntimeProviderPolicy
+        {
+            internal RuntimeProviderPolicy(
+                long registrationGeneration,
+                long availabilityGeneration,
+                int autoMaxPriority,
+                string selectedProviderId,
+                int selectedProviderMax,
+                int[] autoMaxByRequestedPriority)
+            {
+                RegistrationGeneration = registrationGeneration;
+                AvailabilityGeneration = availabilityGeneration;
+                AutoMaxPriority = autoMaxPriority;
+                SelectedProviderId = selectedProviderId;
+                SelectedProviderMax = selectedProviderMax;
+                AutoMaxByRequestedPriority = autoMaxByRequestedPriority;
+            }
+
+            internal readonly long RegistrationGeneration;
+            internal readonly long AvailabilityGeneration;
+            internal readonly int AutoMaxPriority;
+            internal readonly string SelectedProviderId;
+            internal readonly int SelectedProviderMax;
+            internal readonly int[] AutoMaxByRequestedPriority;
         }
 
         private static bool IsProviderId(string providerId, string expectedProviderId)
         {
             return string.Equals(providerId, expectedProviderId, StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    internal readonly struct PriorityProviderRecord
+    {
+        internal PriorityProviderRecord(
+            IMaxPriorityProvider provider,
+            string providerId,
+            string displayName,
+            int sortOrder,
+            int maxPriority,
+            int defaultEnabledPriority)
+        {
+            Provider = provider;
+            ProviderId = providerId;
+            DisplayName = displayName;
+            SortOrder = sortOrder;
+            MaxPriority = maxPriority;
+            DefaultEnabledPriority = defaultEnabledPriority;
+        }
+
+        internal readonly IMaxPriorityProvider Provider;
+        internal readonly string ProviderId;
+        internal readonly string DisplayName;
+        internal readonly int SortOrder;
+        internal readonly int MaxPriority;
+        internal readonly int DefaultEnabledPriority;
     }
 
     internal sealed class VanillaPriorityProvider : IMaxPriorityProvider
@@ -328,15 +780,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         public bool TryGetMaxPriority(out int maxPriority)
         {
-            maxPriority = PriorityAuthorityBroker.GetBetterWorkTabConfiguredMaxPriority();
+            maxPriority = PriorityRangePolicy.GetBetterWorkTabConfiguredMaxPriority();
             return true;
         }
 
         public bool TryGetDefaultEnabledPriority(out int defaultEnabledPriority)
         {
-            defaultEnabledPriority = PriorityAuthorityBroker.ClampDefaultEnabledPriority(
+            defaultEnabledPriority = PriorityRangePolicy.ClampDefaultEnabledPriority(
                 PriorityConstants.VanillaDefaultEnabled,
-                PriorityAuthorityBroker.GetBetterWorkTabConfiguredMaxPriority());
+                PriorityRangePolicy.GetBetterWorkTabConfiguredMaxPriority());
             return true;
         }
     }
@@ -370,15 +822,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         public bool TryGetMaxPriority(out int priority)
         {
-            priority = PriorityAuthorityBroker.ClampMaxPriority(maxPriority);
+            priority = PriorityRangePolicy.ClampMaxPriority(maxPriority);
             return priority > PriorityConstants.Disabled;
         }
 
         public bool TryGetDefaultEnabledPriority(out int priority)
         {
-            priority = PriorityAuthorityBroker.ClampDefaultEnabledPriority(
+            priority = PriorityRangePolicy.ClampDefaultEnabledPriority(
                 defaultEnabledPriority,
-                PriorityAuthorityBroker.ClampMaxPriority(maxPriority));
+                PriorityRangePolicy.ClampMaxPriority(maxPriority));
             return true;
         }
     }
@@ -447,7 +899,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return false;
             }
 
-            maxPriority = PriorityAuthorityBroker.ClampMaxPriority(reflectedPriority);
+            maxPriority = PriorityRangePolicy.ClampMaxPriority(reflectedPriority);
             return maxPriority > PriorityConstants.Disabled;
         }
 
@@ -465,7 +917,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                                      defaultPriorityReader.TryReadInt(out reflectedDefaultPriority)
                 ? reflectedDefaultPriority
                 : PriorityConstants.VanillaDefaultEnabled;
-            defaultEnabledPriority = PriorityAuthorityBroker.ClampDefaultEnabledPriority(
+            defaultEnabledPriority = PriorityRangePolicy.ClampDefaultEnabledPriority(
                 defaultEnabledPriority,
                 maxPriority);
             return true;
@@ -696,7 +1148,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             RegisterClockworkProvider();
             RegisterPawnCentricWorkPrioritiesProvider();
 
-            // Fluffy Work Tab owns its own type detection; the gateway registers it.
+            // Fluffy Work Tab owns its own type probes; the gateway registers it.
             FluffyWorkTabGateway.RegisterPriorityProvider();
             SleekWorkTabGateway.RegisterPriorityProvider();
         }

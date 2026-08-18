@@ -15,6 +15,8 @@ using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using HarmonyLib;
 using RimWorld;
@@ -73,6 +75,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static bool _fluffyPriorityTypesResolved;
         private static bool _fluffyHostedColumnsDisabled;
         private static bool _externalFluffyColumnsUnavailable;
+        private static readonly FluffyWorkTabPriorityProvider ExternalPriorityProvider =
+            new FluffyWorkTabPriorityProvider();
+        private static readonly FluffyWorkTabExternalStore ExternalStore =
+            new FluffyWorkTabExternalStore();
+        private static bool _priorityProviderRegistered;
+        private static bool _externalStoreRegistered;
+        private static bool _priorityImporterRegistered;
         private static readonly Dictionary<string, PawnColumnDef> HostedWorkTypeColumns =
             new Dictionary<string, PawnColumnDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, PawnColumnDef> HostedWorkGiverColumns =
@@ -132,6 +141,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         internal static bool AnyExternalWorkTabPresent =>
             IsPresent || SleekWorkPrioritiesPresent;
+
+        internal static bool PriorityDataAuthorityRequestsFluffy =>
+            BetterWorkTabMod.Settings?.priorityDataAuthority ==
+            PriorityDataAuthorityPreference.FluffyWorkTab;
 
         internal static bool ExternalWorkTabOwnsWorkTab =>
             FluffyWorkTabCoexistence.ExternalWorkTabOwnsWorkTab;
@@ -198,6 +211,47 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             BWTModSettingsApi.RegisterContributor(SettingsContributor);
         }
 
+        private static string GetPriorityDataAuthorityLabel(PriorityDataAuthorityPreference preference)
+        {
+            switch (preference)
+            {
+                case PriorityDataAuthorityPreference.BetterWorkTab:
+                    return "Better Work Tab";
+                case PriorityDataAuthorityPreference.FluffyWorkTab:
+                    return IsPresent ? "Fluffy Work Tab" : "Fluffy Work Tab (unavailable)";
+                default:
+                    return "Automatic";
+            }
+        }
+
+        private static string GetPriorityDataAuthorityDescription(PriorityDataAuthorityPreference preference)
+        {
+            switch (preference)
+            {
+                case PriorityDataAuthorityPreference.BetterWorkTab:
+                    return "Choose this when BWT's priority scheduler and specific-job behavior should be canonical. Better Work Tab owns work-type, specific-job, and 24-hour priority data, then keeps Fluffy Work Tab synchronized when it is available.";
+                case PriorityDataAuthorityPreference.FluffyWorkTab:
+                    return IsPresent
+                        ? "Choose this when Fluffy Work Tab's tracker should own work-type, specific-job, and 24-hour priority data, even while Better Work Tab renders the UI. Authority handoffs import the active values so BWT stays synchronized; BWT-only layouts, rules, colors, and reassignment definitions remain BWT-owned."
+                        : "Fluffy Work Tab is unavailable. This preference is preserved and Better Work Tab safely owns the data until Fluffy returns; no priority data is discarded."
+                          + " Choose it now if you want the preference ready for a later Fluffy installation.";
+                default:
+                    return "Preserve Better Work Tab's existing compatibility policy: the active compatible data owner follows the current Work-tab integration. Drawing ownership stays independent, and BWT-only layouts, rules, colors, and reassignment definitions remain BWT-owned.";
+            }
+        }
+
+        private static void OnPriorityDataAuthorityChanged(BetterWorkTabSettings settings)
+        {
+            settings?.NormalizePrioritySettings();
+            PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
+            WorkTabInvalidationHub.Invalidate(
+                WorkTabDirtyFlags.Priority |
+                WorkTabDirtyFlags.ScheduleHour |
+                WorkTabDirtyFlags.Rows |
+                WorkTabDirtyFlags.Presentation);
+            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+        }
+
         /// <summary>
         /// Registers Fluffy Work Tab with Better Work Tab's max-priority provider registry so it is
         /// selected like any other priority mod. Fluffy prefixes Pawn_WorkSettings.GetPriority and
@@ -205,10 +259,59 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         /// </summary>
         internal static void RegisterPriorityProvider()
         {
-            PriorityProviderRegistry.RegisterProvider(new FluffyWorkTabPriorityProvider());
-            var store = new FluffyWorkTabExternalStore();
-            ExternalWorkTabApi.RegisterStore(store);
-            ExternalWorkTabApi.RegisterPriorityImporter(store);
+            // Do not register an unavailable adapter. The authority/provider registries use the
+            // registration count as their hot-path gate, so a missing optional mod must remain an
+            // empty snapshot rather than a repeatedly probed unavailable store.
+            if (!IsPresent)
+            {
+                return;
+            }
+
+            if (_priorityProviderRegistered &&
+                !PriorityProviderRegistry.IsCurrentProviderRegistration(ExternalPriorityProvider))
+            {
+                _priorityProviderRegistered = false;
+            }
+
+            if (_externalStoreRegistered &&
+                !ExternalWorkTabRegistry.IsCurrentStoreRegistration(ExternalStore))
+            {
+                _externalStoreRegistered = false;
+                _priorityImporterRegistered = false;
+            }
+
+            if (!_externalStoreRegistered)
+            {
+                _priorityImporterRegistered = false;
+            }
+
+            if (!_priorityProviderRegistered &&
+                PriorityProviderRegistry.RegisterProvider(ExternalPriorityProvider))
+            {
+                _priorityProviderRegistered = true;
+            }
+
+            if (!_externalStoreRegistered && ExternalWorkTabApi.RegisterStore(ExternalStore))
+            {
+                _externalStoreRegistered = true;
+            }
+
+            if (_externalStoreRegistered &&
+                !_priorityImporterRegistered &&
+                ExternalWorkTabApi.RegisterPriorityImporter(ExternalStore))
+            {
+                _priorityImporterRegistered = true;
+            }
+        }
+
+        /// <summary>
+        /// Rechecks an optional assembly at the one post-load/reconciliation boundary, then fills
+        /// registrations that could not be made during the initial provider discovery pass.
+        /// </summary>
+        internal static void ReconcileOptionalRegistration()
+        {
+            FluffyWorkTabCoexistence.ReconcileDetection();
+            RegisterPriorityProvider();
         }
 
         // --- Priority mirroring -------------------------------------------------------------
@@ -551,6 +654,32 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             _chooserRememberChoice = true;
             CenterChooserSourceColumn(layout, instant: false);
             return true;
+        }
+
+        internal static bool DebugChooseSubWorkDrilldownStyle(
+            BetterWorkTabSettings.SubWorkDrilldownStyle style,
+            out WorkTypeDef workType)
+        {
+            workType = null;
+            if (!_chooserActive ||
+                style == BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen ||
+                BetterWorkTabMod.Settings == null)
+            {
+                return false;
+            }
+
+            workType = _chooserWorkType;
+            BetterWorkTabMod.Settings.subWorkDrilldownStyle = style;
+            BetterWorkTabMod.Settings.subWorkCtrlClickNoticeDismissed = true;
+            BetterWorkTabMod.Settings.Write();
+            PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
+            ClearSubWorkDrilldownStyleChooser(clearPreview: false);
+            return workType != null;
+        }
+
+        internal static void DebugCancelSubWorkDrilldownStyleChooser()
+        {
+            ClearSubWorkDrilldownStyleChooser();
         }
 
         internal static void ResetSubWorkDrilldownStyleChooserForWindowClose()
@@ -1514,7 +1643,8 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                                 definition.Suppressions = new List<SettingSuppression>
                                     {
                                     OptionalModSettingsAvailability.Require(
-                                    () => FluffyWorkTabGateway.AnyExternalWorkTabPresent,
+                                    () => FluffyWorkTabGateway.AnyExternalWorkTabPresent ||
+                                          FluffyWorkTabGateway.PriorityDataAuthorityRequestsFluffy,
                                     "Fluffy Work Tab or Sleek Work Priorities",
                                     "https://steamcommunity.com/sharedfiles/filedetails/?id=3453549086")
                                     };
@@ -1537,6 +1667,20 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                             .DefaultTo(DefaultSettings.preferredWorkTabOwner)
                             .SearchableBy(FluffyOwnershipSearchKeywords)
                             .Ordered(21),
+                        scope.Under(CompatFluffyWorkTabOwnership).Enum(
+                            CompatFluffyWorkTabPriorityAuthority,
+                            settings => settings.priorityDataAuthority,
+                            "Priority data source",
+                            tooltip: "Choose which compatible system owns shared work priorities. This is independent of which mod opens or draws the Work tab.",
+                            labelProvider: GetPriorityDataAuthorityLabel,
+                            descriptionProvider: GetPriorityDataAuthorityDescription,
+                            onChanged: OnPriorityDataAuthorityChanged
+                        )
+                            .DefaultTo(DefaultSettings.priorityDataAuthority)
+                            .SearchableBy(FluffyKeywords(
+                                "priority data source", "priority authority", "priority tracker", "shared priorities",
+                                "work type priorities", "specific job priorities", "hourly schedules"))
+                            .Ordered(22),
                                                 scope.Under(CompatFluffyWorkTabOwnership).Toggle(
                             CompatExternalWorkTabColumns,
                             settings => settings.showExternalWorkTabColumns,
@@ -1546,7 +1690,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                         )
                             .DefaultTo(DefaultSettings.showExternalWorkTabColumns)
                             .SearchableBy(FluffyOwnershipSearchKeywords)
-                            .Ordered(22)
+                            .Ordered(23)
                             .Configure(definition =>
                             {
                                 definition.Suppressions = new List<SettingSuppression>

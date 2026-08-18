@@ -133,7 +133,7 @@ namespace Better_Work_Tab.Features.Tutorial
                        StringComparison.Ordinal);
         }
 
-        private void Advance()
+        internal void Advance()
         {
             if (phase == 0)
             {
@@ -152,5 +152,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 Close();
             }
         }
+
     }
 }

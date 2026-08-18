@@ -5,6 +5,7 @@ using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.Foundation;
+using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
 {
@@ -99,6 +100,37 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
         {
             get => (WorkGridForcedRendererMode)Volatile.Read(ref _forcedMode);
             set => Volatile.Write(ref _forcedMode, (int)value);
+        }
+
+        public static void CycleForcedMode()
+        {
+            int next = ((int)ForcedMode + 1) % Enum.GetValues(typeof(WorkGridForcedRendererMode)).Length;
+            ForcedMode = (WorkGridForcedRendererMode)next;
+            Log.Message("[BWT] Work-grid renderer diagnostic mode: " + ForcedMode + ".");
+        }
+
+        public static void LogCurrent()
+        {
+            WorkGridRendererDiagnosticSnapshot snapshot = Current;
+            WorkGridSnapshotDiagnosticStats snapshotStats = SnapshotStats;
+            string fallback = snapshot.FallbackReasons.Count == 0
+                ? "none"
+                : snapshot.FallbackReasons[0].Code +
+                  (string.IsNullOrEmpty(snapshot.FallbackReasons[0].Detail)
+                      ? string.Empty
+                      : " (" + snapshot.FallbackReasons[0].Detail + ")");
+            Log.Message(
+                "[BWT] Work-grid renderer: active=" + snapshot.ActiveRendererId +
+                ", setting=" + snapshot.SelectionMode +
+                ", forced=" + snapshot.ForcedMode +
+                ", fallback=" + fallback +
+                ", quarantined=" + snapshot.IsQuarantined +
+                ", snapshotRevision=" + snapshotStats.Revision +
+                ", snapshotBuilds=" + snapshotStats.BuildCount +
+                ", snapshotTicks=" + snapshotStats.LastBuildTicks +
+                ", priorityDirty=" + snapshotStats.PriorityDirtyCount +
+                ", incremental=" + snapshotStats.Incremental +
+                ", updatedCells=" + snapshotStats.UpdatedCellCount + ".");
         }
 
         internal static bool Publish(

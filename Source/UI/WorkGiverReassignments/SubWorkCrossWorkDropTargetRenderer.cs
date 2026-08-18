@@ -19,9 +19,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static float _settleStartedAt;
 
         internal static bool IsEnabled =>
-            WorkGiverReassignmentManager.IsRuntimeEnabled &&
-            (BetterWorkTabMod.Settings?.enableSubWorkCrossWorkDragDrop ??
-             DefaultSettings.enableSubWorkCrossWorkDragDrop);
+            BetterWorkTabMod.Settings?.enableSubWorkCrossWorkDragDrop ??
+            DefaultSettings.enableSubWorkCrossWorkDragDrop;
 
         internal static bool IsPointerBeyondSubWorkStrip(
             IWorkTabLayoutController layout,

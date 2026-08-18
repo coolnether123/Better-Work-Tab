@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.ModSupport;
@@ -87,8 +88,24 @@ namespace Better_Work_Tab
             try
             {
                 var harmony = new Harmony("Coolnether123.betterworktab");
-                harmony.PatchAll();
-                DynamicGameplayPatchController.Initialize(harmony);
+                BwtRaisedPriorityInstallReport raisedPriorityReport =
+                    BwtRaisedPriorityFeatureInstaller.InstallProduction(harmony);
+                if (!raisedPriorityReport.FeatureActive)
+                {
+                    Log.Error("[Better Work Tab] Raised-priority feature was disabled fail-closed: " +
+                        raisedPriorityReport.Format());
+                }
+                else if (raisedPriorityReport.FeatureGateState ==
+                    BwtRaisedPriorityFeatureGateState.PreservedAfterRejectedReconfiguration)
+                {
+                    Log.Warning("[Better Work Tab] Raised-priority reconfiguration was rejected; " +
+                        "the previous valid installation remains active: " +
+                        raisedPriorityReport.Format());
+                }
+                else
+                {
+                    DebugLog("Raised-priority feature installed: " + raisedPriorityReport.State);
+                }
                 ClockworkCompatibility.Initialize(harmony);
                 SleekWorkTabGateway.Initialize();
                 FluffyWorkTabGateway.ApplyDesiredOwner();

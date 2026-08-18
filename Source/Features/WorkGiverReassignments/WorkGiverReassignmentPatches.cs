@@ -1,6 +1,5 @@
 ﻿using System;
 using HarmonyLib;
-using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using RimWorld;
@@ -10,11 +9,13 @@ using Verse.AI;
 
 namespace Better_Work_Tab.Features.WorkGiverReassignments
 {
+    [HarmonyPatch(typeof(JobGiver_Work), "PawnCanUseWorkGiver")]
     internal static class Patch_JobGiver_Work_PawnCanUseWorkGiver
     {
-        public static bool Prefix(Pawn pawn, WorkGiver giver, ref bool __result)
+        public static bool Prefix(Pawn pawn, WorkGiver giver, ref bool __result, out bool __state)
         {
-            if (!DynamicGameplayPatchController.IsOrderingBehaviorActive)
+            __state = false;
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return true;
             }
@@ -22,15 +23,21 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             if (WorkGiverAvailability.ShouldForceAllowBeforeVanilla(pawn, giver, out bool canUse))
             {
                 __result = canUse;
+                __state = true;
                 return false;
             }
 
             return true;
         }
 
-        public static void Postfix(Pawn pawn, WorkGiver giver, ref bool __result)
+        public static void Postfix(Pawn pawn, WorkGiver giver, ref bool __result, bool __state)
         {
-            if (!DynamicGameplayPatchController.IsOrderingBehaviorActive)
+            if (__state)
+            {
+                return;
+            }
+
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return;
             }
@@ -42,11 +49,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
     }
 
+    [HarmonyPatch(typeof(WorkGiver_Scanner), nameof(WorkGiver_Scanner.HasJobOnThing))]
     internal static class Patch_WorkGiver_Scanner_HasJobOnThing
     {
         public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, Thing t, bool forced, ref bool __result)
         {
-            if (!DynamicGameplayPatchController.IsOrderingBehaviorActive)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return;
             }
@@ -58,11 +66,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
     }
 
+    [HarmonyPatch(typeof(WorkGiver_Scanner), nameof(WorkGiver_Scanner.HasJobOnCell))]
     internal static class Patch_WorkGiver_Scanner_HasJobOnCell
     {
         public static void Postfix(WorkGiver_Scanner __instance, Pawn pawn, IntVec3 c, bool forced, ref bool __result)
         {
-            if (!DynamicGameplayPatchController.IsOrderingBehaviorActive)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return;
             }
@@ -79,8 +88,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public static bool Prefix(PawnColumnWorker_WorkPriority __instance, Pawn a, Pawn b, ref int __result)
         {
-            if (!WorkGiverReassignmentManager.IsRuntimeEnabled ||
-                !PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
             {
                 return true;
             }
@@ -113,8 +121,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static bool ShouldForceAllowBeforeVanilla(Pawn pawn, WorkGiver giver, out bool canUse)
         {
             canUse = false;
-            if (!WorkGiverReassignmentManager.IsRuntimeEnabled ||
-                giver?.def == null || pawn?.workSettings == null)
+            if (giver?.def == null || pawn?.workSettings == null)
             {
                 return false;
             }
@@ -140,11 +147,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool ShouldAllowForPawn(WorkGiverDef workGiver, Pawn pawn, bool forced = false)
         {
-            if (!WorkGiverReassignmentManager.IsRuntimeEnabled)
-            {
-                return true;
-            }
-
             if (forced) return true;
 
             if (workGiver == null)

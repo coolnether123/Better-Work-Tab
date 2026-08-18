@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
@@ -20,17 +19,15 @@ namespace Better_Work_Tab.UI.Headers
     public static class HeaderDrawingCoordinator
     {
         private static AngledHeaderRenderer _angledRenderer;
-        private static readonly ConditionalWeakTable<PawnTable, VanillaTableState> _tableStates =
-            new ConditionalWeakTable<PawnTable, VanillaTableState>();
-        private static VanillaTableState _activeTableState;
-        private static VanillaTableState _lastTableState = new VanillaTableState();
+        private static VanillaHeaderRenderer _vanillaRenderer;
+        private static VanillaHeaderLayoutSolver _vanillaSolver;
         private static WorkTabInvalidationVersion _lastInvalidationVersions;
-        private static int _cacheGeneration;
-        private static int _solutionInvalidationVersion;
 
         static HeaderDrawingCoordinator()
         {
+            _vanillaSolver = new VanillaHeaderLayoutSolver();
             _angledRenderer = new AngledHeaderRenderer();
+            _vanillaRenderer = new VanillaHeaderRenderer(_vanillaSolver);
         }
 
         /// <summary>
@@ -41,98 +38,37 @@ namespace Better_Work_Tab.UI.Headers
         public static void EnsureLayoutSolved(PawnTable table)
         {
             if (table == null) return;
-
-            VanillaTableState state = GetTableState(table);
-            if (state.DeferredDepth > 0)
-            {
-                return;
-            }
             
             // Only solve for vanilla mode; angled headers do not require this
-            if (BetterWorkTabMod.Settings != null && !BetterWorkTabMod.Settings.enableAngledHeaders)
+            if (!BetterWorkTabMod.Settings.enableAngledHeaders)
             {
-                state.Solver.SolveLayout(table);
+                _vanillaSolver.SolveLayout(table);
             }
         }
 
         /// <summary>
-        /// Defers the vanilla header solve while the BWT-owned Layout pass is
-        /// collecting every header. The scope carries the active table context
-        /// so a nested PawnTable gets an independent depth and solver.
-        /// </summary>
-        internal static VanillaSolveScope BeginDeferredVanillaSolve(PawnTable table)
-        {
-            VanillaTableState previousState = _activeTableState;
-            VanillaTableState state = GetTableState(table);
-            _activeTableState = table == null ? null : state;
-            bool deferred = Event.current != null &&
-                            Event.current.type == EventType.Layout &&
-                            BetterWorkTabMod.Settings != null &&
-                            !BetterWorkTabMod.Settings.enableAngledHeaders &&
-                            table != null;
-            if (deferred)
-            {
-                state.DeferredDepth++;
-            }
-
-            return new VanillaSolveScope(table, state, deferred, previousState);
-        }
-
-        /// <summary>
-        /// Completes a deferred BWT-owned Layout pass after all headers have
-        /// been collected, restoring the previous table context even when the
-        /// pass exits through an exception.
-        /// </summary>
-        internal static void EndDeferredVanillaSolve(VanillaSolveScope scope)
-        {
-            try
-            {
-                if (!scope.Deferred || scope.State == null)
-                {
-                    return;
-                }
-
-                if (scope.State.DeferredDepth > 0)
-                {
-                    scope.State.DeferredDepth--;
-                }
-
-                if (scope.State.DeferredDepth == 0)
-                {
-                    EnsureLayoutSolved(scope.Table);
-                }
-            }
-            finally
-            {
-                _activeTableState = scope.PreviousState;
-            }
-        }
-
-        /// <summary>
-        /// Returns the current vanilla solver for legacy geometry consumers.
-        /// Header-owned paths use the table overload below.
+        /// Returns the vanilla solver for collecting header data.
         /// </summary>
         /// <returns>The active VanillaHeaderLayoutSolver instance.</returns>
         public static VanillaHeaderLayoutSolver GetVanillaSolver()
         {
-            return GetCurrentTableState().Solver;
-        }
-
-        public static VanillaHeaderLayoutSolver GetVanillaSolver(PawnTable table)
-        {
-            return GetTableState(table).Solver;
+            return _vanillaSolver;
         }
 
         public static int GetVanillaLayoutVersion()
         {
-            return GetCurrentTableState().Solver.LayoutVersion;
+            return _vanillaSolver?.LayoutVersion ?? 0;
         }
 
-        public static IHeaderRenderer GetActiveRenderer(PawnTable table)
+        /// <summary>
+        /// Returns the active renderer based on current mod settings.
+        /// </summary>
+        /// <returns>An implementation of IHeaderRenderer (Angled or Vanilla).</returns>
+        public static IHeaderRenderer GetActiveRenderer()
         {
-            return BetterWorkTabMod.Settings != null && BetterWorkTabMod.Settings.enableAngledHeaders
+            return BetterWorkTabMod.Settings.enableAngledHeaders
                 ? (IHeaderRenderer)_angledRenderer
-                : (IHeaderRenderer)GetTableState(table).Renderer;
+                : (IHeaderRenderer)_vanillaRenderer;
         }
 
         /// <summary>
@@ -156,8 +92,6 @@ namespace Better_Work_Tab.UI.Headers
                 return true;
             }
 
-            VanillaTableState previousState = _activeTableState;
-            _activeTableState = table == null ? null : GetTableState(table);
             try
             {
                 HeaderInputController.UpdateCache(Event.current);
@@ -170,10 +104,6 @@ namespace Better_Work_Tab.UI.Headers
             {
                 Log.Error("[BWT] WorkPriority header failed: " + exception);
                 return false;
-            }
-            finally
-            {
-                _activeTableState = previousState;
             }
         }
 
@@ -209,7 +139,7 @@ namespace Better_Work_Tab.UI.Headers
         /// </summary>
         public static void InvalidateSolution()
         {
-            _solutionInvalidationVersion++;
+            _vanillaSolver?.InvalidateSolution();
         }
 
         /// <summary>
@@ -217,7 +147,7 @@ namespace Better_Work_Tab.UI.Headers
         /// </summary>
         public static void InvalidateAnimatedLayout()
         {
-            InvalidateSolution();
+            _vanillaSolver?.InvalidateSolution();
             AngledHeaderCache.ClearGeometryCache();
         }
 
@@ -227,7 +157,9 @@ namespace Better_Work_Tab.UI.Headers
         /// </summary>
         public static void InvalidateCaches()
         {
-            _cacheGeneration++;
+            // Create new solver (starts with _solutionValid = false, triggering recalculation)
+            _vanillaSolver = new VanillaHeaderLayoutSolver();
+            _vanillaRenderer = new VanillaHeaderRenderer(_vanillaSolver);
             AngledHeaderCache.ClearCache();
         }
 
@@ -266,79 +198,6 @@ namespace Better_Work_Tab.UI.Headers
                         MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                     }
                 }
-            }
-        }
-
-        private static VanillaTableState GetCurrentTableState()
-        {
-            VanillaTableState state = _activeTableState ?? _lastTableState;
-            state.Refresh(_cacheGeneration, _solutionInvalidationVersion);
-            return state;
-        }
-
-        private static VanillaTableState GetTableState(PawnTable table)
-        {
-            if (table == null)
-            {
-                return GetCurrentTableState();
-            }
-
-            if (!_tableStates.TryGetValue(table, out VanillaTableState state))
-            {
-                state = new VanillaTableState();
-                _tableStates.Add(table, state);
-            }
-
-            state.Refresh(_cacheGeneration, _solutionInvalidationVersion);
-            _lastTableState = state;
-            return state;
-        }
-
-        internal sealed class VanillaTableState
-        {
-            internal VanillaHeaderLayoutSolver Solver { get; private set; }
-            internal VanillaHeaderRenderer Renderer { get; private set; }
-            internal int DeferredDepth;
-
-            private int _cacheGeneration = -1;
-            private int _solutionInvalidationVersion = -1;
-
-            internal void Refresh(int cacheGeneration, int solutionInvalidationVersion)
-            {
-                if (_cacheGeneration != cacheGeneration)
-                {
-                    Solver = new VanillaHeaderLayoutSolver();
-                    Renderer = new VanillaHeaderRenderer(Solver);
-                    _cacheGeneration = cacheGeneration;
-                    _solutionInvalidationVersion = solutionInvalidationVersion;
-                    return;
-                }
-
-                if (_solutionInvalidationVersion != solutionInvalidationVersion)
-                {
-                    Solver.InvalidateSolution();
-                    _solutionInvalidationVersion = solutionInvalidationVersion;
-                }
-            }
-        }
-
-        internal struct VanillaSolveScope
-        {
-            internal readonly PawnTable Table;
-            internal readonly VanillaTableState State;
-            internal readonly bool Deferred;
-            internal readonly VanillaTableState PreviousState;
-
-            internal VanillaSolveScope(
-                PawnTable table,
-                VanillaTableState state,
-                bool deferred,
-                VanillaTableState previousState)
-            {
-                Table = table;
-                State = state;
-                Deferred = deferred;
-                PreviousState = previousState;
             }
         }
     }

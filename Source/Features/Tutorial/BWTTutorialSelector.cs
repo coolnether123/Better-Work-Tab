@@ -68,8 +68,8 @@ namespace Better_Work_Tab.Features.Tutorial
     {
         private const float PopupWidth = 250f;
         private const float PopupPadding = 7f;
-        private const float MinimumTitleHeight = 22f;
-        private const float MinimumOptionHeight = 26f;
+        private const float TitleHeight = 22f;
+        private const float OptionHeight = 26f;
         private const float OptionGap = 3f;
         private const float AnchorGap = 8f;
         private const float MarkerWidth = 16f;
@@ -80,6 +80,9 @@ namespace Better_Work_Tab.Features.Tutorial
         private TutorialHubAnchor pinnedAnchor = TutorialHubAnchor.None;
         private BWTTutorialAnchor pinnedGeometry;
         private Rect lastPopupRect;
+
+        /// <summary>The anchor a click has pinned, or None. Observed by the quicktest driver.</summary>
+        internal TutorialHubAnchor PinnedAnchor => pinnedAnchor;
 
         internal void Reset()
         {
@@ -114,7 +117,10 @@ namespace Better_Work_Tab.Features.Tutorial
 
         /// <summary>
         /// Selects the anchor under a point. Split out from the event overload so
-        /// callers that already have a local point use the same hit testing.
+        /// the same hit testing can be driven by a point alone, which is what the
+        /// agent harness needs: Unity reports a synthesised mouse event's type as
+        /// Ignore during a Repaint pass, so anything keyed on <c>evt.type</c> is
+        /// unreachable from a test harness.
         /// </summary>
         internal bool TrySelectAnchorAt(
             IList<BWTTutorialAnchor> anchors,
@@ -212,6 +218,35 @@ namespace Better_Work_Tab.Features.Tutorial
             return layout.PopupRect.Contains(point);
         }
 
+        /// <summary>
+        /// The popup's option rows for the anchor currently showing them, for
+        /// harness reporting. Returns false when no popup is open.
+        /// </summary>
+        internal bool TryDescribePopup(
+            Rect workBounds,
+            IList<BWTTutorialAnchor> anchors,
+            IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
+            out BWTTutorialHubDefinition hub,
+            out Rect popupRect,
+            out IList<Rect> optionRects)
+        {
+            hub = default(BWTTutorialHubDefinition);
+            popupRect = Rect.zero;
+            optionRects = null;
+            if (anchors == null || anchors.Count == 0 || hubs == null ||
+                pinnedAnchor == TutorialHubAnchor.None ||
+                !hubs.TryGetValue(pinnedAnchor, out hub) ||
+                hub.Options.Count == 0)
+            {
+                return false;
+            }
+
+            PopupLayout layout = BuildLayout(workBounds, FindAnchorRect(anchors, pinnedAnchor), hub);
+            popupRect = layout.PopupRect;
+            optionRects = layout.OptionRects;
+            return true;
+        }
+
         internal bool ContainsPointer(
             Rect workBounds,
             IList<BWTTutorialAnchor> anchors,
@@ -281,7 +316,7 @@ namespace Better_Work_Tab.Features.Tutorial
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;
-            Text.WordWrap = true;
+            Text.WordWrap = false;
 
             // Same tutor chrome as the strip, with RimWorld's own drop shadow, so
             // the list reads as one surface with the band rather than a separate
@@ -292,7 +327,7 @@ namespace Better_Work_Tab.Features.Tutorial
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.MiddleLeft;
             GUI.color = new Color(1f, 1f, 1f, 0.6f);
-            Widgets.Label(layout.TitleRect, hub.Title);
+            Widgets.Label(layout.TitleRect, hub.Title.Truncate(layout.TitleRect.width));
             GUI.color = oldColor;
             for (int i = 0; i < hub.Options.Count && i < layout.OptionRects.Count; i++)
             {
@@ -332,7 +367,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 GUI.color = isComplete
                     ? new Color(1f, 1f, 1f, 0.5f)
                     : isHovered ? Widgets.MouseoverOptionColor : Widgets.NormalOptionColor;
-                Widgets.Label(labelRect, option.Label);
+                Widgets.Label(labelRect, option.Label.Truncate(labelRect.width));
 
                 string tip = option.Body ?? string.Empty;
                 if (alreadyUsed)
@@ -408,22 +443,8 @@ namespace Better_Work_Tab.Features.Tutorial
             BWTTutorialHubDefinition hub)
         {
             float width = Mathf.Min(PopupWidth, Mathf.Max(140f, workBounds.width - 16f));
-            float innerWidth = Mathf.Max(1f, width - PopupPadding * 2f);
-            float labelWidth = Mathf.Max(1f, innerWidth - MarkerWidth - 10f);
-            float titleHeight = MeasureTextHeight(hub.Title, innerWidth, MinimumTitleHeight);
-            var optionHeights = new List<float>(hub.Options.Count);
-            float optionsHeight = 0f;
-            for (int i = 0; i < hub.Options.Count; i++)
-            {
-                float optionHeight = MeasureTextHeight(
-                    hub.Options[i].Label,
-                    labelWidth,
-                    MinimumOptionHeight);
-                optionHeights.Add(optionHeight);
-                optionsHeight += optionHeight;
-            }
-
-            float height = PopupPadding * 2f + titleHeight + optionsHeight +
+            float height = PopupPadding * 2f + TitleHeight +
+                hub.Options.Count * OptionHeight +
                 Mathf.Max(0, hub.Options.Count - 1) * OptionGap;
 
             // Prefer below the anchor, flip above when the tab runs out, then
@@ -439,29 +460,17 @@ namespace Better_Work_Tab.Features.Tutorial
 
             Rect popup = new Rect(x, y, width, height);
             Rect inner = popup.ContractedBy(PopupPadding);
-            Rect title = new Rect(inner.x, inner.y, inner.width, titleHeight);
+            Rect title = new Rect(inner.x, inner.y, inner.width, TitleHeight);
 
             var optionRects = new List<Rect>(hub.Options.Count);
             float rowY = title.yMax;
             for (int i = 0; i < hub.Options.Count; i++)
             {
-                optionRects.Add(new Rect(inner.x, rowY, inner.width, optionHeights[i]));
-                rowY += optionHeights[i] + OptionGap;
+                optionRects.Add(new Rect(inner.x, rowY, inner.width, OptionHeight));
+                rowY += OptionHeight + OptionGap;
             }
 
             return new PopupLayout(popup, title, optionRects);
-        }
-
-        private static float MeasureTextHeight(string text, float width, float minimumHeight)
-        {
-            GameFont oldFont = Text.Font;
-            bool oldWordWrap = Text.WordWrap;
-            Text.Font = GameFont.Small;
-            Text.WordWrap = true;
-            float height = Mathf.Ceil(Text.CalcHeight(text ?? string.Empty, width));
-            Text.Font = oldFont;
-            Text.WordWrap = oldWordWrap;
-            return Mathf.Max(minimumHeight, height);
         }
 
         private static TutorialHubAnchor GetAnchorAt(IList<BWTTutorialAnchor> anchors, Vector2 point)

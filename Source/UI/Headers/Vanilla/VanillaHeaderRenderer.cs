@@ -161,7 +161,9 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         private static void DrawLabel(Rect textRect, string text, bool showMarker, float alpha)
         {
             // Text Color: Apply moved marker color only if color tint is enabled
-            GUI.color = HeaderUtility.Colors.HeaderTextColor(showMarker);
+            GUI.color = (showMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint)
+                ? HeaderUtility.Colors.MovedMarkerColor
+                : BetterWorkTabMod.Settings.angledHeaderColor;
             GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * Mathf.Clamp01(alpha));
             Widgets.Label(textRect, text);
         }

@@ -17,7 +17,7 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
 {
     /// <summary>
     /// Compatibility boundary for Sleek Work Priorities. BWT never references Sleek's assembly
-    /// directly; the optional integration is package/type-detected and fails closed when a member is
+    /// directly; the optional integration is package/type-probed and fails closed when a member is
     /// absent in a future Sleek release.
     /// </summary>
     internal static class SleekWorkTabGateway
@@ -36,6 +36,8 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
             new Harmony("Coolnether123.betterworktab.sleek");
         private static readonly SleekWorkTabExternalStore ExternalStore =
             new SleekWorkTabExternalStore();
+        private static bool _externalStoreRegistered;
+        private static bool _handoffImporterRegistered;
 
         private static bool? _detected;
         private static bool _detectionComplete;
@@ -131,8 +133,34 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
 
         internal static void RegisterPriorityProvider()
         {
-            ExternalWorkTabApi.RegisterStore(ExternalStore);
-            ExternalWorkTabRegistry.RegisterHandoffImporter(ExternalStore);
+            if (!IsPresent)
+            {
+                return;
+            }
+
+            if (_externalStoreRegistered &&
+                !ExternalWorkTabRegistry.IsCurrentStoreRegistration(ExternalStore))
+            {
+                _externalStoreRegistered = false;
+                _handoffImporterRegistered = false;
+            }
+
+            if (!_externalStoreRegistered)
+            {
+                _handoffImporterRegistered = false;
+            }
+
+            if (!_externalStoreRegistered && ExternalWorkTabApi.RegisterStore(ExternalStore))
+            {
+                _externalStoreRegistered = true;
+            }
+
+            if (_externalStoreRegistered &&
+                !_handoffImporterRegistered &&
+                ExternalWorkTabRegistry.RegisterHandoffImporter(ExternalStore))
+            {
+                _handoffImporterRegistered = true;
+            }
         }
 
         internal static int ImportChildRanksToBetterWorkTab()
@@ -460,15 +488,35 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
 
         internal static void ReconcileCompatibility()
         {
+            ReconcileDetection();
+            FluffyWorkTabGateway.ReconcileOptionalRegistration();
             if (!IsPresent)
             {
                 return;
             }
 
+            RegisterPriorityProvider();
             FluffyWorkTabCoexistence.ApplyDefaultExternalCompatibility();
             TryApplyCompatibilityPatch();
             InvokeStaticNoArguments(SleekWorkStartupTypeName, "ReconcileCompatibility");
             InvokeStaticNoArguments(WorkTypeOrderTypeName, "Reconcile");
+        }
+
+        /// <summary>
+        /// Rechecks a cached negative optional-mod result at the explicit post-load reconciliation
+        /// boundary. Normal IsPresent reads remain cached, so closed-tab/event paths do not poll.
+        /// </summary>
+        internal static void ReconcileDetection()
+        {
+            if (_detected == true)
+            {
+                return;
+            }
+
+            _detected = null;
+            _detectionComplete = false;
+            _detectedPackageId = null;
+            EnsureDetected();
         }
 
         internal static bool TryGetSleekWorkGiverOverride(
@@ -990,7 +1038,7 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                     }
                 }
 
-                // Some staged ModContentPack instances expose the active package through
+                // Some harness/staged ModContentPack instances expose the active package through
                 // ModLister/ModsConfig before their RunningModsList entry has a populated PackageId.
                 // Keep detection independent of load order so the optional bridge cannot silently
                 // disable itself in a valid active-mod list.
@@ -1009,15 +1057,14 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                     HasLoadedSleekAssembly())
                 {
                     _detected = true;
-                    _detectedPackageId = "type detected";
+                    _detectedPackageId = "type probe";
                     _detectionComplete = true;
                     return;
                 }
 
-                // Before Playing, a late-loaded Workshop assembly may still be
-                // absent. Retry during load; after Playing, cache the negative
-                // result so IsPresent is not a per-event mod scan.
-                _detectionComplete = Current.ProgramState == ProgramState.Playing;
+                // Cache negative results until explicit ReconcileDetection, so IsPresent is not
+                // a per-event mod scan while a late-loaded Workshop assembly remains absent.
+                _detectionComplete = true;
             }
             catch (Exception exception)
             {
@@ -1026,7 +1073,8 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
                 BetterWorkTabMod.DebugLog(
                     "[SleekWorkTab] Optional detection failed: " + exception.GetBaseException().Message,
                     DebugFeature.ModSupport);
-                _detectionComplete = Current.ProgramState == ProgramState.Playing;
+                // Cache the safe negative until explicit ReconcileDetection.
+                _detectionComplete = true;
             }
         }
 

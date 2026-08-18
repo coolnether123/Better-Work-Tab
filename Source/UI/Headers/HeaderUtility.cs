@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.Columns;
-using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 
 namespace Better_Work_Tab.UI.Headers
@@ -54,7 +53,7 @@ namespace Better_Work_Tab.UI.Headers
                 return cached;
             }
 
-            WorkTabDiagnostics.RecordHeaderTextBuild();
+            SubWorkTransitionPerfDiagnostics.CountHeaderTextBuild();
             string label;
             if (workType == null)
             {
@@ -96,7 +95,7 @@ namespace Better_Work_Tab.UI.Headers
                 return cached;
             }
 
-            WorkTabDiagnostics.RecordHeaderTextBuild();
+            SubWorkTransitionPerfDiagnostics.CountHeaderTextBuild();
             string label = BuildParentHeaderText(workType, isMoved);
             HeaderTextCache[key] = label;
             return label;
@@ -289,18 +288,8 @@ namespace Better_Work_Tab.UI.Headers
             /// <summary>
             /// User-configurable underline color for angled headers.
             /// </summary>
-            public static Color HeaderUnderlineColor
-            {
-                get
-                {
-                    if (WorkTabColorPreviewController.Instance.TryGetHeaderUnderlineColor(out Color previewColor))
-                    {
-                        return previewColor;
-                    }
-
-                    return BetterWorkTabMod.Settings?.headerUnderlineColor ?? DefaultSettings.Color_HeaderUnderline;
-                }
-            }
+            public static Color HeaderUnderlineColor =>
+                BetterWorkTabMod.Settings?.headerUnderlineColor ?? DefaultSettings.Color_HeaderUnderline;
 
             /// <summary>
             /// User-configurable stem color for vanilla-style headers. The default preserves RimWorld's grey.
@@ -309,11 +298,6 @@ namespace Better_Work_Tab.UI.Headers
             {
                 get
                 {
-                    if (WorkTabColorPreviewController.Instance.TryGetHeaderUnderlineColor(out Color previewColor))
-                    {
-                        return previewColor;
-                    }
-
                     var settings = BetterWorkTabMod.Settings;
                     if (settings == null ||
                         Approximately(settings.headerUnderlineColor, DefaultSettings.Color_HeaderUnderline))
@@ -323,18 +307,6 @@ namespace Better_Work_Tab.UI.Headers
 
                     return settings.headerUnderlineColor;
                 }
-            }
-
-            public static Color HeaderTextColor(bool showMarker)
-            {
-                if (WorkTabColorPreviewController.Instance.TryGetHeaderTextColor(out Color previewColor))
-                {
-                    return previewColor;
-                }
-
-                return (showMarker && BetterWorkTabMod.Settings.showMovedColumnColorTint)
-                    ? MovedMarkerColor
-                    : BetterWorkTabMod.Settings.angledHeaderColor;
             }
 
             private static bool Approximately(Color a, Color b)

@@ -2,15 +2,18 @@ using System;
 using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.PawnOrganizer.Patches;
 using System.Collections.Generic;
 using HarmonyLib;
 using RimWorld;
-using Spine.Harmony;
 using Spine.UI; // for TextColorHelper
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.Transpilers.BwtExactProfile;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
+using Better_Work_Tab.Features.Patches.Profiles;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using System.Reflection;
 
 namespace Better_Work_Tab.Patches
@@ -30,6 +33,10 @@ namespace Better_Work_Tab.Patches
         // Postfix ensures overlays draw after vanilla rendering when Prefix returns true (e.g., no contrast mode)
         public static void Postfix(PawnColumnWorker_Label __instance, Rect rect, Pawn pawn, PawnTable table)
         {
+            if (!BwtRaisedPriorityFeatureInstaller.IsFeatureActive ||
+                !PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+                return;
+
             if (SleekWorkTabGateway.SleekOwnsWorkTab)
                 return;
 
@@ -55,6 +62,10 @@ namespace Better_Work_Tab.Patches
             Pawn pawn,
             PawnTable table)
         {
+            if (!BwtRaisedPriorityFeatureInstaller.IsFeatureActive ||
+                !PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
+                return true;
+
             if (SleekWorkTabGateway.SleekOwnsWorkTab)
             {
                 return true;
@@ -158,7 +169,7 @@ namespace Better_Work_Tab.Patches
                 if (Current.ProgramState == ProgramState.Playing && Event.current.button == 0)
                 {
                     // Keep the Work tab open when the user opts into the setting; otherwise mimic vanilla.
-                    if (ShouldCloseWorkTab())
+                    if (PawnLabelCloseAdapter.ShouldCloseWorkTab())
                     {
                         Find.MainTabsRoot.EscapeCurrentTab(false);
                     }
@@ -171,37 +182,6 @@ namespace Better_Work_Tab.Patches
                 TooltipHandler.TipRegion(rect1, tooltip);
             }
         }
-
-        public static IEnumerable<CodeInstruction> Transpiler(
-            IEnumerable<CodeInstruction> instructions,
-            MethodBase original)
-        {
-            return FluentTranspilerExecution.ExecuteRequiredOrOriginal(
-                instructions,
-                original,
-                null,
-                "[BWT] Pawn label close-tab transpiler",
-                transpiler => transpiler
-                    .ForCall(AccessTools.Method(
-                        typeof(MainTabsRoot),
-                        nameof(MainTabsRoot.EscapeCurrentTab),
-                        new[] { typeof(bool) }))
-                    .ReplaceWith(AccessTools.Method(
-                        typeof(Patch_PawnColumnWorker_Label_DoCell),
-                        nameof(MaybeCloseWorkTab))));
-        }
-
-        private static void MaybeCloseWorkTab(MainTabsRoot root, bool playSound)
-        {
-            // Transpiler covers the vanilla draw path; Prefix handles the contrast path.
-            if (ShouldCloseWorkTab())
-            {
-                root?.EscapeCurrentTab(playSound);
-            }
-        }
-
-        private static bool ShouldCloseWorkTab() =>
-            !(BetterWorkTabMod.Settings?.disableLeftClickClose ?? false);
 
         private readonly struct GUIColorScope : IDisposable
         {
@@ -217,6 +197,19 @@ namespace Better_Work_Tab.Patches
             {
                 GUI.color = _previous;
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(PawnColumnWorker_Label), nameof(PawnColumnWorker_Label.DoCell))]
+    [HarmonyPatchCategory(BwtRaisedPriorityFeatureInstaller.RaisedPriorityPatchCategory)]
+    public static class Patch_PawnColumnWorker_Label_DoCell_Transpiler
+    {
+        [HarmonyTranspiler]
+        public static IEnumerable<CodeInstruction> Transpiler(
+            IEnumerable<CodeInstruction> instructions,
+            MethodBase original)
+        {
+            return BwtCallRedirectConsumers.ApplyPawnLabelCloseWorkTab(instructions, original);
         }
     }
 }

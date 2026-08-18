@@ -23,79 +23,19 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static readonly Dictionary<int, bool> ReassignedCache = new Dictionary<int, bool>();
         private static readonly Dictionary<string, List<WorkGiver>> OrderedWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
         private static readonly Dictionary<string, List<WorkGiver>> DisplayWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
-        private static readonly Dictionary<WorkTypeDef, List<WorkGiver>> VanillaWorkGiverCache =
-            new Dictionary<WorkTypeDef, List<WorkGiver>>();
-        private static bool _vanillaWorkGiverCachePrepared;
+        private static int _mutationBatchDepth;
+        private static bool _mutationBatchChanged;
 
         private static int _cachedSyncVersion = -1;
         private static int _cachedActivationSyncVersion = int.MinValue;
         private static GameComponent_BWTWorldSettings _cachedActivationComponent;
-        private static WorkGiverReassignmentData _cachedActivationData;
-        private static bool _cachedHasMaterialData;
-        private static bool _runtimeEnabledKnown;
-        private static bool _lastRuntimeEnabled = DefaultSettings.enableSubWorkDrilldown;
+        private static bool _cachedHasAnyData;
         private static BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
-
-        internal static bool IsRuntimeEnabled => _lastRuntimeEnabled;
-
-        internal static void OnRuntimeSettingChanged()
-        {
-            bool enabled = ReadRuntimeEnabled();
-                if (!_runtimeEnabledKnown)
-                {
-                    _runtimeEnabledKnown = true;
-                    _lastRuntimeEnabled = enabled;
-                    if (!enabled)
-                {
-                    PrepareVanillaWorkGiverCache();
-                }
-                return;
-            }
-
-            if (_lastRuntimeEnabled != enabled)
-            {
-                _lastRuntimeEnabled = enabled;
-                if (enabled)
-                {
-                    // Migration's load-state callback owns the cache reset.
-                    // Keep the remaining transition batch after migration so
-                    // component and no-component paths do not invalidate twice.
-                    MigrateLegacySettingsDataIfNeeded(
-                        Current.Game?.GetComponent<GameComponent_BWTWorldSettings>());
-                }
-                else
-                {
-                    InvalidateCaches();
-                    SubWorkDrilldownState.ResetForWindowClose();
-                    InvalidateVanillaWorkGiverCache();
-                    PrepareVanillaWorkGiverCache();
-                }
-
-                TimePriorityService.NotifyFallbacksChanged();
-
-                UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
-                    UI.WorkGrid.Contracts.WorkTabDirtyFlags.SubWorkOverride |
-                    UI.WorkGrid.Contracts.WorkTabDirtyFlags.Columns |
-                    UI.WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
-                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            }
-        }
-
-        private static bool ReadRuntimeEnabled()
-        {
-            return Settings?.enableSubWorkDrilldown ?? DefaultSettings.enableSubWorkDrilldown;
-        }
 
         private static WorkGiverReassignmentData ExistingData
         {
             get
             {
-                if (!IsRuntimeEnabled)
-                {
-                    return null;
-                }
-
                 var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
                 return component?.WorkGiverReassignments ?? Settings?.LegacyWorkGiverReassignments;
             }
@@ -105,11 +45,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             get
             {
-                if (!IsRuntimeEnabled)
-                {
-                    return null;
-                }
-
                 var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
                 if (component != null)
                 {
@@ -125,43 +60,30 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        internal static int CurrentSyncVersion => IsRuntimeEnabled ? ExistingData?.SyncVersion ?? 0 : 0;
+        internal static int CurrentSyncVersion => Data?.SyncVersion ?? 0;
 
-        internal static bool HasMaterialData
+        internal static bool HasActiveData
         {
             get
             {
-                if (!IsRuntimeEnabled)
-                {
-                    return false;
-                }
-
                 WorkGiverReassignmentData data = ExistingData;
                 GameComponent_BWTWorldSettings component =
                     Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
                 int version = data?.SyncVersion ?? 0;
                 if (!ReferenceEquals(component, _cachedActivationComponent) ||
-                    version != _cachedActivationSyncVersion ||
-                    !ReferenceEquals(data, _cachedActivationData))
+                    version != _cachedActivationSyncVersion)
                 {
                     _cachedActivationComponent = component;
                     _cachedActivationSyncVersion = version;
-                    _cachedActivationData = data;
-                    _cachedHasMaterialData = data != null &&
-                                             WorkGiverReassignmentMateriality.HasMaterialData(data);
+                    _cachedHasAnyData = data != null && data.HasAnyData();
                 }
 
-                return _cachedHasMaterialData;
+                return _cachedHasAnyData;
             }
         }
 
         internal static void SetPawnOverrideSynced(int pawnId, string workGiverDefName, int priority)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             if (MultiplayerBridge.Active)
             {
                 SyncSetPawnOverride(pawnId, workGiverDefName, priority);
@@ -173,11 +95,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static void ClearPawnOverrideSynced(int pawnId, string workGiverDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             if (MultiplayerBridge.Active)
             {
                 SyncClearPawnOverride(pawnId, workGiverDefName);
@@ -189,11 +106,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static void SetPawnOverridesBatchSynced(string workGiverDefName, List<int> pawnIds, List<int> priorities)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             if (MultiplayerBridge.Active)
             {
                 SyncSetPawnOverridesBatch(workGiverDefName, pawnIds, priorities);
@@ -205,11 +117,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static void ClearPawnOverridesForWorkTypeSynced(int pawnId, string workTypeDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             if (MultiplayerBridge.Active)
             {
                 SyncClearPawnOverridesForWorkType(pawnId, workTypeDefName);
@@ -221,11 +128,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static void EnableParentWorkTypeSynced(int pawnId, string workTypeDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             if (MultiplayerBridge.Active)
             {
                 SyncEnableParentWorkType(pawnId, workTypeDefName);
@@ -237,11 +139,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static void EnableParentAndClearSubOverridesSynced(int pawnId, string workTypeDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             if (MultiplayerBridge.Active)
             {
                 SyncEnableParentAndClearSubOverrides(pawnId, workTypeDefName);
@@ -253,11 +150,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static void EnableParentAndSetOnlySubOverrideSynced(int pawnId, string workTypeDefName, string workGiverDefName, int priority)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             if (MultiplayerBridge.Active)
             {
                 SyncEnableParentAndSetOnlySubOverride(pawnId, workTypeDefName, workGiverDefName, priority);
@@ -267,29 +159,19 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             ApplyEnableParentAndSetOnlySubOverride(pawnId, workTypeDefName, workGiverDefName, priority);
         }
 
-        internal static void SetPawnWorkGiverOrderSynced(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames)
+        internal static bool SetPawnWorkGiverOrderSynced(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             if (MultiplayerBridge.Active)
             {
                 SyncSetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
-                return;
+                return true;
             }
 
-            SetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
+            return SetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
         }
 
         internal static void MoveWithinWorkTypeSynced(string workTypeDefName, string workGiverDefName, int newIndex, Pawn pawn = null)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             int pawnId = pawn?.thingIDNumber ?? -1;
             if (pawnId == -1)
             {
@@ -311,47 +193,41 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         /// </summary>
         internal static void InvalidateCaches()
         {
-            DynamicGameplayPatchController.RequestRefresh();
             WorkGiverTargetCache.Clear();
             ReassignedCache.Clear();
             OrderedWorkGiverCache.Clear();
             DisplayWorkGiverCache.Clear();
             _cachedActivationSyncVersion = int.MinValue;
             _cachedActivationComponent = null;
-            _cachedActivationData = null;
-            _cachedHasMaterialData = false;
         }
 
-        private static void InvalidateVanillaWorkGiverCache()
+        internal static IDisposable BeginMutationBatch()
         {
-            VanillaWorkGiverCache.Clear();
-            _vanillaWorkGiverCachePrepared = false;
+            _mutationBatchDepth++;
+            return new MutationBatchScope();
+        }
+
+        internal static bool CommitMutationBatch()
+        {
+            if (_mutationBatchDepth != 0 || !_mutationBatchChanged)
+            {
+                return false;
+            }
+
+            _mutationBatchChanged = false;
+            InvalidateCaches();
+            return true;
         }
 
         internal static void OnSettingsLoaded()
         {
-            OnRuntimeSettingChanged();
             InvalidateCaches();
-            InvalidateVanillaWorkGiverCache();
             WorkGiverLayoutHistory.Clear();
-            if (!IsRuntimeEnabled)
-            {
-                PrepareVanillaWorkGiverCache();
-            }
-            _cachedSyncVersion = IsRuntimeEnabled ? Data?.SyncVersion ?? 0 : 0;
+            _cachedSyncVersion = Data?.SyncVersion ?? 0;
         }
 
         internal static void MigrateLegacySettingsDataIfNeeded(GameComponent_BWTWorldSettings component)
         {
-            if (!IsRuntimeEnabled)
-            {
-                // Keep the settings-level payload intact. It is the only copy
-                // available if sub-work is enabled after this save is loaded.
-                InvalidateVanillaWorkGiverCache();
-                PrepareVanillaWorkGiverCache();
-                return;
-            }
-
             if (component == null)
             {
                 OnSettingsLoaded();
@@ -393,28 +269,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static void OnWorldDataLoaded()
         {
-            OnRuntimeSettingChanged();
             InvalidateCaches();
-            InvalidateVanillaWorkGiverCache();
-            _cachedSyncVersion = IsRuntimeEnabled ? Data?.SyncVersion ?? 0 : 0;
-            if (!IsRuntimeEnabled)
-            {
-                PrepareVanillaWorkGiverCache();
-            }
-            if (IsRuntimeEnabled)
-            {
-                CleanupOrphanedReassignments();
-            }
+            _cachedSyncVersion = Data?.SyncVersion ?? 0;
+            CleanupOrphanedReassignments();
         }
 
         private static void EnsureVersion()
         {
-            if (!IsRuntimeEnabled)
-            {
-                _cachedSyncVersion = 0;
-                return;
-            }
-
             int version = Data?.SyncVersion ?? 0;
             if (version == _cachedSyncVersion)
             {
@@ -430,11 +291,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             if (def == null)
             {
                 return null;
-            }
-
-            if (!IsRuntimeEnabled)
-            {
-                return def.workType;
             }
 
             EnsureVersion();
@@ -470,11 +326,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            if (!IsRuntimeEnabled)
-            {
-                return false;
-            }
-
             EnsureVersion();
 
             if (ReassignedCache.TryGetValue(def.shortHash, out var cached))
@@ -500,36 +351,25 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static IReadOnlyList<WorkGiver> GetWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn, bool applyPrioritySort)
         {
-            bool runtimeEnabled = IsRuntimeEnabled;
-            if (runtimeEnabled)
-            {
-                EnsureVersion();
-            }
+            EnsureVersion();
 
             if (workType == null)
             {
                 return Array.Empty<WorkGiver>();
             }
 
-            if (!runtimeEnabled)
-            {
-                return applyPrioritySort && TimePriorityService.HasMaterialWorkGiverOrdering(pawn, workType)
-                    ? GetTimeOnlyOrderedWorkGivers(workType, pawn)
-                    : GetVanillaWorkGivers(workType);
-            }
-
-            if (runtimeEnabled && applyPrioritySort && pawn == null && OrderedWorkGiverCache.TryGetValue(workType.defName, out var cached))
+            if (applyPrioritySort && pawn == null && OrderedWorkGiverCache.TryGetValue(workType.defName, out var cached))
             {
                 return cached;
             }
 
-            if (runtimeEnabled && !applyPrioritySort && pawn == null && DisplayWorkGiverCache.TryGetValue(workType.defName, out cached))
+            if (!applyPrioritySort && pawn == null && DisplayWorkGiverCache.TryGetValue(workType.defName, out cached))
             {
                 return cached;
             }
 
             var result = new List<WorkGiver>();
-            var data = runtimeEnabled ? Data : null;
+            var data = Data;
 
             List<string> orderedNames = null;
             if (pawn != null && data?.PawnWorkGiverOrdering != null)
@@ -628,7 +468,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 result = indexed.Select(x => x.g).ToList();
             }
 
-            if (runtimeEnabled && pawn == null)
+            if (pawn == null)
             {
                 if (applyPrioritySort)
                 {
@@ -643,109 +483,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return result;
         }
 
-        private static IReadOnlyList<WorkGiver> GetVanillaWorkGivers(WorkTypeDef workType)
-        {
-            if (!_vanillaWorkGiverCachePrepared)
-            {
-                PrepareVanillaWorkGiverCache();
-            }
-
-            return VanillaWorkGiverCache.TryGetValue(workType, out List<WorkGiver> workGivers)
-                ? workGivers
-                : Array.Empty<WorkGiver>();
-        }
-
-        private static IReadOnlyList<WorkGiver> GetTimeOnlyOrderedWorkGivers(
-            WorkTypeDef workType,
-            Pawn pawn)
-        {
-            var result = new List<WorkGiver>(GetVanillaWorkGivers(workType));
-            int parentPriority = pawn == null
-                ? WorkPrioritySystem.GetDefaultEnabledPriority()
-                : WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
-
-            // List.Sort is unstable. Precompute the effective priorities and use
-            // insertion sort so equal priorities retain the exact vanilla order.
-            var effectivePriorities = new int[result.Count];
-            for (int i = 0; i < result.Count; i++)
-            {
-                int priority = TimePriorityService.GetEffectiveWorkGiverPriority(
-                    pawn,
-                    workType,
-                    result[i].def,
-                    parentPriority);
-                effectivePriorities[i] = priority == WorkPrioritySystem.DisabledPriority ? 999 : priority;
-            }
-
-            for (int i = 1; i < result.Count; i++)
-            {
-                WorkGiver workGiver = result[i];
-                int priority = effectivePriorities[i];
-                int j = i - 1;
-                while (j >= 0 && effectivePriorities[j] > priority)
-                {
-                    result[j + 1] = result[j];
-                    effectivePriorities[j + 1] = effectivePriorities[j];
-                    j--;
-                }
-
-                result[j + 1] = workGiver;
-                effectivePriorities[j + 1] = priority;
-            }
-
-            return result;
-        }
-
-        private static void PrepareVanillaWorkGiverCache()
-        {
-            if (_vanillaWorkGiverCachePrepared)
-            {
-                return;
-            }
-
-            List<WorkTypeDef> workTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
-            if (workTypes == null)
-            {
-                return;
-            }
-
-            for (int i = 0; i < workTypes.Count; i++)
-            {
-                WorkTypeDef workType = workTypes[i];
-                if (workType == null || VanillaWorkGiverCache.ContainsKey(workType))
-                {
-                    continue;
-                }
-
-                List<WorkGiver> workGivers = new List<WorkGiver>(workType.workGiversByPriority?.Count ?? 0);
-                if (workType.workGiversByPriority != null)
-                {
-                    for (int j = 0; j < workType.workGiversByPriority.Count; j++)
-                    {
-                        WorkGiverDef def = workType.workGiversByPriority[j];
-                        if (def?.Worker != null)
-                        {
-                            workGivers.Add(def.Worker);
-                        }
-                    }
-                }
-
-                VanillaWorkGiverCache[workType] = workGivers;
-            }
-
-            // Mark an empty definition set prepared too. The settings/world
-            // lifecycle methods invalidate this state when definitions are
-            // available after startup or a game transition.
-            _vanillaWorkGiverCachePrepared = true;
-        }
-
         internal static List<Pawn> GetPawnsWithOverrides(WorkTypeDef workType)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return new List<Pawn>();
-            }
-
             var data = Data;
             if (data == null || workType == null)
             {
@@ -796,11 +535,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static int CountPawnPriorityOverrides(WorkTypeDef workType)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return 0;
-            }
-
             var data = Data;
             if (data?.PawnWorkGiverPriorityOverrides == null || workType == null)
             {
@@ -833,11 +567,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool HasAnyPawnOverride(WorkTypeDef workType, Pawn pawn)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return false;
-            }
-
             var data = Data;
             if (data?.PawnWorkGiverPriorityOverrides == null || workType == null || pawn == null)
             {
@@ -860,11 +589,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool HasPawnOrdering(Pawn pawn, WorkTypeDef workType)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return false;
-            }
-
             var data = Data;
             if (data?.PawnWorkGiverOrdering == null || pawn == null || workType == null)
             {
@@ -878,11 +602,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool ShouldShowMovedWorkGiverMarker(WorkTypeDef workType, WorkGiverDef workGiverDef)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return false;
-            }
-
             return (GetTargetWorkType(workGiverDef) == workType && IsReassigned(workGiverDef)) ||
                    WasWorkGiverDraggedByPlayer(workType, workGiverDef) &&
                    IsWorkGiverOutOfBaselinePosition(workType, workGiverDef);
@@ -890,11 +609,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool WasWorkGiverDraggedByPlayer(WorkTypeDef workType, WorkGiverDef workGiverDef)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return false;
-            }
-
             var data = Data;
             if (data?.PlayerMovedWorkGiversByWorkType == null ||
                 workType?.defName == null ||
@@ -993,11 +707,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static bool TryGetPawnWorkGiverOverride(Pawn pawn, WorkGiverDef workGiver, out int priority)
         {
             priority = WorkPrioritySystem.DisabledPriority;
-            if (!IsRuntimeEnabled)
-            {
-                return false;
-            }
-
             var data = Data;
             if (data?.PawnWorkGiverPriorityOverrides == null || pawn == null || workGiver?.defName == null)
             {
@@ -1043,8 +752,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool LockedSubWorkOverridesDisabledParent()
         {
-            return IsRuntimeEnabled &&
-                   !MultiplayerBridge.Active &&
+            return !MultiplayerBridge.Active &&
                    BetterWorkTabMod.Settings?.subWorkDisabledParentMode == BetterWorkTabSettings.SubWorkDisabledParentMode.LockedSubWorkOverridesParent;
         }
 
@@ -1106,17 +814,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static int GetWorkGiverPriority(Pawn pawn, WorkGiverDef workGiver, int defaultPriority)
         {
-            return GetWorkGiverPriority(pawn, workGiver, defaultPriority, out _);
-        }
-
-        internal static int GetWorkGiverPriority(
-            Pawn pawn,
-            WorkGiverDef workGiver,
-            int defaultPriority,
-            out bool hasPawnOverride)
-        {
-            hasPawnOverride = false;
-            if (!IsRuntimeEnabled || workGiver == null)
+            if (workGiver == null)
             {
                 return WorkPrioritySystem.ClampPriority(defaultPriority);
             }
@@ -1130,7 +828,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 pawnDict != null &&
                 pawnDict.TryGetValue(workGiver.defName, out int pawnPriority))
             {
-                hasPawnOverride = true;
                 return WorkPrioritySystem.ClampPriority(pawnPriority);
             }
             
@@ -1147,22 +844,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static int GetInheritedWorkGiverPriority(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver)
         {
-            return GetInheritedWorkGiverPriority(
-                pawn,
-                workType,
-                workGiver,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
-        }
-
-        internal static int GetInheritedWorkGiverPriority(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiver,
-            int knownParentPriority)
-        {
-            if (!IsRuntimeEnabled || workGiver == null)
+            int defaultPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            if (workGiver == null)
             {
-                return WorkPrioritySystem.ClampPriority(knownParentPriority);
+                return WorkPrioritySystem.ClampPriority(defaultPriority);
             }
 
             var data = Data;
@@ -1178,93 +863,53 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     globalPriority);
             }
 
-            return WorkPrioritySystem.ClampPriority(knownParentPriority);
+            return WorkPrioritySystem.ClampPriority(defaultPriority);
         }
 
         [SyncMethod]
         public static void SyncSetPawnOverride(int pawnId, string workGiverDefName, int priority)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             ApplyPawnOverride(pawnId, workGiverDefName, priority);
         }
 
         [SyncMethod]
         public static void SyncClearPawnOverride(int pawnId, string workGiverDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             ApplyClearPawnOverride(pawnId, workGiverDefName);
         }
 
         [SyncMethod]
         public static void SyncSetPawnOverridesBatch(string workGiverDefName, List<int> pawnIds, List<int> priorities)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             ApplyPawnOverridesBatch(workGiverDefName, pawnIds, priorities);
         }
 
         [SyncMethod]
         public static void SyncClearPawnOverridesForWorkType(int pawnId, string workTypeDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             ApplyClearPawnOverridesForWorkType(pawnId, workTypeDefName);
         }
 
         [SyncMethod]
         public static void SyncEnableParentWorkType(int pawnId, string workTypeDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             ApplyEnableParentWorkType(pawnId, workTypeDefName);
         }
 
         [SyncMethod]
         public static void SyncEnableParentAndClearSubOverrides(int pawnId, string workTypeDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             ApplyEnableParentAndClearSubOverrides(pawnId, workTypeDefName);
         }
 
         [SyncMethod]
         public static void SyncEnableParentAndSetOnlySubOverride(int pawnId, string workTypeDefName, string workGiverDefName, int priority)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             ApplyEnableParentAndSetOnlySubOverride(pawnId, workTypeDefName, workGiverDefName, priority);
         }
 
         private static void ApplyPawnOverride(int pawnId, string workGiverDefName, int priority)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
             if (workGiver == null)
             {
@@ -1276,11 +921,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static void ApplyClearPawnOverride(int pawnId, string workGiverDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
             if (workGiver == null)
             {
@@ -1292,11 +932,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static void ApplyPawnOverridesBatch(string workGiverDefName, List<int> pawnIds, List<int> priorities)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
             if (workGiver == null || pawnIds == null || priorities == null)
             {
@@ -1323,11 +958,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static bool SetPawnOverride(int pawnId, WorkGiverDef workGiver, int priority, bool notify)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return false;
-            }
-
             var data = Data;
             if (data == null || workGiver == null)
             {
@@ -1362,11 +992,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static bool ClearPawnOverride(int pawnId, WorkGiverDef workGiver, bool notify)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return false;
-            }
-
             var data = Data;
             if (data == null || workGiver?.defName == null)
             {
@@ -1416,22 +1041,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static void ApplyClearPawnOverridesForWorkType(int pawnId, string workTypeDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
             ClearPawnOverridesForWorkType(pawnId, workType, notify: true);
         }
 
         private static void ApplyEnableParentWorkType(int pawnId, string workTypeDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
             var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
             if (pawn?.workSettings == null || workType == null || pawn.WorkTypeIsDisabled(workType))
@@ -1451,11 +1066,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static void ApplyEnableParentAndClearSubOverrides(int pawnId, string workTypeDefName)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
             var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
             if (pawn?.workSettings == null || workType == null || pawn.WorkTypeIsDisabled(workType))
@@ -1480,11 +1090,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static void ApplyEnableParentAndSetOnlySubOverride(int pawnId, string workTypeDefName, string workGiverDefName, int priority)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
             var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
             var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
@@ -1515,11 +1120,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static bool SetClickedPawnOverrideForWorkType(int pawnId, WorkTypeDef workType, WorkGiverDef enabledWorkGiver, int priority)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return false;
-            }
-
             var data = Data;
             if (data == null || workType == null || enabledWorkGiver == null)
             {
@@ -1541,11 +1141,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static bool ClearPawnOverridesForWorkType(int pawnId, WorkTypeDef workType, bool notify)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return false;
-            }
-
             var data = Data;
             if (data == null || workType == null)
             {
@@ -1611,12 +1206,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static bool TryReassignWorkGiver(string workGiverDefName, string targetWorkTypeDefName, int? insertIndex, out string errorMsg)
         {
             errorMsg = null;
-            if (!IsRuntimeEnabled)
-            {
-                errorMsg = "Specific jobs are disabled.";
-                return false;
-            }
-
             var workGiverDef = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
             if (workGiverDef == null)
             {
@@ -1641,21 +1230,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         [SyncMethod]
         public static void SyncSetPawnWorkGiverOrder(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             SetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
         }
 
         private static bool SetPawnWorkGiverOrder(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames, bool notify = true)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return false;
-            }
-
             var data = Data;
             if (data == null) return false;
             data.EnsureCollections();
@@ -1714,21 +1293,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         [SyncMethod]
         public static void SyncMoveWithinWorkType(string workTypeDefName, string workGiverDefName, int newIndex, int pawnId)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             ApplyMoveWithinWorkType(workTypeDefName, workGiverDefName, newIndex, pawnId);
         }
 
         private static void ApplyMoveWithinWorkType(string workTypeDefName, string workGiverDefName, int newIndex, int pawnId)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
             if (workType == null || workGiverDefName.NullOrEmpty())
             {
@@ -1771,11 +1340,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         [SyncMethod]
         internal static void SyncReassignWorkGiver(string workGiverDefName, string targetWorkTypeDefName, int insertIndex)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var wg = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
             var wt = DefDatabase<WorkTypeDef>.GetNamedSilentFail(targetWorkTypeDefName);
             if (wg == null || wt == null)
@@ -1791,11 +1355,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         /// </summary>
         private static void ApplyReassignment(WorkGiverDef workGiverDef, WorkTypeDef targetWorkTypeDef, int? insertIndex = null)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var data = Data;
             if (data == null)
             {
@@ -1849,11 +1408,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static void RecordPlayerMovedWorkGiver(WorkTypeDef workType, WorkGiverDef workGiverDef)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var data = Data;
             if (data == null || workType?.defName == null || workGiverDef?.defName == null)
             {
@@ -1875,11 +1429,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static void PruneBaselineAlignedMovedWorkGivers(WorkTypeDef workType)
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var data = Data;
             if (data?.PlayerMovedWorkGiversByWorkType == null || workType?.defName == null)
             {
@@ -1968,14 +1517,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static void NotifySubWorkDataChanged()
         {
-            if (!IsRuntimeEnabled)
+            InvalidateCaches();
+            if (_mutationBatchDepth > 0)
             {
+                _mutationBatchChanged = true;
                 return;
             }
 
-            InvalidateCaches();
-            TimePriorityService.NotifyFallbacksChanged();
-            DynamicGameplayPatchController.ProcessPendingRefresh();
             UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.SubWorkOverride |
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.Columns |
@@ -1984,34 +1532,70 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }
 
-        /// <summary>
-        /// Invalidates runtime state after an integration directly edits the
-        /// public reassignment payload. The integration must call this once per
-        /// completed edit; the manager deliberately does not audit the payload.
-        /// </summary>
-        internal static void NotifyExternalDataChanged()
+        private static void EndMutationBatch()
         {
-            if (!IsRuntimeEnabled)
+            if (_mutationBatchDepth > 0)
             {
-                return;
+                _mutationBatchDepth--;
             }
+        }
 
-            WorkGiverReassignmentData data = ExistingData;
-            if (data != null)
+        private sealed class MutationBatchScope : IDisposable
+        {
+            private bool _disposed;
+
+            public void Dispose()
             {
-                data.SyncVersion++;
-            }
+                if (_disposed)
+                {
+                    return;
+                }
 
-            NotifySubWorkDataChanged();
+                _disposed = true;
+                EndMutationBatch();
+            }
+        }
+
+        internal static int ComputePresentationAuditSignature()
+        {
+            unchecked
+            {
+                int hash = 17;
+                WorkGiverReassignmentData data = Data;
+                if (data == null)
+                {
+                    return hash;
+                }
+
+                if (data.WorkGiverToWorkTypeMap != null)
+                {
+                    foreach (var entry in data.WorkGiverToWorkTypeMap)
+                    {
+                        hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(entry.Key ?? string.Empty);
+                        hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(entry.Value ?? string.Empty);
+                    }
+                }
+
+                if (data.PawnWorkGiverPriorityOverrides != null)
+                {
+                    foreach (var pawnEntry in data.PawnWorkGiverPriorityOverrides)
+                    {
+                        hash = (hash * 397) ^ pawnEntry.Key;
+                        if (pawnEntry.Value == null) continue;
+                        foreach (var priorityEntry in pawnEntry.Value)
+                        {
+                            hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(priorityEntry.Key ?? string.Empty);
+                            hash = (hash * 397) ^ priorityEntry.Value;
+                        }
+                    }
+                }
+
+                return hash;
+            }
         }
 
         internal static void CleanupOrphanedReassignments()
         {
-            if (!IsRuntimeEnabled)
-            {
-                return;
-            }
-
             var data = Data;
             if (data?.WorkGiverToWorkTypeMap == null)
             {

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Better_Work_Tab;
-using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Dividers;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
@@ -21,7 +20,6 @@ using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
-using Better_Work_Tab.UI.Settings;
 using RimWorld;
 using Spine.Profiling;
 using UnityEngine;
@@ -98,9 +96,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
                 var nameColumn = FindNameColumn(columns);
                 IReadOnlyList<WorkTabLayoutColumn> renderColumns = columns;
-                // Reorder offsets are stable for this body pass; keep the transient animation
-                // lookup out of every cell when the normal layout geometry is active.
-                bool columnReorderAnimationActive = ColumnReorderAnimationState.IsActive;
                 if (snapshotLayer == null &&
                     viewport.ViewRect.width > viewport.OutRect.width + 0.5f)
                 {
@@ -110,13 +105,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     for (int i = 0; i < columns.Count; i++)
                     {
                         WorkTabLayoutColumn column = columns[i];
-                        GetBodyColumnGeometry(
-                            column,
-                            columnReorderAnimationActive,
-                            out float bodyContentX,
-                            out float columnWidth);
-                        if (bodyContentX + columnWidth >= visibleLeft &&
-                            bodyContentX <= visibleRight)
+                        WorkGridAnimatedColumnGeometry geometry =
+                            WorkGridInteractionGeometry.GetAnimatedColumn(column);
+                        if (geometry.BodyContentX + geometry.Width >= visibleLeft &&
+                            geometry.BodyContentX <= visibleRight)
                         {
                             _visibleRenderColumns.Add(column);
                         }
@@ -165,8 +157,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         totalWidth,
                         totalHeight,
                         rowGeometry,
-                        visibleRows,
-                        columnReorderAnimationActive));
+                        visibleRows));
                     SpineTiming.Time("WorkTab.Rows.DrawAllRowContent", () => DrawAllRowContent(table,
                         rowDescriptors,
                         renderColumns,
@@ -174,8 +165,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         nameColumn,
                         snapshotLayer,
                         rowGeometry,
-                        visibleRows,
-                        columnReorderAnimationActive));
+                        visibleRows));
                     SpineTiming.Time("WorkTab.Rows.DrawRowSeparators", () => DrawRowSeparators(
                         rowDescriptors,
                         viewport.ViewRect.width,
@@ -191,8 +181,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         totalWidth,
                         totalHeight,
                         rowGeometry,
-                        visibleRows,
-                        columnReorderAnimationActive);
+                        visibleRows);
 
                     // Phase 2: Draw actual row content (pawn data, divider labels, backgrounds).
                     DrawAllRowContent(table,
@@ -202,8 +191,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         nameColumn,
                         snapshotLayer,
                         rowGeometry,
-                        visibleRows,
-                        columnReorderAnimationActive);
+                        visibleRows);
 
                     // Phase 3: Draw separator lines between rows.
                     DrawRowSeparators(
@@ -223,6 +211,45 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
+        internal bool TryGetRowAt(
+            IWorkTabLayoutController layout,
+            Vector2 mousePosition,
+            out WorkTabLayoutRow row)
+        {
+            row = default;
+            return layout?.GeometrySnapshot != null && layout.TryGetRowAt(mousePosition, out row);
+        }
+
+        internal bool TryGetBodyColumnAt(
+            IWorkTabLayoutController layout,
+            Vector2 mousePosition,
+            out WorkTabLayoutColumn column)
+        {
+            column = default;
+            return layout?.GeometrySnapshot != null && layout.TryGetBodyColumnAt(mousePosition, out column);
+        }
+
+        internal bool TryGetPriorityBoxHit(
+            IWorkTabLayoutController layout,
+            WorkTabLayoutRow row,
+            WorkTabLayoutColumn column,
+            Vector2 mousePosition,
+            out Rect priorityBoxRect)
+        {
+            priorityBoxRect = default;
+            if (layout == null ||
+                row.Pawn == null ||
+                !(column.Column?.Worker is PawnColumnWorker_WorkPriority))
+            {
+                return false;
+            }
+
+            Rect rowRect = layout.GetScreenRect(row);
+            Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(column, rowRect);
+            priorityBoxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
+            return priorityBoxRect.Contains(mousePosition);
+        }
+
         /// <summary>
         /// Calculates the total width of all columns combined once per frame.
         /// </summary>
@@ -237,25 +264,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             return totalWidth;
         }
 
-        private static void GetBodyColumnGeometry(
-            WorkTabLayoutColumn column,
-            bool columnReorderAnimationActive,
-            out float bodyContentX,
-            out float columnWidth)
-        {
-            if (columnReorderAnimationActive)
-            {
-                WorkGridAnimatedColumnGeometry geometry =
-                    WorkGridInteractionGeometry.GetAnimatedColumn(column);
-                bodyContentX = geometry.BodyContentX;
-                columnWidth = geometry.Width;
-                return;
-            }
-
-            bodyContentX = column.OffsetX;
-            columnWidth = column.Width;
-        }
-
         /// <summary>
         /// Phase 1: Draws all highlighting overlays.
         /// This includes selected and hovered rows, float-menu worktype columns,
@@ -267,40 +275,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             float totalWidth,
             float totalHeight,
             WorkGridGeometrySnapshot rowGeometry,
-            WorkGridIndexRange visibleRows,
-            bool columnReorderAnimationActive)
+            WorkGridIndexRange visibleRows)
         {
             var settings = BetterWorkTabMod.Settings;
-            WorkTabColorPreview preview = default;
-            bool hasHighlightPreview =
-                WorkTabColorPreviewController.Instance.TryGetPreview(out preview) &&
-                (preview.IncludesRow || preview.IncludesColumn);
-            if (!settings.ShowPawnAndWorktypeHighlights && !hasHighlightPreview)
+            if (!settings.ShowPawnAndWorktypeHighlights)
             {
                 return;
-            }
-
-            WorkTabLayoutColumn? previewColumn = null;
-            if (hasHighlightPreview &&
-                preview.IncludesColumn &&
-                WorkTabColumnHighlightUtility.TryGetSettingsPreviewColumn(
-                    columns,
-                    out WorkTabLayoutColumn resolvedPreviewColumn))
-            {
-                previewColumn = resolvedPreviewColumn;
-            }
-
-            int previewRowIndex = -1;
-            if (hasHighlightPreview && preview.IncludesRow)
-            {
-                for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
-                {
-                    if (rowDescriptors[i].IsPawn)
-                    {
-                        previewRowIndex = i;
-                        break;
-                    }
-                }
             }
 
             WorkTabLayoutColumn? hoveredColumn = null;
@@ -314,16 +294,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 for (int i = 0; i < columns.Count; i++)
                 {
                     var col = columns[i];
-                    GetBodyColumnGeometry(
-                        col,
-                        columnReorderAnimationActive,
-                        out float bodyContentX,
-                        out float columnWidth);
-
+                    WorkGridAnimatedColumnGeometry geometry =
+                        WorkGridInteractionGeometry.GetAnimatedColumn(col);
                     var columnRect = new Rect(
-                        bodyContentX,
+                        geometry.BodyContentX,
                         0f,
-                        columnWidth,
+                        geometry.Width,
                         totalHeight);
 
                     if (Mouse.IsOver(columnRect))
@@ -363,18 +339,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 var descriptor = rowDescriptors[i];
                 Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
 
-                bool isPreviewRow = i == previewRowIndex;
-
                 bool isFloatMenuPawn = descriptor.IsPawn &&
                     highlightedPawn != null &&
                     descriptor.Pawn == highlightedPawn &&
                     settings.ShowFloatMenuPawnAndWorktypeHighlight;
 
-                if (isPreviewRow)
-                {
-                    HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
-                }
-                else if (isFloatMenuPawn)
+                if (isFloatMenuPawn)
                 {
                     HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetFloatMenuColor());
                 }
@@ -433,30 +403,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             for (int i = 0; i < columns.Count; i++)
             {
                 var column = columns[i];
-                GetBodyColumnGeometry(
-                    column,
-                    columnReorderAnimationActive,
-                    out float bodyContentX,
-                    out float columnWidth);
-
+                WorkGridAnimatedColumnGeometry geometry =
+                    WorkGridInteractionGeometry.GetAnimatedColumn(column);
                 Rect columnRect = new Rect(
-                    bodyContentX,
+                    geometry.BodyContentX,
                     0f,
-                    columnWidth,
+                    geometry.Width,
                     totalHeight);
                 bool isWorkColumn = WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column);
-                bool isPreviewColumn = previewColumn.HasValue &&
-                                       column.Equals(previewColumn.Value);
                 bool isFloatMenuColumn = isWorkColumn &&
                     IsColumnHighlightedByFloatMenu(column, highlightedWorkType, highlightedWorkGiver);
                 bool isTimePrioritySourceColumn = isWorkColumn &&
                     TimePriorityScheduleEditor.ShouldHighlightSourceColumn(column);
 
-                if (isPreviewColumn)
-                {
-                    HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetColumnHoverColor());
-                }
-                else if (isFloatMenuColumn && settings.ShowFloatMenuPawnAndWorktypeHighlight)
+                if (isFloatMenuColumn && settings.ShowFloatMenuPawnAndWorktypeHighlight)
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetFloatMenuColor());
                 }
@@ -526,8 +486,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkTabLayoutColumn? nameColumn,
             IWorkGridSnapshotLayer snapshotLayer,
             WorkGridGeometrySnapshot rowGeometry,
-            WorkGridIndexRange visibleRows,
-            bool columnReorderAnimationActive)
+            WorkGridIndexRange visibleRows)
         {
             float currentY = 0f;
             for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
@@ -539,15 +498,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
                 var descriptor = rowDescriptors[i];
                 Rect rowRect = new Rect(0f, currentY, viewWidth, descriptor.Height);
-                DrawSingleRowContent(
-                    table,
-                    descriptor,
-                    columns,
-                    rowRect,
-                    nameColumn,
-                    i,
-                    snapshotLayer,
-                    columnReorderAnimationActive);
+                DrawSingleRowContent(table, descriptor, columns, rowRect, nameColumn, i, snapshotLayer);
                 if (rowGeometry == null)
                 {
                     currentY += descriptor.Height;
@@ -562,59 +513,28 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Rect rowRect,
             WorkTabLayoutColumn? nameColumn,
             int rowIndex,
-            IWorkGridSnapshotLayer snapshotLayer,
-            bool columnReorderAnimationActive)
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             if (descriptor.IsPawn)
             {
                 if (SpineTiming.Enabled)
                 {
-                    SpineTiming.Time(
-                        "WorkTab.Rows.DrawPawnRowContent",
-                        () => DrawPawnRowContent(
-                            table,
-                            descriptor,
-                            columns,
-                            rowRect,
-                            rowIndex,
-                            snapshotLayer,
-                            columnReorderAnimationActive));
+                    SpineTiming.Time("WorkTab.Rows.DrawPawnRowContent", () => DrawPawnRowContent(table, descriptor, columns, rowRect, rowIndex, snapshotLayer));
                 }
                 else
                 {
-                    DrawPawnRowContent(
-                        table,
-                        descriptor,
-                        columns,
-                        rowRect,
-                        rowIndex,
-                        snapshotLayer,
-                        columnReorderAnimationActive);
+                    DrawPawnRowContent(table, descriptor, columns, rowRect, rowIndex, snapshotLayer);
                 }
             }
             else if (descriptor.IsDivider)
             {
                 if (SpineTiming.Enabled)
                 {
-                    SpineTiming.Time(
-                        "WorkTab.Rows.DrawDividerRowContent",
-                        () => DrawDividerRowContent(
-                            descriptor,
-                            rowRect,
-                            nameColumn,
-                            rowIndex,
-                            snapshotLayer,
-                            columnReorderAnimationActive));
+                    SpineTiming.Time("WorkTab.Rows.DrawDividerRowContent", () => DrawDividerRowContent(descriptor, rowRect, nameColumn, rowIndex, snapshotLayer));
                 }
                 else
                 {
-                    DrawDividerRowContent(
-                        descriptor,
-                        rowRect,
-                        nameColumn,
-                        rowIndex,
-                        snapshotLayer,
-                        columnReorderAnimationActive);
+                    DrawDividerRowContent(descriptor, rowRect, nameColumn, rowIndex, snapshotLayer);
                 }
             }
         }
@@ -625,8 +545,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             IReadOnlyList<WorkTabLayoutColumn> columns,
             Rect rowRect,
             int rowIndex,
-            IWorkGridSnapshotLayer snapshotLayer,
-            bool columnReorderAnimationActive)
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             if (rowRect.height <= 0.5f)
             {
@@ -639,14 +558,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 try
                 {
                     Rect clippedRowRect = new Rect(0f, 0f, rowRect.width, MinimumPawnRenderHeight);
-                    DrawPawnRowContentUnclipped(
-                        table,
-                        descriptor,
-                        columns,
-                        clippedRowRect,
-                        rowIndex,
-                        snapshotLayer,
-                        columnReorderAnimationActive);
+                    DrawPawnRowContentUnclipped(table, descriptor, columns, clippedRowRect, rowIndex, snapshotLayer);
                 }
                 finally
                 {
@@ -656,14 +568,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
-            DrawPawnRowContentUnclipped(
-                table,
-                descriptor,
-                columns,
-                rowRect,
-                rowIndex,
-                snapshotLayer,
-                columnReorderAnimationActive);
+            DrawPawnRowContentUnclipped(table, descriptor, columns, rowRect, rowIndex, snapshotLayer);
         }
 
         private static void DrawPawnRowContentUnclipped(
@@ -672,8 +577,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             IReadOnlyList<WorkTabLayoutColumn> columns,
             Rect rowRect,
             int rowIndex,
-            IWorkGridSnapshotLayer snapshotLayer,
-            bool columnReorderAnimationActive)
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             Color snapshotTextColor;
             if (snapshotLayer == null ||
@@ -686,14 +590,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 CurrentRowTextColor = snapshotTextColor;
             }
 
-            DrawPawnRow(
-                table,
-                descriptor.Pawn,
-                rowRect,
-                columns,
-                rowIndex,
-                snapshotLayer,
-                columnReorderAnimationActive);
+            DrawPawnRow(table, descriptor.Pawn, rowRect, columns, rowIndex, snapshotLayer);
             DrawPawnRowOverlay(descriptor.Pawn, rowRect);
         }
 
@@ -702,8 +599,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Rect rowRect,
             WorkTabLayoutColumn? nameColumn,
             int rowIndex,
-            IWorkGridSnapshotLayer snapshotLayer,
-            bool columnReorderAnimationActive)
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             Color ignoredTextColor;
             if (snapshotLayer == null ||
@@ -714,11 +610,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             if (nameColumn.HasValue)
             {
-                DrawDividerRow(
-                    descriptor.Divider,
-                    rowRect,
-                    nameColumn.Value,
-                    columnReorderAnimationActive);
+                DrawDividerRow(descriptor.Divider, rowRect, nameColumn.Value);
             }
         }
 
@@ -734,9 +626,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             float currentY = 0f;
 
             GUI.color = new Color(1f, 1f, 1f, 0.12f);
-            int separatorEnd = Math.Min(visibleRows.EndExclusive, rowDescriptors.Count - 1);
-            for (int i = visibleRows.Start; i < separatorEnd; i++)
+            for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
             {
+                if (i >= rowDescriptors.Count - 1)
+                {
+                    continue;
+                }
+
                 if (rowGeometry != null)
                 {
                     currentY = rowGeometry.Rows[i].OffsetY;
@@ -801,12 +697,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private static void DrawDividerRow(
             PawnDivider divider,
             Rect rowRect,
-            WorkTabLayoutColumn nameColumn,
-            bool columnReorderAnimationActive)
+            WorkTabLayoutColumn nameColumn)
         {
-            Rect cellRect = columnReorderAnimationActive
-                ? WorkGridInteractionGeometry.GetAnimatedBodyContentRect(nameColumn, rowRect)
-                : new Rect(nameColumn.OffsetX, rowRect.y, nameColumn.Width, rowRect.height);
+            Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
+                nameColumn,
+                rowRect);
             DrawDividerToggle(divider, cellRect);
             DrawDividerLabel(divider, cellRect);
         }
@@ -868,8 +763,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Rect rowRect,
             IReadOnlyList<WorkTabLayoutColumn> columns,
             int rowIndex,
-            IWorkGridSnapshotLayer snapshotLayer,
-            bool columnReorderAnimationActive)
+            IWorkGridSnapshotLayer snapshotLayer)
         {
             bool scheduleOpen = FluffyTimeScheduleAssigner.IsOpen;
             WorkTypeDef expandedParentPriorityWorkType = null;
@@ -885,9 +779,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         continue;
                     }
 
-                    Rect cellRect = columnReorderAnimationActive
-                        ? WorkGridInteractionGeometry.GetAnimatedBodyContentRect(column, rowRect)
-                        : new Rect(column.OffsetX, rowRect.y, column.Width, rowRect.height);
+                    Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
+                        column,
+                        rowRect);
 
                     if (snapshotLayer != null && snapshotLayer.TryDrawCell(rowIndex, columnIndex, cellRect))
                     {
@@ -935,9 +829,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                             expandedWorkGiver,
                             expandedParentWorkType,
                             pawn,
-                            WorkPriorityCellGeometry.GetDrawnPriorityBoxRect(
-                                cellRect,
-                                column.IsExpandBesideChild),
+                            WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect),
                             knownParentPriority: expandedParentPriority);
                         continue;
                     }

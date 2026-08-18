@@ -180,6 +180,8 @@ namespace Spine.Api
         BoundedCaches = 1UL << 2,
         Settings = 1UL << 8,
         HarmonyPatching = 1UL << 9,
+        // Retained as a reserved wire identifier after the legacy companion
+        // assembly was removed; it is intentionally never advertised.
         FluentTranspilers = 1UL << 10,
         TooltipSizing = 1UL << 11,
         ContextualSettings = 1UL << 12,

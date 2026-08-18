@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using System.Text;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.Feedback;
@@ -78,7 +80,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 CardWidth = 480f,
                 CardPadding = 12f,
                 DimColor = new Color(0f, 0f, 0f, 0.10f),
-                LayoutAnimationSeconds = 0.2f
+                LayoutAnimationSeconds = 0f
             });
         private static readonly List<Rect> NoWelcomeFocusRects = new List<Rect>();
         private static readonly List<TutorialOverlayShortcutHint> NoWelcomeShortcutHints =
@@ -161,7 +163,6 @@ namespace Better_Work_Tab.Features.Tutorial
             // upgrade, and leaving it behind would send this player down the
             // migration path built for someone arriving from an older flow.
             settings.tutorialFlowVersion = CurrentFlowVersion;
-            settings.tutorialProgressSchemaVersion = BWTTutorialProgressMigration.CurrentSchemaVersion;
 
             lessonAnchor = default(BWTTutorialAnchor);
             lessonAnchorIsLive = false;
@@ -305,7 +306,7 @@ namespace Better_Work_Tab.Features.Tutorial
                     DismissWelcome);
             }
 
-            // Clicks go through the one ordered walk shared by every surface, so
+            // Clicks go through the one ordered walk shared with the harness, so
             // there is a single statement of which surface outranks which.
             if (evt.type == EventType.MouseDown && evt.button == 0)
             {
@@ -336,15 +337,136 @@ namespace Better_Work_Tab.Features.Tutorial
             return false;
         }
 
+
+        /// <summary>
+        /// Reports what the tutorial is showing and where, in Work-tab local
+        /// coordinates, so a harness can drive it by name and assert geometry
+        /// without reading pixels.
+        /// </summary>
+        internal static void DescribeState(
+            Rect inRect,
+            IWorkTabLayoutController layout,
+            StringBuilder report)
+        {
+            if (report == null)
+            {
+                return;
+            }
+
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            report.AppendLine("active=" + IsActive);
+            if (!IsActive || settings == null)
+            {
+                return;
+            }
+
+            EnsureState(settings);
+            TutorialPresentation presentation = Presentation;
+            report.AppendLine("presentation=" + presentation);
+            report.AppendLine("lesson=" + (settings.activeTutorialLessonId ?? string.Empty));
+            report.AppendLine("lessonPhase=" + settings.tutorialLessonPhase);
+            report.AppendLine("course=" + settings.selectedTutorialCourse);
+            report.AppendLine("completed=" + string.Join(",", settings.completedTutorialLessonIds.ToArray()));
+            report.AppendLine("alreadyUsed=" + string.Join(
+                ",",
+                (settings.tutorialLessonIdsAlreadyUsed ?? new List<string>()).ToArray()));
+            report.AppendLine("detectedNow=" + string.Join(
+                ",",
+                BWTTutorialPriorUse.Detect().ToArray()));
+            report.AppendLine("disabledFeatures=" + string.Join(
+                ",",
+                BWTTutorialFeatureDiscovery.FindDisabled(settings.selectedTutorialCourse)
+                    .Select(lesson => lesson.Id).ToArray()));
+            report.AppendLine("discoveryOffer=" + BWTTutorialFeatureDiscovery.CountOffer(settings));
+
+            BWTTutorialStripContent content = BuildStripContent(settings, presentation);
+            report.AppendLine("bandMode=" + content.Mode);
+            report.AppendLine("bandProgress=" + content.CompletedCount + "/" + content.TotalCount);
+            report.AppendLine("bandInstruction=" + content.Instruction);
+            BWTTutorialStripLayout stripLayout = BWTTutorialStrip.BuildLayout(layout, content);
+            report.AppendLine("bandValid=" + stripLayout.IsValid);
+            report.AppendLine("bandRect=" + Describe(stripLayout.StripRect));
+            report.AppendLine("bandSkipRect=" + Describe(stripLayout.SkipRect));
+            report.AppendLine("bandExitRect=" + Describe(stripLayout.ExitRect));
+            report.AppendLine("bandDiscoverRect=" + Describe(stripLayout.DiscoverRect));
+
+            List<BWTTutorialAnchor> anchors = BWTTutorialGeometry.BuildInitialAnchors(inRect, layout);
+            report.AppendLine("anchorCount=" + anchors.Count);
+            for (int i = 0; i < anchors.Count; i++)
+            {
+                // Rect is only a bounding box. An angled header's outline is a
+                // rotated quad whose box also spans the stem, so the box centre
+                // can sit outside the shape Contains() actually tests. Report an
+                // interior point too, or a harness aiming at the centre misses.
+                Vector2 hit = ResolveAnchorHitPoint(anchors[i]);
+                report.AppendLine("anchor." + i + "=" + anchors[i].Kind + " " + Describe(anchors[i].Rect) +
+                    " hitx=" + hit.x.ToString("0.#", CultureInfo.InvariantCulture) +
+                    " hity=" + hit.y.ToString("0.#", CultureInfo.InvariantCulture) +
+                    " hitInside=" + anchors[i].Contains(hit));
+            }
+
+            if (Selector.TryDescribePopup(
+                    GetWorkTabAttachmentBounds(inRect, Vector2.zero),
+                    anchors,
+                    BuildHubDefinitions(),
+                    out BWTTutorialHubDefinition hub,
+                    out Rect popupRect,
+                    out IList<Rect> optionRects))
+            {
+                report.AppendLine("popupOpen=true");
+                report.AppendLine("popupAnchor=" + Selector.PinnedAnchor);
+                report.AppendLine("popupRect=" + Describe(popupRect));
+                for (int i = 0; i < hub.Options.Count && i < optionRects.Count; i++)
+                {
+                    report.AppendLine(
+                        "popupOption." + i + "=" + hub.Options[i].LessonId + " " + Describe(optionRects[i]));
+                }
+            }
+            else
+            {
+                report.AppendLine("popupOpen=false");
+            }
+        }
+
+        /// <summary>
+        /// A point inside the anchor's clickable shape: the outline's centroid
+        /// when it has one, otherwise the rect centre.
+        /// </summary>
+        private static Vector2 ResolveAnchorHitPoint(BWTTutorialAnchor anchor)
+        {
+            if (!anchor.HasCustomOutline)
+            {
+                return anchor.Rect.center;
+            }
+
+            Vector2 total = Vector2.zero;
+            for (int i = 0; i < anchor.OutlinePoints.Count; i++)
+            {
+                total += anchor.OutlinePoints[i];
+            }
+
+            return total / anchor.OutlinePoints.Count;
+        }
+
+        private static string Describe(Rect rect)
+        {
+            return "x=" + rect.x.ToString("0.#", CultureInfo.InvariantCulture) +
+                " y=" + rect.y.ToString("0.#", CultureInfo.InvariantCulture) +
+                " w=" + rect.width.ToString("0.#", CultureInfo.InvariantCulture) +
+                " h=" + rect.height.ToString("0.#", CultureInfo.InvariantCulture) +
+                " cx=" + rect.center.x.ToString("0.#", CultureInfo.InvariantCulture) +
+                " cy=" + rect.center.y.ToString("0.#", CultureInfo.InvariantCulture);
+        }
+
         /// <summary>
         /// Resolves a left click at a Work-tab local point through the same band,
         /// popup and anchor hit testing a real click takes, without going through
         /// an <see cref="Event"/>.
         ///
         /// Unity reports a synthesised mouse event's <c>type</c> as Ignore during
-        /// a Repaint pass. Driving the same resolution from a point keeps the
-        /// geometry and the handlers identical to the event path while avoiding
-        /// Unity's dispatch for callers that already have a local point.
+        /// a Repaint pass, so a harness cannot deliver anything the event-keyed
+        /// path will accept. Driving the same resolution from a point keeps the
+        /// geometry and the handlers under test and skips only Unity's dispatch.
         /// </summary>
         internal static bool TryHandlePrimaryClick(
             Rect inRect,
@@ -549,30 +671,22 @@ namespace Better_Work_Tab.Features.Tutorial
         /// <summary>
         /// Latches whether the tutorial band claims Work-tab height this frame.
         /// </summary>
-        internal static void RefreshStripReservation(float tableWidth)
+        internal static void RefreshStripReservation()
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             bool active = IsActive;
             ObserveBandActivation(active && settings != null);
             if (!active || settings == null)
             {
-                BWTTutorialStrip.RefreshReservation(
-                    false,
-                    tableWidth,
-                    default(BWTTutorialStripContent));
+                BWTTutorialStrip.RefreshReservation(false);
                 return;
             }
 
             EnsureState(settings);
             TutorialPresentation presentation = Presentation;
-            bool visible = presentation == TutorialPresentation.Lesson ||
-                presentation == TutorialPresentation.Selector;
             BWTTutorialStrip.RefreshReservation(
-                visible,
-                tableWidth,
-                visible
-                    ? BuildStripContent(settings, presentation)
-                    : default(BWTTutorialStripContent));
+                presentation == TutorialPresentation.Lesson ||
+                presentation == TutorialPresentation.Selector);
         }
 
         private static BWTTutorialStripContent BuildStripContent(
@@ -1695,6 +1809,13 @@ namespace Better_Work_Tab.Features.Tutorial
             if (settings == null)
             {
                 return;
+            }
+
+            bool firstPublic105Course = settings.tutorialMigratedFromPublic105 &&
+                settings.selectedTutorialCourse == BWTTutorialCourse.None;
+            if (firstPublic105Course)
+            {
+                BWT20SettingsMigration.EnablePublic20TutorialFeatures(settings);
             }
 
             settings.selectedTutorialCourse = course;

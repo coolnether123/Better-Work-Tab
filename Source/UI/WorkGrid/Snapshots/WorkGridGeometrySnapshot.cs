@@ -184,107 +184,34 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 out float bufferedViewportMinY,
                 out float bufferedViewportMaxY);
 
-            int rowCount = Rows.Count;
-            if (rowCount == 0)
+            int first = Rows.Count;
+            int last = -1;
+            for (int i = 0; i < Rows.Count; i++)
             {
-                return new WorkGridIndexRange(0, 0);
-            }
-
-            float bodyTop = BodyTop;
-            int low = 0;
-            int high = rowCount;
-            while (low < high)
-            {
-                int middle = low + ((high - low) >> 1);
-                WorkGridRowGeometry row = Rows[middle];
-                float rowStart = bodyTop + row.OffsetY - verticalScroll;
-                if (rowStart + row.Height < bufferedViewportMinY)
+                Rect rect = GetRowScreenRect(i, new Vector2(0f, verticalScroll));
+                if (rect.yMax >= bufferedViewportMinY && rect.yMin <= bufferedViewportMaxY)
                 {
-                    low = middle + 1;
-                }
-                else
-                {
-                    high = middle;
+                    if (first == Rows.Count) first = i;
+                    last = i;
                 }
             }
-
-            int first = low;
-            if (first >= rowCount)
-            {
-                return new WorkGridIndexRange(0, 0);
-            }
-
-            low = first;
-            high = rowCount;
-            while (low < high)
-            {
-                int middle = low + ((high - low) >> 1);
-                WorkGridRowGeometry row = Rows[middle];
-                float rowStart = bodyTop + row.OffsetY - verticalScroll;
-                if (rowStart <= bufferedViewportMaxY)
-                {
-                    low = middle + 1;
-                }
-                else
-                {
-                    high = middle;
-                }
-            }
-
-            int endExclusive = low;
-            return endExclusive <= first
-                ? new WorkGridIndexRange(0, 0)
-                : new WorkGridIndexRange(first, endExclusive - first);
+            return last < first ? new WorkGridIndexRange(0, 0) : new WorkGridIndexRange(first, last - first + 1);
         }
 
         public WorkGridIndexRange GetVisibleColumnRange(Rect viewport, float horizontalScroll)
         {
-            int columnCount = Columns.Count;
-            if (columnCount == 0)
+            int first = Columns.Count;
+            int last = -1;
+            for (int i = 0; i < Columns.Count; i++)
             {
-                return new WorkGridIndexRange(0, 0);
-            }
-
-            int low = 0;
-            int high = columnCount;
-            while (low < high)
-            {
-                int middle = low + ((high - low) >> 1);
-                if (GetHeaderRect(middle, horizontalScroll).xMax < viewport.xMin)
+                Rect rect = GetHeaderRect(i, horizontalScroll);
+                if (rect.xMax >= viewport.xMin && rect.xMin <= viewport.xMax)
                 {
-                    low = middle + 1;
-                }
-                else
-                {
-                    high = middle;
+                    if (first == Columns.Count) first = i;
+                    last = i;
                 }
             }
-
-            int first = low;
-            if (first >= columnCount)
-            {
-                return new WorkGridIndexRange(0, 0);
-            }
-
-            low = first;
-            high = columnCount;
-            while (low < high)
-            {
-                int middle = low + ((high - low) >> 1);
-                if (GetHeaderRect(middle, horizontalScroll).xMin <= viewport.xMax)
-                {
-                    low = middle + 1;
-                }
-                else
-                {
-                    high = middle;
-                }
-            }
-
-            int endExclusive = low;
-            return endExclusive <= first
-                ? new WorkGridIndexRange(0, 0)
-                : new WorkGridIndexRange(first, endExclusive - first);
+            return last < first ? new WorkGridIndexRange(0, 0) : new WorkGridIndexRange(first, last - first + 1);
         }
     }
 }

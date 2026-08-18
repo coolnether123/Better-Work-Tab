@@ -19,8 +19,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static readonly ConditionalWeakTable<Pawn_IdeoTracker, PawnReference> IdeologyOwners =
             new ConditionalWeakTable<Pawn_IdeoTracker, PawnReference>();
         private static Game _currentGame;
-        private static int _lastDynamicPawnId = int.MinValue;
-        private static int _lastDynamicVersion;
 
         internal static void RegisterCapacityOwner(PawnCapacitiesHandler handler, Pawn pawn)
         {
@@ -58,18 +56,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             EnsureCurrentGame();
-            int pawnId = pawn.thingIDNumber;
-            if (_lastDynamicPawnId == pawnId)
-            {
-                return _lastDynamicVersion;
-            }
-
-            int version = PawnDynamicVersions.TryGetValue(pawnId, out int storedVersion)
-                ? storedVersion
-                : 0;
-            _lastDynamicPawnId = pawnId;
-            _lastDynamicVersion = version;
-            return version;
+            return PawnDynamicVersions.TryGetValue(pawn.thingIDNumber, out int version) ? version : 0;
         }
 
         internal static void NotifyPawnDynamicStateChanged(Pawn pawn)
@@ -81,12 +68,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             EnsureCurrentGame();
             int pawnId = pawn.thingIDNumber;
-            int nextVersion = PawnDynamicVersions.TryGetValue(pawnId, out int version)
+            PawnDynamicVersions[pawnId] = PawnDynamicVersions.TryGetValue(pawnId, out int version)
                 ? unchecked(version + 1)
                 : 1;
-            PawnDynamicVersions[pawnId] = nextVersion;
-            _lastDynamicPawnId = pawnId;
-            _lastDynamicVersion = nextVersion;
             WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.CapabilitySkill);
         }
 
@@ -100,8 +84,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             _currentGame = game;
             PawnDynamicVersions.Clear();
-            _lastDynamicPawnId = int.MinValue;
-            _lastDynamicVersion = 0;
         }
 
         private static void RegisterOwner<TOwner>(

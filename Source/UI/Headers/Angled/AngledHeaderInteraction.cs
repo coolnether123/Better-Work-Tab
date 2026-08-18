@@ -210,7 +210,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             string workTypeLabel = WorkTypeDisplayNameService.FullLabel(activeWorkType);
             if (!workTypeLabel.NullOrEmpty())
             {
-                tooltip.Append("\n").Append("BWT_SubWork_Tooltip_WorkType".Translate()).Append(": ").Append(workTypeLabel);
+                tooltip.Append("\n").Append("WorkType".Translate()).Append(": ").Append(workTypeLabel);
             }
 
             if (!def.description.NullOrEmpty())

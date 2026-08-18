@@ -10,7 +10,7 @@
 Thumbs.db
 .DS_Store
 /Source/MigrationBackup/
-**/UpgradeLog.htm
+**/UpgradeLog*.htm
 
 # Build intermediates
 **/obj/

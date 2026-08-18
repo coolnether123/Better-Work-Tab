@@ -39,10 +39,7 @@ namespace Better_Work_Tab.DragDrop
         private bool _crossWorkDropTargetValid;
         public PawnColumnDef ColumnDef => _primaryColumn;
 
-        public ColumnDragHandler(
-            IWorkTabLayoutController layout,
-            WorkTabLayoutColumn col,
-            IReadOnlyList<PawnColumnDef> selectedColumnsAtPointerDown = null)
+        public ColumnDragHandler(IWorkTabLayoutController layout, WorkTabLayoutColumn col)
             : base(layout)
         {
             _primaryColumn = col.Column;
@@ -65,12 +62,6 @@ namespace Better_Work_Tab.DragDrop
                 _draggedColumns.Add(_primaryColumn);
                 ColumnSelectionManager.Clear();
                 BetterWorkTabMod.DebugLog($"[BWT] Dragging sub-work job: {_subWorkGiver.defName}", DebugFeature.DragDrop);
-            }
-            else if (selectedColumnsAtPointerDown != null &&
-                selectedColumnsAtPointerDown.Contains(_primaryColumn))
-            {
-                _draggedColumns.AddRange(selectedColumnsAtPointerDown);
-                BetterWorkTabMod.DebugLog($"[BWT] Dragging selection: {string.Join(", ", _draggedColumns.Select(d => d.defName))}", DebugFeature.DragDrop);
             }
             else if (ColumnSelectionManager.IsSelected(_primaryColumn))
             {

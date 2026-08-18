@@ -14,11 +14,6 @@ namespace Spine.Api
                 SpineCapability.BoundedCaches |
                 SpineCapability.Settings |
                 SpineCapability.HarmonyPatching |
-                (LegacyBcl.IsNull(Type.GetType(
-                    "Spine.Harmony.FluentTranspiler, Spine.Transpilers",
-                    throwOnError: false))
-                    ? SpineCapability.None
-                    : SpineCapability.FluentTranspilers) |
                 SpineCapability.TooltipSizing |
                 SpineCapability.ContextualSettings |
                 SpineCapability.ModSettingsPages |

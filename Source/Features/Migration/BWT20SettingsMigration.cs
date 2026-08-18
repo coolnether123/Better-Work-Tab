@@ -121,23 +121,22 @@ namespace Better_Work_Tab.Features.Migration
 
         /// <summary>
         /// Opts a public-1.0.5 migration into the supported 2.0 feature set when
-        /// the player explicitly chooses it in the upgrade prompt. Child
-        /// preferences already hold their normal defaults and are not rewritten
-        /// here. Priority authority is deliberately preserved as a separate
-        /// player choice.
+        /// the player explicitly chooses a tutorial course. Child preferences
+        /// already hold their normal defaults and are not rewritten here.
         /// </summary>
-        internal static void EnablePublic20Features(BetterWorkTabSettings settings)
+        internal static void EnablePublic20TutorialFeatures(BetterWorkTabSettings settings)
         {
             if (settings == null)
             {
                 return;
             }
 
-            BWT20FeatureGates optInGates = BWT20CohortPolicy.TutorialOptIn;
-            settings.enableSubWorkDrilldown = optInGates.EnableSubWorkDrilldown;
-            settings.enableFluffyStyleFeatures = optInGates.EnableFluffyStyleFeatures;
-            settings.useRuleBuilder2 = optInGates.UseRuleBuilder2;
-            settings.enableTimePrioritySchedules = optInGates.EnableTimePrioritySchedules;
+            BWT20FeatureGates tutorialGates = BWT20CohortPolicy.TutorialOptIn;
+            settings.enableSubWorkDrilldown = tutorialGates.EnableSubWorkDrilldown;
+            settings.enableFluffyStyleFeatures = tutorialGates.EnableFluffyStyleFeatures;
+            settings.useRuleBuilder2 = tutorialGates.UseRuleBuilder2;
+            settings.enableTimePrioritySchedules = tutorialGates.EnableTimePrioritySchedules;
+            settings.SetPriorityMode(PriorityMode.BetterWorkTab);
         }
 
         private static void SetWhenAbsent(

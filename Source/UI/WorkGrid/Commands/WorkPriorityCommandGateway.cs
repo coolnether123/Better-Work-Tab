@@ -4,11 +4,15 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using RimWorld;
-using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Commands
 {
+    internal interface IWorkGridCommandObserver
+    {
+        void OnCommand(in WorkGridCommandObservation observation);
+    }
+
     internal readonly struct WorkGridCommandObservation
     {
         internal WorkGridCommandObservation(WorkGridCommandKind kind, bool accepted, string detail)
@@ -29,85 +33,149 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
     /// </summary>
     internal static class WorkPriorityCommandGateway
     {
-        internal static bool SetPriority(Pawn pawn, WorkTypeDef workType, int priority)
-        {
-            bool accepted = ExecutePriorityMutation(pawn, workType, priority);
+        private static IWorkGridCommandObserver _observer;
 
-            Observe(
-                WorkGridCommandKind.SetPriority,
-                accepted,
-                accepted ? workType.defName : "invalid priority target or bounds");
+        internal static IWorkGridCommandObserver Observer
+        {
+            get => _observer;
+            set => _observer = value;
+        }
+
+        internal static bool Execute(in SetPriorityCommand command)
+        {
+            bool accepted = ExecutePriorityMutation(command.Pawn, command.WorkType, command.Priority);
+
+            Observe(command.Kind, accepted, accepted ? command.WorkType.defName : "invalid priority target or bounds");
             return accepted;
         }
 
-        internal static bool SetWorkGiverPriority(int pawnId, WorkGiverDef workGiver, int priority)
+        internal static bool Execute(in StepPriorityCommand command)
         {
-            bool accepted = pawnId >= 0 && workGiver != null &&
+            int nextPriority = WorkPrioritySystem.GetPriorityAfterBoundedStep(
+                command.CurrentPriority,
+                command.Direction);
+            bool accepted = ExecutePriorityMutation(
+                command.Pawn,
+                command.WorkType,
+                nextPriority);
+            Observe(command.Kind, accepted, accepted ? "stepped" : "invalid priority target");
+            return accepted;
+        }
+
+        internal static bool Execute(in TogglePriorityCommand command)
+        {
+            int nextPriority = command.CurrentPriority > WorkPrioritySystem.DisabledPriority
+                ? WorkPrioritySystem.DisabledPriority
+                : WorkPrioritySystem.GetDefaultEnabledPriority();
+            bool accepted = ExecutePriorityMutation(command.Pawn, command.WorkType, nextPriority);
+            Observe(command.Kind, accepted, accepted ? "toggled" : "invalid priority target");
+            return accepted;
+        }
+
+        internal static bool Execute(in PaintPriorityRangeCommand command)
+        {
+            bool accepted = command.Targets != null &&
                             WorkGridCommandMath.IsValidPriority(
-                                priority,
+                                command.Priority,
+                                WorkPrioritySystem.GetRequestableMaxPriority());
+            if (accepted)
+            {
+                for (int i = 0; i < command.Targets.Count; i++)
+                {
+                    PriorityPaintTarget target = command.Targets[i];
+                    if (!ExecutePriorityMutation(target.Pawn, target.WorkType, command.Priority))
+                    {
+                        accepted = false;
+                        break;
+                    }
+                }
+            }
+
+            Observe(command.Kind, accepted, accepted ? "painted=" + command.Targets.Count : "invalid paint range");
+            return accepted;
+        }
+
+        internal static bool Execute(in SetWorkGiverPriorityCommand command)
+        {
+            bool accepted = command.PawnId >= 0 && command.WorkGiver != null &&
+                            WorkGridCommandMath.IsValidPriority(
+                                command.Priority,
                                 WorkPrioritySystem.GetRequestableMaxPriority());
             if (accepted)
             {
                 WorkGiverReassignmentManager.SetPawnOverrideSynced(
-                    pawnId,
-                    workGiver.defName,
-                    priority);
+                    command.PawnId,
+                    command.WorkGiver.defName,
+                    command.Priority);
             }
 
-            Observe(
-                WorkGridCommandKind.SetWorkGiverPriority,
-                accepted,
-                accepted ? workGiver.defName : "invalid work-giver target or bounds");
+            Observe(command.Kind, accepted, accepted ? command.WorkGiver.defName : "invalid work-giver target or bounds");
             return accepted;
         }
 
-        internal static bool OpenSchedule(TimePriorityTarget target, Rect anchor, int fallbackPriority)
+        internal static bool Execute(in OpenScheduleCommand command)
         {
             bool accepted = WorkGridCommandMath.IsValidPriority(
-                                fallbackPriority,
+                                command.FallbackPriority,
                                 WorkPrioritySystem.GetRequestableMaxPriority()) &&
                             TimePriorityScheduleEditor.OpenForPriorityBox(
-                                target,
-                                anchor,
-                                fallbackPriority);
-            Observe(WorkGridCommandKind.OpenSchedule, accepted, accepted ? "opened" : "schedule rejected");
+                                command.Target,
+                                command.Anchor,
+                                command.FallbackPriority);
+            Observe(command.Kind, accepted, accepted ? "opened" : "schedule rejected");
             return accepted;
         }
 
-        internal static bool SelectRuleTarget(
-            WorkTypeDef workType,
-            WorkGiverDef workGiver,
-            Pawn pawn,
-            int priority,
-            Rect bounds,
-            bool header)
+        internal static bool Execute(in SelectRuleTargetCommand command)
         {
-            bool accepted = workType != null;
-            if (accepted && header)
+            bool accepted = command.WorkType != null;
+            if (accepted && command.Header)
             {
-                RuleBuilderGateway.SelectHeaderForRuleBuilder2(workType, workGiver, bounds);
+                RuleBuilderGateway.SelectHeaderForRuleBuilder2(command.WorkType, command.WorkGiver, command.Bounds);
             }
-            else if (accepted && pawn != null)
+            else if (accepted && command.Pawn != null)
             {
                 RuleBuilderGateway.SelectPriorityCellForRuleBuilder2(
-                    workType,
-                    workGiver,
-                    pawn,
-                    priority,
-                    bounds);
+                    command.WorkType,
+                    command.WorkGiver,
+                    command.Pawn,
+                    command.Priority,
+                    command.Bounds);
             }
             else
             {
                 accepted = false;
             }
 
-            Observe(WorkGridCommandKind.SelectRuleTarget, accepted, accepted ? workType.defName : "invalid rule target");
+            Observe(command.Kind, accepted, accepted ? command.WorkType.defName : "invalid rule target");
+            return accepted;
+        }
+
+        internal static bool Execute(in MoveWorkGiverCommand command, out string errorMessage)
+        {
+            errorMessage = null;
+            bool accepted = WorkGridCommandMath.IsValidMove(
+                                command.WorkGiverDefName,
+                                command.WorkTypeDefName,
+                                command.InsertIndex) &&
+                            WorkGiverReassignmentManager.TryMoveWorkGiverLayout(
+                                command.WorkGiverDefName,
+                                command.WorkTypeDefName,
+                                command.InsertIndex,
+                                out errorMessage);
+            if (!accepted && errorMessage == null)
+            {
+                errorMessage = "Invalid work-giver move command.";
+            }
+
+            Observe(command.Kind, accepted, accepted ? command.WorkGiverDefName : errorMessage);
             return accepted;
         }
 
         private static void Observe(WorkGridCommandKind kind, bool accepted, string detail)
         {
             var observation = new WorkGridCommandObservation(kind, accepted, detail);
+            _observer?.OnCommand(in observation);
             WorkGridRendererDiagnostics.RecordCommand(in observation);
         }
 

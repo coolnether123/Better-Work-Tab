@@ -98,6 +98,8 @@
     <BWT_Settings_compat.fluffyWorkTab.owner_Tooltip>Choose whether Better Work Tab or Fluffy Work Tab runs the Work tab.</BWT_Settings_compat.fluffyWorkTab.owner_Tooltip>
     <BWT_Enum_WorkTabOwnerPreference_BetterWorkTab>Better Work Tab</BWT_Enum_WorkTabOwnerPreference_BetterWorkTab>
      <BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab>Fluffy Work Tab</BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab>
+    <BWT_Settings_compat.fluffyWorkTab.priorityAuthority>Priority data source</BWT_Settings_compat.fluffyWorkTab.priorityAuthority>
+    <BWT_Settings_compat.fluffyWorkTab.priorityAuthority_Tooltip>Choose which compatible system owns shared work priorities. This is independent of which mod opens or draws the Work tab.</BWT_Settings_compat.fluffyWorkTab.priorityAuthority_Tooltip>
     <BWT_Settings_compat.externalWorkTab.columns>Show external Work Tab columns</BWT_Settings_compat.externalWorkTab.columns>
     <BWT_Settings_compat.externalWorkTab.columns_Tooltip>While Better Work Tab owns the tab, keep Fluffy's Mood, Job, Detailed Copy/Paste, and Favorite columns visible.</BWT_Settings_compat.externalWorkTab.columns_Tooltip>
     <BWT_Settings_compat.fluffyWorkTab.specificJobs>Specific jobs</BWT_Settings_compat.fluffyWorkTab.specificJobs>

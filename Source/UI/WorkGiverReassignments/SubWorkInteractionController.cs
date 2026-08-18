@@ -1,3 +1,4 @@
+using System;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -9,6 +10,7 @@ using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Interaction;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.WorkGrid.Rendering;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -21,6 +23,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     /// </summary>
     internal sealed class SubWorkInteractionController
     {
+        private readonly WorkTabBodyRenderer _bodyRenderer;
+        private readonly WorkTabPriorityInputHandler _priorityInputHandler;
+
         private bool _pendingSubWorkGesture;
         private Vector2 _pendingSubWorkStart;
         private Rect _pendingSubWorkBounds;
@@ -30,6 +35,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private bool _pendingSubWorkRestoreCursor;
         private bool _pendingSubWorkCtrlClickDiscovery;
         private int _suppressSubWorkPriorityMouseDownFrame = -1;
+
+        internal SubWorkInteractionController(
+            WorkTabBodyRenderer bodyRenderer,
+            WorkTabPriorityInputHandler priorityInputHandler)
+        {
+            _bodyRenderer = bodyRenderer ?? throw new ArgumentNullException(nameof(bodyRenderer));
+            _priorityInputHandler = priorityInputHandler ??
+                throw new ArgumentNullException(nameof(priorityInputHandler));
+        }
 
         internal void ResetForWindowClose()
         {
@@ -389,14 +403,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             WorkTabLayoutRow bodyRow;
             WorkTabLayoutColumn bodyColumn;
-            if (layout.TryGetRowAt(mousePosition, out bodyRow) &&
-                layout.TryGetBodyColumnAt(mousePosition, out bodyColumn) &&
-                WorkGridPriorityHitGeometry.TryGetPriorityBoxHit(
-                    layout,
-                    bodyRow,
-                    bodyColumn,
-                    mousePosition,
-                    out Rect priorityBoxRect))
+            if (_bodyRenderer.TryGetRowAt(layout, mousePosition, out bodyRow) &&
+                _bodyRenderer.TryGetBodyColumnAt(layout, mousePosition, out bodyColumn) &&
+                _bodyRenderer.TryGetPriorityBoxHit(layout, bodyRow, bodyColumn, mousePosition, out Rect priorityBoxRect))
             {
                 return TryGetOpenTargetFromColumn(
                     bodyColumn,
@@ -471,7 +480,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Rect globalRowArea = WorkGridLayoutMetrics.GetSubWorkVisibleBandRect(layout);
 
             if (globalRowArea.Contains(mousePosition) &&
-                WorkGridPriorityHitGeometry.TryGetGlobalPriorityBoxHit(
+                _priorityInputHandler.TryGetGlobalPriorityBoxHit(
                     layout,
                     globalRowArea,
                     mousePosition,
@@ -485,14 +494,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             WorkTabLayoutRow bodyRow;
             WorkTabLayoutColumn column;
-            if (layout.TryGetRowAt(mousePosition, out bodyRow) &&
-                layout.TryGetBodyColumnAt(mousePosition, out column) &&
-                WorkGridPriorityHitGeometry.TryGetPriorityBoxHit(
-                    layout,
-                    bodyRow,
-                    column,
-                    mousePosition,
-                    out Rect bodyPriorityBoxRect))
+            if (_bodyRenderer.TryGetRowAt(layout, mousePosition, out bodyRow) &&
+                _bodyRenderer.TryGetBodyColumnAt(layout, mousePosition, out column) &&
+                _bodyRenderer.TryGetPriorityBoxHit(layout, bodyRow, column, mousePosition, out Rect bodyPriorityBoxRect))
             {
                 bounds = bodyPriorityBoxRect;
                 restoreCursor = BetterWorkTabMod.Settings?.restoreCursorOnSubWorkPawnCellExit ?? false;

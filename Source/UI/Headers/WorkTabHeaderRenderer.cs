@@ -65,22 +65,14 @@ namespace Better_Work_Tab.UI.Headers
             PawnTable table,
             in WorkTabHeaderFrame frame)
         {
-            HeaderDrawingCoordinator.VanillaSolveScope deferVanillaSolve =
-                HeaderDrawingCoordinator.BeginDeferredVanillaSolve(table);
-            try
-            {
-                float totalHeight = GetVisibleHeaderHighlightHeight(layout, in frame);
-                FluffyWorkTabGateway.PrepareHostedDraw(table);
-                float viewportLeft = layout.TableOrigin.x;
-                float viewportRight = viewportLeft + frame.TableViewportWidth;
-                bool ruleBuilderListening = RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab;
-                bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
-                BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-                bool showCursorHighlight = settings.ShowCursorPawnAndWorktypeHighlight;
-                bool hasSettingsPreviewColumn =
-                    WorkTabColumnHighlightUtility.TryGetSettingsPreviewColumn(
-                        layout.Columns,
-                        out WorkTabLayoutColumn settingsPreviewColumn);
+            float totalHeight = GetVisibleHeaderHighlightHeight(layout, in frame);
+            FluffyWorkTabGateway.PrepareHostedDraw(table);
+            float viewportLeft = layout.TableOrigin.x;
+            float viewportRight = viewportLeft + frame.TableViewportWidth;
+            bool ruleBuilderListening = RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab;
+            bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            bool showCursorHighlight = settings.ShowCursorPawnAndWorktypeHighlight;
 
             foreach (var column in layout.Columns)
             {
@@ -94,8 +86,6 @@ namespace Better_Work_Tab.UI.Headers
                 }
 
                 bool isWorkColumn = WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column);
-                bool isSettingsPreviewColumn = hasSettingsPreviewColumn &&
-                                               column.Equals(settingsPreviewColumn);
                 Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
                     column.Column,
                     table,
@@ -114,17 +104,14 @@ namespace Better_Work_Tab.UI.Headers
                 bool drawRuleBuilderHighlightAfterHeader =
                     shouldHighlightRuleBuilderTarget && AreAngledHeadersEnabled();
 
-                if (isWorkColumn &&
-                    (isSettingsPreviewColumn ||
-                     (showCursorHighlight &&
-                      (timePrioritySourceColumn ||
-                       (!timePriorityOwnsMouse &&
-                        !BWTWorkTabTutorial.OwnsCurrentPointer &&
-                        Mouse.IsOver(headerRect))))))
+                if (showCursorHighlight &&
+                    isWorkColumn &&
+                    (timePrioritySourceColumn ||
+                     (!timePriorityOwnsMouse &&
+                      !BWTWorkTabTutorial.OwnsCurrentPointer &&
+                      Mouse.IsOver(headerRect))))
                 {
-                    Color useColor = isSettingsPreviewColumn
-                        ? HighlightDrawer.GetColumnHoverColor()
-                        : settings.Color_MouseHoverHighlight;
+                    Color useColor = settings.Color_MouseHoverHighlight;
                     Rect columnRect = new Rect(
                         animatedGeometry.BodyScreenX,
                         layout.TableOrigin.y + layout.HeaderHeight,
@@ -196,8 +183,8 @@ namespace Better_Work_Tab.UI.Headers
                 }
             }
 
-                if (SleekWorkTabGateway.BetterWorkTabHostsSleek)
-                {
+            if (SleekWorkTabGateway.BetterWorkTabHostsSleek)
+            {
                 // Sleek's header prefix still runs above so its frame/order/input state stays
                 // live. BWT now clears that complete surface and redraws its angled headers in
                 // one pass, which prevents a long angled label from being erased by the next
@@ -276,11 +263,6 @@ namespace Better_Work_Tab.UI.Headers
                         }
                     }
                 }
-                }
-            }
-            finally
-            {
-                HeaderDrawingCoordinator.EndDeferredVanillaSolve(deferVanillaSolve);
             }
         }
 
@@ -521,7 +503,7 @@ namespace Better_Work_Tab.UI.Headers
 
             bool isSorted = table != null && table.SortingBy == column.Column;
             bool sortDescending = table != null && table.SortingDescending;
-            HeaderDrawingCoordinator.GetActiveRenderer(table).DrawHeader(
+            HeaderDrawingCoordinator.GetActiveRenderer().DrawHeader(
                 labelLayout,
                 isMouseOver,
                 isSorted,
@@ -539,7 +521,7 @@ namespace Better_Work_Tab.UI.Headers
             bool isMouseOver,
             PawnTable table)
         {
-            var solver = HeaderDrawingCoordinator.GetVanillaSolver(table);
+            var solver = HeaderDrawingCoordinator.GetVanillaSolver();
             bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(parentWorkType);
             if (Event.current.type == EventType.Layout)
             {
@@ -568,7 +550,7 @@ namespace Better_Work_Tab.UI.Headers
 
             bool isSorted = table != null && table.SortingBy == column.Column;
             bool sortDescending = table != null && table.SortingDescending;
-            HeaderDrawingCoordinator.GetActiveRenderer(table).DrawHeader(
+            HeaderDrawingCoordinator.GetActiveRenderer().DrawHeader(
                 labelLayout,
                 isMouseOver,
                 isSorted,

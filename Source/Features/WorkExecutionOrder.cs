@@ -2,6 +2,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
+using HarmonyLib;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -18,6 +19,14 @@ namespace Better_Work_Tab.Features
     /// </summary>
     internal static class WorkExecutionOrder
     {
+        private struct WorkTypeExecutionRecord
+        {
+            internal WorkTypeDef WorkType;
+            internal int ParentPriority;
+            internal int ExecutionPriority;
+            internal IReadOnlyList<WorkGiver> OrderedWorkGivers;
+        }
+
         private static readonly BindingFlags InstPriv = BindingFlags.Instance | BindingFlags.NonPublic;
         private static FieldInfo fiEmerg;
         private static FieldInfo fiNormal;
@@ -81,17 +90,26 @@ namespace Better_Work_Tab.Features
 
             // 1) Gather active work types and min non-emergency priority like vanilla
             var allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
-            var activeWTs = new List<WorkTypeDef>(allWorkTypes.Count);
+            var activeWTs = new List<WorkTypeExecutionRecord>(allWorkTypes.Count);
             int minNonEmerg = 999;
             for (int i = 0; i < allWorkTypes.Count; i++)
             {
                 var w = allWorkTypes[i];
-                int prio = GetExecutionPriority(ws, pawn, w);
-                if (prio > 0)
+                int parentPriority = GetPriority(ws, pawn, w);
+                int executionPriority = WorkGiverReassignmentManager.GetExecutionPriorityForWorkType(
+                    pawn,
+                    w,
+                    parentPriority);
+                if (executionPriority > 0)
                 {
-                    if (prio < minNonEmerg && WorkGiverReassignmentManager.HasNonEmergencyWorkGiver(w))
-                        minNonEmerg = prio;
-                    activeWTs.Add(w);
+                    if (executionPriority < minNonEmerg && WorkGiverReassignmentManager.HasNonEmergencyWorkGiver(w))
+                        minNonEmerg = executionPriority;
+                    activeWTs.Add(new WorkTypeExecutionRecord
+                    {
+                        WorkType = w,
+                        ParentPriority = parentPriority,
+                        ExecutionPriority = executionPriority
+                    });
                 }
             }
 
@@ -108,67 +126,54 @@ namespace Better_Work_Tab.Features
             // 3) Sort active work types: manual priority asc, saved order asc, naturalPriority desc
             activeWTs.Sort((a, b) =>
             {
-                int pa = GetExecutionPriority(ws, pawn, a);
-                int pb = GetExecutionPriority(ws, pawn, b);
-                int c = pa.CompareTo(pb);
+                int c = a.ExecutionPriority.CompareTo(b.ExecutionPriority);
                 if (c != 0) return c;
-                int ia = indexMap.TryGetValue(a.defName, out int iax) ? iax : int.MaxValue;
-                int ib = indexMap.TryGetValue(b.defName, out int ibx) ? ibx : int.MaxValue;
+                int ia = indexMap.TryGetValue(a.WorkType.defName, out int iax) ? iax : int.MaxValue;
+                int ib = indexMap.TryGetValue(b.WorkType.defName, out int ibx) ? ibx : int.MaxValue;
                 c = ia.CompareTo(ib);
                 if (c != 0) return c;
-                return b.naturalPriority.CompareTo(a.naturalPriority);
+                return b.WorkType.naturalPriority.CompareTo(a.WorkType.naturalPriority);
             });
 
-            // 4) Compose emerg and normal lists using sorted work types
+            // 4) Collect each pawn-specific list once, then compose both outputs in one pass.
+            for (int i = 0; i < activeWTs.Count; i++)
+            {
+                WorkTypeExecutionRecord record = activeWTs[i];
+                record.OrderedWorkGivers = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(
+                    record.WorkType,
+                    pawn);
+                activeWTs[i] = record;
+            }
+
+            // 5) Compose emerg and normal lists using sorted work types
             var emerg = new List<WorkGiver>();
             var normal = new List<WorkGiver>();
 
             for (int i = 0; i < activeWTs.Count; i++)
             {
-                var wt = activeWTs[i];
-                int wtPriority = GetPriority(ws, pawn, wt);
-                var list = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(wt, pawn);
-                for (int j = 0; j < list.Count; j++)
+                WorkTypeExecutionRecord record = activeWTs[i];
+                for (int j = 0; j < record.OrderedWorkGivers.Count; j++)
                 {
-                    var worker = list[j];
+                    var worker = record.OrderedWorkGivers[j];
                     if (worker?.def == null)
                     {
                         continue;
                     }
 
-                    if (!CanUseWorkGiverNow(pawn, wt, worker.def, wtPriority))
+                    if (!CanUseWorkGiverNow(pawn, record.WorkType, worker.def, record.ParentPriority))
                     {
                         continue;
                     }
 
-                    if (worker.def.emergency && GetExecutionPriority(ws, pawn, wt) <= minNonEmerg)
+                    if (worker.def.emergency && record.ExecutionPriority <= minNonEmerg)
                         emerg.Add(worker);
-                }
-            }
-            for (int i = 0; i < activeWTs.Count; i++)
-            {
-                var wt = activeWTs[i];
-                int wtPriority = GetPriority(ws, pawn, wt);
-                var list = WorkGiverReassignmentManager.GetOrderedWorkGiversForWorkType(wt, pawn);
-                for (int j = 0; j < list.Count; j++)
-                {
-                    var worker = list[j];
-                    if (worker?.def == null)
-                    {
-                        continue;
-                    }
 
-                    if (!CanUseWorkGiverNow(pawn, wt, worker.def, wtPriority))
-                    {
-                        continue;
-                    }
-
-                    if (!worker.def.emergency || GetExecutionPriority(ws, pawn, wt) > minNonEmerg)
+                    if (!worker.def.emergency || record.ExecutionPriority > minNonEmerg)
                         normal.Add(worker);
                 }
             }
 
-            // 5) Assign to instance fields and clear dirty flag
+            // 6) Assign to instance fields and clear dirty flag
             NormalFI.SetValue(ws, normal);
             EmergFI.SetValue(ws, emerg);
             DirtyFI.SetValue(ws, false);
@@ -198,12 +203,6 @@ namespace Better_Work_Tab.Features
             return TimePriorityService.GetEffectiveWorkTypePriority(pawn, workType, basePriority);
         }
 
-        private static int GetExecutionPriority(Pawn_WorkSettings workSettings, Pawn pawn, WorkTypeDef workType)
-        {
-            int parentPriority = GetPriority(workSettings, pawn, workType);
-            return WorkGiverReassignmentManager.GetExecutionPriorityForWorkType(pawn, workType, parentPriority);
-        }
-
         private static bool CanUseWorkGiverNow(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver, int parentPriority)
         {
             int workGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
@@ -217,30 +216,15 @@ namespace Better_Work_Tab.Features
         /// </summary>
         internal static void MarkAllPawnsWorkGiversDirty()
         {
-            if (Current.Game == null)
+            foreach (var p in PawnsFinder.AllMapsWorldAndTemporary_Alive)
             {
-                return;
-            }
-
-            try
-            {
-                var pawns = PawnsFinder.AllMapsWorldAndTemporary_Alive;
-                if (pawns == null)
+                try
                 {
-                    return;
+                    if (p?.Faction == Faction.OfPlayer && p?.workSettings != null)
+                        p.workSettings.Notify_UseWorkPrioritiesChanged();
                 }
-
-                foreach (var p in pawns)
-                {
-                    try
-                    {
-                        if (p?.Faction == Faction.OfPlayer && p?.workSettings != null)
-                            p.workSettings.Notify_UseWorkPrioritiesChanged();
-                    }
-                    catch { /* ignore individual pawn issues */ }
-                }
+                catch { /* ignore individual pawn issues */ }
             }
-            catch { /* ignore unavailable pawn collections during game transitions */ }
         }
     }
 
@@ -248,11 +232,14 @@ namespace Better_Work_Tab.Features
     /// Prefix-patch CacheWorkGiversInOrder to fully replace list composition, using saved
     /// Work column order as the tie-breaker among equal manual priorities.
     /// </summary>
+    [HarmonyPatch(typeof(Pawn_WorkSettings), nameof(Pawn_WorkSettings.CacheWorkGiversInOrder))]
     internal static class Patch_WorkExecutionOrder_ReplaceCache
     {
+        [HarmonyBefore(new[] { "fluffy.worktab" })]
+        [HarmonyPriority(Priority.First)]
         public static bool Prefix(Pawn_WorkSettings __instance)
         {
-            if (!DynamicGameplayPatchController.IsOrderingBehaviorActive)
+            if (!PriorityAuthorityBroker.ShouldRunBetterWorkTabOrdering)
             {
                 return true;
             }

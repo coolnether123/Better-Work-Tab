@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
@@ -26,7 +28,12 @@ namespace Better_Work_Tab.Features.TimePriority
     {
         private const int HoursPerDay = 24;
         private const float AnimationSeconds = 0.20f;
+        private const float PanelPadding = 8f;
+        private const float PawnLabelWidth = 112f;
+        private const float HeaderHeight = 37f;
+        private const float TimelineRowHeight = 28f;
         private const float MaxPanelWidth = 780f;
+        private const float MinPanelWidth = 420f;
         private const float InlineDividerFullHeight = 34f;
         private const float InlineChronosHeight = 10f;
         private const float InlineDividerBaseHeight = InlineDividerFullHeight - InlineChronosHeight;
@@ -39,6 +46,7 @@ namespace Better_Work_Tab.Features.TimePriority
         private static readonly List<CopyPasteHit> LastCopyPasteHits = new List<CopyPasteHit>(8);
         private static readonly List<ScheduleCellDiagnostic> LastScheduleCellDiagnostics = new List<ScheduleCellDiagnostic>(HoursPerDay * 4);
         private static int _tutorialEditRevision;
+        private const string AgentOpenRequestFileName = "BWTTimePriorityOpen.request";
         private static readonly PawnDivider ActiveDivider = new PawnDivider
         {
             DividerColor = new Color(0.16f, 0.17f, 0.14f, 0.92f),
@@ -64,10 +72,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool IsVisible => IsEnabled && _session != null;
 
-        // Keep the transition state aligned with the animation owner for geometry
-        // consumers that need to wait for a settled 24-hour layout.
+        // Geometry automation must sample the settled 24-hour cells. Exposing the
+        // transition state here keeps the test seam aligned with the animation owner.
         internal static bool IsTransitioning => IsVisible && GetProgress() < 0.999f;
         internal static int TutorialEditRevision => _tutorialEditRevision;
+
         internal static void CloseForTutorial()
         {
             if (_session != null)
@@ -346,6 +355,45 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
+        internal static void TryOpenAgentRequestedSession(IWorkTabLayoutController layout)
+        {
+            if (!IsEnabled || layout == null || !IsDiagnosticsEnabled())
+            {
+                return;
+            }
+
+            string requestPath = DiagnosticsFileAccess.GetPath(
+                AgentOpenRequestFileName);
+            if (!File.Exists(requestPath))
+            {
+                return;
+            }
+
+            string requestedWorkType = string.Empty;
+            try
+            {
+                requestedWorkType = File.ReadAllText(requestPath).Trim();
+                File.Delete(requestPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[BWT] Could not consume time-priority agent request: " + ex.Message);
+            }
+
+            bool foundTarget = string.Equals(requestedWorkType, "first-visible", StringComparison.OrdinalIgnoreCase)
+                ? TryFindFirstVisiblePriorityTarget(layout, out TargetInfo target)
+                : TryFindAgentWorkTypeTarget(layout, requestedWorkType, out target);
+            if (!foundTarget)
+            {
+                Log.Warning("[BWT] Time-priority agent request could not find a target for work type: " + requestedWorkType);
+                return;
+            }
+
+            _session = new Session(target);
+            TimePriorityService.GetPrioritiesForDisplay(target.TimeTarget, target.CurrentPriority);
+            NotifyLayoutChanged();
+        }
+
         internal static bool ToggleFirstVisiblePrioritySchedule(IWorkTabLayoutController layout)
         {
             if (!IsEnabled || layout == null)
@@ -417,6 +465,11 @@ namespace Better_Work_Tab.Features.TimePriority
         internal static bool HasToggleTargetAt(IWorkTabLayoutController layout, Vector2 mousePosition)
         {
             return TryGetToggleTarget(layout, mousePosition, out _);
+        }
+
+        private static bool IsDiagnosticsEnabled()
+        {
+            return DiagnosticsFileAccess.IsEnabled();
         }
 
         internal static void Draw(IWorkTabLayoutController layout)
@@ -600,11 +653,11 @@ namespace Better_Work_Tab.Features.TimePriority
         /// <summary>
         /// Resolves a point to the hour cell that owns it.
         ///
-        /// Extracted so the click path and the geometry contract below cannot
-        /// drift apart. Reimplementing this loop in a consumer would pass while
-        /// the real lookup was broken, which is why this remains the single
-        /// source of truth for the registered rectangles, not the drawn ones.
-        ///
+        /// Extracted so the click path and the geometry test seam below cannot
+        /// drift apart. Testing a reimplementation of this loop would pass while
+        /// the real lookup was broken, which is the failure the seam exists to
+        /// catch: the registered rects, not the drawn ones, decide what a click
+        /// lands on.
         /// </summary>
         private static bool TryFindCellHit(Vector2 point, out CellHit hit)
         {
@@ -943,7 +996,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
         }
 
-        // Read-only geometry contract: callers can verify the exact rectangles rendered on the
+        // Read-only test seam: callers can verify the exact rectangles rendered on the
         // last Repaint without duplicating the schedule editor's private draw model.
         internal static bool TryGetScheduleCellGeometry(
             int index,
@@ -972,7 +1025,7 @@ namespace Better_Work_Tab.Features.TimePriority
         /// What a registered hour resolves to, and whether it is following the
         /// priority box or holding a number of its own.
         ///
-        /// Exposed so callers can assert the rule the old model could not keep: a
+        /// Exposed so a test can assert the rule the old model could not keep: a
         /// linked hour reads through to the box, rather than to a stored value
         /// that merely used to agree with it.
         /// </summary>
@@ -1000,12 +1053,12 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
-        // Read-only geometry contract for the *clickable* rectangles, which are not the
+        // Read-only test seam for the *clickable* rectangles, which are not the
         // drawn ones above. The visible band is inset inside its row while the
         // hit rect spans the row's full height, so that the pixels above and
         // below a cell belong to the schedule rather than falling through to the
         // work priority cell underneath. The two lists are compared against each
-        // other by the hit-box consumer.
+        // other by the hit-box quicktest.
         internal static int ScheduleCellHitCount => LastCellHits.Count;
 
         internal static bool TryGetScheduleCellHit(int index, out Rect rect, out int hour)
@@ -1136,6 +1189,45 @@ namespace Better_Work_Tab.Features.TimePriority
                    !BetterWorkTabLocalState.IsHeaderDragging &&
                    TryGetPriorityTarget(layout, mousePosition, out target) &&
                    target.PriorityBoxRect.Contains(mousePosition);
+        }
+
+        private static bool TryFindAgentWorkTypeTarget(IWorkTabLayoutController layout, string requestedWorkType, out TargetInfo target)
+        {
+            target = default;
+            if (layout?.Rows == null || layout.Columns == null)
+            {
+                return false;
+            }
+
+            WorkTypeDef requested = string.IsNullOrEmpty(requestedWorkType)
+                ? null
+                : DefDatabase<WorkTypeDef>.GetNamedSilentFail(requestedWorkType);
+
+            WorkTabLayoutColumn selectedColumn = default;
+            bool foundColumn = false;
+            for (int i = 0; i < layout.Columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = layout.Columns[i];
+                if (!(column.Column?.Worker is PawnColumnWorker_WorkPriority) ||
+                    column.Column.workType == null)
+                {
+                    continue;
+                }
+
+                if (requested == null || column.Column.workType == requested)
+                {
+                    selectedColumn = column;
+                    foundColumn = true;
+                    break;
+                }
+            }
+
+            if (!foundColumn)
+            {
+                return false;
+            }
+
+            return TryBuildTargetForColumn(layout, selectedColumn, out target);
         }
 
         private static bool TryFindFirstVisiblePriorityTarget(IWorkTabLayoutController layout, out TargetInfo target)
@@ -1371,6 +1463,41 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
+        private static void DrawHighlights(IWorkTabLayoutController layout, WorkTabLayoutColumn column, List<RowDrawInfo> rows, float progress)
+        {
+            Color columnColor = new Color(0.95f, 0.73f, 0.18f, 0.12f * progress);
+            Color boxColor = new Color(1f, 0.85f, 0.2f, 0.92f * progress);
+
+            Rect animatedHeaderRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
+            float yMin = animatedHeaderRect.yMax;
+            float yMax = yMin;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                yMin = Mathf.Min(yMin, rows[i].RowRect.yMin);
+                yMax = Mathf.Max(yMax, rows[i].RowRect.yMax);
+            }
+
+            Rect columnRect = new Rect(
+                animatedHeaderRect.x,
+                yMin,
+                column.Width,
+                Mathf.Max(0f, yMax - yMin));
+            Widgets.DrawBoxSolid(columnRect, columnColor);
+
+            GUI.color = boxColor;
+            Widgets.DrawBox(GetHeaderHighlightRect(column), 2);
+            for (int i = 0; i < rows.Count; i++)
+            {
+                Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(
+                    column,
+                    rows[i].RowRect);
+                Widgets.DrawBox(GetPriorityBoxRect(cellRect).ExpandedBy(2f), 1);
+            }
+
+            Widgets.DrawBox(_session.SourceBoxRect.ExpandedBy(3f), 2);
+            GUI.color = Color.white;
+        }
+
         private static Rect GetHeaderHighlightRect(WorkTabLayoutColumn column)
         {
             WorkTypeDef workType = column.Column?.workType;
@@ -1384,6 +1511,14 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             return WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
+        }
+
+        private static void DrawSpreadLine(Rect panelRect, float progress)
+        {
+            Vector2 start = _session.SourceBoxRect.center;
+            Vector2 end = new Vector2(panelRect.xMin + PanelPadding, panelRect.yMin + HeaderHeight - 8f);
+            Color color = new Color(1f, 0.86f, 0.22f, 0.8f * progress);
+            Widgets.DrawLine(start, Vector2.Lerp(start, end, progress), color, 2f);
         }
 
         private static void DrawInlineEditor(IWorkTabLayoutController layout, WorkTabLayoutColumn sourceColumn, List<RowDrawInfo> rows, float progress)
@@ -1607,6 +1742,21 @@ namespace Better_Work_Tab.Features.TimePriority
             Text.Anchor = oldAnchor;
             Text.Font = oldFont;
             Text.WordWrap = oldWordWrap;
+        }
+
+        private static void DrawInlineDaylightBand(Rect timelineRect, float progress)
+        {
+            Rect bandRect = new Rect(timelineRect.x, timelineRect.yMax - 7f, timelineRect.width, 5f);
+            float hourWidth = bandRect.width / HoursPerDay;
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                Color color = hour >= 7 && hour <= 18
+                    ? new Color(0.95f, 0.72f, 0.22f, 0.72f * progress)
+                    : hour == 6 || hour == 19 || hour == 20
+                        ? new Color(0.48f, 0.43f, 0.64f, 0.62f * progress)
+                        : new Color(0.14f, 0.18f, 0.30f, 0.70f * progress);
+                Widgets.DrawBoxSolid(new Rect(bandRect.x + hour * hourWidth, bandRect.y, Mathf.Max(1f, hourWidth - 0.5f), bandRect.height), color);
+            }
         }
 
         private static Rect GetInlineChronosRect(Rect timelineRect, float progress)
@@ -1913,6 +2063,126 @@ namespace Better_Work_Tab.Features.TimePriority
             return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
         }
 
+        private static void DrawPanel(Rect rect, List<RowDrawInfo> rows, float progress)
+        {
+            LastCellHits.Clear();
+            LastScheduleCellDiagnostics.Clear();
+            _lastPanelRect = rect;
+
+            Color oldColor = GUI.color;
+            TextAnchor oldAnchor = Text.Anchor;
+            GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
+
+            GUI.color = new Color(0.06f, 0.075f, 0.08f, 0.96f * progress);
+            Widgets.DrawBoxSolid(rect, GUI.color);
+            GUI.color = new Color(0.95f, 0.73f, 0.18f, 0.82f * progress);
+            Widgets.DrawBox(rect, 1);
+
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Text.WordWrap = false;
+            GUI.color = new Color(1f, 1f, 1f, 0.92f * progress);
+            Rect titleRect = new Rect(rect.x + PanelPadding, rect.y + 3f, rect.width - 42f, 24f);
+            Widgets.Label(titleRect, _session.TargetLabel + " time priorities");
+
+            _lastCloseRect = new Rect(rect.xMax - 28f, rect.y + 4f, 22f, 22f);
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = new Color(1f, 0.35f, 0.28f, progress);
+            Widgets.Label(_lastCloseRect, "X");
+
+            DrawDaylightBand(rect, progress);
+            DrawHourLabels(rect, progress);
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                DrawPawnTimelineRow(rect, rows[i], i, progress);
+            }
+
+            GUI.color = oldColor;
+            Text.Anchor = oldAnchor;
+            Text.Font = oldFont;
+            Text.WordWrap = oldWordWrap;
+        }
+
+        private static void DrawDaylightBand(Rect panelRect, float progress)
+        {
+            Rect bandRect = GetTimelineRect(panelRect);
+            bandRect.y = panelRect.y + 25f;
+            bandRect.height = 5f;
+            float hourWidth = bandRect.width / HoursPerDay;
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                Color color = hour >= 7 && hour <= 18
+                    ? new Color(0.95f, 0.72f, 0.22f, 0.72f * progress)
+                    : hour == 6 || hour == 19 || hour == 20
+                        ? new Color(0.48f, 0.43f, 0.64f, 0.62f * progress)
+                        : new Color(0.14f, 0.18f, 0.30f, 0.70f * progress);
+                Widgets.DrawBoxSolid(new Rect(bandRect.x + hour * hourWidth, bandRect.y, hourWidth, bandRect.height), color);
+            }
+        }
+
+        private static void DrawHourLabels(Rect panelRect, float progress)
+        {
+            Rect timelineRect = GetTimelineRect(panelRect);
+            float hourWidth = timelineRect.width / HoursPerDay;
+
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.Font = GameFont.Tiny;
+            GUI.color = new Color(1f, 1f, 1f, 0.66f * progress);
+
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                Rect labelRect = new Rect(timelineRect.x + hour * hourWidth, panelRect.y + 31f, hourWidth, 14f);
+                DrawHourScaleLabel(labelRect, hour.ToString(), progress);
+            }
+        }
+
+        private static void DrawPawnTimelineRow(Rect panelRect, RowDrawInfo row, int rowIndex, float progress)
+        {
+            Rect rowRect = new Rect(
+                panelRect.x + PanelPadding,
+                panelRect.y + HeaderHeight + rowIndex * TimelineRowHeight,
+                panelRect.width - PanelPadding * 2f,
+                TimelineRowHeight);
+
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Text.Font = GameFont.Small;
+            GUI.color = new Color(1f, 1f, 1f, 0.86f * progress);
+            Widgets.Label(new Rect(rowRect.x, rowRect.y + 2f, PawnLabelWidth - 6f, rowRect.height), row.Pawn.LabelShortCap);
+
+            Rect timelineRect = GetTimelineRect(panelRect);
+            timelineRect.y = rowRect.y + 3f;
+            timelineRect.height = 22f;
+
+            int currentPriority = GetFallbackPriority(row.Pawn);
+            TimePriorityTarget target = _session.GetTargetForPawn(row.Pawn);
+            int[] priorities = TimePriorityService.GetPrioritiesForDisplay(target, currentPriority);
+            float hourWidth = timelineRect.width / HoursPerDay;
+
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                Rect hourRect = new Rect(
+                    timelineRect.x + hour * hourWidth + 0.5f,
+                    timelineRect.y,
+                Mathf.Max(1f, hourWidth - 1f),
+                timelineRect.height);
+                bool isCustomHour = TimePriorityService.IsCustomScheduledHour(target, hour, currentPriority);
+                DrawHourPriorityCell(hourRect, priorities[hour], progress, isCustomHour);
+                LastCellHits.Add(new CellHit(target, currentPriority, hour, hourRect));
+            }
+        }
+
+        private static void DrawHourPriorityCell(Rect rect, int priority, float progress, bool isCustomHour)
+        {
+            Rect boxRect = rect.ContractedBy(1f);
+            DrawTimePriorityBox(boxRect, priority, progress);
+            if (isCustomHour)
+            {
+                PriorityOverrideRing.DrawGoldBorder(boxRect.ExpandedBy(1f));
+            }
+        }
+
         private static void DrawTimePriorityBox(Rect rect, int priority, float progress)
         {
             if (progress <= 0.001f)
@@ -1964,6 +2234,33 @@ namespace Better_Work_Tab.Features.TimePriority
                 : rect.ContractedBy(-1f);
         }
 
+        private static Rect CalculatePanelRect(IWorkTabLayoutController layout)
+        {
+            float tableLeft = layout.TableOrigin.x + 8f;
+            float tableRight = layout.TableOrigin.x + Mathf.Max(layout.Table?.Size.x ?? 0f, 1f) - 18f;
+            float availableWidth = Mathf.Max(MinPanelWidth, tableRight - tableLeft - 8f);
+            float width = Mathf.Min(MaxPanelWidth, availableWidth);
+            if (width > tableRight - tableLeft)
+            {
+                width = Mathf.Max(1f, tableRight - tableLeft);
+            }
+
+            float x = Mathf.Clamp(_session.SourceBoxRect.xMin - 42f, tableLeft, tableRight - width);
+            float height = HeaderHeight + Mathf.Max(1, _session.PawnIds.Count) * TimelineRowHeight + PanelPadding;
+            float tableBottom = layout.TableOrigin.y + Mathf.Max(GetVisualTableHeight(layout), 1f) - 8f;
+            float tableTop = layout.TableOrigin.y +
+                layout.HeaderHeight +
+                WorkGridLayoutMetrics.GetPinnedRowsHeight();
+            float y = _session.SourceBoxRect.yMax + 6f;
+            if (y + height > tableBottom)
+            {
+                y = _session.SourceBoxRect.yMin - height - 6f;
+            }
+
+            y = Mathf.Clamp(y, tableTop + 2f, Mathf.Max(tableTop + 2f, tableBottom - height));
+            return new Rect(x, y, width, height);
+        }
+
         private static float GetVisualTableHeight(IWorkTabLayoutController layout)
         {
             if (layout == null)
@@ -1974,6 +2271,15 @@ namespace Better_Work_Tab.Features.TimePriority
             return layout.HeaderHeight +
                 WorkGridLayoutMetrics.GetPinnedRowsHeight() +
                 layout.ContentHeight;
+        }
+
+        private static Rect GetTimelineRect(Rect panelRect)
+        {
+            return new Rect(
+                panelRect.x + PanelPadding + PawnLabelWidth,
+                panelRect.y,
+                Mathf.Max(1f, panelRect.width - PanelPadding * 2f - PawnLabelWidth),
+                panelRect.height);
         }
 
         private static Rect GetPriorityBoxRect(Rect cellRect)
