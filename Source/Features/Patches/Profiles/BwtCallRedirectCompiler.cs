@@ -56,8 +56,6 @@ namespace Better_Work_Tab.Features.Patches.Profiles
         {
             BwtPatchResult result = BwtCallRedirectCompiler.Compile(
                 instructions, original, BwtCallRedirectProfiles.TipPriorityLookup);
-            BwtRaisedPriorityInstallationSession.Record(
-                BwtRaisedPriorityPatchIds.TipForPawnWorker, result);
             return result;
         }
 
@@ -66,8 +64,6 @@ namespace Better_Work_Tab.Features.Patches.Profiles
         {
             BwtPatchResult result = BwtCallRedirectCompiler.Compile(
                 instructions, original, BwtCallRedirectProfiles.PawnLabelCloseWorkTab);
-            BwtRaisedPriorityInstallationSession.Record(
-                BwtRaisedPriorityPatchIds.LabelDoCell, result);
             return result;
         }
     }

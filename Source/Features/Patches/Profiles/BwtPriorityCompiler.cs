@@ -205,8 +205,6 @@ namespace Better_Work_Tab.Features.Patches.Profiles
             BwtPatchResult result = BwtPriorityCompiler.Compile(
                 instructions, original, BwtPriorityProfiles.DrawWorkBoxPriorityConstants,
                 BwtBuildIdentity.From(original));
-            BwtRaisedPriorityInstallationSession.Record(
-                BwtRaisedPriorityPatchIds.DrawWorkBoxFor, result);
             return result;
         }
 
@@ -216,8 +214,6 @@ namespace Better_Work_Tab.Features.Patches.Profiles
             BwtPatchResult result = BwtPriorityCompiler.Compile(
                 instructions, original, BwtPriorityProfiles.HeaderClickedPriorityConstants,
                 BwtBuildIdentity.From(original));
-            BwtRaisedPriorityInstallationSession.Record(
-                BwtRaisedPriorityPatchIds.HeaderClicked, result);
             return result;
         }
 
@@ -227,8 +223,6 @@ namespace Better_Work_Tab.Features.Patches.Profiles
             BwtPatchResult result = BwtPriorityCompiler.Compile(
                 instructions, original, BwtPriorityProfiles.SetPriorityUpperBound,
                 BwtBuildIdentity.From(original));
-            BwtRaisedPriorityInstallationSession.Record(
-                BwtRaisedPriorityPatchIds.SetPriority, result);
             return result;
         }
     }
