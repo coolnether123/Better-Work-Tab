@@ -51,8 +51,8 @@ namespace Better_Work_Tab.ModSupport
         private static bool authorityRefreshInProgress;
         private static bool authorityRefreshPending;
         private static bool authorityRefreshDeferred;
-        private static int lastDynamicAuthorityProbeFrame = -1;
-        private static Game lastDynamicAuthorityProbeGame;
+        private static int lastDynamicAuthorityRefreshFrame = -1;
+        private static Game lastDynamicAuthorityRefreshGame;
         private const int MaxSynchronousAuthorityRefreshPasses = 8;
         private const int MaxSynchronousAvailabilityRefreshPasses = 8;
 
@@ -717,12 +717,12 @@ namespace Better_Work_Tab.ModSupport
             bool shouldRefresh;
             lock (SyncRoot)
             {
-                shouldRefresh = lastDynamicAuthorityProbeFrame != frame ||
-                                !ReferenceEquals(lastDynamicAuthorityProbeGame, game);
+                shouldRefresh = lastDynamicAuthorityRefreshFrame != frame ||
+                                !ReferenceEquals(lastDynamicAuthorityRefreshGame, game);
                 if (shouldRefresh)
                 {
-                    lastDynamicAuthorityProbeFrame = frame;
-                    lastDynamicAuthorityProbeGame = game;
+                    lastDynamicAuthorityRefreshFrame = frame;
+                    lastDynamicAuthorityRefreshGame = game;
                 }
             }
 
