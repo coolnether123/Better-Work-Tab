@@ -852,8 +852,7 @@ namespace Better_Work_Tab.UI.Settings
         private static readonly Dictionary<string, BWTWorkloadSettingMetadata> Metadata =
             BuildMetadata();
 
-        private static readonly HashSet<SettingDefinition> PreparedDefinitions =
-            new HashSet<SettingDefinition>();
+        private static IReadOnlyDictionary<string, WorkloadScalarKind> _supportedPresentationKinds;
 
         private static readonly Dictionary<string, string> BlockedReasons =
             new Dictionary<string, string>(StringComparer.Ordinal);
@@ -872,13 +871,22 @@ namespace Better_Work_Tab.UI.Settings
         private static bool _lastObservedLegacyMode;
         private static bool _lastObservedLegacyModeValid;
 
-        internal static void PrepareDefinition(SettingDefinition definition)
+        internal static void PrepareDefinition(
+            SettingDefinition definition,
+            IDictionary<string, WorkloadScalarKind> supportedPresentationKinds)
         {
             if (definition == null ||
-                !Metadata.ContainsKey(definition.Id) ||
-                !PreparedDefinitions.Add(definition))
+                !Metadata.ContainsKey(definition.Id))
             {
                 return;
+            }
+
+            if (supportedPresentationKinds != null &&
+                TryDeriveSupportedPresentationKind(
+                    definition,
+                    out WorkloadScalarKind supportedPresentationKind))
+            {
+                supportedPresentationKinds[definition.Id] = supportedPresentationKind;
             }
 
             if (definition.Type == SettingType.Enum)
@@ -928,6 +936,12 @@ namespace Better_Work_Tab.UI.Settings
                     LinkLabel = "Workload preview"
                 });
             }
+        }
+
+        internal static void PublishSupportedPresentationKinds(
+            IReadOnlyDictionary<string, WorkloadScalarKind> supportedPresentationKinds)
+        {
+            _supportedPresentationKinds = supportedPresentationKinds;
         }
 
         internal static void Refresh()
@@ -1036,6 +1050,7 @@ namespace Better_Work_Tab.UI.Settings
 
         internal static void Invalidate()
         {
+            _supportedPresentationKinds = null;
             _snapshotValid = false;
             SuppressedOnChanged.Clear();
         }
@@ -1337,24 +1352,30 @@ namespace Better_Work_Tab.UI.Settings
             out WorkloadScalarKind kind)
         {
             kind = WorkloadScalarKind.Empty;
-            if (string.IsNullOrEmpty(settingId) || !Metadata.ContainsKey(settingId))
+            if (string.IsNullOrEmpty(settingId) ||
+                !Metadata.ContainsKey(settingId))
             {
                 return false;
             }
 
-            SettingDefinition definition = null;
-            IReadOnlyList<SettingDefinition> definitions = BWTSettingsRegistry.Definitions;
-            for (int i = 0; i < definitions.Count; i++)
+            if (_supportedPresentationKinds == null)
             {
-                SettingDefinition candidate = definitions[i];
-                if (candidate != null &&
-                    string.Equals(candidate.Id, settingId, StringComparison.Ordinal))
-                {
-                    definition = candidate;
-                    break;
-                }
+                BWTSettingsRegistry.EnsureInitialized();
             }
 
+            if (_supportedPresentationKinds == null)
+            {
+                return false;
+            }
+
+            return _supportedPresentationKinds.TryGetValue(settingId, out kind);
+        }
+
+        private static bool TryDeriveSupportedPresentationKind(
+            SettingDefinition definition,
+            out WorkloadScalarKind kind)
+        {
+            kind = WorkloadScalarKind.Empty;
             if (definition == null ||
                 string.IsNullOrEmpty(definition.FieldName) ||
                 definition.ValueGetter != null ||
