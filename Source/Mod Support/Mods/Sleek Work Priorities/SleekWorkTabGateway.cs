@@ -368,52 +368,6 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
             }
         }
 
-        /// <summary>
-        /// Uses Sleek's actual inline-job worker for a BWT sub-work column. BWT still supplies the
-        /// column geometry and header lane; this bridge keeps the per-job store and Sleek cell
-        /// gestures authoritative for the visible priority box.
-        /// </summary>
-        internal static bool TryDrawMixedSleekWorkGiverCell(
-            Rect rect,
-            Pawn pawn,
-            PawnTable table,
-            WorkGiverDef workGiver)
-        {
-            // A mixed BWT host keeps BWT as the priority-data authority. Do not let Sleek's
-            // inline worker write its sidecar in that mode; returning false hands the cell back
-            // to BWT's own specific-job renderer. The worker is only allowed to edit while Sleek
-            // is the verified external authority for the complete Work tab.
-            if (BetterWorkTabHostsSleek ||
-                pawn == null ||
-                table == null ||
-                workGiver == null)
-            {
-                return false;
-            }
-
-            // This method is normally reached from the mixed BWT host. That host keeps BWT as
-            // the shared priority-data owner, so never delegate a writable cell to Sleek there.
-            // Keep the verified-owner check for defensive callers that reuse this gateway from
-            // Sleek's strict window.
-            if (!IsVerifiedSleekPriorityAuthority(out _))
-            {
-                return false;
-            }
-
-            EnsureSleekInlineJobAccessors();
-            if (_sleekInlineActiveGetter == null ||
-                _sleekInlineExpandedGetter == null ||
-                !_sleekInlineActiveGetter() ||
-                _sleekInlineExpandedGetter() != workGiver.workType ||
-                !TryGetSleekInlineJobColumn(workGiver, out PawnColumnDef inlineColumn))
-            {
-                return false;
-            }
-
-            inlineColumn.Worker.DoCell(rect, pawn, table);
-            return true;
-        }
-
         internal static void SyncMixedSubWorkExpansion(PawnTable table, WorkTypeDef workType)
         {
             if (!BetterWorkTabHostsSleek || table == null || workType == null)
