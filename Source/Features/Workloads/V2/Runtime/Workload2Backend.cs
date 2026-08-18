@@ -2142,57 +2142,47 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadProjectedState before,
             WorkloadProjectedState after)
         {
-            var beforeValues = new Dictionary<WorkloadParentPriorityKey, int>();
-            var afterValues = new Dictionary<WorkloadParentPriorityKey, int>();
-            for (int i = 0; i < before.ParentPriorities.Count; i++)
-            {
-                WorkloadParentPriorityEntry entry = before.ParentPriorities[i];
-                beforeValues[entry.Key] = entry.Priority;
-            }
-
-            for (int i = 0; i < after.ParentPriorities.Count; i++)
-            {
-                WorkloadParentPriorityEntry entry = after.ParentPriorities[i];
-                afterValues[entry.Key] = entry.Priority;
-            }
-
-            var keys = new HashSet<WorkloadParentPriorityKey>();
-            foreach (WorkloadParentPriorityKey key in beforeValues.Keys) keys.Add(key);
-            foreach (WorkloadParentPriorityKey key in afterValues.Keys) keys.Add(key);
-            var ordered = new List<WorkloadParentPriorityKey>(keys);
-            ordered.Sort((left, right) => left.CompareTo(right));
-
-            var result = new List<ParentPriorityDifference>();
-            for (int i = 0; i < ordered.Count; i++)
-            {
-                WorkloadParentPriorityKey key = ordered[i];
-                int beforeValue;
-                int afterValue;
-                bool hasBefore = beforeValues.TryGetValue(key, out beforeValue);
-                bool hasAfter = afterValues.TryGetValue(key, out afterValue);
-                if (hasBefore && hasAfter && beforeValue == afterValue) continue;
-                result.Add(new ParentPriorityDifference(key, hasAfter, afterValue));
-            }
-
-            return result;
+            return BuildSortedMapDifferences(
+                before.ParentPriorities,
+                after.ParentPriorities,
+                entry => entry.Key,
+                entry => entry.Priority,
+                (key, hasAfter, afterValue) =>
+                    new ParentPriorityDifference(key, hasAfter, afterValue));
         }
 
         private static List<ManualModeDifference> BuildManualModeDifferences(
             WorkloadProjectedState before,
             WorkloadProjectedState after)
         {
-            var beforeValues = new Dictionary<WorkloadParentPriorityKey, bool>();
-            var afterValues = new Dictionary<WorkloadParentPriorityKey, bool>();
-            for (int i = 0; i < before.ManualModes.Count; i++)
+            return BuildSortedMapDifferences(
+                before.ManualModes,
+                after.ManualModes,
+                entry => entry.Key,
+                entry => entry.Manual,
+                (key, hasAfter, afterValue) =>
+                    new ManualModeDifference(key, hasAfter, afterValue));
+        }
+
+        private static List<TDifference> BuildSortedMapDifferences<TEntry, TValue, TDifference>(
+            IReadOnlyList<TEntry> beforeEntries,
+            IReadOnlyList<TEntry> afterEntries,
+            Func<TEntry, WorkloadParentPriorityKey> getKey,
+            Func<TEntry, TValue> getValue,
+            Func<WorkloadParentPriorityKey, bool, TValue, TDifference> createDifference)
+        {
+            var beforeValues = new Dictionary<WorkloadParentPriorityKey, TValue>();
+            var afterValues = new Dictionary<WorkloadParentPriorityKey, TValue>();
+            for (int i = 0; i < beforeEntries.Count; i++)
             {
-                WorkloadManualModeEntry entry = before.ManualModes[i];
-                beforeValues[entry.Key] = entry.Manual;
+                TEntry entry = beforeEntries[i];
+                beforeValues[getKey(entry)] = getValue(entry);
             }
 
-            for (int i = 0; i < after.ManualModes.Count; i++)
+            for (int i = 0; i < afterEntries.Count; i++)
             {
-                WorkloadManualModeEntry entry = after.ManualModes[i];
-                afterValues[entry.Key] = entry.Manual;
+                TEntry entry = afterEntries[i];
+                afterValues[getKey(entry)] = getValue(entry);
             }
 
             var keys = new HashSet<WorkloadParentPriorityKey>();
@@ -2201,16 +2191,16 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             var ordered = new List<WorkloadParentPriorityKey>(keys);
             ordered.Sort((left, right) => left.CompareTo(right));
 
-            var result = new List<ManualModeDifference>();
+            var result = new List<TDifference>();
             for (int i = 0; i < ordered.Count; i++)
             {
                 WorkloadParentPriorityKey key = ordered[i];
-                bool beforeValue;
-                bool afterValue;
+                TValue beforeValue;
+                TValue afterValue;
                 bool hasBefore = beforeValues.TryGetValue(key, out beforeValue);
                 bool hasAfter = afterValues.TryGetValue(key, out afterValue);
-                if (hasBefore && hasAfter && beforeValue == afterValue) continue;
-                result.Add(new ManualModeDifference(key, hasAfter, afterValue));
+                if (hasBefore && hasAfter && EqualityComparer<TValue>.Default.Equals(beforeValue, afterValue)) continue;
+                result.Add(createDifference(key, hasAfter, afterValue));
             }
 
             return result;
