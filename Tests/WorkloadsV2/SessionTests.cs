@@ -39,6 +39,50 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 },
                 representedPawnIds: new[] { parent.Pawn });
             var session = WorkloadSession.Open(template, null, liveState);
+            TestAssert.True(
+                !string.IsNullOrWhiteSpace(session.PreviewSessionId),
+                "every preview must carry a unique stable session identity");
+            TestAssert.True(
+                session.SessionRevision > 0 && session.MembershipRevision > 0,
+                "every preview must begin with independent positive freshness revisions");
+            var secondSession = WorkloadSession.Open(template, null, liveState);
+            TestAssert.False(
+                string.Equals(
+                    session.PreviewSessionId,
+                    secondSession.PreviewSessionId,
+                    System.StringComparison.Ordinal),
+                "separate previews must never reuse a session identity");
+
+            var priorityEdited = session.Edit(draft =>
+                draft.SetParentPriorityIntent(
+                    parent,
+                    WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(
+                        new WorkloadSpecificPriorityPayload(4))));
+            TestAssert.True(
+                priorityEdited.SessionRevision > session.SessionRevision,
+                "projected workload edits must advance the session freshness revision");
+            TestAssert.Equal(
+                session.MembershipRevision,
+                priorityEdited.MembershipRevision,
+                "non-membership edits must not advance membership freshness");
+
+            var excluded = session.ExcludePawn(parent.Pawn);
+            TestAssert.Equal(
+                session.SessionRevision,
+                excluded.SessionRevision,
+                "membership-only edits must not consume the projected-state revision");
+            TestAssert.True(
+                excluded.MembershipRevision > session.MembershipRevision,
+                "membership edits must advance membership freshness independently");
+            var included = excluded.IncludePawn(parent.Pawn);
+            TestAssert.True(
+                included.MembershipRevision > excluded.MembershipRevision,
+                "reversing membership must advance membership freshness again");
+            TestAssert.Equal(
+                session.SessionRevision,
+                included.SessionRevision,
+                "membership revisions must remain independent of projected-state revisions");
+
             var edited = session.Edit(draft =>
             {
                 draft.SetParentPriorityIntent(

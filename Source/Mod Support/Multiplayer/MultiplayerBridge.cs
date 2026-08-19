@@ -863,7 +863,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
         internal string TableKey =>
             ExpectedRevisions.HostSessionEpoch + "\u001f" +
             ExpectedRevisions.RosterFingerprint + "\u001f" +
-            RequestId;
+            RequesterPlayerKey + "\u001f" +
+            IdempotencyKey;
 
         internal static bool TryCreate(
             WorkloadTransactionOperation operation,
@@ -2321,6 +2322,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
     {
         internal WorkloadTransactionResult(
             string requestId,
+            string idempotencyKey,
+            string sessionId,
             string requestFingerprint,
             WorkloadTransactionPhase phase,
             WorkloadTransactionTerminalState terminalState,
@@ -2332,6 +2335,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             long sequence)
         {
             RequestId = requestId;
+            IdempotencyKey = idempotencyKey ?? string.Empty;
+            SessionId = sessionId ?? string.Empty;
             RequestFingerprint = requestFingerprint;
             Phase = phase;
             TerminalState = terminalState;
@@ -2344,6 +2349,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
         }
 
         internal string RequestId { get; }
+        internal string IdempotencyKey { get; }
+        internal string SessionId { get; }
         internal string RequestFingerprint { get; }
         internal WorkloadTransactionPhase Phase { get; }
         internal WorkloadTransactionTerminalState TerminalState { get; }
@@ -2435,7 +2442,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                         WorkloadTransactionAdmissionCode.MismatchedDuplicate,
                         existing.Request,
                         existing.TerminalResult,
-                        "The request ID was reused with a different canonical payload.",
+                        "The idempotency key was reused with a different canonical payload.",
                         existing.State);
             }
 
@@ -2535,17 +2542,24 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             WorkloadTransactionRequest request,
             WorkloadTransactionState state,
             string diagnostic,
-            WorkloadTransactionResult terminalResult = null)
+            WorkloadTransactionResult terminalResult = null,
+            WorkloadTransactionRequest registeredRequest = null)
         {
             Code = code;
             Request = request;
+            RegisteredRequest = registeredRequest ?? request;
             State = state;
             Diagnostic = diagnostic ?? string.Empty;
             TerminalResult = terminalResult;
         }
 
         internal WorkloadTransactionAdmissionCode Code { get; }
+        // Request is the correlation envelope supplied by the caller. The
+        // registered request remains separate so an idempotent replay with a
+        // new RequestId can report against the new caller without changing
+        // the original protocol state or terminal result.
         internal WorkloadTransactionRequest Request { get; }
+        internal WorkloadTransactionRequest RegisteredRequest { get; }
         internal WorkloadTransactionState State { get; }
         internal string Diagnostic { get; }
         internal WorkloadTransactionResult TerminalResult { get; }
@@ -2634,10 +2648,11 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 }
                 return new WorkloadTransactionAdmission(
                     decision.Code,
-                    decision.Request ?? request,
+                    request,
                     decision.State ?? _currentState,
                     decision.Diagnostic,
-                    decision.TerminalResult);
+                    decision.TerminalResult,
+                    decision.Request ?? request);
             }
 
             var transition = WorkloadTransactionStateMachine.Begin(request, sequence, hostParticipantKey);
@@ -3026,6 +3041,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             {
                 _lastResult = new WorkloadTransactionResult(
                     _currentState.RequestId,
+                    _currentRequest.IdempotencyKey,
+                    _currentRequest.SessionId,
                     _currentState.RequestFingerprint,
                     _currentState.Phase,
                     _currentState.TerminalState,

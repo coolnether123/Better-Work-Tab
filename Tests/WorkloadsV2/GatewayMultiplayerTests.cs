@@ -18,6 +18,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string root = FindRepositoryRoot();
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
             GatewayReturnsAcceptanceAndDefersTerminalHandling(gateway);
+            TerminalFailuresKeepThePreviewRetryable(gateway);
         }
 
         private static void AcceptedStatesAreNotLifecycleRejections()
@@ -92,6 +93,51 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     "status.State >= WorkloadMultiplayerCommitState.Succeeded",
                     StringComparison.Ordinal) >= 0,
                 "MP lifecycle classification must not depend on enum ordering");
+        }
+
+        private static void TerminalFailuresKeepThePreviewRetryable(string gateway)
+        {
+            TestAssert.Contains(
+                gateway,
+                "private void PrepareMultiplayerRetry()",
+                "terminal synchronized failures must reset only the operation attempt, not the preview session");
+            TestAssert.Contains(
+                gateway,
+                "PrepareMultiplayerRetry();",
+                "the unchanged draft must become retryable after a coherent terminal failure");
+            TestAssert.Contains(
+                gateway,
+                "case WorkloadMultiplayerCommitState.Rejected:",
+                "prepare rejection must remain retryable");
+            TestAssert.Contains(
+                gateway,
+                "case WorkloadMultiplayerCommitState.Aborted:",
+                "abort must remain retryable after the protocol is terminal");
+            TestAssert.Contains(
+                gateway,
+                "case WorkloadMultiplayerCommitState.TimedOut:",
+                "timeout must remain retryable after the protocol is terminal");
+            TestAssert.Contains(
+                gateway,
+                "case WorkloadMultiplayerCommitState.RolledBack:",
+                "completed rollback must leave the draft retryable");
+            TestAssert.Contains(
+                gateway,
+                "_multiplayerIdempotencyKey = Guid.NewGuid().ToString(\"N\");",
+                "each new logical retry must receive a fresh idempotency key");
+            TestAssert.Contains(
+                gateway,
+                "_multiplayerIdempotencyKey);",
+                "the UI must pass its idempotency key through the backend boundary");
+            TestAssert.False(
+                gateway.IndexOf(
+                    "Change the preview before trying another request.",
+                    StringComparison.Ordinal) >= 0,
+                "a terminal synchronized failure must not require an unrelated draft edit before retry");
+            TestAssert.Contains(
+                gateway,
+                "the preview is still open",
+                "terminal rejection must retain the existing preview session");
         }
 
         private static WorkloadMultiplayerCommitStatus Status(

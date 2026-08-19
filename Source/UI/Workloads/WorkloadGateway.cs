@@ -838,7 +838,8 @@ namespace Better_Work_Tab.UI.Workloads
         internal static WorkloadMultiplayerCommitStatus BeginV2MultiplayerCommit(
             WorkloadDecisionKind decisionKind,
             string forkStableId,
-            string forkLabel)
+            string forkLabel,
+            string idempotencyKey = null)
         {
             if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
             {
@@ -846,7 +847,11 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.BeginMultiplayerCommit(decisionKind, forkStableId, forkLabel)
+                ? modern.BeginMultiplayerCommit(
+                    decisionKind,
+                    forkStableId,
+                    forkLabel,
+                    idempotencyKey)
                 : null;
         }
 
@@ -917,6 +922,7 @@ namespace Better_Work_Tab.UI.Workloads
         private GameComponent_BWTWorldSettings _boundComponent;
         private bool _hasMultiplayerAttempt;
         private string _multiplayerRequestId = string.Empty;
+        private string _multiplayerIdempotencyKey = string.Empty;
         private string _multiplayerPayloadFingerprint = string.Empty;
         private WorkloadDecisionKind _multiplayerDecision;
         private string _multiplayerForkStableId = string.Empty;
@@ -1362,14 +1368,18 @@ namespace Better_Work_Tab.UI.Workloads
                 case WorkloadMultiplayerCommitState.Aborted:
                 case WorkloadMultiplayerCommitState.TimedOut:
                 case WorkloadMultiplayerCommitState.RolledBack:
+                    string failedDecision = MultiplayerDecisionLabel(_multiplayerDecision);
+                    string failedMessage = _multiplayerCommitMessage;
                     _multiplayerRecoveryBlocked = false;
+                    PrepareMultiplayerRetry();
                     SetMessage(
                         "Multiplayer workload " +
-                        MultiplayerDecisionLabel(_multiplayerDecision) +
+                        failedDecision +
                         " was not committed; the preview is still open. " +
-                        (_multiplayerCommitMessage.AnyNonWhitespace()
-                            ? _multiplayerCommitMessage
-                            : "No live or stored workload state was changed."));
+                        (failedMessage.AnyNonWhitespace()
+                            ? failedMessage
+                            : "No live or stored workload state was changed.") +
+                        " Retry is available without changing the draft.");
                     return;
                 case WorkloadMultiplayerCommitState.Failed:
                     // PollMultiplayerRollbackState upgrades this to a locked
@@ -1414,6 +1424,27 @@ namespace Better_Work_Tab.UI.Workloads
         {
             _hasMultiplayerAttempt = false;
             _multiplayerRequestId = string.Empty;
+            _multiplayerIdempotencyKey = string.Empty;
+            _multiplayerPayloadFingerprint = string.Empty;
+            _multiplayerDecision = WorkloadDecisionKind.Apply;
+            _multiplayerForkStableId = string.Empty;
+            _multiplayerForkLabel = string.Empty;
+            _multiplayerCommitState = WorkloadMultiplayerCommitState.None;
+            _multiplayerCommitMessage = string.Empty;
+            _multiplayerRecoveryBlocked = false;
+            _multiplayerTerminalHandled = false;
+        }
+
+        private void PrepareMultiplayerRetry()
+        {
+            // A terminal rejection/abort/timeout/rollback is a completed,
+            // coherent operation. Retain its table entry for exact replay,
+            // but let the unchanged draft create a new logical attempt with a
+            // fresh idempotency key. This keeps a late retry from ever
+            // reusing an ambiguous request while leaving the preview open.
+            _hasMultiplayerAttempt = false;
+            _multiplayerRequestId = string.Empty;
+            _multiplayerIdempotencyKey = string.Empty;
             _multiplayerPayloadFingerprint = string.Empty;
             _multiplayerDecision = WorkloadDecisionKind.Apply;
             _multiplayerForkStableId = string.Empty;
@@ -1990,22 +2021,10 @@ namespace Better_Work_Tab.UI.Workloads
                 decision,
                 forkStableId,
                 forkLabel);
-            if (_hasMultiplayerAttempt &&
-                StringComparer.Ordinal.Equals(
-                    payloadFingerprint,
-                    _multiplayerPayloadFingerprint))
-            {
-                // The protocol does not expose a UI-side replay constructor;
-                // retaining the original request identity is safer than
-                // creating a second request for an unchanged payload.
-                SetMessage(
-                    "This synchronized workload request already has a terminal result. " +
-                    "Change the preview before trying another request.");
-                return false;
-            }
 
             ClearMultiplayerAttempt();
             _hasMultiplayerAttempt = true;
+            _multiplayerIdempotencyKey = Guid.NewGuid().ToString("N");
             _multiplayerDecision = decision;
             _multiplayerForkStableId = forkStableId ?? string.Empty;
             _multiplayerForkLabel = forkLabel ?? string.Empty;
@@ -2017,7 +2036,8 @@ namespace Better_Work_Tab.UI.Workloads
                 WorkloadGateway.BeginV2MultiplayerCommit(
                     decision,
                     _multiplayerForkStableId,
-                    _multiplayerForkLabel);
+                    _multiplayerForkLabel,
+                    _multiplayerIdempotencyKey);
             if (status == null)
             {
                 _multiplayerCommitState = WorkloadMultiplayerCommitState.Rejected;

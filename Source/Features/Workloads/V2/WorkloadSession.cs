@@ -431,7 +431,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadValidationContext validationContext,
             string sourceIdentity,
             bool hasCapturedLiveBaseline,
-            WorkloadRuntimeBaseline runtimeBaseline)
+            WorkloadRuntimeBaseline runtimeBaseline,
+            string previewSessionId = null,
+            long sessionRevision = 1L,
+            long membershipRevision = 1L)
         {
             SourceTemplate = sourceTemplate ?? WorkloadTemplate.Empty;
             TemplateBaselineState = templateBaselineState ?? WorkloadProjectedState.Empty;
@@ -442,6 +445,11 @@ namespace Better_Work_Tab.Features.Workloads.V2
             SourceIdentity = sourceIdentity ?? string.Empty;
             HasCapturedLiveBaseline = hasCapturedLiveBaseline;
             RuntimeBaseline = runtimeBaseline;
+            PreviewSessionId = string.IsNullOrWhiteSpace(previewSessionId)
+                ? Guid.NewGuid().ToString("N")
+                : previewSessionId;
+            SessionRevision = Math.Max(1L, sessionRevision);
+            MembershipRevision = Math.Max(1L, membershipRevision);
         }
 
         public static WorkloadSession Open(
@@ -479,7 +487,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadProjectedState liveBaselineState,
             string sourceIdentity,
             WorkloadValidationContext validationContext = null,
-            WorkloadRuntimeBaseline runtimeBaseline = null)
+            WorkloadRuntimeBaseline runtimeBaseline = null,
+            string previewSessionId = null,
+            long sessionRevision = 1L,
+            long membershipRevision = 1L)
         {
             WorkloadTemplate safeTemplate = template ?? WorkloadTemplate.Empty;
             if (liveBaselineState == null ||
@@ -506,7 +517,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 validationContext ?? WorkloadValidationContext.Default,
                 sourceIdentity,
                 true,
-                runtimeBaseline);
+                runtimeBaseline,
+                previewSessionId,
+                sessionRevision,
+                membershipRevision);
         }
 
         internal static string GetSourceIdentity(WorkloadTemplate template)
@@ -526,6 +540,9 @@ namespace Better_Work_Tab.Features.Workloads.V2
         public bool HasCapturedLiveBaseline { get; private set; }
         internal WorkloadRuntimeBaseline RuntimeBaseline { get; private set; }
         internal string SourceIdentity { get; private set; }
+        internal string PreviewSessionId { get; private set; }
+        internal long SessionRevision { get; private set; }
+        internal long MembershipRevision { get; private set; }
 
         /// <summary>
         /// Pawns excluded from this session but not excluded by the saved
@@ -692,7 +709,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 _validationContext,
                 SourceIdentity,
                 HasCapturedLiveBaseline,
-                runtimeBaseline);
+                runtimeBaseline,
+                PreviewSessionId,
+                SessionRevision,
+                MembershipRevision);
         }
 
         public WorkloadSession Revert()
@@ -811,16 +831,73 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
         private WorkloadSession NewSession(WorkloadProjectedState projectedState, WorkloadSessionStatus status)
         {
+            WorkloadProjectedState nextState = NormalizeState(
+                SourceTemplate,
+                projectedState ?? WorkloadProjectedState.Empty);
+            bool membershipChanged = HasMembershipChange(ProjectedState, nextState);
+            bool projectedStateChanged = HasNonMembershipChange(ProjectedState, nextState);
             return new WorkloadSession(
                 SourceTemplate,
                 TemplateBaselineState,
                 LiveBaselineState,
-                projectedState ?? WorkloadProjectedState.Empty,
+                nextState,
                 status,
                 _validationContext,
                 SourceIdentity,
                 HasCapturedLiveBaseline,
-                RuntimeBaseline);
+                RuntimeBaseline,
+                PreviewSessionId,
+                NextRevision(SessionRevision, projectedStateChanged),
+                NextRevision(MembershipRevision, membershipChanged));
+        }
+
+        private static long NextRevision(long current, bool changed)
+        {
+            if (!changed || current == long.MaxValue) return current;
+            return current + 1L;
+        }
+
+        private static bool HasMembershipChange(
+            WorkloadProjectedState before,
+            WorkloadProjectedState after)
+        {
+            return !SamePawnSet(
+                       before?.RepresentedPawnIds,
+                       after?.RepresentedPawnIds) ||
+                   !SamePawnSet(
+                       before?.ExcludedPawnIds,
+                       after?.ExcludedPawnIds);
+        }
+
+        private static bool HasNonMembershipChange(
+            WorkloadProjectedState before,
+            WorkloadProjectedState after)
+        {
+            WorkloadProjectedState normalizedBefore = WithoutMembership(before);
+            WorkloadProjectedState normalizedAfter = WithoutMembership(after);
+            return !normalizedBefore.SemanticallyEquals(normalizedAfter);
+        }
+
+        private static WorkloadProjectedState WithoutMembership(
+            WorkloadProjectedState state)
+        {
+            WorkloadProjectedState result = state ?? WorkloadProjectedState.Empty;
+            IReadOnlyList<PawnKey> excluded = result.ExcludedPawnIds;
+            for (int i = 0; i < excluded.Count; i++)
+            {
+                result = result.IncludePawn(excluded[i]);
+            }
+
+            return result;
+        }
+
+        private static bool SamePawnSet(
+            IEnumerable<PawnKey> left,
+            IEnumerable<PawnKey> right)
+        {
+            var leftSet = new HashSet<PawnKey>(left ?? new PawnKey[0]);
+            var rightSet = new HashSet<PawnKey>(right ?? new PawnKey[0]);
+            return leftSet.SetEquals(rightSet);
         }
 
         private WorkloadSession TerminalSession(WorkloadTemplate resultTemplate, WorkloadSessionStatus status)

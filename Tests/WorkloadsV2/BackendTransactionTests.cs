@@ -17,6 +17,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string root = FindRepositoryRoot();
             string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
             string contracts = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "WorkloadBackendContracts.cs");
+            string multiplayer = Read(root, "Source", "Mod Support", "Multiplayer", "MultiplayerBridge.cs");
             string authorization = Read(root, "Source", "Features", "TimePriority", "TimePriorityMutationAuthorization.cs");
             string manager = Read(root, "Source", "Features", "WorkGiverReassignments", "WorkGiverReassignmentManager.cs");
             string data = Read(root, "Source", "Features", "WorkGiverReassignments", "WorkGiverReassignmentData.cs");
@@ -26,6 +27,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             SettingsAreRegisteredBeforeWrite(backend);
             RollbackLeaseCannotBecomeSuccessAfterFailure(backend, contracts);
             TemplateWritesUseTheSameTransactionBoundary(backend);
+            FreshnessRevisionsAreCapturedAndValidatedIndependently(backend, multiplayer);
         }
 
         private static void PrepareIsReadOnlyAndExecuteIsCapabilityBound(
@@ -189,6 +191,51 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 backend,
                 "prepared.ExecuteStarted",
                 "the backend must reject duplicate execute use of one prepared transaction");
+        }
+
+        private static void FreshnessRevisionsAreCapturedAndValidatedIndependently(
+            string backend,
+            string multiplayer)
+        {
+            TestAssert.Contains(
+                backend,
+                "session.PreviewSessionId",
+                "multiplayer request construction must use the unique preview-session identity");
+            TestAssert.Contains(
+                backend,
+                "session.MembershipRevision",
+                "membership freshness must be captured from WorkloadSession");
+            TestAssert.Contains(
+                backend,
+                "session.SessionRevision",
+                "projected-state freshness must be captured from WorkloadSession");
+            TestAssert.Contains(
+                backend,
+                "request.SessionId",
+                "prepare must validate the serialized preview-session identity");
+            TestAssert.Contains(
+                backend,
+                "session.MembershipRevision != request.ExpectedRevisions.MembershipRevision",
+                "prepare must reject stale membership freshness");
+            TestAssert.Contains(
+                backend,
+                "session.SessionRevision != request.ExpectedRevisions.SessionRevision",
+                "prepare must reject stale projected-state freshness");
+            TestAssert.False(
+                backend.IndexOf("StableRevision(payload.Fingerprint)", StringComparison.Ordinal) >= 0,
+                "payload fingerprints must not substitute for independent session revisions");
+            TestAssert.Contains(
+                multiplayer,
+                "RequesterPlayerKey +",
+                "request correlation must be separated from idempotency identity in the table key");
+            TestAssert.Contains(
+                multiplayer,
+                "IdempotencyKey;",
+                "the transaction table must deduplicate by idempotency key");
+            TestAssert.Contains(
+                multiplayer,
+                "The idempotency key was reused with a different canonical payload.",
+                "conflicting idempotent retries must fail closed");
         }
 
         private static string FindRepositoryRoot()

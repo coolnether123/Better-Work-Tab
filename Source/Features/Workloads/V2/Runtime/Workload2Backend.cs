@@ -284,10 +284,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadDecisionKind decisionKind,
             string forkStableId,
             string forkLabel,
-            long sessionRevision = 0)
+            string idempotencyKey = null)
         {
             return MultiplayerCallbacks.Begin(
-                this, _previewSession, decisionKind, forkStableId, forkLabel, sessionRevision);
+                this,
+                _previewSession,
+                decisionKind,
+                forkStableId,
+                forkLabel,
+                idempotencyKey);
         }
 
         internal static void PublishMultiplayerStatus(WorkloadMultiplayerCommitStatus status)
@@ -1367,6 +1372,16 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     "The synchronized workload request or projected payload is missing.");
             }
 
+            if (string.IsNullOrWhiteSpace(request.SessionId) ||
+                request.ExpectedRevisions == null ||
+                request.ExpectedRevisions.SessionRevision <= 0 ||
+                request.ExpectedRevisions.MembershipRevision <= 0)
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The synchronized workload request has no valid preview-session identity or independent freshness revisions.");
+            }
+
             WorkloadOperationResult<WorkloadV2PersistenceRecord> found = Find(request.SourceWorkloadId);
             if (!found.Succeeded)
                 return WorkloadOperationResult<WorkloadSession>.Fail(found.Code, found.Message);
@@ -1416,12 +1431,26 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 source.Value,
                 capture.Value.State,
                 WorkloadSession.GetSourceIdentity(source.Value),
-                runtimeBaseline: capture.Value.RuntimeBaseline);
+                runtimeBaseline: capture.Value.RuntimeBaseline,
+                previewSessionId: request.SessionId,
+                sessionRevision: request.ExpectedRevisions.SessionRevision,
+                membershipRevision: request.ExpectedRevisions.MembershipRevision);
             if (session == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
                     WorkloadDiagnosticCode.InvalidState,
                     "The synchronized workload session could not be reconstructed.");
+            }
+
+            if (!StringComparer.Ordinal.Equals(
+                    session.PreviewSessionId,
+                    request.SessionId) ||
+                session.SessionRevision != request.ExpectedRevisions.SessionRevision ||
+                session.MembershipRevision != request.ExpectedRevisions.MembershipRevision)
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.BaselineChanged,
+                    "The synchronized preview-session identity or freshness revisions changed before prepare.");
             }
 
             _applyService.RememberBackendBaseline(source.Value, capture.Value.BackendBaseline);
@@ -1643,13 +1672,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
         internal bool TryCreateMultiplayerRevisionVector(
             WorkloadSession session,
-            long sessionRevision,
             string hostEpoch,
             string rosterFingerprint,
             out WorkloadTransactionRevisionVector revisions)
         {
             revisions = null;
             if (session == null ||
+                string.IsNullOrWhiteSpace(session.PreviewSessionId) ||
+                session.SessionRevision <= 0 ||
+                session.MembershipRevision <= 0 ||
                 !_applyService.TryGetBackendBaseline(session, out var baseline) ||
                 baseline == null)
                 return false;
@@ -1657,13 +1688,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (store == null) return false;
             revisions = new WorkloadTransactionRevisionVector(
                 store.PersistenceRevision,
-                sessionRevision,
+                session.SessionRevision,
                 baseline.AuthorityRevision,
                 baseline.AuthorityRevision,
                 baseline.ScheduleRevision,
                 baseline.SpecificJobRevision,
                 ComputeSettingsRevision(baseline.SettingsSnapshot),
-                sessionRevision,
+                session.MembershipRevision,
                 PriorityAuthorityResolver.Resolve().Owner.ToString(),
                 hostEpoch,
                 rosterFingerprint,
@@ -1894,7 +1925,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadDecisionKind decision,
             string forkStableId,
             string forkLabel,
-            long sessionRevision)
+            string idempotencyKey)
         {
             if (!MultiplayerBridge.Active || !MultiplayerBridge.Host)
                 return Status(string.Empty, WorkloadMultiplayerCommitState.Rejected,
@@ -1934,18 +1965,17 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     WorkloadDiagnosticCode.NoCurrentGame, "The workload store is unavailable.");
             store.RefreshDiagnostics();
             string requestId = Guid.NewGuid().ToString("N");
-            string idempotencyKey = Guid.NewGuid().ToString("N");
-            long effectiveSessionRevision = sessionRevision > 0
-                ? sessionRevision
-                : StableRevision(payload.Fingerprint);
+            string effectiveIdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey)
+                ? Guid.NewGuid().ToString("N")
+                : idempotencyKey;
             if (!backend.TryCreateMultiplayerRevisionVector(
-                    session, effectiveSessionRevision, epoch, roster, out var revisions))
+                session, epoch, roster, out var revisions))
                 return Status(requestId, WorkloadMultiplayerCommitState.Rejected,
                     WorkloadDiagnosticCode.BaselineChanged,
                     "The workload service revisions captured for preview are unavailable.");
             if (!WorkloadTransactionRequest.TryCreateCanonical(
-                    ToOperation(decision), requestId, idempotencyKey,
-                    session.SourceIdentity, session.SourceTemplate.StableId, targetId,
+                    ToOperation(decision), requestId, effectiveIdempotencyKey,
+                    session.PreviewSessionId, session.SourceTemplate.StableId, targetId,
                     MultiplayerBridge.LocalPlayerName, 3600, payload, revisions,
                     participants, out var request, out var diagnostic))
                 return Status(requestId, WorkloadMultiplayerCommitState.Rejected,
@@ -1954,8 +1984,36 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             long sequence = Verse.Find.TickManager?.TicksGame ?? 0;
             WorkloadTransactionAdmission admission = WorkloadTransactionMultiplayer.TryBegin(request, sequence);
             if (!admission.Accepted)
+            {
+                if (admission.TerminalResult != null)
+                {
+                    return Status(
+                        requestId,
+                        ToCommitState(admission.TerminalResult.TerminalState),
+                        admission.TerminalResult.Accepted
+                            ? WorkloadDiagnosticCode.None
+                            : admission.TerminalResult.TerminalState ==
+                              WorkloadTransactionTerminalState.RollbackFailed
+                                ? WorkloadDiagnosticCode.RollbackFailed
+                                : WorkloadDiagnosticCode.InvalidState,
+                        admission.TerminalResult.Detail,
+                        null);
+                }
+
+                if (admission.Code == WorkloadTransactionAdmissionCode.Duplicate &&
+                    admission.State != null &&
+                    !admission.State.IsFinal)
+                {
+                    return Status(
+                        requestId,
+                        WorkloadMultiplayerCommitState.Pending,
+                        WorkloadDiagnosticCode.None,
+                        "The idempotent workload transaction is already in progress.");
+                }
+
                 return Status(requestId, WorkloadMultiplayerCommitState.Rejected,
                     WorkloadDiagnosticCode.UnsupportedOperation, admission.Diagnostic);
+            }
             return Status(requestId, WorkloadMultiplayerCommitState.Pending,
                 WorkloadDiagnosticCode.None,
                 "The workload transaction is pending synchronized prepare/execute acknowledgement.");
@@ -1965,6 +2023,22 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
         public void OnAdmissionRejected(WorkloadTransactionAdmission admission)
         {
+            if (admission?.TerminalResult != null)
+            {
+                Status(
+                    admission.Request?.RequestId ?? admission.TerminalResult.RequestId,
+                    ToCommitState(admission.TerminalResult.TerminalState),
+                    admission.TerminalResult.Accepted
+                        ? WorkloadDiagnosticCode.None
+                        : admission.TerminalResult.TerminalState ==
+                          WorkloadTransactionTerminalState.RollbackFailed
+                            ? WorkloadDiagnosticCode.RollbackFailed
+                            : WorkloadDiagnosticCode.InvalidState,
+                    admission.TerminalResult.Detail,
+                    null);
+                return;
+            }
+
             Status(admission?.Request?.RequestId, WorkloadMultiplayerCommitState.Rejected,
                 WorkloadDiagnosticCode.UnsupportedOperation,
                 admission?.Diagnostic ?? "The synchronized workload request was rejected.");
@@ -2366,17 +2440,32 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         private static long Next(WorkloadTransactionState state) =>
             state == null || state.Sequence == long.MaxValue ? long.MaxValue : state.Sequence + 1;
 
-        private static long StableRevision(string fingerprint)
-        {
-            if (string.IsNullOrEmpty(fingerprint) || fingerprint.Length < 15) return 0;
-            return long.TryParse(fingerprint.Substring(0, 15), NumberStyles.HexNumber,
-                CultureInfo.InvariantCulture, out var value) ? value : 0;
-        }
-
         private static WorkloadTransactionOperation ToOperation(WorkloadDecisionKind decision) =>
             decision == WorkloadDecisionKind.Apply ? WorkloadTransactionOperation.Apply :
             decision == WorkloadDecisionKind.Update ? WorkloadTransactionOperation.Update :
             WorkloadTransactionOperation.Fork;
+
+        private static WorkloadMultiplayerCommitState ToCommitState(
+            WorkloadTransactionTerminalState terminalState)
+        {
+            switch (terminalState)
+            {
+                case WorkloadTransactionTerminalState.Succeeded:
+                    return WorkloadMultiplayerCommitState.Succeeded;
+                case WorkloadTransactionTerminalState.Rejected:
+                    return WorkloadMultiplayerCommitState.Rejected;
+                case WorkloadTransactionTerminalState.Aborted:
+                    return WorkloadMultiplayerCommitState.Aborted;
+                case WorkloadTransactionTerminalState.TimedOut:
+                    return WorkloadMultiplayerCommitState.TimedOut;
+                case WorkloadTransactionTerminalState.RolledBack:
+                    return WorkloadMultiplayerCommitState.RolledBack;
+                case WorkloadTransactionTerminalState.RollbackFailed:
+                    return WorkloadMultiplayerCommitState.RollbackFailed;
+                default:
+                    return WorkloadMultiplayerCommitState.Failed;
+            }
+        }
 
         private static WorkloadDecisionKind ToDecision(WorkloadTransactionOperation operation) =>
             operation == WorkloadTransactionOperation.Apply ? WorkloadDecisionKind.Apply :

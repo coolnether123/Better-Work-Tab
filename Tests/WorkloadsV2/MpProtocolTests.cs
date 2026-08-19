@@ -13,6 +13,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             MissingHostPrepareAcknowledgementStaysPending();
             ForgedSenderIsRejectedWithoutProgress();
             DuplicateTerminalReplayAndMismatchedDuplicateAreDistinct();
+            TerminalFailureReplaysUseTheIdempotencyContract();
             ConfirmationBarrierWaitsForEveryPeer();
             TimeoutAndRosterChangeAbortCoherently();
             RollbackFailureRemainsTerminalAndReplayable();
@@ -117,29 +118,166 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         private static void DuplicateTerminalReplayAndMismatchedDuplicateAreDistinct()
         {
             var request = Request(
-                "duplicate-terminal", "duplicate-terminal-original", "host", "host", "peer-a");
+                "duplicate-terminal-original", "duplicate-terminal-key", "host", "host", "peer-a");
             var protocol = CompleteTwoPartySuccess(request, "host", "peer-a");
             var replay = Request(
-                request.RequestId, "duplicate-terminal-replay", "host", "host", "peer-a");
+                "duplicate-terminal-retry", request.IdempotencyKey, "host", "host", "peer-a");
             var duplicate = protocol.TryBegin(replay, 10L, "host");
 
             TestAssert.Equal(WorkloadTransactionAdmissionCode.Duplicate, duplicate.Code,
-                "same request ID and semantic payload must replay idempotently");
+                "a new request ID with the same idempotency key must replay idempotently");
+            TestAssert.Equal(replay.RequestId, duplicate.Request.RequestId,
+                "the replay admission must retain the new request ID for caller correlation");
+            TestAssert.Equal(request.RequestId, duplicate.RegisteredRequest.RequestId,
+                "the protocol must retain the original request identity separately");
             TestAssert.NotNull(duplicate.TerminalResult,
                 "terminal duplicate replay must carry the retained result");
             TestAssert.Equal(WorkloadTransactionTerminalState.Succeeded,
                 duplicate.TerminalResult.TerminalState,
                 "terminal duplicate replay must preserve the original outcome");
+            TestAssert.Equal(request.IdempotencyKey, duplicate.TerminalResult.IdempotencyKey,
+                "the terminal result must retain the idempotency identity");
 
             var mismatch = TestSupport.Request(
-                requestId: request.RequestId,
-                idempotencyKey: "duplicate-terminal-mismatch",
+                requestId: "duplicate-terminal-conflict",
+                idempotencyKey: request.IdempotencyKey,
                 targetId: "different-target",
                 requesterPlayerKey: "host",
                 participantKeys: new[] { "host", "peer-a" });
             var mismatched = protocol.TryBegin(mismatch, 11L, "host");
             TestAssert.Equal(WorkloadTransactionAdmissionCode.MismatchedDuplicate, mismatched.Code,
-                "reusing a request ID with different canonical semantics must be rejected");
+                "reusing an idempotency key with different canonical semantics must be rejected");
+        }
+
+        private static void TerminalFailureReplaysUseTheIdempotencyContract()
+        {
+            var rejectedRequest = Request(
+                "terminal-rejected", "terminal-rejected-key", "host", "host", "peer-a");
+            var rejectedProtocol = BeginHost(rejectedRequest, "host");
+            var rejected = rejectedProtocol.RecordPrepareAcknowledgement(
+                rejectedRequest.RequestId,
+                rejectedRequest.RequestFingerprint,
+                "peer-a",
+                false,
+                "prepare-rejected",
+                "The peer rejected the immutable workload plan.",
+                "prepare-report",
+                2L,
+                true);
+            TestAssert.Equal(
+                WorkloadTransactionTerminalState.Rejected,
+                rejected.State.TerminalState,
+                "a prepare rejection must be terminal before mutation");
+            AssertTerminalReplay(
+                rejectedProtocol,
+                rejectedRequest,
+                WorkloadTransactionTerminalState.Rejected,
+                "rejected");
+
+            var abortedRequest = Request(
+                "terminal-aborted", "terminal-aborted-key", "host", "host", "peer-a");
+            var abortedProtocol = BeginHost(abortedRequest, "host");
+            var aborted = abortedProtocol.RequestAbort(
+                abortedRequest.RequestId,
+                abortedRequest.RequestFingerprint,
+                "user-aborted",
+                "The synchronized operation was aborted before mutation.",
+                2L);
+            TestAssert.Equal(
+                WorkloadTransactionTerminalState.Aborted,
+                aborted.State.TerminalState,
+                "an explicit pre-mutation abort must be terminal");
+            AssertTerminalReplay(
+                abortedProtocol,
+                abortedRequest,
+                WorkloadTransactionTerminalState.Aborted,
+                "aborted");
+
+            var timeoutRequest = Request(
+                "terminal-timeout", "terminal-timeout-key", "host", "host", "peer-a");
+            var timeoutProtocol = BeginHost(timeoutRequest, "host");
+            var timeout = timeoutProtocol.CheckTimeout(100L);
+            TestAssert.Equal(
+                WorkloadTransactionTerminalState.TimedOut,
+                timeout.State.TerminalState,
+                "a pre-mutation timeout must be terminal");
+            AssertTerminalReplay(
+                timeoutProtocol,
+                timeoutRequest,
+                WorkloadTransactionTerminalState.TimedOut,
+                "timed out");
+
+            var rolledBackRequest = Request(
+                "terminal-rolled-back", "terminal-rolled-back-key", "host", "host", "peer-a");
+            var rolledBackProtocol = BeginHost(rolledBackRequest, "host");
+            Prepare(rolledBackProtocol, rolledBackRequest, "host", 2L);
+            Prepare(rolledBackProtocol, rolledBackRequest, "peer-a", 3L);
+            Execute(rolledBackProtocol, rolledBackRequest, "host", 4L, true, false);
+            var executeFailure = Execute(
+                rolledBackProtocol,
+                rolledBackRequest,
+                "peer-a",
+                5L,
+                false,
+                true);
+            TestAssert.Equal(
+                WorkloadTransactionTerminalState.RollbackRequired,
+                executeFailure.State.TerminalState,
+                "a post-mutation failure must retain the rollback barrier");
+            rolledBackProtocol.RecordRollback(
+                rolledBackRequest.RequestId,
+                rolledBackRequest.RequestFingerprint,
+                "host",
+                true,
+                "rolled-back",
+                string.Empty,
+                6L,
+                true);
+            var rolledBack = rolledBackProtocol.RecordRollback(
+                rolledBackRequest.RequestId,
+                rolledBackRequest.RequestFingerprint,
+                "peer-a",
+                true,
+                "rolled-back",
+                string.Empty,
+                7L,
+                true);
+            TestAssert.Equal(
+                WorkloadTransactionTerminalState.RolledBack,
+                rolledBack.State.TerminalState,
+                "a complete rollback acknowledgement must be terminal");
+            AssertTerminalReplay(
+                rolledBackProtocol,
+                rolledBackRequest,
+                WorkloadTransactionTerminalState.RolledBack,
+                "rolled back");
+        }
+
+        private static void AssertTerminalReplay(
+            WorkloadTransactionProtocol protocol,
+            WorkloadTransactionRequest original,
+            WorkloadTransactionTerminalState expected,
+            string label)
+        {
+            var replay = Request(
+                original.RequestId + "-retry",
+                original.IdempotencyKey,
+                "host",
+                "host",
+                "peer-a");
+            var duplicate = protocol.TryBegin(replay, 200L, "host");
+            TestAssert.Equal(
+                WorkloadTransactionAdmissionCode.Duplicate,
+                duplicate.Code,
+                "a " + label + " operation must remain replayable by idempotency key");
+            TestAssert.Equal(
+                expected,
+                duplicate.TerminalResult.TerminalState,
+                "a " + label + " replay must preserve the original terminal state");
+            TestAssert.Equal(
+                replay.RequestId,
+                duplicate.Request.RequestId,
+                "a " + label + " replay must correlate to its new request ID");
         }
 
         private static void ConfirmationBarrierWaitsForEveryPeer()
@@ -229,7 +367,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "rollback failure must remain terminal");
 
             var replay = Request(
-                request.RequestId, "rollback-failure-replay", "host", "host", "peer-a");
+                request.RequestId + "-replay",
+                request.IdempotencyKey,
+                "host",
+                "host",
+                "peer-a");
             var duplicate = protocol.TryBegin(replay, 8L, "host");
             TestAssert.Equal(WorkloadTransactionAdmissionCode.Duplicate, duplicate.Code,
                 "rollback-failed requests must remain inside the idempotency horizon");
