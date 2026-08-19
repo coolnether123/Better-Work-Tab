@@ -4,11 +4,16 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using Better_Work_Tab.Features.Tutorial;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using System.Xml;
 using Spine.RimWorld.Serialization;
 using Spine.UI.ColourPicker;
 using Spine.UI.SettingsFramework;
 using UnityEngine;
+using Better_Work_Tab.UI.Workloads;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Verse;
 
 namespace Better_Work_Tab.UI.Settings
@@ -187,6 +192,9 @@ namespace Better_Work_Tab.UI.Settings
 
             string path = TemporaryExportPath("Import");
             bool ownsLoader = false;
+            bool workloadModeChanged = false;
+            bool settingsWriteSucceeded = false;
+            bool previousLegacyMode = false;
             try
             {
                 File.WriteAllBytes(path, Convert.FromBase64String(encodedData));
@@ -217,7 +225,45 @@ namespace Better_Work_Tab.UI.Settings
                     return false;
                 }
 
-                CopyPublicSettingsFields(data.Settings, destination);
+                previousLegacyMode = destination.useLegacyWorkloads;
+                var previousPreferenceValues = new Dictionary<string, object>();
+                foreach (SettingDefinition definition in BWTSettingsRegistry.Definitions)
+                {
+                    if (definition == null ||
+                        string.IsNullOrEmpty(definition.FieldName) ||
+                        previousPreferenceValues.ContainsKey(definition.FieldName))
+                    {
+                        continue;
+                    }
+
+                    FieldInfo field = typeof(BetterWorkTabSettings).GetField(
+                        definition.FieldName,
+                        BindingFlags.Instance | BindingFlags.Public);
+                    if (field == null || field.IsInitOnly || field.IsLiteral)
+                    {
+                        continue;
+                    }
+
+                    previousPreferenceValues.Add(definition.FieldName, field.GetValue(destination));
+                }
+
+                if (data.Settings.useLegacyWorkloads != destination.useLegacyWorkloads)
+                {
+                    WorkloadOperationResult workloadTransition = WorkloadGateway.TryTransitionMode(
+                        data.Settings.useLegacyWorkloads
+                            ? WorkloadBackendMode.Legacy
+                            : WorkloadBackendMode.Modern,
+                        persistSettings: false);
+                    if (!workloadTransition.Succeeded)
+                    {
+                        report = workloadTransition.Message;
+                        return false;
+                    }
+
+                    workloadModeChanged = true;
+                }
+
+                TransferLoadedSettingsState(data.Settings, destination);
                 if (destination.viewedSettingIds != null)
                 {
                     for (int i = 0; i < destination.viewedSettingIds.Count; i++)
@@ -228,15 +274,53 @@ namespace Better_Work_Tab.UI.Settings
                         }
                     }
                 }
-                RecentColours.ReplaceAll(data.RecentColors, data.PinnedColors);
-                BWTSettingsRegistry.Schema.NotifyPreferenceChanges(destination);
+
+                // These existing owners repair derived references and persisted
+                // preference invariants after the staged graph is adopted.
                 destination.NormalizePrioritySettings();
+                destination.InitializeRulesets();
+
+                var changedPreferenceFields = new HashSet<string>();
+                foreach (KeyValuePair<string, object> previousPreference in previousPreferenceValues)
+                {
+                    FieldInfo field = typeof(BetterWorkTabSettings).GetField(
+                        previousPreference.Key,
+                        BindingFlags.Instance | BindingFlags.Public);
+                    if (field != null &&
+                        !Equals(previousPreference.Value, field.GetValue(destination)))
+                    {
+                        changedPreferenceFields.Add(previousPreference.Key);
+                    }
+                }
+
+                // The gateway owns this field's transition; never invoke its
+                // registered reaction a second time during the import.
+                changedPreferenceFields.Remove(nameof(BetterWorkTabSettings.useLegacyWorkloads));
+                BWTSettingsRegistry.Schema.NotifyPreferenceChanges(
+                    destination,
+                    changedPreferenceFields);
+                RecentColours.ReplaceAll(data.RecentColors, data.PinnedColors);
                 destination.Write();
+                settingsWriteSucceeded = true;
+                if (workloadModeChanged)
+                {
+                    // The settings commit is complete before the ownership
+                    // observer and Work-tab presentation are synchronized.
+                    BWTWorkloadSettingsOwnershipPolicy.Refresh();
+                    WorkTabInvalidationHub.Invalidate(
+                        WorkTabDirtyFlags.SettingsThemeLanguageScale);
+                }
+
                 report = "Imported all settings data, including settings history, rulesets, layout state, and recent colors.";
                 return true;
             }
             catch (Exception ex)
             {
+                if (workloadModeChanged && !settingsWriteSucceeded)
+                {
+                    destination.useLegacyWorkloads = previousLegacyMode;
+                }
+
                 report = "The settings export could not be imported: " + ex.Message;
                 return false;
             }
@@ -256,8 +340,13 @@ namespace Better_Work_Tab.UI.Settings
             }
         }
 
-        private static void CopyPublicSettingsFields(BetterWorkTabSettings source, BetterWorkTabSettings destination)
+        private static void TransferLoadedSettingsState(
+            BetterWorkTabSettings source,
+            BetterWorkTabSettings destination)
         {
+            // Keep compatibility transfer broad across the public settings surface,
+            // but do not reflect all non-public fields: persistence diagnostics and
+            // future transient implementation state must not cross this boundary.
             foreach (FieldInfo field in typeof(BetterWorkTabSettings).GetFields(BindingFlags.Instance | BindingFlags.Public))
             {
                 if (!field.IsInitOnly && !field.IsLiteral)
@@ -265,6 +354,19 @@ namespace Better_Work_Tab.UI.Settings
                     field.SetValue(destination, field.GetValue(source));
                 }
             }
+
+            // Every non-public field written by BetterWorkTabSettings.ExposeData is
+            // intentionally explicit here. These assignments adopt the Scribe-loaded
+            // graph and normalize only the nullable stores whose owners require them.
+            destination.tutorialProgressSchemaVersion = source.tutorialProgressSchemaVersion;
+            destination.selectedTutorialCourse = source.selectedTutorialCourse;
+            destination.tutorialMigratedFromPublic105 = source.tutorialMigratedFromPublic105;
+            destination.skippedTutorialLessonIds =
+                source.skippedTutorialLessonIds ?? new List<string>();
+            destination.tutorialLessonIdsAlreadyUsed =
+                source.tutorialLessonIdsAlreadyUsed ?? new List<string>();
+            destination.tutorialDiscoveryOfferAcknowledged =
+                source.tutorialDiscoveryOfferAcknowledged;
         }
 
         private static string TemporaryExportPath(string operation)

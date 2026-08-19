@@ -853,6 +853,8 @@ namespace Better_Work_Tab.UI.Settings
         private static readonly Dictionary<string, BWTWorkloadSettingMetadata> Metadata =
             BuildMetadata();
 
+        private static IReadOnlyDictionary<string, WorkloadScalarKind> _supportedPresentationKinds;
+
         private static readonly HashSet<SettingDefinition> PreparedDefinitions =
             new HashSet<SettingDefinition>();
 
@@ -895,16 +897,27 @@ namespace Better_Work_Tab.UI.Settings
         [ThreadStatic]
         private static int _authorizedGlobalSettingsWriteDepth;
 
-        internal static void PrepareDefinition(SettingDefinition definition)
+        internal static void PrepareDefinition(
+            SettingDefinition definition,
+            IDictionary<string, WorkloadScalarKind> supportedPresentationKinds)
         {
-            if (definition == null || !PreparedDefinitions.Add(definition))
+            if (definition == null ||
+                !Metadata.ContainsKey(definition.Id) ||
+                !PreparedDefinitions.Add(definition))
             {
                 return;
             }
 
-            bool isKnownDefinition = Metadata.ContainsKey(definition.Id);
+            if (supportedPresentationKinds != null &&
+                TryDeriveSupportedPresentationKind(
+                    definition,
+                    out WorkloadScalarKind supportedPresentationKind))
+            {
+                supportedPresentationKinds[definition.Id] = supportedPresentationKind;
+            }
+
             SettingType originalType = definition.Type;
-            if (isKnownDefinition &&
+            if (
                 TryCreateStageableDefinitionState(
                     definition,
                     out BWTWorkloadSettingDefinitionState rowState))
@@ -977,6 +990,12 @@ namespace Better_Work_Tab.UI.Settings
                     LinkLabel = "Angled headers"
                 });
             }
+        }
+
+        internal static void PublishSupportedPresentationKinds(
+            IReadOnlyDictionary<string, WorkloadScalarKind> supportedPresentationKinds)
+        {
+            _supportedPresentationKinds = supportedPresentationKinds;
         }
 
         internal static void Refresh()
@@ -1099,6 +1118,7 @@ namespace Better_Work_Tab.UI.Settings
 
         internal static void Invalidate()
         {
+            _supportedPresentationKinds = null;
             _snapshotValid = false;
             SuppressedOnChanged.Clear();
             _suppressNextGlobalSettingsWrite = false;
@@ -2132,15 +2152,23 @@ namespace Better_Work_Tab.UI.Settings
             out WorkloadScalarKind kind)
         {
             kind = WorkloadScalarKind.Empty;
-            if (!IsStageablePresentationSetting(settingId) ||
-                !TryGetDefinition(settingId, out SettingDefinition definition) ||
-                !PreparedSettingRows.TryGetValue(definition, out BWTWorkloadSettingDefinitionState state))
+            if (IsStageablePresentationSetting(settingId) &&
+                TryGetDefinition(settingId, out SettingDefinition definition) &&
+                PreparedSettingRows.TryGetValue(
+                    definition,
+                    out BWTWorkloadSettingDefinitionState state))
             {
-                return false;
+                kind = state.ScalarKind;
+                return true;
             }
 
-            kind = state.ScalarKind;
-            return true;
+            if (_supportedPresentationKinds == null)
+            {
+                BWTSettingsRegistry.EnsureInitialized();
+            }
+
+            return _supportedPresentationKinds != null &&
+                _supportedPresentationKinds.TryGetValue(settingId, out kind);
         }
 
         private static bool IsStageablePresentationSetting(string settingId)
@@ -2154,7 +2182,8 @@ namespace Better_Work_Tab.UI.Settings
             out SettingDefinition definition)
         {
             definition = null;
-            if (string.IsNullOrEmpty(settingId))
+            if (string.IsNullOrEmpty(settingId) ||
+                !Metadata.ContainsKey(settingId))
             {
                 return false;
             }
@@ -2217,6 +2246,13 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             return false;
+        }
+
+        private static bool TryDeriveSupportedPresentationKind(
+            SettingDefinition definition,
+            out WorkloadScalarKind kind)
+        {
+            return TryGetDefinitionScalarKind(definition, out kind);
         }
 
         private static FieldInfo FindSettingsField(SettingDefinition definition)

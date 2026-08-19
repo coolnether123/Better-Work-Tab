@@ -21,7 +21,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     internal static partial class WorkGiverReassignmentManager
     {
         private static readonly Dictionary<int, WorkTypeDef> WorkGiverTargetCache = new Dictionary<int, WorkTypeDef>();
-        private static readonly Dictionary<int, bool> ReassignedCache = new Dictionary<int, bool>();
         private static readonly Dictionary<string, List<WorkGiver>> OrderedWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
         private static readonly Dictionary<string, List<WorkGiver>> DisplayWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
         private static int _mutationBatchDepth;
@@ -256,7 +255,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        internal static int CurrentSyncVersion => Data?.SyncVersion ?? 0;
+        internal static int CurrentSyncVersion => ExistingData?.SyncVersion ?? 0;
 
         internal static string CurrentStateFingerprint =>
             Data?.ComputeStateFingerprint() ?? WorkloadCanonical.Fingerprint(string.Empty);
@@ -399,7 +398,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static void InvalidateCaches()
         {
             WorkGiverTargetCache.Clear();
-            ReassignedCache.Clear();
             OrderedWorkGiverCache.Clear();
             DisplayWorkGiverCache.Clear();
             _cachedActivationSyncVersion = int.MinValue;
@@ -957,7 +955,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             InvalidateCaches();
             WorkGiverLayoutHistory.Clear();
-            _cachedSyncVersion = Data?.SyncVersion ?? 0;
+            _cachedSyncVersion = ExistingData?.SyncVersion ?? 0;
         }
 
         internal static void MigrateLegacySettingsDataIfNeeded(GameComponent_BWTWorldSettings component)
@@ -1004,13 +1002,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static void OnWorldDataLoaded()
         {
             InvalidateCaches();
-            _cachedSyncVersion = Data?.SyncVersion ?? 0;
+            _cachedSyncVersion = ExistingData?.SyncVersion ?? 0;
             CleanupOrphanedReassignments();
         }
 
         private static void EnsureVersion()
         {
-            int version = Data?.SyncVersion ?? 0;
+            int version = ExistingData?.SyncVersion ?? 0;
             if (version == _cachedSyncVersion)
             {
                 return;
@@ -1035,7 +1033,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             WorkTypeDef target = def.workType;
-            var data = Data;
+            var data = ExistingData;
 
             if (data?.WorkGiverToWorkTypeMap != null &&
                 data.WorkGiverToWorkTypeMap.TryGetValue(def.defName, out var targetWorkTypeName) &&
@@ -1049,7 +1047,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             WorkGiverTargetCache[def.shortHash] = target;
-            ReassignedCache[def.shortHash] = target != def.workType;
             return target;
         }
 
@@ -1062,15 +1059,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             EnsureVersion();
 
-            if (ReassignedCache.TryGetValue(def.shortHash, out var cached))
-            {
-                return cached;
-            }
-
             var target = GetTargetWorkType(def);
-            bool reassigned = target != null && target != def.workType;
-            ReassignedCache[def.shortHash] = reassigned;
-            return reassigned;
+            return target != null && target != def.workType;
         }
 
         internal static IReadOnlyList<WorkGiver> GetOrderedWorkGiversForWorkType(WorkTypeDef workType, Pawn pawn = null)
@@ -1103,7 +1093,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             var result = new List<WorkGiver>();
-            var data = Data;
+            var data = ExistingData;
 
             List<string> orderedNames = null;
             if (pawn != null && data?.PawnWorkGiverOrdering != null)
@@ -1221,7 +1211,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static List<Pawn> GetPawnsWithOverrides(WorkTypeDef workType)
         {
-            var data = Data;
+            var data = ExistingData;
             if (data == null || workType == null)
             {
                 return new List<Pawn>();
@@ -1271,7 +1261,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static int CountPawnPriorityOverrides(WorkTypeDef workType)
         {
-            var data = Data;
+            var data = ExistingData;
             if (data?.PawnWorkGiverPriorityOverrides == null || workType == null)
             {
                 return 0;
@@ -1303,7 +1293,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool HasAnyPawnOverride(WorkTypeDef workType, Pawn pawn)
         {
-            var data = Data;
+            var data = ExistingData;
             if (data?.PawnWorkGiverPriorityOverrides == null || workType == null || pawn == null)
             {
                 return false;
@@ -1325,7 +1315,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool HasPawnOrdering(Pawn pawn, WorkTypeDef workType)
         {
-            var data = Data;
+            var data = ExistingData;
             if (data?.PawnWorkGiverOrdering == null || pawn == null || workType == null)
             {
                 return false;
@@ -2038,7 +2028,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static bool WasWorkGiverDraggedByPlayer(WorkTypeDef workType, WorkGiverDef workGiverDef)
         {
-            var data = Data;
+            var data = ExistingData;
             if (data?.PlayerMovedWorkGiversByWorkType == null ||
                 workType?.defName == null ||
                 workGiverDef?.defName == null)
@@ -2136,7 +2126,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static bool TryGetPawnWorkGiverOverride(Pawn pawn, WorkGiverDef workGiver, out int priority)
         {
             priority = WorkPrioritySystem.DisabledPriority;
-            var data = Data;
+            var data = ExistingData;
             if (data?.PawnWorkGiverPriorityOverrides == null || pawn == null || workGiver?.defName == null)
             {
                 return false;
@@ -2248,7 +2238,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return WorkPrioritySystem.ClampPriority(defaultPriority);
             }
 
-            var data = Data;
+            var data = ExistingData;
             if (data == null) return WorkPrioritySystem.ClampPriority(defaultPriority);
 
             // 1. Pawn-specific override
@@ -2282,7 +2272,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return WorkPrioritySystem.ClampPriority(defaultPriority);
             }
 
-            var data = Data;
+            var data = ExistingData;
             bool globalPriorityCleared = data?.GlobalWorkGiverPriorityClears != null &&
                 data.GlobalWorkGiverPriorityClears.Contains(workGiver.defName);
             if (!globalPriorityCleared &&
@@ -3032,7 +3022,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             unchecked
             {
                 int hash = 17;
-                WorkGiverReassignmentData data = Data;
+                WorkGiverReassignmentData data = ExistingData;
                 if (data == null)
                 {
                     return hash;

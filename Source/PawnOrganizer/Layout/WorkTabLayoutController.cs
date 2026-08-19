@@ -53,6 +53,7 @@ namespace Better_Work_Tab.PawnOrganizer
         private readonly IColumnWidthStore _columnWidthStore;
         private readonly List<WorkTabLayoutRow> _rows = new List<WorkTabLayoutRow>();
         private readonly List<WorkTabLayoutColumn> _columns = new List<WorkTabLayoutColumn>();
+        private readonly List<DisplayElement> _ownedDisplayElements = new List<DisplayElement>();
         private readonly List<DisplayElement> _workingElements = new List<DisplayElement>();
         private readonly List<PawnDivider> _dividerBuffer = new List<PawnDivider>();
         private readonly List<DisplayElement> _orderedBuffer = new List<DisplayElement>();
@@ -340,25 +341,63 @@ namespace Better_Work_Tab.PawnOrganizer
             }
         }
 
-        private void ReleaseRowsToPool()
+        private void ReleaseDisplayElementsToPool()
         {
-            for (int i = 0; i < _rows.Count; i++)
+            for (int i = 0; i < _ownedDisplayElements.Count; i++)
             {
-                ReleaseDisplayElement(_rows[i].Element);
+                ReleaseDisplayElement(_ownedDisplayElements[i]);
             }
         }
 
-        private static void ReleaseElements(IList<DisplayElement> elements)
+        private PawnElement AcquirePawnElement(Pawn pawn)
         {
-            if (elements == null)
-            {
-                return;
-            }
+            PawnElement element = DisplayElementPool.GetPawnElement(pawn);
+            _ownedDisplayElements.Add(element);
+            return element;
+        }
 
-            for (int i = 0; i < elements.Count; i++)
-            {
-                ReleaseDisplayElement(elements[i]);
-            }
+        private DividerElement AcquireDividerElement(PawnDivider divider)
+        {
+            DividerElement element = DisplayElementPool.GetDividerElement(divider);
+            _ownedDisplayElements.Add(element);
+            return element;
+        }
+
+        private void PrepareLayoutRebuild()
+        {
+            ReleaseDisplayElementsToPool();
+            _ownedDisplayElements.Clear();
+            _workingElements.Clear();
+            _orderedBuffer.Clear();
+            _sortingSectionBuffer.Clear();
+            _filteringBuffer.Clear();
+            _filteringSectionBuffer.Clear();
+            _dividerBuffer.Clear();
+            _rows.Clear();
+            _columns.Clear();
+            _geometryRows.Clear();
+            _geometryColumns.Clear();
+            _geometrySnapshot = null;
+            _contentHeight = 0f;
+            _rowWidth = 0f;
+            _rowDescriptorsDirty = true;
+            _isDirty = true;
+        }
+
+        private void ClearFailedLayout()
+        {
+            PrepareLayoutRebuild();
+            _cachedRowDescriptors = new List<RowDescriptor>();
+            _publishedSubWorkSignature = int.MinValue;
+            _table = null;
+            _origin = Vector2.zero;
+            _headerHeight = 0f;
+            _dividerHeight = DefaultDividerHeight;
+            _snapshotPawns = Array.Empty<Pawn>();
+            _snapshotDividers = Array.Empty<PawnDivider>();
+            _subWorkHeaderTextWidthCache.Clear();
+            _subWorkMeasurementCacheSignature = int.MinValue;
+            _cachedDesiredSubWorkPawnLabelWidth = -1f;
         }
 
 
@@ -492,24 +531,16 @@ namespace Better_Work_Tab.PawnOrganizer
                 if (table == null)
                 {
                     Log.Error("[BWT] WorkTabLayoutController.Rebuild failed: table is null.");
-                    _rows.Clear();
-                    _columns.Clear();
-                    _contentHeight = 0f;
-                    _geometrySnapshot = null;
+                    ClearFailedLayout();
                     return;
                 }
 
                 try
                 {
                     int buildSubWorkSignature = SubWorkDrilldownState.LayoutSignature;
-                    ReleaseRowsToPool();
+                    PrepareLayoutRebuild();
                     _table = table;
                     _origin = origin;
-                    _rows.Clear();
-                    _columns.Clear();
-                    _contentHeight = 0f;
-                    _geometrySnapshot = null;
-                    _rowWidth = 0f;
                     _dividerHeight = BetterWorkTabMod.Settings?.dividerHeight ?? DefaultDividerHeight;
 
                     _snapshotPawns = snapshot?.Pawns
@@ -547,9 +578,8 @@ namespace Better_Work_Tab.PawnOrganizer
                 catch (Exception ex)
                 {
                     Log.Error($"[BWT] WorkTabLayoutController.Rebuild encountered an error: {ex}");
-                    _rows.Clear();
-                    _columns.Clear();
-                    _contentHeight = 0f;
+                    ClearFailedLayout();
+                    return;
                 }
                 CacheState(table, snapshot, origin);
             }
@@ -1709,7 +1739,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 for (int i = 0; i < _snapshotPawns.Count; i++)
                 {
                     if (_snapshotPawns[i] != null) // Defensive check
-                        _workingElements.Add(DisplayElementPool.GetPawnElement(_snapshotPawns[i]));
+                        _workingElements.Add(AcquirePawnElement(_snapshotPawns[i]));
                 }
             }
 
@@ -1718,7 +1748,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 for (int i = 0; i < _snapshotDividers.Count; i++)
                 {
                     if (_snapshotDividers[i] != null) // Defensive check
-                        _workingElements.Add(DisplayElementPool.GetDividerElement(_snapshotDividers[i]));
+                        _workingElements.Add(AcquireDividerElement(_snapshotDividers[i]));
                 }
             }
 
@@ -1861,7 +1891,7 @@ namespace Better_Work_Tab.PawnOrganizer
                     pawnElement.Pawn != null &&
                     pawnElement.Pawn.thingIDNumber == pawnId)
                 {
-                    ordered.Insert(i, DisplayElementPool.GetDividerElement(divider));
+                    ordered.Insert(i, AcquireDividerElement(divider));
                     break;
                 }
             }

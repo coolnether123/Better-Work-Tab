@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Spine.UI.SettingsFramework;
 using Verse;
 
@@ -32,6 +33,12 @@ namespace Better_Work_Tab.UI.Settings
             nameof(BetterWorkTabSettings.activeTutorialLessonId),
             nameof(BetterWorkTabSettings.tutorialLessonPhase),
             nameof(BetterWorkTabSettings.completedTutorialLessonIds),
+            nameof(BetterWorkTabSettings.tutorialProgressSchemaVersion),
+            nameof(BetterWorkTabSettings.selectedTutorialCourse),
+            nameof(BetterWorkTabSettings.tutorialMigratedFromPublic105),
+            nameof(BetterWorkTabSettings.skippedTutorialLessonIds),
+            nameof(BetterWorkTabSettings.tutorialLessonIdsAlreadyUsed),
+            nameof(BetterWorkTabSettings.tutorialDiscoveryOfferAcknowledged),
             nameof(BetterWorkTabSettings.bwtPlayerIdentifier),
             nameof(BetterWorkTabSettings.debugPrintLayout),
             nameof(BetterWorkTabSettings.firstTimeSetupDone),
@@ -43,6 +50,12 @@ namespace Better_Work_Tab.UI.Settings
             nameof(BetterWorkTabSettings.sleekWorkTabChoicePromptDismissed),
             nameof(BetterWorkTabSettings.sleekWorkTabUseMixedByDefault),
 
+        };
+
+        private static readonly HashSet<string> TransientFields = new HashSet<string>
+        {
+            "_settingsPersistenceReadOnly",
+            "_settingsPersistenceDiagnostic"
         };
 
         private static readonly HashSet<string> UnregisteredPreferenceFields = new HashSet<string>
@@ -135,9 +148,13 @@ namespace Better_Work_Tab.UI.Settings
                 }
             }
 
-            foreach (FieldInfo field in settingsType.GetFields(BindingFlags.Instance | BindingFlags.Public))
+            foreach (FieldInfo field in settingsType.GetFields(
+                         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             {
                 if (field.IsLiteral ||
+                    field.IsInitOnly ||
+                    field.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false) ||
+                    TransientFields.Contains(field.Name) ||
                     registeredFields.Contains(field.Name) ||
                     StateFields.Contains(field.Name) ||
                     UnregisteredPreferenceFields.Contains(field.Name))

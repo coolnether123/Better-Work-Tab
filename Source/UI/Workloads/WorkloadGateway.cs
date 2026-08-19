@@ -115,6 +115,75 @@ namespace Better_Work_Tab.UI.Workloads
         private static LegacyWorkloadBackend _legacyBackend;
         private static Workload2Backend _modernBackend;
 
+        private const string NoCurrentGameMessage =
+            "There is no current Better Work Tab game.";
+
+        private static TResult Dispatch<TResult>(
+            Func<LegacyWorkloadBackend, TResult> legacyOperation,
+            Func<Workload2Backend, TResult> modernOperation,
+            Func<TResult> noGameFailure)
+        {
+            if (!TryBind(out LegacyWorkloadBackend legacy, out Workload2Backend modern))
+            {
+                return noGameFailure();
+            }
+
+            return ResolveMode() == WorkloadBackendMode.Legacy
+                ? legacyOperation(legacy)
+                : modernOperation(modern);
+        }
+
+        private static TResult DispatchV2<TResult>(
+            Func<Workload2Backend, TResult> modernOperation,
+            Func<TResult> noGameFailure,
+            Func<TResult> legacyModeFailure)
+        {
+            return Dispatch(
+                unusedLegacy => legacyModeFailure(),
+                modernOperation,
+                noGameFailure);
+        }
+
+        private static WorkloadOperationResult NoCurrentGame()
+        {
+            return WorkloadOperationResult.Fail(
+                WorkloadDiagnosticCode.NoCurrentGame,
+                NoCurrentGameMessage);
+        }
+
+        private static WorkloadOperationResult<T> NoCurrentGame<T>()
+        {
+            return WorkloadOperationResult<T>.Fail(
+                WorkloadDiagnosticCode.NoCurrentGame,
+                NoCurrentGameMessage);
+        }
+
+        private static WorkloadOperationResult<T> V2Unavailable<T>(string message)
+        {
+            return WorkloadOperationResult<T>.Fail(
+                WorkloadDiagnosticCode.UnsupportedOperation,
+                message);
+        }
+
+        private static WorkloadV2CommitResult DispatchV2Commit(
+            WorkloadDecisionKind decisionKind,
+            Func<Workload2Backend, WorkloadV2CommitResult> modernOperation,
+            string unavailableMessage)
+        {
+            return DispatchV2(
+                modernOperation,
+                () => WorkloadV2ApplyService.GatewayFailure(
+                    decisionKind,
+                    WorkloadDiagnosticCode.NoCurrentGame,
+                    "gateway.game",
+                    NoCurrentGameMessage),
+                () => WorkloadV2ApplyService.GatewayFailure(
+                    decisionKind,
+                    WorkloadDiagnosticCode.UnsupportedOperation,
+                    "gateway.mode",
+                    unavailableMessage));
+        }
+
         internal static WorkloadBackendMode ResolveMode()
         {
             return BetterWorkTabMod.Settings?.useLegacyWorkloads == true
@@ -149,42 +218,26 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal static WorkloadOperationResult<WorkloadDescriptor> GetCurrent()
         {
-            if (!TryBind(out LegacyWorkloadBackend legacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Legacy
-                ? legacy.Current()
-                : modern.Current();
+            return Dispatch(
+                legacy => legacy.Current(),
+                modern => modern.Current(),
+                NoCurrentGame<WorkloadDescriptor>);
         }
 
         internal static IReadOnlyList<WorkloadDescriptor> SavedWorkloads()
         {
-            if (!TryBind(out LegacyWorkloadBackend legacy, out Workload2Backend modern))
-            {
-                return new List<WorkloadDescriptor>();
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Legacy
-                ? legacy.List()
-                : modern.List();
+            return Dispatch(
+                legacy => legacy.List(),
+                modern => modern.List(),
+                () => new List<WorkloadDescriptor>());
         }
 
         internal static WorkloadOperationResult SelectWorkload(string stableId)
         {
-            if (!TryBind(out LegacyWorkloadBackend legacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Legacy
-                ? legacy.Select(stableId)
-                : modern.Select(stableId);
+            return Dispatch(
+                legacy => legacy.Select(stableId),
+                modern => modern.Select(stableId),
+                NoCurrentGame);
         }
 
         internal static WorkloadOperationResult<WorkloadDescriptor> CreateWorkload(string label)
@@ -231,44 +284,26 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal static WorkloadOperationResult DeleteWorkload(string stableId)
         {
-            if (!TryBind(out LegacyWorkloadBackend legacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Legacy
-                ? legacy.Delete(stableId)
-                : modern.Delete(stableId);
+            return Dispatch(
+                legacy => legacy.Delete(stableId),
+                modern => modern.Delete(stableId),
+                NoCurrentGame);
         }
 
         internal static WorkloadOperationResult RenameWorkload(string stableId, string newLabel)
         {
-            if (!TryBind(out LegacyWorkloadBackend legacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Legacy
-                ? legacy.Rename(stableId, newLabel)
-                : modern.Rename(stableId, newLabel);
+            return Dispatch(
+                legacy => legacy.Rename(stableId, newLabel),
+                modern => modern.Rename(stableId, newLabel),
+                NoCurrentGame);
         }
 
         internal static WorkloadOperationResult ApplyCurrentWorkload()
         {
-            if (!TryBind(out LegacyWorkloadBackend legacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Legacy
-                ? legacy.Apply()
-                : modern.Apply();
+            return Dispatch(
+                legacy => legacy.Apply(),
+                modern => modern.Apply(),
+                NoCurrentGame);
         }
 
         internal static WorkloadOperationResult<WorkloadTemplate> CaptureCurrentV2Template(
@@ -612,18 +647,11 @@ namespace Better_Work_Tab.UI.Workloads
             WorkloadTemplate template,
             bool makeCurrent)
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.SaveTemplate(template, makeCurrent)
-                : WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "V2 template storage is unavailable while legacy workloads are active.");
+            return DispatchV2(
+                modern => modern.SaveTemplate(template, makeCurrent),
+                NoCurrentGame<WorkloadDescriptor>,
+                () => V2Unavailable<WorkloadDescriptor>(
+                    "V2 template storage is unavailable while legacy workloads are active."));
         }
 
         /// <summary>
@@ -631,6 +659,13 @@ namespace Better_Work_Tab.UI.Workloads
         /// A blocked transition leaves useLegacyWorkloads untouched.
         /// </summary>
         internal static WorkloadOperationResult TryTransitionMode(WorkloadBackendMode targetMode)
+        {
+            return TryTransitionMode(targetMode, persistSettings: true);
+        }
+
+        internal static WorkloadOperationResult TryTransitionMode(
+            WorkloadBackendMode targetMode,
+            bool persistSettings)
         {
             if (targetMode != WorkloadBackendMode.Legacy && targetMode != WorkloadBackendMode.Modern)
             {
@@ -662,7 +697,11 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             settings.useLegacyWorkloads = targetMode == WorkloadBackendMode.Legacy;
-            settings.Write();
+            if (persistSettings)
+            {
+                settings.Write();
+            }
+
             return WorkloadOperationResult.Ok();
         }
 
@@ -673,68 +712,40 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal static WorkloadOperationResult<WorkloadSession> BeginV2Preview()
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.BeginPreview()
-                : WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "V2 preview is unavailable while legacy workloads are active.");
+            return DispatchV2(
+                modern => modern.BeginPreview(),
+                NoCurrentGame<WorkloadSession>,
+                () => V2Unavailable<WorkloadSession>(
+                    "V2 preview is unavailable while legacy workloads are active."));
         }
 
         internal static WorkloadOperationResult<WorkloadSession> SetV2PreviewSession(WorkloadSession session)
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.SetPreviewSession(session)
-                : WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "V2 preview is unavailable while legacy workloads are active.");
+            return DispatchV2(
+                modern => modern.SetPreviewSession(session),
+                NoCurrentGame<WorkloadSession>,
+                () => V2Unavailable<WorkloadSession>(
+                    "V2 preview is unavailable while legacy workloads are active."));
         }
 
         internal static WorkloadOperationResult<WorkloadSession> EditV2Preview(
             Action<WorkloadDraft> edit)
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.EditPreview(edit)
-                : WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "V2 preview editing is unavailable while legacy workloads are active.");
+            return DispatchV2(
+                modern => modern.EditPreview(edit),
+                NoCurrentGame<WorkloadSession>,
+                () => V2Unavailable<WorkloadSession>(
+                    "V2 preview editing is unavailable while legacy workloads are active."));
         }
 
         internal static WorkloadOperationResult<WorkloadSession> SetV2PreviewState(
             WorkloadProjectedState projectedState)
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.SetPreviewState(projectedState)
-                : WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "V2 preview editing is unavailable while legacy workloads are active.");
+            return DispatchV2(
+                modern => modern.SetPreviewState(projectedState),
+                NoCurrentGame<WorkloadSession>,
+                () => V2Unavailable<WorkloadSession>(
+                    "V2 preview editing is unavailable while legacy workloads are active."));
         }
 
         internal static WorkloadOperationResult<WorkloadSession> ExtendV2PreviewBaseline(
@@ -757,129 +768,65 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal static WorkloadOperationResult<WorkloadSession> RevertV2Preview()
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.RevertPreview()
-                : WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "V2 preview editing is unavailable while legacy workloads are active.");
+            return DispatchV2(
+                modern => modern.RevertPreview(),
+                NoCurrentGame<WorkloadSession>,
+                () => V2Unavailable<WorkloadSession>(
+                    "V2 preview editing is unavailable while legacy workloads are active."));
         }
 
         internal static WorkloadOperationResult<WorkloadPreviewPlan> GetV2PreviewPlan(
             WorkloadDecisionKind decisionKind = WorkloadDecisionKind.Apply)
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult<WorkloadPreviewPlan>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.PreviewPlan(decisionKind)
-                : WorkloadOperationResult<WorkloadPreviewPlan>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "V2 preview planning is unavailable while legacy workloads are active.");
+            return DispatchV2(
+                modern => modern.PreviewPlan(decisionKind),
+                NoCurrentGame<WorkloadPreviewPlan>,
+                () => V2Unavailable<WorkloadPreviewPlan>(
+                    "V2 preview planning is unavailable while legacy workloads are active."));
         }
 
         internal static WorkloadOperationResult<WorkloadSemanticDiff> GetV2PreviewDiff()
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult<WorkloadSemanticDiff>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.PreviewDiff()
-                : WorkloadOperationResult<WorkloadSemanticDiff>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "V2 preview diff is unavailable while legacy workloads are active.");
+            return DispatchV2(
+                modern => modern.PreviewDiff(),
+                NoCurrentGame<WorkloadSemanticDiff>,
+                () => V2Unavailable<WorkloadSemanticDiff>(
+                    "V2 preview diff is unavailable while legacy workloads are active."));
         }
 
         internal static WorkloadOperationResult<WorkloadSemanticDiff> GetV2PreviewImpactDiff()
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadOperationResult<WorkloadSemanticDiff>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.PreviewImpactDiff()
-                : WorkloadOperationResult<WorkloadSemanticDiff>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "V2 preview impact diff is unavailable while legacy workloads are active.");
+            return DispatchV2(
+                modern => modern.PreviewImpactDiff(),
+                NoCurrentGame<WorkloadSemanticDiff>,
+                () => V2Unavailable<WorkloadSemanticDiff>(
+                    "V2 preview impact diff is unavailable while legacy workloads are active."));
         }
 
         internal static WorkloadV2CommitResult CommitV2Apply()
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadV2ApplyService.GatewayFailure(
-                    WorkloadDecisionKind.Apply,
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "gateway.game",
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.CommitApply()
-                : WorkloadV2ApplyService.GatewayFailure(
-                    WorkloadDecisionKind.Apply,
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "gateway.mode",
-                    "V2 apply is unavailable while legacy workloads are active.");
+            return DispatchV2Commit(
+                WorkloadDecisionKind.Apply,
+                modern => modern.CommitApply(),
+                "V2 apply is unavailable while legacy workloads are active.");
         }
 
         internal static WorkloadV2CommitResult CommitV2Update()
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadV2ApplyService.GatewayFailure(
-                    WorkloadDecisionKind.Update,
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "gateway.game",
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.CommitUpdate()
-                : WorkloadV2ApplyService.GatewayFailure(
-                    WorkloadDecisionKind.Update,
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "gateway.mode",
-                    "V2 update is unavailable while legacy workloads are active.");
+            return DispatchV2Commit(
+                WorkloadDecisionKind.Update,
+                modern => modern.CommitUpdate(),
+                "V2 update is unavailable while legacy workloads are active.");
         }
 
         internal static WorkloadV2CommitResult CommitV2Fork(
             string stableId,
             string label)
         {
-            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
-            {
-                return WorkloadV2ApplyService.GatewayFailure(
-                    WorkloadDecisionKind.Fork,
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "gateway.game",
-                    "There is no current Better Work Tab game.");
-            }
-
-            return ResolveMode() == WorkloadBackendMode.Modern
-                ? modern.CommitFork(stableId, label)
-                : WorkloadV2ApplyService.GatewayFailure(
-                    WorkloadDecisionKind.Fork,
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "gateway.mode",
-                    "V2 fork is unavailable while legacy workloads are active.");
+            return DispatchV2Commit(
+                WorkloadDecisionKind.Fork,
+                modern => modern.CommitFork(stableId, label),
+                "V2 fork is unavailable while legacy workloads are active.");
         }
 
         /// <summary>
@@ -907,9 +854,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
             {
-                return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
+                return NoCurrentGame();
             }
 
             return modern.EndPreview();
@@ -3369,5 +3314,12 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
+        private static string Trim(string value, int maxLength)
+        {
+            string safe = value ?? string.Empty;
+            return safe.Length <= maxLength
+                ? safe
+                : safe.Substring(0, Math.Max(0, maxLength - 1)) + "...";
+        }
     }
 }
