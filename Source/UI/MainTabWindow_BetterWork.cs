@@ -228,7 +228,16 @@ namespace Better_Work_Tab.UI
                 // The preview provider is valid only for this complete Work-tab
                 // pass. Pop it even when a renderer or input owner throws.
                 effectiveStateScope.Dispose();
-                _workloadPreviewController.SynchronizeAfterInput();
+                try
+                {
+                    _workloadPreviewController.SynchronizeAfterInput();
+                }
+                finally
+                {
+                    // Lifecycle actions are deliberately last: they must not
+                    // observe the scoped preview provider as still installed.
+                    _workloadPreviewController.FlushQueuedLifecycleActions();
+                }
             }
         }
 
@@ -293,7 +302,7 @@ namespace Better_Work_Tab.UI
             out Rect workGridRect)
         {
             PawnOrganizerSystem organizer = PawnOrganizerSystem.Instance;
-            workGridRect = _workloadPreviewController.GetWorkGridRect(inRect);
+            workGridRect = inRect;
             float effectiveHeaderHeight = SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(table);
             float previousContentHeight = organizer?.Layout != null
                 ? WorkGridLayoutMetrics.GetHeaderAnchoredContentHeight(organizer.Layout)
@@ -383,13 +392,24 @@ namespace Better_Work_Tab.UI
                 WorkTabChromeGeometry.GetInfoIconRect(inRect),
                 evt);
             bool routedPreviewScroll = !routedWorkloadFooterInput &&
-                TryRouteWorkloadPreviewScroll(evt, table);
-            bool routedPreviewSurfaceInput = !routedWorkloadFooterInput &&
-                !routedPreviewScroll &&
-                _workloadPreviewController.TryHandleSurfaceInput(evt);
+                TryRouteWorkloadPreviewScroll(
+                    evt,
+                    table,
+                    inRect,
+                    WorkTabChromeGeometry.GetInfoIconRect(inRect));
             if (!routedWorkloadFooterInput &&
                 !routedPreviewScroll &&
-                !routedPreviewSurfaceInput &&
+                _workloadPreviewController.IsUnsafePreviewInputBlocked)
+            {
+                // A synchronized Apply/Update/Fork owns the detached preview
+                // until its terminal acknowledgement. Keep repaint/scroll
+                // behavior alive, but do not let grid, schedule, context, or
+                // settings input mutate the draft mid-transaction.
+                return;
+            }
+
+            if (!routedWorkloadFooterInput &&
+                !routedPreviewScroll &&
                 SpineTiming.Enabled)
             {
                 SpineTiming.Time(
@@ -397,8 +417,7 @@ namespace Better_Work_Tab.UI
                     () => _workGridInteractionRouter.Route(workGridRect, organizer, evt));
             }
             else if (!routedWorkloadFooterInput &&
-                     !routedPreviewScroll &&
-                     !routedPreviewSurfaceInput)
+                     !routedPreviewScroll)
             {
                 _workGridInteractionRouter.Route(workGridRect, organizer, evt);
             }
@@ -475,8 +494,11 @@ namespace Better_Work_Tab.UI
             PawnOrganizerSystem organizer,
             Event evt)
         {
-            TimePriorityScheduleEditor.Draw(organizer?.Layout);
-            FluffyTimeScheduleAssigner.Draw(inRect, organizer?.Layout, base.ExtraBottomSpace);
+            if (!_workloadPreviewController.IsUnsafePreviewInputBlocked)
+            {
+                TimePriorityScheduleEditor.Draw(organizer?.Layout);
+                FluffyTimeScheduleAssigner.Draw(inRect, organizer?.Layout, base.ExtraBottomSpace);
+            }
             _subWorkStyleChooserPresenter.Draw(organizer?.Layout, windowRect, inRect);
 
             if (SpineTiming.Enabled)
@@ -492,10 +514,6 @@ namespace Better_Work_Tab.UI
             _workTabChrome.DrawBottomControls(organizer?.Layout, inRect);
             _workTabChrome.DrawSubWorkExitButton(inRect);
             _workTabChrome.DrawBottomCounters(inRect, table);
-            // The workload preview rail is part of this Work-tab window. It
-            // is drawn after the existing counters and its grid rectangle is
-            // reserved above, so it cannot cover rows or footer counters.
-            _workloadPreviewController.DrawSurface(inRect);
             BWTWorkTabTutorial.TickAndDraw(inRect, organizer?.Layout);
             // Serviced after the tutorial has drawn, so the harness resolves
             // targets against the geometry the player is actually looking at.
@@ -510,23 +528,32 @@ namespace Better_Work_Tab.UI
 
         private bool TryRouteWorkloadPreviewScroll(
             Event evt,
-            PawnTable table)
+            PawnTable table,
+            Rect inRect,
+            Rect gearRect)
         {
-            if (!_workloadPreviewController.ShouldRouteInspectionWheel(evt) ||
+            HeaderButtons.BottomButtonRects buttonRects =
+                HeaderButtons.GetBottomButtonRects(inRect, gearRect);
+            if (!_workloadPreviewController.ShouldRouteInspectionWheel(
+                    evt,
+                    buttonRects.HasWorkloadUpdate
+                        ? buttonRects.WorkloadUpdate
+                        : Rect.zero,
+                    buttonRects.HasWorkloadPreview
+                        ? buttonRects.WorkloadApply
+                        : Rect.zero) ||
                 table == null)
             {
                 return false;
             }
 
-            // The preview surface is drawn after the native scroll view. Consume
-            // its wheel event here and update the same PawnTable scroll owner the
-            // body renderer uses, so a priority cell beneath the popover never
-            // receives the wheel as an edit gesture.
+            // Consume the wheel over the footer's Update button and update the
+            // same PawnTable scroll owner the body renderer uses. Update hover
+            // inspection must never let that wheel become a priority edit.
             Vector2 scrollPosition = table.scrollPosition;
             _viewportController.TryApplyScrollWheel(ref scrollPosition, evt);
             table.scrollPosition = scrollPosition;
-            // Consume even if the previous frame did not publish a viewport
-            // yet. Inspection must never fall through to a priority-cell edit.
+            // Consume even if the previous frame did not publish a viewport.
             evt.Use();
             return true;
         }
@@ -678,7 +705,6 @@ namespace Better_Work_Tab.UI
         {
             base.PostClose();
             BWTWorkTabTutorial.NotifyWorkTabClosed();
-            BWTBetaFeedbackButton.NotifyTabClosed();
             // Clear float menu highlights when Work tab is closed
             HighlightState.ClearWorktypeHighlight();
             MouseStateManager.ClearHover();

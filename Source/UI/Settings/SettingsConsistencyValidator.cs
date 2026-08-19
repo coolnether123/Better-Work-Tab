@@ -39,8 +39,6 @@ namespace Better_Work_Tab.UI.Settings
             nameof(BetterWorkTabSettings.skippedTutorialLessonIds),
             nameof(BetterWorkTabSettings.tutorialLessonIdsAlreadyUsed),
             nameof(BetterWorkTabSettings.tutorialDiscoveryOfferAcknowledged),
-            nameof(BetterWorkTabSettings.tutorialLessonFeedback),
-            nameof(BetterWorkTabSettings.tutorialOverallFeedback),
             nameof(BetterWorkTabSettings.bwtPlayerIdentifier),
             nameof(BetterWorkTabSettings.debugPrintLayout),
             nameof(BetterWorkTabSettings.firstTimeSetupDone),
@@ -52,15 +50,6 @@ namespace Better_Work_Tab.UI.Settings
             nameof(BetterWorkTabSettings.sleekWorkTabChoicePromptDismissed),
             nameof(BetterWorkTabSettings.sleekWorkTabUseMixedByDefault),
 
-            // Beta feedback bookkeeping: accumulated Work-tab time and whether
-            // the nudge has been answered. Neither is a preference, so neither
-            // belongs in the settings window.
-            nameof(BetterWorkTabSettings.betaFeedbackWorkTabSeconds),
-            nameof(BetterWorkTabSettings.betaFeedbackPromptAnswered),
-            nameof(BetterWorkTabSettings.betaFeatureRatings),
-            nameof(BetterWorkTabSettings.betaProblemReports),
-            nameof(BetterWorkTabSettings.betaOverallFeedback),
-            nameof(BetterWorkTabSettings.betaTesterHandle)
         };
 
         private static readonly HashSet<string> TransientFields = new HashSet<string>

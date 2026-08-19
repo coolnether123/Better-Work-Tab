@@ -1217,7 +1217,7 @@ namespace Better_Work_Tab.UI.Settings
                 // and for each hidden type, we create a removable button tag below.
                 schema.Root.Under(FeaturesUiElements)
                     .Field(HideWorktypes, settings => settings.hiddenWorktypes, SettingType.DropdownListAdder, "Hidden Work Types",
-                           tooltip: "Select work types to hide from the work tab. (Beta Testing Phase. Please reach out to discord with ideas for improving)")
+                           tooltip: "Select work types to hide from the work tab.")
                     .SearchableBy(new[] { "hide column", "remove work column", "unwanted job", "show work type", "unhide" })
                     .Ordered(105)
                     .OptionsFrom(() => DefDatabase<WorkTypeDef>.AllDefsListForReading.Where(wt => !settings.hiddenWorktypes.Contains(wt.defName)).Select(w => w.labelShort.CapitalizeFirst()).OrderBy(l => l),

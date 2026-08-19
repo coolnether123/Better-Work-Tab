@@ -13,23 +13,20 @@ namespace Better_Work_Tab.UI
     /// reliably say its own name either.
     ///
     /// A caption line was the first attempt at the first half of that, and it
-    /// cost a second row of height for two words that never change. An icon says
-    /// the same thing in the space the text was already leaving empty, so the
-    /// control is back to one line and the name gets the whole width — sized to
-    /// fit rather than truncated, because the bottom bar has room to spare and
-    /// the only thing to its left is a hint line that already shortens itself.
+    /// cost a second row of height for two words that never change. The compact
+    /// control keeps a reserved leading slot so the name has the same geometry
+    /// and the whole width is sized to fit rather than truncated.
     /// </summary>
     internal static class BWTBottomBarSelector
     {
         internal const float Height = 30f;
         internal const float MenuWidth = 30f;
 
-        // The glyphs are 24px art. Drawing them at anything else resamples off
-        // their own grid and the detail turns to mush — the check on the ruleset
-        // icon disappears first. Native size, so the pixels land on pixels.
-        private const float IconSize = 24f;
+        // Keep the leading blank slot stable so removing the former glyphs does
+        // not move the selector text or change the bottom-bar geometry.
+        private const float LeadingSlotSize = 24f;
         private const float SidePadding = 6f;
-        private const float IconTextGap = 7f;
+        private const float LeadingTextGap = 7f;
 
         private const float MinTextWidth = 96f;
         private const float MaxTextWidth = 240f;
@@ -48,7 +45,7 @@ namespace Better_Work_Tab.UI
             float text = Text.CalcSize(value ?? string.Empty).x;
             Text.Font = previousFont;
             return Mathf.Clamp(text, MinTextWidth, MaxTextWidth) +
-                   (SidePadding * 2f) + IconSize + IconTextGap;
+                   (SidePadding * 2f) + LeadingSlotSize + LeadingTextGap;
         }
 
         /// <summary>
@@ -56,7 +53,7 @@ namespace Better_Work_Tab.UI
         /// when nothing is selected, which dims the text so an invitation
         /// ("Save current priorities") does not read as the name of a saved thing.
         /// </summary>
-        internal static bool DrawMain(Rect rect, Texture2D icon, string value, bool hasValue, string tooltip)
+        internal static bool DrawMain(Rect rect, string value, bool hasValue, string tooltip)
         {
             bool clicked = Widgets.ButtonText(rect, string.Empty);
 
@@ -65,14 +62,7 @@ namespace Better_Work_Tab.UI
             Color previousColor = GUI.color;
             bool previousWrap = Text.WordWrap;
 
-            if (icon != null)
-            {
-                GUI.DrawTexture(
-                    new Rect(rect.x + SidePadding, rect.y + ((rect.height - IconSize) * 0.5f), IconSize, IconSize),
-                    icon);
-            }
-
-            float textX = rect.x + SidePadding + IconSize + IconTextGap;
+            float textX = rect.x + SidePadding + LeadingSlotSize + LeadingTextGap;
             float textWidth = rect.xMax - SidePadding - textX;
 
             Text.Anchor = TextAnchor.MiddleLeft;

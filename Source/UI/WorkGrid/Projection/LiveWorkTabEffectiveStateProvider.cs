@@ -17,6 +17,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
         public string ProviderId { get; }
         public Func<long> Revision { get; set; }
+        public Func<WorkTabEffectiveStateRevisionVector> RevisionVector { get; set; }
 
         public WorkTabEffectiveStateResolver<WorkloadParentPriorityKey, int> ParentPriority { get; set; }
         public WorkTabEffectiveStateResolver<WorkloadParentPriorityKey, bool> ManualMode { get; set; }
@@ -24,6 +25,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         public WorkTabEffectiveStateResolver<WorkloadSpecificJobKey, WorkloadScalarValue> SpecificJobOverride { get; set; }
         public WorkTabEffectiveStateResolver<WorkloadSpecificJobKey, int> SpecificJobOrder { get; set; }
         public WorkTabEffectiveStateResolver<string, WorkloadScalarValue> PresentationSetting { get; set; }
+        public Func<WorkloadScheduleTargetKey, WorkTabEffectiveStateResolution<WorkloadSchedulePayload>> ScheduleV2 { get; set; }
+        public Func<WorkloadSpecificJobTargetKey, WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>> SpecificJobPriorityV2 { get; set; }
+        public Func<WorkloadWorkTypeOrderKey, WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>> WorkTypeOrderV2 { get; set; }
+        public Func<string, WorkTabEffectiveStateResolution<WorkloadSettingValue>> PresentationSettingV2 { get; set; }
     }
 
     /// <summary>
@@ -33,6 +38,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
     /// </summary>
     public sealed class LiveWorkTabEffectiveStateProvider :
         IWorkTabEffectiveStateProvider,
+        IWorkTabEffectiveStateV2Provider,
         IWorkTabEffectiveStateEditor
     {
         private readonly LiveWorkTabEffectiveStateCallbacks _callbacks;
@@ -51,13 +57,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
         public long Revision => _callbacks.Revision?.Invoke() ?? 0L;
 
+        public WorkTabEffectiveStateRevisionVector RevisionVector =>
+            _callbacks.RevisionVector?.Invoke() ??
+            WorkTabEffectiveStateRevisionVector.FromRevision(Revision);
+
         public WorkTabEffectiveStateSource Source => WorkTabEffectiveStateSource.Live;
 
         public bool IsLive => true;
         public bool IsPreview => false;
 
         public WorkTabEffectiveStateRevision RevisionToken =>
-            new WorkTabEffectiveStateRevision(ProviderId, Revision, Source);
+            new WorkTabEffectiveStateRevision(ProviderId, Revision, Source, RevisionVector);
 
         public IWorkTabEffectiveStateEditor Editor => _editor;
 
@@ -147,6 +157,90 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             return !string.IsNullOrWhiteSpace(key) &&
                    _callbacks.PresentationSetting != null &&
                    _callbacks.PresentationSetting(key, out value);
+        }
+
+        public WorkTabEffectiveStateResolution<int> ResolveParentPriority(
+            WorkloadParentPriorityKey key)
+        {
+            return key != null && key.IsValid &&
+                   _callbacks.ParentPriority != null &&
+                   _callbacks.ParentPriority(key, out int priority)
+                ? WorkTabEffectiveStateResolution<int>.Set(priority)
+                : WorkTabEffectiveStateResolution<int>.NoOpinion;
+        }
+
+        public WorkTabEffectiveStateResolution<bool> ResolveManualMode(
+            WorkloadParentPriorityKey key)
+        {
+            return key != null && key.IsValid &&
+                   _callbacks.ManualMode != null &&
+                   _callbacks.ManualMode(key, out bool manualMode)
+                ? WorkTabEffectiveStateResolution<bool>.Set(manualMode)
+                : WorkTabEffectiveStateResolution<bool>.NoOpinion;
+        }
+
+        public WorkTabEffectiveStateResolution<WorkloadSchedulePayload> ResolveSchedule(
+            WorkloadScheduleTargetKey key)
+        {
+            if (key == null || !key.IsValid || _callbacks.ScheduleV2 == null)
+            {
+                return WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion;
+            }
+
+            return _callbacks.ScheduleV2(key);
+        }
+
+        public WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>
+            ResolveSpecificJobPriority(WorkloadSpecificJobTargetKey key)
+        {
+            if (key == null || !key.IsValid)
+            {
+                return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
+            }
+
+            if (_callbacks.SpecificJobPriorityV2 != null)
+            {
+                return _callbacks.SpecificJobPriorityV2(key);
+            }
+
+            WorkloadScalarValue value;
+            return _callbacks.SpecificJobOverride != null &&
+                   _callbacks.SpecificJobOverride(key.ToLegacyKey(), out value) &&
+                   value.Kind == WorkloadScalarKind.Integer
+                ? WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.Set(
+                    new WorkloadSpecificPriorityPayload(value.IntegerValue))
+                : WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
+        }
+
+        public WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>
+            ResolveWorkTypeOrder(WorkloadWorkTypeOrderKey key)
+        {
+            if (key == null || !key.IsValid || _callbacks.WorkTypeOrderV2 == null)
+            {
+                return WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion;
+            }
+
+            return _callbacks.WorkTypeOrderV2(key);
+        }
+
+        public WorkTabEffectiveStateResolution<WorkloadSettingValue>
+            ResolvePresentationSetting(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return WorkTabEffectiveStateResolution<WorkloadSettingValue>.NoOpinion;
+            }
+
+            if (_callbacks.PresentationSettingV2 != null)
+            {
+                return _callbacks.PresentationSettingV2(key);
+            }
+
+            return _callbacks.PresentationSetting != null &&
+                   _callbacks.PresentationSetting(key, out WorkloadScalarValue value)
+                ? WorkTabEffectiveStateResolution<WorkloadSettingValue>.Set(
+                    WorkloadSettingValue.Global(value))
+                : WorkTabEffectiveStateResolution<WorkloadSettingValue>.NoOpinion;
         }
 
         public WorkTabEffectiveStateMutationResult SetParentPriority(

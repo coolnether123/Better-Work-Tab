@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.Mod_Support.Multiplayer;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using Multiplayer.API;
 using RimWorld;
 using UnityEngine;
@@ -31,7 +33,15 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static int CurrentVersion { get; private set; }
 
-        internal static bool IsRuntimeActive => IsRuntimeEnabled && HasAnySchedule();
+        internal static bool IsRuntimeActive =>
+            IsRuntimeEnabled && (HasAnySchedule() || IsPreviewSchedulePassActive());
+
+        private static bool IsPreviewSchedulePassActive()
+        {
+            return WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                   WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
+                       WorkTabEffectiveStateDimension.Schedule);
+        }
 
         internal static string BuildKey(int pawnId, TimePriorityTargetKind kind, string workTypeDefName, string targetDefName)
         {
@@ -67,6 +77,30 @@ namespace Better_Work_Tab.Features.TimePriority
         internal static int[] GetPrioritiesForDisplay(TimePriorityTarget target, int fallbackPriority)
         {
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            if (TryGetProjectedScheduleResolution(
+                    target,
+                    out WorkTabEffectiveStateResolution<WorkloadSchedulePayload> projected,
+                    out bool ownsPreviewDimension) &&
+                ownsPreviewDimension)
+            {
+                if (projected.IsClear)
+                {
+                    return CreateFallbackPriorities(fallbackPriority);
+                }
+
+                if (projected.IsSet && projected.Value != null && projected.Value.IsValid)
+                {
+                    return CreateProjectedPriorities(projected.Value, fallbackPriority);
+                }
+            }
+
+            return GetLivePrioritiesForDisplay(target, fallbackPriority);
+        }
+
+        private static int[] GetLivePrioritiesForDisplay(
+            TimePriorityTarget target,
+            int fallbackPriority)
+        {
             if (!TryGetSchedule(target, out var schedule))
             {
                 return CreateFallbackPriorities(fallbackPriority);
@@ -92,6 +126,28 @@ namespace Better_Work_Tab.Features.TimePriority
         /// </summary>
         internal static bool[] GetLinkStateForDisplay(TimePriorityTarget target)
         {
+            if (TryGetProjectedScheduleResolution(
+                    target,
+                    out WorkTabEffectiveStateResolution<WorkloadSchedulePayload> projected,
+                    out bool ownsPreviewDimension) &&
+                ownsPreviewDimension)
+            {
+                if (projected.IsClear)
+                {
+                    return new bool[HoursPerDay];
+                }
+
+                if (projected.IsSet && projected.Value != null && projected.Value.IsValid)
+                {
+                    return CreateProjectedLinkState(projected.Value);
+                }
+            }
+
+            return GetLiveLinkStateForDisplay(target);
+        }
+
+        private static bool[] GetLiveLinkStateForDisplay(TimePriorityTarget target)
+        {
             var unlinked = new bool[HoursPerDay];
             if (!TryGetSchedule(target, out var schedule))
             {
@@ -109,6 +165,31 @@ namespace Better_Work_Tab.Features.TimePriority
         internal static int GetPriorityAtHour(TimePriorityTarget target, int fallbackPriority, int hour)
         {
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            if (TryGetProjectedScheduleResolution(
+                    target,
+                    out WorkTabEffectiveStateResolution<WorkloadSchedulePayload> projected,
+                    out bool ownsPreviewDimension) &&
+                ownsPreviewDimension)
+            {
+                if (projected.IsSet && projected.Value != null && projected.Value.IsValid)
+                {
+                    hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
+                    return projected.Value.IsPinned(hour)
+                        ? WorkPrioritySystem.ClampPriority(projected.Value.PriorityAt(hour))
+                        : fallbackPriority;
+                }
+
+                return fallbackPriority;
+            }
+
+            return GetLivePriorityAtHour(target, fallbackPriority, hour);
+        }
+
+        private static int GetLivePriorityAtHour(
+            TimePriorityTarget target,
+            int fallbackPriority,
+            int hour)
+        {
             if (!TryGetSchedule(target, out var schedule))
             {
                 return fallbackPriority;
@@ -129,6 +210,18 @@ namespace Better_Work_Tab.Features.TimePriority
         /// </summary>
         internal static bool HasCustomSchedule(TimePriorityTarget target, int fallbackPriority)
         {
+            if (TryGetProjectedScheduleResolution(
+                    target,
+                    out WorkTabEffectiveStateResolution<WorkloadSchedulePayload> projected,
+                    out bool ownsPreviewDimension) &&
+                ownsPreviewDimension)
+            {
+                return projected.IsSet &&
+                       projected.Value != null &&
+                       projected.Value.IsValid &&
+                       projected.Value.PinnedHourMask != 0;
+            }
+
             if (!TryGetSchedule(target, out var schedule))
             {
                 return false;
@@ -139,6 +232,18 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool IsCustomScheduledHour(TimePriorityTarget target, int hour, int fallbackPriority)
         {
+            if (TryGetProjectedScheduleResolution(
+                    target,
+                    out WorkTabEffectiveStateResolution<WorkloadSchedulePayload> projected,
+                    out bool ownsPreviewDimension) &&
+                ownsPreviewDimension)
+            {
+                return projected.IsSet &&
+                       projected.Value != null &&
+                       projected.Value.IsValid &&
+                       projected.Value.IsPinned(Mathf.Clamp(hour, 0, HoursPerDay - 1));
+            }
+
             if (!TryGetSchedule(target, out var schedule))
             {
                 return false;
@@ -146,6 +251,267 @@ namespace Better_Work_Tab.Features.TimePriority
 
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
             return schedule.IsUnlinked(hour);
+        }
+
+        /// <summary>
+        /// Reads the typed schedule intent from the active projected provider.
+        /// A no-op result means the workload has no opinion and the canonical
+        /// live service remains the fallback. Clear is deliberately returned
+        /// as a real resolution so a live schedule cannot leak through a
+        /// workload tombstone.
+        /// </summary>
+        private static bool TryGetProjectedScheduleResolution(
+            TimePriorityTarget target,
+            out WorkTabEffectiveStateResolution<WorkloadSchedulePayload> resolution,
+            out bool ownsPreviewDimension)
+        {
+            resolution = WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion;
+            ownsPreviewDimension = false;
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive ||
+                !WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
+                    WorkTabEffectiveStateDimension.Schedule))
+            {
+                return false;
+            }
+
+            ownsPreviewDimension = true;
+            if (!target.TryGetWorkloadScheduleTarget(
+                    out WorkloadScheduleTargetKey key,
+                    out _))
+            {
+                return true;
+            }
+
+            IWorkTabEffectiveStateV2Provider provider =
+                WorkTabEffectiveStateRuntime.CurrentProvider as IWorkTabEffectiveStateV2Provider;
+            if (provider == null)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "The active workload preview has no typed 24-hour schedule reader.");
+                return true;
+            }
+
+            resolution = provider.ResolveSchedule(key);
+            return true;
+        }
+
+        private static int[] CreateProjectedPriorities(
+            WorkloadSchedulePayload payload,
+            int fallbackPriority)
+        {
+            var priorities = new int[HoursPerDay];
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                priorities[hour] = payload.IsPinned(hour)
+                    ? WorkPrioritySystem.ClampPriority(payload.PriorityAt(hour))
+                    : fallbackPriority;
+            }
+
+            return priorities;
+        }
+
+        private static bool[] CreateProjectedLinkState(WorkloadSchedulePayload payload)
+        {
+            var pinned = new bool[HoursPerDay];
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                pinned[hour] = payload.IsPinned(hour);
+            }
+
+            return pinned;
+        }
+
+        /// <summary>
+        /// Validates that the normal schedule editor has a typed projected
+        /// writer before it opens in preview. This keeps unsupported global
+        /// parent schedules and legacy providers fail-closed rather than
+        /// allowing an editor click to reach live state.
+        /// </summary>
+        internal static bool CanEditScheduleFromEditor(
+            TimePriorityTarget target,
+            out string reason)
+        {
+            reason = null;
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                return true;
+            }
+
+            if (!WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
+                    WorkTabEffectiveStateDimension.Schedule))
+            {
+                reason = "The active workload preview does not own hourly schedules.";
+                return false;
+            }
+
+            if (!target.TryGetWorkloadScheduleTarget(out _, out reason))
+            {
+                return false;
+            }
+
+            if (!(WorkTabEffectiveStateRuntime.CurrentProvider is IWorkTabEffectiveStateV2Editor))
+            {
+                reason = "The active workload preview has no typed 24-hour schedule writer.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Routes a normal editor whole-schedule write to the projected typed
+        /// state while preview is active. Outside preview the existing
+        /// synchronized canonical service remains authoritative.
+        /// </summary>
+        internal static bool TrySetScheduleFromEditor(
+            TimePriorityTarget target,
+            int[] priorities,
+            bool[] pinnedHours,
+            int fallbackPriority,
+            out string reason)
+        {
+            reason = null;
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                if (SetScheduleSynced(target, priorities, pinnedHours, fallbackPriority))
+                {
+                    return true;
+                }
+
+                reason = "The canonical hourly schedule service rejected the write.";
+                return false;
+            }
+
+            if (!CanEditScheduleFromEditor(target, out reason) ||
+                !target.TryGetWorkloadScheduleTarget(out WorkloadScheduleTargetKey key, out reason) ||
+                !(WorkTabEffectiveStateRuntime.CurrentProvider is IWorkTabEffectiveStateV2Editor editor))
+            {
+                return false;
+            }
+
+            WorkloadSchedulePayload payload = new WorkloadSchedulePayload(
+                NormalizePriorities(priorities, fallbackPriority),
+                BuildPinnedHourMask(pinnedHours));
+            WorkTabEffectiveStateMutationResult result =
+                editor.SetSchedule(key, payload);
+            if (result.Accepted || result.IsNoOp)
+            {
+                return true;
+            }
+
+            reason = result.Reason;
+            WorkTabEffectiveStateRuntime.ReportBlocked(
+                WorkTabEffectiveStateDimension.Schedule,
+                reason);
+            return false;
+        }
+
+        internal static bool TryClearScheduleFromEditor(
+            TimePriorityTarget target,
+            out string reason)
+        {
+            reason = null;
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                if (ClearSchedule(target))
+                {
+                    return true;
+                }
+
+                reason = "The canonical hourly schedule service rejected the clear.";
+                return false;
+            }
+
+            if (!CanEditScheduleFromEditor(target, out reason) ||
+                !target.TryGetWorkloadScheduleTarget(out WorkloadScheduleTargetKey key, out reason) ||
+                !(WorkTabEffectiveStateRuntime.CurrentProvider is IWorkTabEffectiveStateV2Editor editor))
+            {
+                return false;
+            }
+
+            WorkTabEffectiveStateMutationResult result =
+                editor.ClearSchedule(key);
+            if (result.Accepted || result.IsNoOp)
+            {
+                return true;
+            }
+
+            reason = result.Reason;
+            WorkTabEffectiveStateRuntime.ReportBlocked(
+                WorkTabEffectiveStateDimension.Schedule,
+                reason);
+            return false;
+        }
+
+        internal static bool TrySetScheduleHourFromEditor(
+            TimePriorityTarget target,
+            int hour,
+            int priority,
+            int fallbackPriority,
+            out string reason)
+        {
+            reason = null;
+            hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                if (SetPriorityAtHourSynced(target, hour, priority, fallbackPriority))
+                {
+                    return true;
+                }
+
+                reason = "The canonical hourly schedule service rejected the write.";
+                return false;
+            }
+
+            int[] priorities = GetPrioritiesForDisplay(target, fallbackPriority);
+            bool[] pinnedHours = GetLinkStateForDisplay(target);
+            priorities[hour] = WorkPrioritySystem.ClampPriority(priority);
+            pinnedHours[hour] = true;
+            return TrySetScheduleFromEditor(
+                target,
+                priorities,
+                pinnedHours,
+                fallbackPriority,
+                out reason);
+        }
+
+        internal static bool TryClearScheduleHourFromEditor(
+            TimePriorityTarget target,
+            int hour,
+            int fallbackPriority,
+            out string reason)
+        {
+            reason = null;
+            hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
+            {
+                if (ClearPriorityAtHourSynced(target, hour))
+                {
+                    return true;
+                }
+
+                reason = "The canonical hourly schedule service rejected the clear.";
+                return false;
+            }
+
+            int[] priorities = GetPrioritiesForDisplay(target, fallbackPriority);
+            bool[] pinnedHours = GetLinkStateForDisplay(target);
+            pinnedHours[hour] = false;
+            for (int i = 0; i < HoursPerDay; i++)
+            {
+                if (pinnedHours[i])
+                {
+                    return TrySetScheduleFromEditor(
+                        target,
+                        priorities,
+                        pinnedHours,
+                        fallbackPriority,
+                        out reason);
+                }
+            }
+
+            return TryClearScheduleFromEditor(target, out reason);
         }
 
         internal static bool TryGetWorkGiverScheduleIndicatorTarget(
@@ -314,6 +680,377 @@ namespace Better_Work_Tab.Features.TimePriority
             return SetSchedule(target, normalizedPriorities, pinnedHours, fallbackPriority);
         }
 
+        /// <summary>
+        /// Captures the live schedule without consulting the active preview.
+        /// This is the baseline used by the workload transaction layer; the
+        /// projected Work-tab state must never be mistaken for the colony
+        /// state that a commit is about to revalidate.
+        /// </summary>
+        internal static bool TryCaptureLiveScheduleSnapshot(
+            TimePriorityTarget target,
+            int fallbackPriority,
+            out TimePriorityLiveScheduleSnapshot snapshot,
+            out string reason)
+        {
+            snapshot = null;
+            reason = null;
+            if (!IsValidLiveTarget(target))
+            {
+                reason = "The live schedule target is invalid.";
+                return false;
+            }
+
+            EnsureGameState();
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision))
+            {
+                reason = "Better Work Tab does not currently own priority mutation authority.";
+                return false;
+            }
+
+            fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            bool hadSchedule = TryGetSchedule(target, out TimePriorityScheduleData schedule) &&
+                                schedule.HasAnyUnlinkedHour;
+            WorkloadSchedulePayload payload = new WorkloadSchedulePayload(
+                GetLivePrioritiesForDisplay(target, fallbackPriority),
+                BuildPinnedHourMask(GetLiveLinkStateForDisplay(target)));
+            if (!payload.IsValid)
+            {
+                reason = "The live schedule service returned an invalid 24-hour state.";
+                return false;
+            }
+
+            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+            {
+                reason = "Priority mutation authority changed while the live schedule was captured.";
+                return false;
+            }
+
+            snapshot = new TimePriorityLiveScheduleSnapshot(
+                target,
+                payload,
+                hadSchedule,
+                fallbackPriority,
+                CurrentVersion,
+                authorityRevision);
+            return true;
+        }
+
+        /// <summary>
+        /// Captures a live schedule from the stable workload identity. The
+        /// conversion is kept here as the narrow boundary used by workload
+        /// transaction code; callers do not reconstruct runtime targets or
+        /// reach into the schedule collection themselves.
+        /// </summary>
+        internal static bool TryCaptureLiveScheduleSnapshot(
+            WorkloadScheduleTargetKey key,
+            int fallbackPriority,
+            out TimePriorityLiveScheduleSnapshot snapshot,
+            out string reason)
+        {
+            snapshot = null;
+            reason = null;
+            if (!TimePriorityTarget.TryFromWorkloadScheduleTarget(
+                    key,
+                    out TimePriorityTarget target,
+                    out reason))
+            {
+                return false;
+            }
+
+            return TryCaptureLiveScheduleSnapshot(
+                target,
+                fallbackPriority,
+                out snapshot,
+                out reason);
+        }
+
+        /// <summary>
+        /// Mints the in-process capability used by the synchronized workload
+        /// transaction.  Snapshot writers reject active multiplayer calls
+        /// without this capability; legacy schedule sync methods do not cross
+        /// this workload transaction seam.
+        /// </summary>
+        internal static bool TryCreateWorkloadMutationAuthorization(
+            string transactionId,
+            long authorityRevision,
+            out TimePriorityMutationAuthorization authorization,
+            out string reason)
+        {
+            authorization = null;
+            reason = "The legacy schedule authorization overload is disabled; a prepared workload transaction capability is required.";
+            return false;
+        }
+
+        /// <summary>
+        /// Applies one exact typed schedule after revalidating the live version,
+        /// target baseline, and authority. Callers applying many workload
+        /// targets should wrap the calls in <see cref="BeginMutationBatch"/>
+        /// and finish with <see cref="CommitMutationBatch"/> so the canonical
+        /// schedule invalidation is published once.
+        /// </summary>
+        internal static bool TryApplyLiveScheduleSnapshot(
+            TimePriorityLiveScheduleSnapshot expectedCurrent,
+            WorkloadSchedulePayload desired,
+            out string reason)
+        {
+            return TryApplyLiveScheduleSnapshot(
+                expectedCurrent,
+                desired,
+                null,
+                out reason);
+        }
+
+        internal static bool TryApplyLiveScheduleSnapshot(
+            TimePriorityLiveScheduleSnapshot expectedCurrent,
+            WorkloadSchedulePayload desired,
+            TimePriorityMutationAuthorization authorization,
+            out string reason)
+        {
+            reason = null;
+            if (desired == null || !desired.IsValid)
+            {
+                reason = "The desired workload schedule is not a complete 24-hour payload.";
+                return false;
+            }
+
+            if (!TryValidateExpectedLiveSnapshot(
+                    expectedCurrent,
+                    authorization,
+                    out long authorityRevision,
+                    out reason))
+            {
+                return false;
+            }
+
+            int[] priorities = NormalizePriorities(
+                CopyPayloadPriorities(desired),
+                expectedCurrent.FallbackPriority);
+            bool applied = desired.PinnedHourMask == 0
+                ? ClearSchedule(
+                    expectedCurrent.Target,
+                    authorityRevision,
+                    authorization)
+                : SetSchedule(
+                    expectedCurrent.Target,
+                    priorities,
+                    BuildPinnedHourListFromMask(desired.PinnedHourMask),
+                    expectedCurrent.FallbackPriority,
+                    authorityRevision,
+                    authorization);
+            if (!applied)
+            {
+                reason = "The canonical hourly schedule service rejected the validated workload write.";
+            }
+
+            return applied;
+        }
+
+        internal static bool TryClearLiveScheduleSnapshot(
+            TimePriorityLiveScheduleSnapshot expectedCurrent,
+            out string reason)
+        {
+            return TryClearLiveScheduleSnapshot(
+                expectedCurrent,
+                null,
+                out reason);
+        }
+
+        internal static bool TryClearLiveScheduleSnapshot(
+            TimePriorityLiveScheduleSnapshot expectedCurrent,
+            TimePriorityMutationAuthorization authorization,
+            out string reason)
+        {
+            reason = null;
+            if (!TryValidateExpectedLiveSnapshot(
+                    expectedCurrent,
+                    authorization,
+                    out long authorityRevision,
+                    out reason))
+            {
+                return false;
+            }
+
+            bool cleared = ClearSchedule(
+                expectedCurrent.Target,
+                authorityRevision,
+                authorization);
+            if (!cleared)
+            {
+                reason = "The canonical hourly schedule service rejected the validated workload clear.";
+            }
+
+            return cleared;
+        }
+
+        /// <summary>
+        /// Restores the exact pre-transaction snapshot only when the caller's
+        /// expected current live snapshot still matches. This is the rollback
+        /// seam for a multi-target commit; it never writes through a stale or
+        /// externally-owned authority.
+        /// </summary>
+        internal static bool TryRestoreLiveScheduleSnapshot(
+            TimePriorityLiveScheduleSnapshot snapshot,
+            TimePriorityLiveScheduleSnapshot expectedCurrent,
+            out string reason)
+        {
+            return TryRestoreLiveScheduleSnapshot(
+                snapshot,
+                expectedCurrent,
+                null,
+                out reason);
+        }
+
+        internal static bool TryRestoreLiveScheduleSnapshot(
+            TimePriorityLiveScheduleSnapshot snapshot,
+            TimePriorityLiveScheduleSnapshot expectedCurrent,
+            TimePriorityMutationAuthorization authorization,
+            out string reason)
+        {
+            reason = null;
+            if (snapshot == null || snapshot.Payload == null || !snapshot.Payload.IsValid)
+            {
+                reason = "The schedule rollback snapshot is invalid.";
+                return false;
+            }
+
+            if (!TryValidateExpectedLiveSnapshot(
+                    expectedCurrent,
+                    authorization,
+                    out long authorityRevision,
+                    out reason))
+            {
+                return false;
+            }
+
+            if (!snapshot.Target.Matches(expectedCurrent.Target))
+            {
+                reason = "The schedule rollback target does not match the validated live target.";
+                return false;
+            }
+
+            bool restored = !snapshot.HadSchedule || snapshot.Payload.PinnedHourMask == 0
+                ? ClearSchedule(
+                    snapshot.Target,
+                    authorityRevision,
+                    authorization)
+                : SetSchedule(
+                    snapshot.Target,
+                    CopyPayloadPriorities(snapshot.Payload),
+                    BuildPinnedHourListFromMask(snapshot.Payload.PinnedHourMask),
+                    snapshot.FallbackPriority,
+                    authorityRevision,
+                    authorization);
+            if (!restored)
+            {
+                reason = "The canonical hourly schedule service rejected the rollback.";
+            }
+
+            return restored;
+        }
+
+        private static bool TryValidateExpectedLiveSnapshot(
+            TimePriorityLiveScheduleSnapshot expectedCurrent,
+            TimePriorityMutationAuthorization authorization,
+            out long authorityRevision,
+            out string reason)
+        {
+            authorityRevision = 0L;
+            reason = null;
+            if (!TimePriorityMutationAuthorization.IsAcceptedFor(
+                    MultiplayerBridge.Active,
+                    expectedCurrent?.AuthorityRevision ?? long.MinValue,
+                    authorization))
+            {
+                reason = "Workload schedule commits require the transaction-bound multiplayer authorization token.";
+                return false;
+            }
+
+            if (expectedCurrent == null ||
+                expectedCurrent.Payload == null ||
+                !expectedCurrent.Payload.IsValid)
+            {
+                reason = "The expected live schedule snapshot is invalid.";
+                return false;
+            }
+
+            if (authorization != null &&
+                !authorization.IsBoundTo(expectedCurrent.AuthorityRevision))
+            {
+                reason = "The workload schedule authorization token is bound to a different authority revision.";
+                return false;
+            }
+
+            EnsureGameState();
+            if (CurrentVersion != expectedCurrent.ServiceVersion)
+            {
+                reason = "The live hourly schedule changed after the workload baseline was captured.";
+                return false;
+            }
+
+            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(expectedCurrent.AuthorityRevision))
+            {
+                reason = "Priority mutation authority changed after the workload baseline was captured.";
+                return false;
+            }
+
+            if (!TryCaptureLiveScheduleSnapshot(
+                    expectedCurrent.Target,
+                    expectedCurrent.FallbackPriority,
+                    out TimePriorityLiveScheduleSnapshot current,
+                    out reason))
+            {
+                return false;
+            }
+
+            if (!expectedCurrent.Matches(current) ||
+                current.ServiceVersion != expectedCurrent.ServiceVersion ||
+                current.AuthorityRevision != expectedCurrent.AuthorityRevision)
+            {
+                reason = current.AuthorityRevision != expectedCurrent.AuthorityRevision
+                    ? "Priority mutation authority changed after the workload baseline was captured."
+                    : "The live hourly schedule no longer matches the workload baseline.";
+                return false;
+            }
+
+            authorityRevision = expectedCurrent.AuthorityRevision;
+            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
+        }
+
+        private static bool IsValidLiveTarget(TimePriorityTarget target)
+        {
+            return (target.PawnId == TimePriorityTarget.GlobalPawnId || target.PawnId >= 0) &&
+                   (target.Kind == TimePriorityTargetKind.WorkType ||
+                    target.Kind == TimePriorityTargetKind.WorkGiver) &&
+                   !string.IsNullOrEmpty(target.WorkTypeDefName) &&
+                   (target.Kind == TimePriorityTargetKind.WorkType ||
+                    !string.IsNullOrEmpty(target.TargetDefName));
+        }
+
+        private static int[] CopyPayloadPriorities(WorkloadSchedulePayload payload)
+        {
+            var priorities = new int[HoursPerDay];
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                priorities[hour] = payload.PriorityAt(hour);
+            }
+
+            return priorities;
+        }
+
+        private static int[] BuildPinnedHourListFromMask(int pinnedHourMask)
+        {
+            var pinned = new List<int>();
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                if ((pinnedHourMask & (1 << hour)) != 0)
+                {
+                    pinned.Add(hour);
+                }
+            }
+
+            return pinned.ToArray();
+        }
+
         // Multiplayer sync marshals plain arrays, so the pinned hours travel as
         // indices rather than a parallel bool[].
         private static int[] BuildPinnedHourList(bool[] unlinkedHours)
@@ -328,6 +1065,22 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             return pinned.ToArray();
+        }
+
+        private static int BuildPinnedHourMask(bool[] unlinkedHours)
+        {
+            int mask = 0;
+            for (int hour = 0; hour < HoursPerDay; hour++)
+            {
+                if (unlinkedHours != null &&
+                    hour < unlinkedHours.Length &&
+                    unlinkedHours[hour])
+                {
+                    mask |= 1 << hour;
+                }
+            }
+
+            return mask;
         }
 
         [SyncMethod]
@@ -371,13 +1124,20 @@ namespace Better_Work_Tab.Features.TimePriority
             int[] priorities,
             int[] pinnedHours,
             int fallbackPriority,
-            long authorityRevision)
+            long authorityRevision,
+            TimePriorityMutationAuthorization authorization = null)
         {
             fallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
             int[] normalizedPriorities = NormalizePriorities(priorities, fallbackPriority);
             if (pinnedHours == null || pinnedHours.Length == 0)
             {
-                return ClearSchedule(target, authorityRevision);
+                return ClearSchedule(target, authorityRevision, authorization);
+            }
+
+            if (authorization != null &&
+                !authorization.IsBoundTo(authorityRevision))
+            {
+                return false;
             }
 
             if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
@@ -424,7 +1184,8 @@ namespace Better_Work_Tab.Features.TimePriority
                 NotifyChanged();
             }
 
-            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
+            return (authorization == null || authorization.IsBoundTo(authorityRevision)) &&
+                   WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
         internal static bool ClearSchedule(TimePriorityTarget target)
@@ -437,8 +1198,17 @@ namespace Better_Work_Tab.Features.TimePriority
             return ClearSchedule(target, authorityRevision);
         }
 
-        private static bool ClearSchedule(TimePriorityTarget target, long authorityRevision)
+        private static bool ClearSchedule(
+            TimePriorityTarget target,
+            long authorityRevision,
+            TimePriorityMutationAuthorization authorization = null)
         {
+            if (authorization != null &&
+                !authorization.IsBoundTo(authorityRevision))
+            {
+                return false;
+            }
+
             var schedules = GetSchedules(create: false);
             if (schedules == null)
             {
@@ -472,7 +1242,8 @@ namespace Better_Work_Tab.Features.TimePriority
                 NotifyChanged();
             }
 
-            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
+            return (authorization == null || authorization.IsBoundTo(authorityRevision)) &&
+                   WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
         [SyncMethod]
@@ -1051,6 +1822,30 @@ namespace Better_Work_Tab.Features.TimePriority
         internal static bool TryGetScheduledPriority(TimePriorityTarget target, int hour, out int priority)
         {
             priority = WorkPrioritySystem.DisabledPriority;
+            if (TryGetProjectedScheduleResolution(
+                    target,
+                out WorkTabEffectiveStateResolution<WorkloadSchedulePayload> projected,
+                    out bool ownsPreviewDimension) &&
+                ownsPreviewDimension)
+            {
+                if (projected.IsClear)
+                {
+                    return false;
+                }
+
+                if (projected.IsSet && projected.Value != null && projected.Value.IsValid)
+                {
+                    hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
+                    if (!projected.Value.IsPinned(hour))
+                    {
+                        return false;
+                    }
+
+                    priority = WorkPrioritySystem.ClampPriority(projected.Value.PriorityAt(hour));
+                    return true;
+                }
+            }
+
             if (!TryGetSchedule(target, out var schedule))
             {
                 return false;

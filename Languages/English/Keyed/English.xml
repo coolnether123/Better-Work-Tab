@@ -179,7 +179,7 @@
 
 <!-- Unified Work-tab tutorial -->
 <BWT_Tutorial_Welcome_Title>Better Work Tab feature tour</BWT_Tutorial_Welcome_Title>
-<BWT_Tutorial_Welcome_Body>This tour assumes you already know RimWorld's Work tab and focuses only on what Better Work Tab adds or changes. You can pause at any time and return later. Optional feedback can be copied afterward; nothing is sent automatically.</BWT_Tutorial_Welcome_Body>
+<BWT_Tutorial_Welcome_Body>This tour assumes you already know RimWorld's Work tab and focuses only on what Better Work Tab adds or changes. You can pause at any time and return later.</BWT_Tutorial_Welcome_Body>
 <BWT_Tutorial_Welcome_WhatsNew>Explore 2.0 additions</BWT_Tutorial_Welcome_WhatsNew>
 <BWT_Tutorial_Welcome_Full>Explore all BWT features</BWT_Tutorial_Welcome_Full>
 <BWT_Tutorial_NotNow>Not now</BWT_Tutorial_NotNow>
@@ -204,9 +204,6 @@
 <BWT_Tutorial_Discover_Filter>Not switched on</BWT_Tutorial_Discover_Filter>
 <BWT_Tutorial_Discover_FilterTooltip>Better Work Tab features you have switched off. Turn one on and its walkthrough appears in the Work tab.</BWT_Tutorial_Discover_FilterTooltip>
 <BWT_Tutorial_SkipForNow>Skip for now</BWT_Tutorial_SkipForNow>
-<BWT_Tutorial_GiveFeedback>Give feedback</BWT_Tutorial_GiveFeedback>
-<BWT_BetaFeedback_ButtonTooltip>Better Work Tab 2.0 beta feedback\n\nOpen the feedback portal. Nothing is sent automatically; it builds a report you copy and paste wherever you like.</BWT_BetaFeedback_ButtonTooltip>
-<BWT_BetaFeedback_NudgeTooltip>Better Work Tab 2.0 beta feedback\n\nYou have had the Work tab open for about {0} minutes. Anything worth reporting on the beta?\n\nNothing is sent automatically; it builds a report you copy and paste.</BWT_BetaFeedback_NudgeTooltip>
 <BWT_Tutorial_BackToMap>Back to lessons</BWT_Tutorial_BackToMap>
 <BWT_Tutorial_SkipLesson>Skip lesson</BWT_Tutorial_SkipLesson>
 
@@ -242,7 +239,6 @@
 <BWT_Tutorial_HeaderReorder_Action>Drag the highlighted Work header to a new position.</BWT_Tutorial_HeaderReorder_Action>
 <BWT_Tutorial_HeaderReorder_ActionDragging>Now move it where you want the column and let go.</BWT_Tutorial_HeaderReorder_ActionDragging>
 <BWT_Tutorial_HeaderReorder_Outcome>Column moved. On priority ties, the left column runs first.</BWT_Tutorial_HeaderReorder_Outcome>
-<BWT_Tutorial_HeaderReorder_Feedback>Real work-order dragging</BWT_Tutorial_HeaderReorder_Feedback>
 <BWT_Tutorial_HeaderGroup_Label>Group work columns</BWT_Tutorial_HeaderGroup_Label>
 <BWT_Tutorial_HeaderGroup_Title>Group work columns</BWT_Tutorial_HeaderGroup_Title>
 <BWT_Tutorial_HeaderGroup_Preview>Shift-click headers to select a group, then drag one selected header to move the group together.</BWT_Tutorial_HeaderGroup_Preview>
@@ -254,7 +250,6 @@
 <BWT_Tutorial_HeaderSubWork_Preview>Specific jobs can focus or expand the grid, with priorities, overrides, reordering, and reassignment.</BWT_Tutorial_HeaderSubWork_Preview>
 <BWT_Tutorial_HeaderSubWork_ActionShortcut>{0} the highlighted Work header to open its specific jobs.</BWT_Tutorial_HeaderSubWork_ActionShortcut>
 <BWT_Tutorial_HeaderSubWork_Outcome>Specific jobs open. Escape or {0} returns.</BWT_Tutorial_HeaderSubWork_Outcome>
-<BWT_Tutorial_HeaderSubWork_Feedback>Specific jobs: presentation, priorities, and reassignment</BWT_Tutorial_HeaderSubWork_Feedback>
 <BWT_Tutorial_Gesture_LeftClick>LEFT CLICK</BWT_Tutorial_Gesture_LeftClick>
 <BWT_Tutorial_Gesture_RightClick>RIGHT CLICK</BWT_Tutorial_Gesture_RightClick>
 <BWT_Tutorial_Gesture_CtrlClick>CTRL + CLICK</BWT_Tutorial_Gesture_CtrlClick>
@@ -290,11 +285,9 @@
 <BWT_Tutorial_PrioritySchedule_ActionEdit>Change any hour cell: click, right-click, or scroll.</BWT_Tutorial_PrioritySchedule_ActionEdit>
 <BWT_Tutorial_PrioritySchedule_ActionClose>Ctrl-click an hour cell to close the schedule.</BWT_Tutorial_PrioritySchedule_ActionClose>
 <BWT_Tutorial_PrioritySchedule_Outcome>Schedule saved. Ctrl-click the cell to edit all 24 hours.</BWT_Tutorial_PrioritySchedule_Outcome>
-<BWT_Tutorial_PrioritySchedule_Feedback>Daily priority schedules</BWT_Tutorial_PrioritySchedule_Feedback>
 <BWT_Tutorial_PriorityRange_Label>Set priority range</BWT_Tutorial_PriorityRange_Label>
 <BWT_Tutorial_PriorityRange_Title>Set priority range</BWT_Tutorial_PriorityRange_Title>
 <BWT_Tutorial_PriorityRange_Preview>Open the priority provider or maximum setting. Better Work Tab defaults to 1–9, supports 99, and preserves compatible providers.</BWT_Tutorial_PriorityRange_Preview>
-<BWT_Tutorial_PriorityRange_Feedback>Extended priorities</BWT_Tutorial_PriorityRange_Feedback>
 <BWT_Tutorial_PriorityRange_Filter>Priority range</BWT_Tutorial_PriorityRange_Filter>
 <BWT_Tutorial_PriorityRange_FilterTooltip>Priority provider and maximum-priority settings for the Work tab.</BWT_Tutorial_PriorityRange_FilterTooltip>
 <BWT_Tutorial_PriorityRange_Action>Drag the slider to the highest priority number you want.</BWT_Tutorial_PriorityRange_Action>
@@ -306,134 +299,20 @@
 <BWT_Tutorial_RuleBuilder2_Preview>The rewritten builder uses focused cards, a live match preview, and an explicit application system.</BWT_Tutorial_RuleBuilder2_Preview>
 <BWT_Tutorial_RuleBuilder2_Action>Build the rule, check the preview, then apply it.</BWT_Tutorial_RuleBuilder2_Action>
 <BWT_Tutorial_RuleBuilder2_Outcome>Rule ready. Preview never changes priorities, Apply does.</BWT_Tutorial_RuleBuilder2_Outcome>
-<BWT_Tutorial_RuleBuilder2_Feedback>Rule Builder 2.0 cards, preview, and application</BWT_Tutorial_RuleBuilder2_Feedback>
 
 <BWT_Tutorial_FluffyCoexistence_Label>Test full Fluffy coexistence</BWT_Tutorial_FluffyCoexistence_Label>
 <BWT_Tutorial_FluffyCoexistence_Title>Better Work Tab and Fluffy remain active</BWT_Tutorial_FluffyCoexistence_Title>
 <BWT_Tutorial_FluffyCoexistence_Preview>Switch to Fluffy's complete Work interface and back while preserving Better Work Tab state.</BWT_Tutorial_FluffyCoexistence_Preview>
 <BWT_Tutorial_FluffyCoexistence_Action>Switch the Work-tab owner, then come back here.</BWT_Tutorial_FluffyCoexistence_Action>
-<BWT_Tutorial_FluffyCoexistence_Feedback>Full Fluffy Work Tab coexistence</BWT_Tutorial_FluffyCoexistence_Feedback>
 <BWT_Tutorial_FluffyCoexistence_ActionSwitch>Both mods remain active; this changes only the visible Work interface. Switch to Fluffy now. This lesson window will stay open.</BWT_Tutorial_FluffyCoexistence_ActionSwitch>
 <BWT_Tutorial_FluffyCoexistence_ActionReturn>Fluffy now owns the Work interface, while Better Work Tab remains active. Return to verify its settings and column state.</BWT_Tutorial_FluffyCoexistence_ActionReturn>
 <BWT_Tutorial_FluffyCoexistence_ActionPreserved>You returned to Better Work Tab. Its specific-job presentation and stored column order were preserved while Fluffy owned the interface.</BWT_Tutorial_FluffyCoexistence_ActionPreserved>
-<BWT_Tutorial_FluffyCoexistence_ActionChanged>You returned to Better Work Tab, but its stored presentation or column order changed. Please mention this in the lesson feedback.</BWT_Tutorial_FluffyCoexistence_ActionChanged>
+<BWT_Tutorial_FluffyCoexistence_ActionChanged>You returned to Better Work Tab, but its stored presentation or column order changed. Review the lesson details before continuing.</BWT_Tutorial_FluffyCoexistence_ActionChanged>
 <BWT_Tutorial_FluffyCoexistence_Outcome>Switched back. Better Work Tab kept your columns and jobs.</BWT_Tutorial_FluffyCoexistence_Outcome>
 <BWT_Tutorial_FluffySwitch>Switch to Fluffy's interface</BWT_Tutorial_FluffySwitch>
 <BWT_Tutorial_BWTReturn>Return to Better Work Tab</BWT_Tutorial_BWTReturn>
 <BWT_Tutorial_FinishLesson>Finish lesson</BWT_Tutorial_FinishLesson>
 
-<BWT_Tutorial_PrioritySkill_Feedback>Viewing skill numbers</BWT_Tutorial_PrioritySkill_Feedback>
-<BWT_Tutorial_PawnMenu_Feedback>Pawn action menu</BWT_Tutorial_PawnMenu_Feedback>
-<BWT_Tutorial_PawnDivider_Feedback>Pawn dividers</BWT_Tutorial_PawnDivider_Feedback>
-<BWT_Tutorial_PawnAppearance_Feedback>Pawn row appearance</BWT_Tutorial_PawnAppearance_Feedback>
-<BWT_Tutorial_HeaderGroup_Feedback>Grouping Work columns</BWT_Tutorial_HeaderGroup_Feedback>
 
-<BWT_Tutorial_StatusCompleted>Completed</BWT_Tutorial_StatusCompleted>
-<BWT_Tutorial_StatusSkipped>Skipped</BWT_Tutorial_StatusSkipped>
-<BWT_Tutorial_StatusIncomplete>Not finished</BWT_Tutorial_StatusIncomplete>
-<BWT_Tutorial_GoToLesson>Go to tutorial</BWT_Tutorial_GoToLesson>
-<BWT_Tutorial_LessonValuePrompt>Is this lesson valuable?</BWT_Tutorial_LessonValuePrompt>
-<BWT_Tutorial_FeedbackKeep>Keep</BWT_Tutorial_FeedbackKeep>
-<BWT_Tutorial_FeedbackRevise>Revise</BWT_Tutorial_FeedbackRevise>
-<BWT_Tutorial_FeedbackNoLesson>Not needed</BWT_Tutorial_FeedbackNoLesson>
-<BWT_Tutorial_BehaviorPrompt>Behaved as explained:</BWT_Tutorial_BehaviorPrompt>
-<BWT_Tutorial_NotSure>Not sure</BWT_Tutorial_NotSure>
-<BWT_Tutorial_OptionalNote>Optional note</BWT_Tutorial_OptionalNote>
-<BWT_Tutorial_DiscordCopied>Discord report copied to the clipboard.</BWT_Tutorial_DiscordCopied>
-<BWT_Tutorial_FullCopied>Full report copied to the clipboard.</BWT_Tutorial_FullCopied>
-
-<!-- 2.0 beta feedback portal -->
-<BWT_Beta_Title>Better Work Tab 2.0 — beta feedback</BWT_Beta_Title>
-<BWT_Beta_Subtitle>Nothing is sent automatically. See "What gets copied" before you send it.</BWT_Beta_Subtitle>
-<BWT_Beta_Handle>Your name</BWT_Beta_Handle>
-<BWT_Beta_HandlePlaceholder>Discord name, so a reply can find you (optional)</BWT_Beta_HandlePlaceholder>
-
-<BWT_Beta_Tab_Features>How is 2.0 going?</BWT_Beta_Tab_Features>
-<BWT_Beta_Tab_Problems>Report a problem</BWT_Beta_Tab_Problems>
-<BWT_Beta_Tab_ProblemsCount>Report a problem ({0})</BWT_Beta_Tab_ProblemsCount>
-<BWT_Beta_Tab_Tutorial>Tutorial</BWT_Beta_Tab_Tutorial>
-<BWT_Beta_Tab_Build>This build</BWT_Beta_Tab_Build>
-<BWT_Beta_Tab_Preview>What gets copied</BWT_Beta_Tab_Preview>
-
-<BWT_Beta_Heading_Features>How is 2.0 going?</BWT_Beta_Heading_Features>
-<BWT_Beta_Heading_FeaturesHint>only what you actually used</BWT_Beta_Heading_FeaturesHint>
-<BWT_Beta_Heading_Problems>Problems</BWT_Beta_Heading_Problems>
-<BWT_Beta_Heading_Tutorial>Tutorial lessons</BWT_Beta_Heading_Tutorial>
-<BWT_Beta_Heading_Build>This build</BWT_Beta_Heading_Build>
-<BWT_Beta_Heading_Mods>Active mods</BWT_Beta_Heading_Mods>
-<BWT_Beta_Heading_Settings>Settings you have changed</BWT_Beta_Heading_Settings>
-<BWT_Beta_SettingsAllDefault>Everything is at its default.</BWT_Beta_SettingsAllDefault>
-
-<BWT_Beta_Verdict_Great>Great</BWT_Beta_Verdict_Great>
-<BWT_Beta_Verdict_Works>Works</BWT_Beta_Verdict_Works>
-<BWT_Beta_Verdict_Rough>Rough</BWT_Beta_Verdict_Rough>
-<BWT_Beta_Verdict_Broken>Broken</BWT_Beta_Verdict_Broken>
-<BWT_Beta_Verdict_NotUsed>Didn't use</BWT_Beta_Verdict_NotUsed>
-<BWT_Beta_NotePlaceholder>What happened? (optional)</BWT_Beta_NotePlaceholder>
-<BWT_Beta_NotePlaceholderNotUsed>Why not? (optional)</BWT_Beta_NotePlaceholderNotUsed>
-
-<BWT_Beta_Feature_worktab>The Work tab itself</BWT_Beta_Feature_worktab>
-<BWT_Beta_FeatureHint_worktab>Reading it, finding colonists, general speed</BWT_Beta_FeatureHint_worktab>
-<BWT_Beta_Feature_priorities>Setting priorities</BWT_Beta_Feature_priorities>
-<BWT_Beta_FeatureHint_priorities>Clicking, dragging, and the priority range</BWT_Beta_FeatureHint_priorities>
-<BWT_Beta_Feature_subwork>Specific jobs</BWT_Beta_Feature_subwork>
-<BWT_Beta_FeatureHint_subwork>Opening a Work column to its individual jobs</BWT_Beta_FeatureHint_subwork>
-<BWT_Beta_Feature_rulebuilder>Rule Builder 2.0</BWT_Beta_Feature_rulebuilder>
-<BWT_Beta_FeatureHint_rulebuilder>Building rulesets and applying them</BWT_Beta_FeatureHint_rulebuilder>
-<BWT_Beta_Feature_workloads>Workloads</BWT_Beta_Feature_workloads>
-<BWT_Beta_FeatureHint_workloads>Saving and restoring whole priority setups</BWT_Beta_FeatureHint_workloads>
-<BWT_Beta_Feature_schedules>Daily plans</BWT_Beta_Feature_schedules>
-<BWT_Beta_FeatureHint_schedules>Priorities that change by hour of the day</BWT_Beta_FeatureHint_schedules>
-<BWT_Beta_Feature_columns>Arranging columns</BWT_Beta_Feature_columns>
-<BWT_Beta_FeatureHint_columns>Dragging, reordering, and grouping Work columns</BWT_Beta_FeatureHint_columns>
-<BWT_Beta_Feature_skills>Skill overlay</BWT_Beta_Feature_skills>
-<BWT_Beta_FeatureHint_skills>Holding Shift to see skill levels</BWT_Beta_FeatureHint_skills>
-<BWT_Beta_Feature_settings>The settings window</BWT_Beta_Feature_settings>
-<BWT_Beta_FeatureHint_settings>Finding a setting, and search</BWT_Beta_FeatureHint_settings>
-<BWT_Beta_Feature_fluffy>Running alongside Fluffy's Work Tab</BWT_Beta_Feature_fluffy>
-<BWT_Beta_FeatureHint_fluffy>Switching between the two, and sharing state</BWT_Beta_FeatureHint_fluffy>
-<BWT_Beta_Feature_tutorial>The 2.0 tutorial</BWT_Beta_Feature_tutorial>
-<BWT_Beta_FeatureHint_tutorial>The guided tour of what is new</BWT_Beta_FeatureHint_tutorial>
-
-<BWT_Beta_AddProblem>+ Describe a problem</BWT_Beta_AddProblem>
-<BWT_Beta_ProblemLimit>That is the limit of {0} reports. Send these, then clear the form.</BWT_Beta_ProblemLimit>
-<BWT_Beta_Area_Other>Something else</BWT_Beta_Area_Other>
-<BWT_Beta_Severity_Cosmetic>Cosmetic</BWT_Beta_Severity_Cosmetic>
-<BWT_Beta_Severity_Annoying>Annoying</BWT_Beta_Severity_Annoying>
-<BWT_Beta_Severity_Blocking>Blocking</BWT_Beta_Severity_Blocking>
-<BWT_Beta_Severity_Crash>Error</BWT_Beta_Severity_Crash>
-<BWT_Beta_ProblemPlaceholder>What did you do, what did you expect, and what happened instead?</BWT_Beta_ProblemPlaceholder>
-<BWT_Beta_NoProblems>Nothing reported yet. If something misbehaved, describing it here is worth more than any rating above.</BWT_Beta_NoProblems>
-
-<BWT_Beta_Overall>Anything else?</BWT_Beta_Overall>
-<BWT_Beta_OverallPlaceholder>What surprised you, what you wish it did, what you would tell a friend about it.</BWT_Beta_OverallPlaceholder>
-
-<BWT_Beta_CopyDiscord>Copy for Discord</BWT_Beta_CopyDiscord>
-<BWT_Beta_CopyFull>Copy full report</BWT_Beta_CopyFull>
-<BWT_Beta_Clear>Clear the form</BWT_Beta_Clear>
-<BWT_Beta_ClearConfirm>Clear every answer, problem report and note in this form?</BWT_Beta_ClearConfirm>
-
-<BWT_Beta_Env_Build>Build</BWT_Beta_Env_Build>
-<BWT_Beta_Env_RimWorld>RimWorld</BWT_Beta_Env_RimWorld>
-<BWT_Beta_Env_Language>Language</BWT_Beta_Env_Language>
-<BWT_Beta_Env_Display>Display</BWT_Beta_Env_Display>
-<BWT_Beta_Env_Mods>Mods</BWT_Beta_Env_Mods>
-<BWT_Beta_Env_ModsValue>{0} active</BWT_Beta_Env_ModsValue>
-<BWT_Beta_Env_WorkTab>Work tab</BWT_Beta_Env_WorkTab>
-<BWT_Beta_Env_WorkTabBWT>Better Work Tab</BWT_Beta_Env_WorkTabBWT>
-<BWT_Beta_Env_WorkTabBWTWithFluffy>Better Work Tab (Fluffy installed)</BWT_Beta_Env_WorkTabBWTWithFluffy>
-<BWT_Beta_Env_WorkTabFluffyOwns>Fluffy's Work Tab</BWT_Beta_Env_WorkTabFluffyOwns>
-<BWT_Beta_Env_Colony>Colony</BWT_Beta_Env_Colony>
-<BWT_Beta_Env_ColonyValue>{0} colonists, {1} columns</BWT_Beta_Env_ColonyValue>
-<BWT_Beta_Env_Priorities>Priorities</BWT_Beta_Env_Priorities>
-<BWT_Beta_Env_PrioritiesSimple>simple (checkboxes)</BWT_Beta_Env_PrioritiesSimple>
-<BWT_Beta_Env_PrioritiesManual>manual, 1-{0}</BWT_Beta_Env_PrioritiesManual>
-<BWT_Beta_Env_SpecificJobs>Specific jobs</BWT_Beta_Env_SpecificJobs>
-<BWT_Beta_Env_SpecificJobsOpen>open now</BWT_Beta_Env_SpecificJobsOpen>
-<BWT_Beta_Env_Renderer>Renderer</BWT_Beta_Env_Renderer>
-<BWT_Beta_Env_Compat>Compatibility</BWT_Beta_Env_Compat>
-<BWT_Beta_Env_Changed>Settings changed</BWT_Beta_Env_Changed>
-<BWT_Beta_Env_ChangedValue>{0} from default</BWT_Beta_Env_ChangedValue>
-<BWT_Beta_Env_Multiplayer>Multiplayer</BWT_Beta_Env_Multiplayer>
 
 </LanguageData>

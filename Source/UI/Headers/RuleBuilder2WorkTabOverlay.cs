@@ -3,6 +3,7 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.RuleBuilder;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using RimWorld;
@@ -293,7 +294,9 @@ namespace Better_Work_Tab.UI.Headers
 
         private static bool AreAngledHeadersEnabled()
         {
-            return BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders;
+            return BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.HeadersAngled,
+                BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
         }
 
         private static bool IsUsableRect(Rect rect)

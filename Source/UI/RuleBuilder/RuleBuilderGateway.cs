@@ -78,6 +78,12 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 return;
             }
 
+            if (!WorkAssignmentRuleset.CanApplyLiveRuleset(out string rejectionReason))
+            {
+                WorkAssignmentRuleset.RejectLiveRulesetApplication(rejectionReason);
+                return;
+            }
+
             if (UseRuleBuilder2(settings))
             {
                 ApplyRuleBuilder2Ruleset(RuleBuilder2RulesetStore.Current(settings));
@@ -354,6 +360,12 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 return;
             }
 
+            if (!WorkAssignmentRuleset.CanApplyLiveRuleset(out string rejectionReason))
+            {
+                WorkAssignmentRuleset.RejectLiveRulesetApplication(rejectionReason);
+                return;
+            }
+
             new RuleBuilder2ApplyService().Apply(ruleset, out List<string> warnings);
             if (warnings.Count > 0)
             {
@@ -370,12 +382,24 @@ namespace Better_Work_Tab.UI.RuleBuilder
 
             System.Action applyAction = () =>
             {
-                if (ruleset.ResetBeforeApplying)
+                if (!WorkAssignmentRuleset.CanApplyLiveRuleset(out string rejectionReason))
                 {
-                    WorkAssignmentRuleset.SetAllToZero();
+                    WorkAssignmentRuleset.RejectLiveRulesetApplication(rejectionReason);
+                    return;
                 }
 
-                ruleset.ApplyAutoAssignments();
+                if (ruleset.ResetBeforeApplying)
+                {
+                    if (!WorkAssignmentRuleset.SetAllToZero())
+                    {
+                        return;
+                    }
+                }
+
+                if (!ruleset.ApplyAutoAssignments())
+                {
+                    return;
+                }
             };
 
             if (settings.warnOnApplyRuleset)

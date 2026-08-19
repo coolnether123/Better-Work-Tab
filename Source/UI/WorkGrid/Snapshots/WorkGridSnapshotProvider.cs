@@ -41,6 +41,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         internal WorkGridSnapshotProvider()
         {
             _active = this;
+            WorkTabEffectiveStateRuntime.RegisterPreviewCacheClearer(ClearActive);
         }
 
         internal static void ClearActive()

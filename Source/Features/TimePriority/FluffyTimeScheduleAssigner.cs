@@ -6,6 +6,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -291,14 +292,37 @@ namespace Better_Work_Tab.Features.TimePriority
             TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkType(pawn, workType);
             if (SelectedHourSet.Count == TimePriorityService.HoursPerDay)
             {
+                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+                {
+                    if (!TimePriorityService.TryClearScheduleFromEditor(target, out string clearReason))
+                    {
+                        WorkTabEffectiveStateRuntime.ReportBlocked(
+                            WorkTabEffectiveStateDimension.Schedule,
+                            clearReason ?? "The projected hourly schedule could not be cleared.");
+                        return false;
+                    }
+
+                    if (!WorkTabEffectiveStateRuntime.TrySetParentPriority(
+                            pawn,
+                            workType,
+                            priority,
+                            out WorkTabEffectiveStateMutationResult result))
+                    {
+                        WorkTabEffectiveStateRuntime.ReportBlocked(
+                            WorkTabEffectiveStateDimension.ParentPriority,
+                            result.Reason);
+                        return false;
+                    }
+
+                    return true;
+                }
+
                 WorkPrioritySystem.SetPriority(pawn.workSettings, workType, priority);
-                ClearScheduleSynced(target, priority);
-                return true;
+                return ClearScheduleSynced(target);
             }
 
             int fallback = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
-            ApplySelectedHours(target, fallback, priority);
-            return true;
+            return ApplySelectedHours(target, fallback, priority);
         }
 
         internal static bool ApplyWorkGiverPriority(int pawnId, WorkGiverDef workGiver, int priority)
@@ -320,16 +344,55 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (SelectedHourSet.Count == TimePriorityService.HoursPerDay)
             {
+                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+                {
+                    if (pawnId < 0)
+                    {
+                        // A whole-day edit on a global WorkGiver is a shared
+                        // specific-job edit, not a pawn-local schedule. Route
+                        // it through the typed projected key and clear the
+                        // selected global schedule exactly as the local path
+                        // does.
+                        if (!WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(
+                                WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(
+                                    workGiver.workType,
+                                    workGiver),
+                                priority,
+                                out WorkTabEffectiveStateMutationResult globalResult))
+                        {
+                            WorkTabEffectiveStateRuntime.ReportBlocked(
+                                WorkTabEffectiveStateDimension.SpecificJobOverride,
+                                globalResult.Reason);
+                            return false;
+                        }
+
+                        return ClearScheduleSynced(target);
+                    }
+
+                    if (!WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(
+                            pawnId,
+                            workGiver.workType,
+                            workGiver,
+                            priority,
+                            out WorkTabEffectiveStateMutationResult result))
+                    {
+                        WorkTabEffectiveStateRuntime.ReportBlocked(
+                            WorkTabEffectiveStateDimension.SpecificJobOverride,
+                            result.Reason);
+                        return false;
+                    }
+
+                    return ClearScheduleSynced(target);
+                }
+
                 WorkGiverReassignmentManager.SetPawnOverrideSynced(pawnId, workGiver.defName, priority);
-                ClearScheduleSynced(target, priority);
-                return true;
+                return ClearScheduleSynced(target);
             }
 
-            ApplySelectedHours(target, fallback, priority);
-            return true;
+            return ApplySelectedHours(target, fallback, priority);
         }
 
-        private static void ApplySelectedHours(TimePriorityTarget target, int fallbackPriority, int priority)
+        private static bool ApplySelectedHours(TimePriorityTarget target, int fallbackPriority, int priority)
         {
             int[] priorities = TimePriorityService.GetPrioritiesForDisplay(target, fallbackPriority);
             bool[] pinnedHours = TimePriorityService.GetLinkStateForDisplay(target);
@@ -339,17 +402,35 @@ namespace Better_Work_Tab.Features.TimePriority
                 pinnedHours[hour] = true;
             }
 
-            TimePriorityService.SetScheduleSynced(target, priorities, pinnedHours, fallbackPriority);
+            bool accepted = TimePriorityService.TrySetScheduleFromEditor(
+                target,
+                priorities,
+                pinnedHours,
+                fallbackPriority,
+                out string reason);
+            if (!accepted)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    reason ?? "The hourly schedule write was rejected.");
+            }
+
+            return accepted;
         }
 
-        private static void ClearScheduleSynced(TimePriorityTarget target, int fallbackPriority)
+        private static bool ClearScheduleSynced(TimePriorityTarget target)
         {
-            int[] wholeDay = Enumerable.Repeat(fallbackPriority, TimePriorityService.HoursPerDay).ToArray();
-            TimePriorityService.SetScheduleSynced(
+            bool accepted = TimePriorityService.TryClearScheduleFromEditor(
                 target,
-                wholeDay,
-                new bool[TimePriorityService.HoursPerDay],
-                fallbackPriority);
+                out string reason);
+            if (!accepted)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    reason ?? "The hourly schedule clear was rejected.");
+            }
+
+            return accepted;
         }
 
         internal static void Draw(Rect inRect, IWorkTabLayoutController layout, float baseBottomSpace)
