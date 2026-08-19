@@ -509,7 +509,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
         SessionMismatch = 10,
         ProtocolMismatch = 11,
         UnauthenticatedMessage = 12,
-        UnknownRequest = 13
+        UnknownRequest = 13,
+        RecoveryRequired = 14
     }
 
     internal enum WorkloadTransactionEventKind : byte
@@ -1655,10 +1656,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             hostParticipantKey = string.IsNullOrEmpty(hostParticipantKey)
                 ? request.RequesterPlayerKey
                 : hostParticipantKey;
-            if (!Contains(request.ParticipantKeys, request.RequesterPlayerKey))
-                return Invalid(null, "requester-not-in-roster", "The workload requester is not present in the frozen participant roster.");
-            if (!Contains(request.ParticipantKeys, hostParticipantKey))
-                return Invalid(null, "host-not-in-roster", "The authenticated host is not present in the frozen participant roster.");
+            if (!TryValidateRoster(request, hostParticipantKey, out var code, out var detail))
+                return Invalid(null, code, detail);
 
             var deadline = sequence > long.MaxValue - request.TimeoutBudget
                 ? long.MaxValue
@@ -1680,6 +1679,41 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 sequence,
                 hostParticipantKey: hostParticipantKey);
             return Applied(state, WorkloadTransactionTransitionAction.None, null, null);
+        }
+
+        internal static bool TryValidateRoster(
+            WorkloadTransactionRequest request,
+            string hostParticipantKey,
+            out string code,
+            out string detail)
+        {
+            code = null;
+            detail = null;
+            if (request == null)
+            {
+                code = "invalid-request";
+                detail = "The workload transaction request is missing.";
+                return false;
+            }
+
+            string authenticatedHost = string.IsNullOrEmpty(hostParticipantKey)
+                ? request.RequesterPlayerKey
+                : hostParticipantKey;
+            if (!Contains(request.ParticipantKeys, request.RequesterPlayerKey))
+            {
+                code = "requester-not-in-roster";
+                detail = "The workload requester is not present in the frozen participant roster.";
+                return false;
+            }
+
+            if (!Contains(request.ParticipantKeys, authenticatedHost))
+            {
+                code = "host-not-in-roster";
+                detail = "The authenticated host is not present in the frozen participant roster.";
+                return false;
+            }
+
+            return true;
         }
 
         internal static WorkloadTransactionTransitionResult Apply(
@@ -2622,6 +2656,19 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                     "The workload transaction request is missing.");
             }
 
+            if (!WorkloadTransactionStateMachine.TryValidateRoster(
+                    request,
+                    hostParticipantKey,
+                    out var rosterCode,
+                    out var rosterDetail))
+            {
+                return new WorkloadTransactionAdmission(
+                    WorkloadTransactionAdmissionCode.InvalidRequest,
+                    request,
+                    _currentState,
+                    rosterDetail ?? rosterCode);
+            }
+
             if (_currentState != null && !_currentState.IsFinal &&
                 !string.Equals(_currentRequest?.TableKey, request.TableKey, StringComparison.Ordinal))
             {
@@ -2630,6 +2677,18 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                     request,
                     _currentState,
                     "Another workload transaction is already in progress.");
+            }
+
+            if (_currentState != null &&
+                _currentState.TerminalState == WorkloadTransactionTerminalState.RollbackFailed &&
+                !string.Equals(_currentRequest?.TableKey, request.TableKey, StringComparison.Ordinal))
+            {
+                return new WorkloadTransactionAdmission(
+                    WorkloadTransactionAdmissionCode.RecoveryRequired,
+                    request,
+                    _currentState,
+                    "The previous workload transaction retained a rollback lease that requires explicit recovery before another operation can begin.",
+                    registeredRequest: _currentRequest);
             }
 
             var decision = _requestTable.TryRegister(request, sequence);

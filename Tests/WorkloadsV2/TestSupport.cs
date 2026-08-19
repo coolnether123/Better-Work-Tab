@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
@@ -10,6 +11,54 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 {
     internal static class TestSupport
     {
+        internal static string FindRepositoryRoot(
+            string relativePath,
+            string description)
+        {
+            string[] starts =
+            {
+                Environment.GetEnvironmentVariable("BWT_WORKLOADS_SOURCE_ROOT"),
+                Environment.GetEnvironmentVariable("BWT_ROOT"),
+                Directory.GetCurrentDirectory(),
+                AppDomain.CurrentDomain.BaseDirectory
+            };
+
+            for (int startIndex = 0; startIndex < starts.Length; startIndex++)
+            {
+                if (string.IsNullOrWhiteSpace(starts[startIndex]))
+                {
+                    continue;
+                }
+
+                DirectoryInfo directory;
+                try
+                {
+                    directory = new DirectoryInfo(Path.GetFullPath(starts[startIndex]));
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+                while (directory != null)
+                {
+                    string candidate = Path.Combine(directory.FullName, relativePath);
+                    if (File.Exists(candidate))
+                    {
+                        return directory.FullName;
+                    }
+
+                    directory = directory.Parent;
+                }
+            }
+
+            throw new InvalidOperationException(
+                "Could not locate the Better Work Tab repository for " +
+                (description ?? "source contracts") +
+                ". Set BWT_WORKLOADS_SOURCE_ROOT to the repository root when " +
+                "running test output outside the checkout.");
+        }
+
         public static PawnKey Pawn(string id) => new PawnKey(id);
         public static WorkTypeKey WorkType(string id) => new WorkTypeKey(id);
         public static WorkGiverKey WorkGiver(string id) => new WorkGiverKey(id);

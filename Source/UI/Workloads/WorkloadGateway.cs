@@ -1144,13 +1144,15 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal bool IsMultiplayerCommitInFlight =>
             IsActive &&
-            (_multiplayerRecoveryBlocked ||
+            (IsMultiplayerRecoveryBlocked ||
              _multiplayerCommitState == WorkloadMultiplayerCommitState.Pending ||
              _multiplayerCommitState == WorkloadMultiplayerCommitState.Prepared ||
              _multiplayerCommitState == WorkloadMultiplayerCommitState.ExecutedAwaitingConfirmation);
 
         internal bool IsMultiplayerRecoveryBlocked =>
-            IsActive && _multiplayerRecoveryBlocked;
+            IsActive &&
+            (_multiplayerRecoveryBlocked ||
+             _multiplayerCommitState == WorkloadMultiplayerCommitState.RollbackFailed);
 
         /// <summary>
         /// This is consumed by the Work-tab input owner. It blocks writes while
@@ -1167,10 +1169,10 @@ namespace Better_Work_Tab.UI.Workloads
             !HasUnsupportedOwnedPresentationState;
         internal bool CanForkPreview =>
             IsActive && !IsMultiplayerCommitInFlight && !HasUnsupportedOwnedPresentationState;
-        internal string CommitBlockedMessage => HasUnsupportedOwnedPresentationState
-            ? UnsupportedPresentationCommitReason
-            : IsMultiplayerCommitInFlight
-                ? MultiplayerStatusExplanation
+        internal string CommitBlockedMessage => IsMultiplayerCommitInFlight
+            ? MultiplayerStatusExplanation
+            : HasUnsupportedOwnedPresentationState
+                ? UnsupportedPresentationCommitReason
                 : string.Empty;
 
         internal string MultiplayerStatusExplanation
@@ -1179,8 +1181,8 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 if (IsMultiplayerRecoveryBlocked)
                 {
-                    return "Multiplayer workload recovery is still pending. " +
-                           "The preview is locked until synchronized rollback is acknowledged." +
+                    return "Multiplayer workload recovery is required. " +
+                           "The preview is locked until the retained synchronized rollback lease is explicitly resolved." +
                            (_multiplayerCommitMessage.AnyNonWhitespace()
                                ? " " + _multiplayerCommitMessage
                                : string.Empty);
@@ -1333,11 +1335,14 @@ namespace Better_Work_Tab.UI.Workloads
                 return;
             }
 
-            if (state.RequiresRollback)
+            if (state.RequiresRollback ||
+                state.TerminalState == WorkloadTransactionTerminalState.RollbackFailed)
             {
                 _multiplayerRecoveryBlocked = true;
                 _multiplayerCommitMessage =
-                    "The synchronized commit requires rollback acknowledgement.";
+                    state.TerminalState == WorkloadTransactionTerminalState.RollbackFailed
+                        ? "The synchronized commit retained a rollback lease and requires explicit recovery."
+                        : "The synchronized commit requires rollback acknowledgement.";
                 SetMessage(MultiplayerStatusExplanation);
             }
         }
@@ -1380,6 +1385,10 @@ namespace Better_Work_Tab.UI.Workloads
                             ? failedMessage
                             : "No live or stored workload state was changed.") +
                         " Retry is available without changing the draft.");
+                    return;
+                case WorkloadMultiplayerCommitState.RollbackFailed:
+                    _multiplayerRecoveryBlocked = true;
+                    SetMessage(MultiplayerStatusExplanation);
                     return;
                 case WorkloadMultiplayerCommitState.Failed:
                     // PollMultiplayerRollbackState upgrades this to a locked

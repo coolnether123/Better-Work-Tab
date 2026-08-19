@@ -13,10 +13,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             MissingHostPrepareAcknowledgementStaysPending();
             ForgedSenderIsRejectedWithoutProgress();
             DuplicateTerminalReplayAndMismatchedDuplicateAreDistinct();
+            PendingIdempotentReplayRetainsCanonicalTransaction();
             TerminalFailureReplaysUseTheIdempotencyContract();
             ConfirmationBarrierWaitsForEveryPeer();
             TimeoutAndRosterChangeAbortCoherently();
             RollbackFailureRemainsTerminalAndReplayable();
+            InvalidRostersDoNotPoisonTransactionCapacity();
             InvalidRevisionContextIsRejectedAtRequestConstruction();
             LegacyApiRegistrationFailsClosedWithoutPartialWorkers();
         }
@@ -147,6 +149,41 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             var mismatched = protocol.TryBegin(mismatch, 11L, "host");
             TestAssert.Equal(WorkloadTransactionAdmissionCode.MismatchedDuplicate, mismatched.Code,
                 "reusing an idempotency key with different canonical semantics must be rejected");
+        }
+
+        private static void PendingIdempotentReplayRetainsCanonicalTransaction()
+        {
+            var original = Request(
+                "pending-original", "pending-idempotency", "host", "host", "peer-a");
+            var protocol = BeginHost(original, "host");
+            var replay = Request(
+                "pending-retry", original.IdempotencyKey, "host", "host", "peer-a");
+
+            var pending = protocol.TryBegin(replay, 2L, "host");
+            TestAssert.Equal(WorkloadTransactionAdmissionCode.Duplicate, pending.Code,
+                "a pending idempotent retry must attach to the existing transaction");
+            TestAssert.Equal(WorkloadTransactionTerminalState.Pending,
+                pending.State.TerminalState,
+                "a pending idempotent retry must retain the canonical pending state");
+            TestAssert.Equal(replay.RequestId, pending.Request.RequestId,
+                "the replay envelope must retain the caller's new request ID");
+            TestAssert.Equal(original.RequestId, pending.RegisteredRequest.RequestId,
+                "the replay must expose the canonical request identity for terminal correlation");
+
+            Prepare(protocol, original, "host", 3L);
+            Prepare(protocol, original, "peer-a", 4L);
+            Execute(protocol, original, "host", 5L, true, false);
+            Execute(protocol, original, "peer-a", 6L, true, false);
+            Confirm(protocol, original, "peer-a", 7L, true, false);
+
+            var terminalReplay = protocol.TryBegin(replay, 8L, "host");
+            TestAssert.Equal(WorkloadTransactionAdmissionCode.Duplicate, terminalReplay.Code,
+                "the same pending retry must remain replayable after completion");
+            TestAssert.NotNull(terminalReplay.TerminalResult,
+                "the pending retry must eventually receive the retained terminal result");
+            TestAssert.Equal(WorkloadTransactionTerminalState.Succeeded,
+                terminalReplay.TerminalResult.TerminalState,
+                "the replayed terminal result must reflect the canonical transaction outcome");
         }
 
         private static void TerminalFailureReplaysUseTheIdempotencyContract()
@@ -378,6 +415,44 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Equal(WorkloadTransactionTerminalState.RollbackFailed,
                 duplicate.TerminalResult.TerminalState,
                 "duplicate replay must preserve rollback-failed recovery state");
+
+            var blockedRequest = Request(
+                "rollback-failure-new", "rollback-failure-new-idempotency", "host", "host", "peer-a");
+            var blocked = protocol.TryBegin(blockedRequest, 9L, "host");
+            TestAssert.Equal(WorkloadTransactionAdmissionCode.RecoveryRequired, blocked.Code,
+                "a retained rollback lease must block a new operation");
+            TestAssert.Equal(WorkloadTransactionTerminalState.RollbackFailed,
+                blocked.State.TerminalState,
+                "recovery blocking must preserve the retained rollback-failed state");
+            TestAssert.Equal(1, protocol.RequestTable.Count,
+                "a recovery-blocked operation must not consume transaction-table capacity");
+        }
+
+        private static void InvalidRostersDoNotPoisonTransactionCapacity()
+        {
+            var protocol = new WorkloadTransactionProtocol(1);
+            for (int index = 0; index < 40; index++)
+            {
+                var malformed = Request(
+                    "invalid-roster-" + index,
+                    "invalid-roster-key-" + index,
+                    "host",
+                    "peer-a");
+                var admission = protocol.TryBegin(malformed, index, "host");
+                TestAssert.Equal(WorkloadTransactionAdmissionCode.InvalidRequest,
+                    admission.Code,
+                    "a requester absent from the roster must be rejected before registration");
+                TestAssert.Equal(0, protocol.RequestTable.Count,
+                    "an invalid roster must not consume a transaction-table slot");
+            }
+
+            var valid = Request(
+                "after-invalid-rosters", "after-invalid-rosters-key", "host", "host");
+            var accepted = protocol.TryBegin(valid, 100L, "host");
+            TestAssert.True(accepted.Accepted,
+                "a valid request must remain admissible after repeated malformed rosters");
+            TestAssert.Equal(1, protocol.RequestTable.Count,
+                "only the valid request should occupy the bounded transaction table");
         }
 
         private static void InvalidRevisionContextIsRejectedAtRequestConstruction()

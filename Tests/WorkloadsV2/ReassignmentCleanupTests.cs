@@ -134,32 +134,13 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static string FindRepositoryRoot()
         {
-            var starts = new List<string>
-            {
-                Directory.GetCurrentDirectory(),
-                AppDomain.CurrentDomain.BaseDirectory
-            };
-
-            for (int startIndex = 0; startIndex < starts.Count; startIndex++)
-            {
-                string current = Path.GetFullPath(starts[startIndex]);
-                for (int depth = 0; depth < 10 && !string.IsNullOrEmpty(current); depth++)
-                {
-                    string managerPath = Path.Combine(
-                        current,
-                        "Source",
-                        "Features",
-                        "WorkGiverReassignments",
-                        "WorkGiverReassignmentManager.cs");
-                    if (File.Exists(managerPath)) return current;
-
-                    DirectoryInfo parent = Directory.GetParent(current);
-                    current = parent?.FullName;
-                }
-            }
-
-            throw new InvalidOperationException(
-                "Could not locate the Better Work Tab repository for cleanup contracts.");
+            return TestSupport.FindRepositoryRoot(
+                Path.Combine(
+                    "Source",
+                    "Features",
+                    "WorkGiverReassignments",
+                    "WorkGiverReassignmentManager.cs"),
+                "cleanup contracts");
         }
 
         private static string Read(string root, params string[] parts)

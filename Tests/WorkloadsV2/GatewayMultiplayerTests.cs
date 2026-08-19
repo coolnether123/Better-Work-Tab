@@ -17,8 +17,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
             string root = FindRepositoryRoot();
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
+            string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
             GatewayReturnsAcceptanceAndDefersTerminalHandling(gateway);
             TerminalFailuresKeepThePreviewRetryable(gateway);
+            PendingDuplicatesUseCanonicalCorrelation(backend);
+            RollbackFailureKeepsThePreviewLocked(gateway);
         }
 
         private static void AcceptedStatesAreNotLifecycleRejections()
@@ -140,6 +143,34 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "terminal rejection must retain the existing preview session");
         }
 
+        private static void PendingDuplicatesUseCanonicalCorrelation(string backend)
+        {
+            TestAssert.Contains(
+                backend,
+                "admission.RegisteredRequest?.RequestId",
+                "pending idempotent retries must correlate status to the registered request ID");
+            TestAssert.Contains(
+                backend,
+                "The idempotent workload transaction is already in progress.",
+                "pending idempotent retries must report an attached pending operation");
+        }
+
+        private static void RollbackFailureKeepsThePreviewLocked(string gateway)
+        {
+            TestAssert.Contains(
+                gateway,
+                "_multiplayerCommitState == WorkloadMultiplayerCommitState.RollbackFailed",
+                "rollback failure must remain an in-flight recovery lock");
+            TestAssert.Contains(
+                gateway,
+                "case WorkloadMultiplayerCommitState.RollbackFailed:",
+                "rollback failure must be handled as a structured recovery status");
+            TestAssert.Contains(
+                gateway,
+                "retained synchronized rollback lease is explicitly resolved",
+                "the UI must explain why a retained rollback lease blocks new commits");
+        }
+
         private static WorkloadMultiplayerCommitStatus Status(
             WorkloadMultiplayerCommitState state)
         {
@@ -154,34 +185,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static string FindRepositoryRoot()
         {
-            string[] starts =
-            {
-                Directory.GetCurrentDirectory(),
-                AppDomain.CurrentDomain.BaseDirectory
-            };
-            for (int startIndex = 0; startIndex < starts.Length; startIndex++)
-            {
-                string current = Path.GetFullPath(starts[startIndex]);
-                for (int depth = 0; depth < 10 && !string.IsNullOrEmpty(current); depth++)
-                {
-                    string gatewayPath = Path.Combine(
-                        current,
-                        "Source",
-                        "UI",
-                        "Workloads",
-                        "WorkloadGateway.cs");
-                    if (File.Exists(gatewayPath))
-                    {
-                        return current;
-                    }
-
-                    DirectoryInfo parent = Directory.GetParent(current);
-                    current = parent?.FullName;
-                }
-            }
-
-            throw new InvalidOperationException(
-                "Could not locate the Better Work Tab repository for gateway contracts.");
+            return TestSupport.FindRepositoryRoot(
+                Path.Combine("Source", "UI", "Workloads", "WorkloadGateway.cs"),
+                "gateway contracts");
         }
 
         private static string Read(string root, params string[] parts)

@@ -1985,10 +1985,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadTransactionAdmission admission = WorkloadTransactionMultiplayer.TryBegin(request, sequence);
             if (!admission.Accepted)
             {
+                string correlatedRequestId = admission.RegisteredRequest?.RequestId ?? requestId;
                 if (admission.TerminalResult != null)
                 {
                     return Status(
-                        requestId,
+                        correlatedRequestId,
                         ToCommitState(admission.TerminalResult.TerminalState),
                         admission.TerminalResult.Accepted
                             ? WorkloadDiagnosticCode.None
@@ -2005,10 +2006,19 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     !admission.State.IsFinal)
                 {
                     return Status(
-                        requestId,
+                        correlatedRequestId,
                         WorkloadMultiplayerCommitState.Pending,
                         WorkloadDiagnosticCode.None,
                         "The idempotent workload transaction is already in progress.");
+                }
+
+                if (admission.Code == WorkloadTransactionAdmissionCode.RecoveryRequired)
+                {
+                    return Status(
+                        correlatedRequestId,
+                        WorkloadMultiplayerCommitState.RollbackFailed,
+                        WorkloadDiagnosticCode.RollbackFailed,
+                        admission.Diagnostic);
                 }
 
                 return Status(requestId, WorkloadMultiplayerCommitState.Rejected,
@@ -2026,7 +2036,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (admission?.TerminalResult != null)
             {
                 Status(
-                    admission.Request?.RequestId ?? admission.TerminalResult.RequestId,
+                    admission.RegisteredRequest?.RequestId ??
+                        admission.Request?.RequestId ??
+                        admission.TerminalResult.RequestId,
                     ToCommitState(admission.TerminalResult.TerminalState),
                     admission.TerminalResult.Accepted
                         ? WorkloadDiagnosticCode.None
@@ -2036,6 +2048,27 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             : WorkloadDiagnosticCode.InvalidState,
                     admission.TerminalResult.Detail,
                     null);
+                return;
+            }
+
+            if (admission?.Code == WorkloadTransactionAdmissionCode.Duplicate &&
+                admission.State != null && !admission.State.IsFinal)
+            {
+                Status(
+                    admission.RegisteredRequest?.RequestId ?? admission.Request?.RequestId,
+                    WorkloadMultiplayerCommitState.Pending,
+                    WorkloadDiagnosticCode.None,
+                    "The idempotent workload transaction is already in progress.");
+                return;
+            }
+
+            if (admission?.Code == WorkloadTransactionAdmissionCode.RecoveryRequired)
+            {
+                Status(
+                    admission.RegisteredRequest?.RequestId ?? admission.Request?.RequestId,
+                    WorkloadMultiplayerCommitState.RollbackFailed,
+                    WorkloadDiagnosticCode.RollbackFailed,
+                    admission.Diagnostic);
                 return;
             }
 

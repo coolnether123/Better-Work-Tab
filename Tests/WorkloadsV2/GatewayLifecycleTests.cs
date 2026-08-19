@@ -358,35 +358,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static string FindRepositoryRoot()
         {
-            var starts = new List<string>
-            {
-                Directory.GetCurrentDirectory(),
-                AppDomain.CurrentDomain.BaseDirectory
-            };
-
-            for (int startIndex = 0; startIndex < starts.Count; startIndex++)
-            {
-                string current = Path.GetFullPath(starts[startIndex]);
-                for (int depth = 0; depth < 10 && !string.IsNullOrEmpty(current); depth++)
-                {
-                    string gatewayPath = Path.Combine(
-                        current,
-                        "Source",
-                        "UI",
-                        "Workloads",
-                        "WorkloadGateway.cs");
-                    if (File.Exists(gatewayPath))
-                    {
-                        return current;
-                    }
-
-                    DirectoryInfo parent = Directory.GetParent(current);
-                    current = parent?.FullName;
-                }
-            }
-
-            throw new InvalidOperationException(
-                "Could not locate the Better Work Tab repository for gateway contracts.");
+            return TestSupport.FindRepositoryRoot(
+                Path.Combine("Source", "UI", "Workloads", "WorkloadGateway.cs"),
+                "gateway contracts");
         }
 
         private static string Read(string root, params string[] parts)

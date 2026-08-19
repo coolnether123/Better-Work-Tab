@@ -216,16 +216,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static string FindRepositoryFile(string relativePath)
         {
-            DirectoryInfo directory = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
-            while (directory != null)
-            {
-                string candidate = Path.Combine(directory.FullName, relativePath);
-                if (File.Exists(candidate)) return candidate;
-                directory = directory.Parent;
-            }
-
-            throw new InvalidOperationException(
-                "Could not locate the repository source contract: " + relativePath);
+            string root = TestSupport.FindRepositoryRoot(
+                relativePath,
+                "the schedule source contract");
+            return Path.Combine(root, relativePath);
         }
     }
 }
