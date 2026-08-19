@@ -21,6 +21,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             GatewayReturnsAcceptanceAndDefersTerminalHandling(gateway);
             TerminalFailuresKeepThePreviewRetryable(gateway);
             PendingDuplicatesUseCanonicalCorrelation(backend);
+            MismatchedTerminalReplaysRemainConflicts(backend);
             RollbackFailureKeepsThePreviewLocked(gateway);
         }
 
@@ -153,6 +154,42 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 backend,
                 "The idempotent workload transaction is already in progress.",
                 "pending idempotent retries must report an attached pending operation");
+        }
+
+        private static void MismatchedTerminalReplaysRemainConflicts(string backend)
+        {
+            string begin = Slice(
+                backend,
+                "internal WorkloadMultiplayerCommitStatus Begin(",
+                "public void OnRequestAccepted(");
+            AssertMismatchPrecedesTerminalReplay(begin, "the initiating backend path");
+
+            string rejected = Slice(
+                backend,
+                "public void OnAdmissionRejected(",
+                "public void OnPrepareRequested(");
+            AssertMismatchPrecedesTerminalReplay(rejected, "the incoming callback path");
+        }
+
+        private static void AssertMismatchPrecedesTerminalReplay(string method, string label)
+        {
+            int mismatch = method.IndexOf(
+                "WorkloadTransactionAdmissionCode.MismatchedDuplicate",
+                StringComparison.Ordinal);
+            int terminal = method.IndexOf(
+                "TerminalResult != null",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                mismatch >= 0 && terminal > mismatch,
+                label + " must reject mismatched payloads before considering retained terminal results");
+            TestAssert.Contains(
+                method,
+                "WorkloadDiagnosticCode.PersistenceConflict",
+                label + " must expose a structured persistence conflict");
+            TestAssert.Contains(
+                method,
+                "admission.Request?.RequestId",
+                label + " must correlate a mismatch to the conflicting caller request");
         }
 
         private static void RollbackFailureKeepsThePreviewLocked(string gateway)

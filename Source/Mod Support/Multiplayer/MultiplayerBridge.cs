@@ -2475,7 +2475,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 return new WorkloadTransactionTableDecision(
                         WorkloadTransactionAdmissionCode.MismatchedDuplicate,
                         existing.Request,
-                        existing.TerminalResult,
+                        null,
                         "The idempotency key was reused with a different canonical payload.",
                         existing.State);
             }

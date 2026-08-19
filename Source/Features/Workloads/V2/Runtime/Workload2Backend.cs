@@ -1986,6 +1986,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (!admission.Accepted)
             {
                 string correlatedRequestId = admission.RegisteredRequest?.RequestId ?? requestId;
+                if (admission.Code == WorkloadTransactionAdmissionCode.MismatchedDuplicate)
+                {
+                    return Status(admission.Request?.RequestId ?? requestId,
+                        WorkloadMultiplayerCommitState.Rejected,
+                        WorkloadDiagnosticCode.PersistenceConflict, admission.Diagnostic);
+                }
+
                 if (admission.TerminalResult != null)
                 {
                     return Status(
@@ -2033,6 +2040,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
         public void OnAdmissionRejected(WorkloadTransactionAdmission admission)
         {
+            if (admission?.Code == WorkloadTransactionAdmissionCode.MismatchedDuplicate)
+            {
+                Status(admission.Request?.RequestId, WorkloadMultiplayerCommitState.Rejected,
+                    WorkloadDiagnosticCode.PersistenceConflict, admission.Diagnostic);
+                return;
+            }
+
             if (admission?.TerminalResult != null)
             {
                 Status(

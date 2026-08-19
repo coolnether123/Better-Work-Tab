@@ -139,16 +139,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "terminal duplicate replay must preserve the original outcome");
             TestAssert.Equal(request.IdempotencyKey, duplicate.TerminalResult.IdempotencyKey,
                 "the terminal result must retain the idempotency identity");
-
-            var mismatch = TestSupport.Request(
-                requestId: "duplicate-terminal-conflict",
-                idempotencyKey: request.IdempotencyKey,
-                targetId: "different-target",
-                requesterPlayerKey: "host",
-                participantKeys: new[] { "host", "peer-a" });
-            var mismatched = protocol.TryBegin(mismatch, 11L, "host");
-            TestAssert.Equal(WorkloadTransactionAdmissionCode.MismatchedDuplicate, mismatched.Code,
-                "reusing an idempotency key with different canonical semantics must be rejected");
+            AssertConflictingTerminalReplay(
+                protocol,
+                request,
+                "duplicate-terminal-conflict",
+                11L,
+                "successful");
         }
 
         private static void PendingIdempotentReplayRetainsCanonicalTransaction()
@@ -210,6 +206,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 rejectedRequest,
                 WorkloadTransactionTerminalState.Rejected,
                 "rejected");
+            AssertConflictingTerminalReplay(
+                rejectedProtocol,
+                rejectedRequest,
+                "terminal-rejected-conflict",
+                201L,
+                "failed");
 
             var abortedRequest = Request(
                 "terminal-aborted", "terminal-aborted-key", "host", "host", "peer-a");
@@ -315,6 +317,38 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 replay.RequestId,
                 duplicate.Request.RequestId,
                 "a " + label + " replay must correlate to its new request ID");
+        }
+
+        private static void AssertConflictingTerminalReplay(
+            WorkloadTransactionProtocol protocol,
+            WorkloadTransactionRequest original,
+            string conflictingRequestId,
+            long sequence,
+            string label)
+        {
+            var conflict = TestSupport.Request(
+                requestId: conflictingRequestId,
+                idempotencyKey: original.IdempotencyKey,
+                targetId: "different-target",
+                requesterPlayerKey: "host",
+                participantKeys: new[] { "host", "peer-a" });
+            var mismatched = protocol.TryBegin(conflict, sequence, "host");
+
+            TestAssert.Equal(
+                WorkloadTransactionAdmissionCode.MismatchedDuplicate,
+                mismatched.Code,
+                "a conflicting replay after terminal " + label + " must be rejected as a mismatch");
+            TestAssert.Equal(
+                conflictingRequestId,
+                mismatched.Request.RequestId,
+                "a conflicting replay must retain its new caller request ID");
+            TestAssert.Equal(
+                original.RequestId,
+                mismatched.RegisteredRequest.RequestId,
+                "a conflicting replay may identify the canonical transaction without adopting its request ID");
+            TestAssert.True(
+                mismatched.TerminalResult == null,
+                "a conflicting replay must never receive the canonical transaction's terminal result");
         }
 
         private static void ConfirmationBarrierWaitsForEveryPeer()
