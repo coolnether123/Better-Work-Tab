@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Workloads.V2;
 using Verse;
 
 namespace Better_Work_Tab.Features.TimePriority
@@ -275,6 +276,48 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             return expectedIndex == UnlinkedHours.Count;
+        }
+    }
+
+    /// <summary>
+    /// Exact live baseline captured at the canonical schedule-service seam.
+    /// The payload carries all 24 displayed values and the independent pinned
+    /// mask; the service version and authority revision make stale workload
+    /// commits fail closed before they can mutate live state.
+    /// </summary>
+    internal sealed class TimePriorityLiveScheduleSnapshot
+    {
+        internal TimePriorityLiveScheduleSnapshot(
+            TimePriorityTarget target,
+            WorkloadSchedulePayload payload,
+            bool hadSchedule,
+            int fallbackPriority,
+            int serviceVersion,
+            long authorityRevision)
+        {
+            Target = target;
+            Payload = payload;
+            HadSchedule = hadSchedule;
+            FallbackPriority = WorkPrioritySystem.ClampPriority(fallbackPriority);
+            ServiceVersion = serviceVersion;
+            AuthorityRevision = authorityRevision;
+        }
+
+        internal TimePriorityTarget Target { get; }
+        internal WorkloadSchedulePayload Payload { get; }
+        internal bool HadSchedule { get; }
+        internal int FallbackPriority { get; }
+        internal int ServiceVersion { get; }
+        internal long AuthorityRevision { get; }
+
+        internal bool Matches(TimePriorityLiveScheduleSnapshot other)
+        {
+            return other != null &&
+                   Target.Matches(other.Target) &&
+                   HadSchedule == other.HadSchedule &&
+                   FallbackPriority == other.FallbackPriority &&
+                   Payload != null &&
+                   Payload.Equals(other.Payload);
         }
     }
 

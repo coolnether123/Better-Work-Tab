@@ -43,17 +43,30 @@ namespace Better_Work_Tab.UI
                     drawer.OnSettingTooltipViewed = MarkSettingViewed;
                     drawer.OnSettingInteracted = (definition, settingsObject) =>
                     {
-                        BWTSettingsAdaptiveSearchAliases.ConfirmInteraction(drawer, definition);
                         BWTWorkloadSettingsOwnershipPolicy.CaptureBeforeSettingInteraction(
                             definition,
                             settingsObject);
-                        BWTGeneralTutorial.NotifySettingsRowInteracted(definition?.Id);
+                        if (!BWTWorkloadSettingsOwnershipPolicy.IsPreviewActive)
+                        {
+                            // Search-alias and tutorial progress are persisted
+                            // global UI state too. Do not advance either side
+                            // channel from an otherwise non-destructive
+                            // workload-preview interaction.
+                            BWTSettingsAdaptiveSearchAliases.ConfirmInteraction(
+                                drawer,
+                                definition);
+                            BWTGeneralTutorial.NotifySettingsRowInteracted(
+                                definition?.Id);
+                        }
                     };
                 },
                 PrepareDrawer = (drawer, settingsObject) =>
                 {
                     var settings = (BetterWorkTabSettings)settingsObject;
-                    BWTSettingsAdaptiveSearchAliases.Observe(drawer, settings);
+                    if (!BWTWorkloadSettingsOwnershipPolicy.IsPreviewActive)
+                    {
+                        BWTSettingsAdaptiveSearchAliases.Observe(drawer, settings);
+                    }
                     BWTWorkloadSettingsOwnershipPolicy.Refresh();
                     drawer.ShowResetIcons = !settings.hideSettingResetIcons;
                     drawer.FocusHighlightColor = settings.Color_SettingFocusHighlight;
@@ -84,10 +97,18 @@ namespace Better_Work_Tab.UI
                         ? SettingsViewMode.Simple
                         : SettingsViewMode.Advanced,
                 WriteViewMode = (settingsObject, viewMode) =>
-                    ((BetterWorkTabSettings)settingsObject).settingsViewMode =
-                        viewMode == SettingsViewMode.Simple
-                            ? BetterWorkTabSettings.SettingsViewMode.Simple
-                            : BetterWorkTabSettings.SettingsViewMode.Advanced
+                {
+                    // The view-mode preference is global UI state. Keep it
+                    // stable while a workload preview is active so the shared
+                    // drawer cannot persist an unrelated global mutation.
+                    if (!BWTWorkloadSettingsOwnershipPolicy.IsPreviewActive)
+                    {
+                        ((BetterWorkTabSettings)settingsObject).settingsViewMode =
+                            viewMode == SettingsViewMode.Simple
+                                ? BetterWorkTabSettings.SettingsViewMode.Simple
+                                : BetterWorkTabSettings.SettingsViewMode.Advanced;
+                    }
+                }
             };
 
         internal static IContextualSettingsLease ContextualSettings =>
@@ -134,6 +155,15 @@ namespace Better_Work_Tab.UI
         private static void MarkSettingViewed(SettingDefinition def, object settingsObject)
         {
             if (def == null || !(settingsObject is BetterWorkTabSettings settings))
+            {
+                return;
+            }
+
+            // Viewing a row normally records a global settings preference. Do
+            // not mutate that global object while a workload-owned settings
+            // preview is active; the preview's custom rows are the only place
+            // allowed to stage presentation values during this pass.
+            if (BWTWorkloadSettingsOwnershipPolicy.IsPreviewActive)
             {
                 return;
             }

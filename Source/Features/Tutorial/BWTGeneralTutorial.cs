@@ -3,7 +3,6 @@ using System.Globalization;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
-using Better_Work_Tab.Features.Feedback;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -134,9 +133,8 @@ namespace Better_Work_Tab.Features.Tutorial
         /// finished. "Restore defaults" has to mean the tutorial starts at the
         /// beginning, not that it is switched on wherever it was left.
         ///
-        /// Progress is state, so it is cleared. Feedback the tester has written
-        /// is not: their words are not a preference to be reset, and the
-        /// feedback portal has its own way to clear them.
+        /// Progress is state, so it is cleared. Presentation and feature settings
+        /// are not part of the tutorial's progress state.
         /// </summary>
         internal static void ResetToFirstRun(BetterWorkTabSettings settings)
         {
@@ -167,67 +165,6 @@ namespace Better_Work_Tab.Features.Tutorial
             lessonAnchor = default(BWTTutorialAnchor);
             lessonAnchorIsLive = false;
             WelcomeOverlay.ResetAnimation();
-        }
-
-        internal static bool OpenLessonFromReview(string lessonId)
-        {
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            BWTTutorialLessonDefinition definition = BWTTutorialLessonCatalog.Find(lessonId);
-            BWTTutorialCourse course = settings?.selectedTutorialCourse ?? BWTTutorialCourse.None;
-            if (settings == null || definition == null || !definition.BelongsTo(course))
-            {
-                return false;
-            }
-
-            MainButtonDef workTab = Better_Work_Tab.Patches.MainButtonDefOf.Work ??
-                                    DefDatabase<MainButtonDef>.GetNamedSilentFail("Work");
-            if (workTab == null || Find.MainTabsRoot == null)
-            {
-                return false;
-            }
-
-            // The review is reachable from mod settings, and that dialog outlives
-            // it. Leaving it open meant "Go to tutorial" switched the tab behind a
-            // settings window the player was still looking at — and the tutorial
-            // suppresses itself while mod settings are open, so nothing drew even
-            // once they closed it by hand. Lessons that genuinely live in settings
-            // reopen it themselves further down.
-            Find.WindowStack.TryRemove(typeof(Dialog_ModSettings), false);
-
-            FluffyWorkTabCoexistence.SwitchToBetterWorkTab();
-            Find.MainTabsRoot.SetCurrentTab(workTab, false);
-            if (!(Find.MainTabsRoot.OpenTab?.TabWindow is MainTabWindow_BetterWork))
-            {
-                return false;
-            }
-
-            if (course == BWTTutorialCourse.None)
-            {
-                settings.selectedTutorialCourse = BWTTutorialCourse.Full;
-            }
-            settings.tutorialWelcomeCompleted = true;
-            settings.showGeneralTutorial = true;
-            settings.tutorialFlowVersion = CurrentFlowVersion;
-            settings.activeTutorialLessonId = string.Empty;
-            settings.tutorialLessonPhase = 0;
-            lessonAnchor = default(BWTTutorialAnchor);
-            observedLessonId = string.Empty;
-            WelcomeOverlay.ResetAnimation();
-            Selector.Reset();
-
-            if (definition.Route == BWTTutorialLessonRoute.WorkTab)
-            {
-                settings.activeTutorialLessonId = lessonId;
-                settings.Write();
-                PlayTutorialSound("Tick_High");
-            }
-            else
-            {
-                settings.Write();
-                SelectLesson(lessonId, null, null);
-            }
-
-            return true;
         }
 
         internal static bool IsActive
@@ -822,14 +759,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 {
                     AcknowledgeLessonOutcome();
                 }
-                else if (content.Mode == BWTTutorialStripMode.Browse)
-                {
-                    // Feedback is a side trip, not an exit. This used to pause the
-                    // tutorial on the way to the review, so a player who wanted to
-                    // comment on one lesson lost the whole tour and had to find
-                    // the setting again to get it back.
-                    OpenReview();
-                }
                 else
                 {
                     SkipLesson(settings.activeTutorialLessonId);
@@ -956,7 +885,6 @@ namespace Better_Work_Tab.Features.Tutorial
             // Look at the colony before offering to teach it anything. Throttled
             // inside, so this is safe on the per-frame path.
             BWTTutorialPriorUse.Scan(settings);
-            BWTTutorialFeedbackStore.Ensure(settings);
             if (settings.tutorialWelcomeCompleted &&
                 settings.selectedTutorialCourse == BWTTutorialCourse.None &&
                 settings.showGeneralTutorial)
@@ -1853,27 +1781,6 @@ namespace Better_Work_Tab.Features.Tutorial
 
             settings.showGeneralTutorial = false;
             settings.Write();
-            OpenReview();
-        }
-
-        /// <summary>
-        /// Opens the beta feedback portal from outside the tutorial.
-        ///
-        /// The portal covers the whole of 2.0, not just the tour, so it must be
-        /// reachable without one. It deliberately does not touch tutorial state:
-        /// a player giving feedback has not started, paused or finished anything.
-        /// </summary>
-        internal static void OpenBetaFeedback()
-        {
-            OpenReview();
-        }
-
-        private static void OpenReview()
-        {
-            if (Find.WindowStack != null && !Find.WindowStack.IsOpen<Window_BWTBetaFeedback>())
-            {
-                Find.WindowStack.Add(new Window_BWTBetaFeedback());
-            }
         }
 
         private static void DismissWelcome()

@@ -941,32 +941,39 @@ namespace Better_Work_Tab.Patches
 
         private static bool HasEnabledEffectiveOverrideForWorkType(Pawn pawn, WorkTypeDef workType)
         {
-            if (WorkGiverReassignmentManager.HasEnabledPawnOverrideForWorkType(pawn, workType))
+            if (WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
+                    WorkTabEffectiveStateDimension.SpecificJobOverride))
             {
-                return true;
-            }
+                if (workType == null)
+                {
+                    return false;
+                }
 
-            if (!WorkTabEffectiveStateRuntime.IsPreviewActive ||
-                workType?.workGiversByPriority == null)
-            {
+                IReadOnlyList<WorkGiver> workGivers =
+                    WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType, pawn);
+
+                // Let the effective provider resolve projected values first.
+                // Its fallback is limited to keys with no projected value, so
+                // an explicit projected disabled override cannot be replaced
+                // by a live enabled indicator.
+                for (int i = 0; i < workGivers.Count; i++)
+                {
+                    WorkGiverDef workGiver = workGivers[i]?.def;
+                    if (WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
+                            pawn,
+                            workType,
+                            workGiver,
+                            out int priority) &&
+                        priority > WorkPrioritySystem.DisabledPriority)
+                    {
+                        return true;
+                    }
+                }
+
                 return false;
             }
 
-            for (int i = 0; i < workType.workGiversByPriority.Count; i++)
-            {
-                WorkGiverDef workGiver = workType.workGiversByPriority[i];
-                if (WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
-                        pawn,
-                        workType,
-                        workGiver,
-                        out int priority) &&
-                    priority > WorkPrioritySystem.DisabledPriority)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return WorkGiverReassignmentManager.HasEnabledPawnOverrideForWorkType(pawn, workType);
         }
 
         private static void DrawParentSubWorkOverrideIndicatorIfNeeded(Rect cellRect, Pawn pawn, WorkTypeDef workType)
@@ -999,6 +1006,12 @@ namespace Better_Work_Tab.Patches
                 workType == null ||
                 pawn.WorkTypeIsDisabled(workType) ||
                 !TimePriorityService.IsRuntimeEnabled)
+            {
+                return false;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
+                    WorkTabEffectiveStateDimension.Schedule))
             {
                 return false;
             }
@@ -1326,14 +1339,16 @@ namespace Better_Work_Tab.Patches
     {
         public static bool Prefix()
         {
-            if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive ||
+                !FluffyTimeScheduleAssigner.IsOpen ||
+                !FluffyTimeScheduleAssigner.IsEnabled)
             {
                 return true;
             }
 
             WorkTabEffectiveStateRuntime.ReportBlocked(
                 WorkTabEffectiveStateDimension.Schedule,
-                "Fluffy's live scheduler surface is hidden during preview.");
+                "Fluffy-style scheduler surface is hidden during workload preview.");
             return false;
         }
     }

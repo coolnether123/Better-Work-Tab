@@ -6,6 +6,7 @@ using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.Workloads;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -338,6 +339,16 @@ namespace Better_Work_Tab.Patches
             bool hasOverride = WorkGiverReassignmentManager.HasAnyPawnOverride(targetWorkType, pawn) ||
                                WorkGiverReassignmentManager.HasPawnOrdering(pawn, targetWorkType);
             Pawn windowPawn = hasOverride ? pawn : null;
+            if (WorkloadPreviewController.Current?.IsActive == true && windowPawn == null)
+            {
+                Messages.Message(
+                    "Global/shared work-giver ordering is unavailable while a workload preview is active. " +
+                    "Open a pawn-specific submenu to stage pawn-local order changes.",
+                    MessageTypeDefOf.RejectInput,
+                    false);
+                return;
+            }
+
             Find.WindowStack.Add(new Window_WorkGiverSubMenu(targetWorkType, screenPos, windowPawn));
         }
     }

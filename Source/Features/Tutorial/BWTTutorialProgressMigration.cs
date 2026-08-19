@@ -16,8 +16,6 @@ namespace Better_Work_Tab.Features.Tutorial
             settings.completedTutorialLessonIds ??= new List<string>();
             settings.skippedTutorialLessonIds ??= new List<string>();
             settings.tutorialLessonIdsAlreadyUsed ??= new List<string>();
-            settings.tutorialLessonFeedback ??= new List<BWTTutorialLessonFeedback>();
-            settings.tutorialOverallFeedback ??= string.Empty;
 
             if (settings.activeTutorialLessonId == BWTTutorialLessonCatalog.RetiredPriorityChange)
             {
@@ -33,8 +31,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 // public beta starts from catalog IDs and preserves them thereafter.
                 settings.completedTutorialLessonIds.Clear();
                 settings.skippedTutorialLessonIds.Clear();
-                settings.tutorialLessonFeedback.Clear();
-                settings.tutorialOverallFeedback = string.Empty;
                 settings.activeTutorialLessonId = string.Empty;
                 settings.tutorialLessonPhase = 0;
                 settings.selectedTutorialCourse = BWTTutorialCourse.None;
