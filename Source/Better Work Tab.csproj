@@ -183,7 +183,6 @@
     <Compile Include="Features\Workloads\V2\Runtime\Workload2Backend.cs" />
     <Compile Include="Diagnostics\WorkTabDiagnostics.cs" />
     <Compile Include="Diagnostics\WorkTabUsageState.cs" />
-    <Compile Include="UI\BWTBottomBarIcons.cs" />
     <Compile Include="UI\BWTBottomBarSelector.cs" />
     <Compile Include="UI\OneTimePromptPresence.cs" />
     <Compile Include="Features\TimePriority\Patch_CopyPasteWorkPriorities_TimePriority.cs" />

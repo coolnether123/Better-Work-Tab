@@ -648,7 +648,6 @@ namespace Better_Work_Tab.UI
 
             if (BWTBottomBarSelector.DrawMain(
                     rects.RulesetMain,
-                    BWTBottomBarIcons.Ruleset,
                     name,
                     hasRuleset,
                     hasRuleset
@@ -878,7 +877,6 @@ namespace Better_Work_Tab.UI
 
             return BWTBottomBarSelector.DrawMain(
                 rect,
-                BWTBottomBarIcons.Workload,
                 value,
                 hasValue,
                 tooltip);
