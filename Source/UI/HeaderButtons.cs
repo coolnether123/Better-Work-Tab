@@ -16,6 +16,7 @@ using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.Workloads;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
+using Spine.UI.Animation;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -39,6 +40,7 @@ namespace Better_Work_Tab.UI
         private const float CompactPreviewApplyWidth = 48f;
         private const float CompactSelectorMainWidth = 54f;
         private const float CompactOptionalSelectorMainWidth = 40f;
+        private const float WorkloadPreviewRevealSeconds = 0.22f;
 
         private const float WorkloadPopoverGap = 5f;
         private const float WorkloadPopoverWidth = 330f;
@@ -65,6 +67,9 @@ namespace Better_Work_Tab.UI
         private static Rect _workloadFooterEditCancelRect;
         private static Rect _workloadFooterConfirmApplyRect;
         private static Rect _workloadFooterConfirmCancelRect;
+        private static float _workloadPreviewRevealProgress;
+        private static int _workloadPreviewRevealFrame = -1;
+        private static bool _workloadPreviewRevealIncludesUpdate;
 
         // Strict Sleek renders its PawnTable against a different bottom-room
         // contract than BWT's host. The table needs only this small upward
@@ -82,6 +87,11 @@ namespace Better_Work_Tab.UI
             public Rect WorkloadUpdate;
             public Rect WorkloadCancel;
             public Rect WorkloadApply;
+            internal Rect WorkloadSaveAsDraw;
+            internal Rect WorkloadUpdateDraw;
+            internal Rect WorkloadCancelDraw;
+            internal Rect WorkloadApplyDraw;
+            internal Rect WorkloadActionClip;
             public bool HasRuleset;
             public bool HasWorkload;
             public bool HasWorkloadMenu;
@@ -179,7 +189,13 @@ namespace Better_Work_Tab.UI
                 : null;
             bool previewActive = preview?.IsActive == true;
 
+            float revealProgress = AdvanceWorkloadPreviewReveal(previewActive);
             if (previewActive)
+            {
+                _workloadPreviewRevealIncludesUpdate = preview.HasSemanticDiff;
+            }
+
+            if (previewActive || revealProgress > 0.001f)
             {
                 LayoutBoundedWorkloadPreview(
                     rowLeft,
@@ -187,10 +203,13 @@ namespace Better_Work_Tab.UI
                     y,
                     rowHeight,
                     settings?.enableAutoAssignFeature ?? true,
-                    preview.HasSemanticDiff,
+                    _workloadPreviewRevealIncludesUpdate,
                     ref rects);
+                ApplyWorkloadPreviewReveal(ref rects, revealProgress);
                 return rects;
             }
+
+            _workloadPreviewRevealIncludesUpdate = false;
 
             if (settings?.enableAutoAssignFeature ?? true)
             {
@@ -203,7 +222,7 @@ namespace Better_Work_Tab.UI
 
             if (workloadsEnabled && hasWorkloadComponent)
             {
-                float width = BWTBottomBarSelector.MeasureWidth(WorkloadLabel());
+                float width = BWTBottomBarSelector.MeasureWidth(WorkloadGeometryLabel());
                 bool showWorkloadMenu = true;
                 rects.WorkloadMenu = new Rect(xRight - SelectorMenuWidth, y, SelectorMenuWidth, rowHeight);
                 rects.WorkloadMain = new Rect(rects.WorkloadMenu.x - width, y, width, rowHeight);
@@ -296,7 +315,7 @@ namespace Better_Work_Tab.UI
                 float spare = available - used;
                 float desiredWorkloadWidth = Mathf.Max(
                     workloadWidth,
-                    BWTBottomBarSelector.MeasureWidth(WorkloadLabel()));
+                    BWTBottomBarSelector.MeasureWidth(WorkloadGeometryLabel()));
                 float workloadGrowth = Mathf.Min(spare, desiredWorkloadWidth - workloadWidth);
                 workloadWidth += workloadGrowth;
                 spare -= workloadGrowth;
@@ -367,6 +386,139 @@ namespace Better_Work_Tab.UI
             Rect rect = new Rect(rightEdge - safeWidth, y, safeWidth, height);
             rightEdge = rect.xMin;
             return rect;
+        }
+
+        private static float AdvanceWorkloadPreviewReveal(bool previewActive)
+        {
+            if (_workloadPreviewRevealFrame == Time.frameCount)
+            {
+                return _workloadPreviewRevealProgress;
+            }
+
+            _workloadPreviewRevealFrame = Time.frameCount;
+            _workloadPreviewRevealProgress = SpineEasing.Move01(
+                _workloadPreviewRevealProgress,
+                previewActive ? 1f : 0f,
+                WorkloadPreviewRevealSeconds,
+                animated: true);
+            if ((previewActive && _workloadPreviewRevealProgress < 0.999f) ||
+                (!previewActive && _workloadPreviewRevealProgress > 0.001f))
+            {
+                GUI.changed = true;
+            }
+
+            return _workloadPreviewRevealProgress;
+        }
+
+        private static void ApplyWorkloadPreviewReveal(
+            ref BottomButtonRects rects,
+            float progress)
+        {
+            progress = Mathf.Clamp01(progress);
+            float laneLeft = rects.WorkloadCancel.xMin;
+            if (rects.HasWorkloadUpdate)
+            {
+                laneLeft = Mathf.Min(laneLeft, rects.WorkloadUpdate.xMin);
+            }
+            if (rects.HasWorkloadSaveAs)
+            {
+                laneLeft = Mathf.Min(laneLeft, rects.WorkloadSaveAs.xMin);
+            }
+
+            rects.WorkloadActionClip = Rect.MinMaxRect(
+                laneLeft,
+                rects.WorkloadMain.yMin,
+                rects.WorkloadMain.xMin,
+                rects.WorkloadMain.yMax);
+            float hiddenOffset = Mathf.Max(0f, rects.WorkloadMain.xMin - laneLeft);
+
+            rects.WorkloadSaveAsDraw = TranslateWorkloadActionLane(
+                rects.WorkloadSaveAs,
+                hiddenOffset,
+                progress);
+            rects.WorkloadUpdateDraw = TranslateWorkloadActionLane(
+                rects.WorkloadUpdate,
+                hiddenOffset,
+                progress);
+            rects.WorkloadCancelDraw = TranslateWorkloadActionLane(
+                rects.WorkloadCancel,
+                hiddenOffset,
+                progress);
+            rects.WorkloadApplyDraw = TranslateWorkloadActionLane(
+                rects.WorkloadApply,
+                hiddenOffset,
+                progress);
+
+            rects.WorkloadSaveAs = ClipToWorkloadActionLane(
+                rects.WorkloadSaveAsDraw,
+                rects.WorkloadActionClip);
+            rects.WorkloadUpdate = ClipToWorkloadActionLane(
+                rects.WorkloadUpdateDraw,
+                rects.WorkloadActionClip);
+            rects.WorkloadCancel = ClipToWorkloadActionLane(
+                rects.WorkloadCancelDraw,
+                rects.WorkloadActionClip);
+            rects.WorkloadApply = ClipToWorkloadActionLane(
+                rects.WorkloadApplyDraw,
+                rects.WorkloadActionClip);
+
+            rects.HasWorkloadSaveAs =
+                rects.HasWorkloadSaveAs && rects.WorkloadSaveAs.width > 0.01f;
+            rects.HasWorkloadUpdate =
+                rects.HasWorkloadUpdate && rects.WorkloadUpdate.width > 0.01f;
+            rects.HasWorkloadPreview =
+                rects.HasWorkload &&
+                (rects.HasWorkloadSaveAs ||
+                 rects.HasWorkloadUpdate ||
+                 rects.WorkloadCancel.width > 0.01f ||
+                 rects.WorkloadApply.width > 0.01f);
+
+            float leftEdge = rects.HasWorkload
+                ? rects.WorkloadMain.xMin
+                : rects.LeftEdge;
+            if (rects.HasRuleset)
+            {
+                leftEdge = Mathf.Min(leftEdge, rects.RulesetMain.xMin);
+            }
+            if (rects.HasWorkloadSaveAs)
+            {
+                leftEdge = Mathf.Min(leftEdge, rects.WorkloadSaveAs.xMin);
+            }
+            if (rects.HasWorkloadUpdate)
+            {
+                leftEdge = Mathf.Min(leftEdge, rects.WorkloadUpdate.xMin);
+            }
+            if (rects.HasWorkloadPreview)
+            {
+                leftEdge = Mathf.Min(leftEdge, rects.WorkloadCancel.xMin);
+            }
+
+            rects.LeftEdge = leftEdge;
+        }
+
+        private static Rect TranslateWorkloadActionLane(
+            Rect finalRect,
+            float hiddenOffset,
+            float progress)
+        {
+            if (finalRect.width <= 0f)
+            {
+                return Rect.zero;
+            }
+
+            finalRect.x += hiddenOffset * (1f - progress);
+            return finalRect;
+        }
+
+        private static Rect ClipToWorkloadActionLane(Rect rect, Rect clip)
+        {
+            float xMin = Mathf.Max(rect.xMin, clip.xMin);
+            float xMax = Mathf.Min(rect.xMax, clip.xMax);
+            float yMin = Mathf.Max(rect.yMin, clip.yMin);
+            float yMax = Mathf.Min(rect.yMax, clip.yMax);
+            return xMax > xMin && yMax > yMin
+                ? Rect.MinMaxRect(xMin, yMin, xMax, yMax)
+                : Rect.zero;
         }
 
         private static float CompactWorkloadPreviewActionWidth(
@@ -556,11 +708,14 @@ namespace Better_Work_Tab.UI
             if (_workloadFooterPopover == WorkloadFooterPopoverKind.None)
             {
                 WorkloadPreviewController.Current?.UpdateFooterInspectionHover(
-                    rects.HasWorkloadUpdate ? rects.WorkloadUpdate : Rect.zero);
+                    rects.HasWorkloadUpdate ? rects.WorkloadUpdate : Rect.zero,
+                    rects.HasWorkloadPreview ? rects.WorkloadApply : Rect.zero);
             }
             else
             {
-                WorkloadPreviewController.Current?.UpdateFooterInspectionHover(Rect.zero);
+                WorkloadPreviewController.Current?.UpdateFooterInspectionHover(
+                    Rect.zero,
+                    Rect.zero);
             }
 
         }
@@ -614,7 +769,10 @@ namespace Better_Work_Tab.UI
             }
 
             if (evt.type == EventType.ScrollWheel &&
-                preview?.ShouldRouteInspectionWheel(evt, rects.WorkloadUpdate) == true)
+                preview?.ShouldRouteInspectionWheel(
+                    evt,
+                    rects.HasWorkloadUpdate ? rects.WorkloadUpdate : Rect.zero,
+                    rects.HasWorkloadPreview ? rects.WorkloadApply : Rect.zero) == true)
             {
                 return false;
             }
@@ -638,6 +796,9 @@ namespace Better_Work_Tab.UI
         {
             CloseWorkloadFooterPopover();
             _workloadFooterScroll = Vector2.zero;
+            _workloadPreviewRevealProgress = 0f;
+            _workloadPreviewRevealFrame = -1;
+            _workloadPreviewRevealIncludesUpdate = false;
             WorkloadSurfaceCoordinator.Reset();
         }
 
@@ -682,13 +843,21 @@ namespace Better_Work_Tab.UI
             WorkloadPreviewController preview = WorkloadPreviewController.Current;
             if (preview?.IsActive == true)
             {
-                return preview.SourceLabel + " • preview";
+                return preview.SourceLabel + preview.MultiplayerPreviewLabelSuffix;
             }
 
             string currentLabel = WorkloadGateway.CurrentLabel();
             return currentLabel.AnyNonWhitespace()
                 ? currentLabel
                 : "BWT_BottomBar_WorkloadEmpty".Translate().ToString();
+        }
+
+        private static string WorkloadGeometryLabel()
+        {
+            WorkloadPreviewController preview = WorkloadPreviewController.Current;
+            return preview?.IsActive == true
+                ? preview.SourceLabel
+                : WorkloadLabel();
         }
 
         private static void DrawWorkloadGroup(BottomButtonRects rects)
@@ -744,7 +913,8 @@ namespace Better_Work_Tab.UI
                 }
                 else
                 {
-                    OpenWorkloadFooterPicker();
+                    ReportWorkloadFailure(
+                        "Select a workload with the ... menu before opening a preview.");
                 }
             }
 
@@ -768,81 +938,103 @@ namespace Better_Work_Tab.UI
         private static void DrawWorkloadPreviewActions(BottomButtonRects rects)
         {
             WorkloadPreviewController preview = WorkloadPreviewController.Current;
-            if (preview == null || !preview.IsActive)
+            if (preview == null || rects.WorkloadActionClip.width <= 0f)
             {
                 return;
             }
 
-            if (rects.HasWorkloadSaveAs)
+            GUI.BeginGroup(rects.WorkloadActionClip);
+            try
             {
+                bool interactive = preview.IsActive;
+                if (rects.HasWorkloadSaveAs)
+                {
+                    DrawWorkloadPreviewButton(
+                        ToWorkloadActionGroup(rects.WorkloadSaveAsDraw, rects.WorkloadActionClip),
+                        ToWorkloadActionGroup(rects.WorkloadSaveAs, rects.WorkloadActionClip),
+                        "Save As",
+                        () => QueuePreviewLifecycleAction(
+                            preview,
+                            BeginWorkloadPreviewSaveAsEditor,
+                            notifyPawnTables: false),
+                        interactive && preview.CanForkPreview,
+                        preview.CommitBlockedMessage);
+                }
+                if (rects.HasWorkloadUpdate)
+                {
+                    DrawWorkloadPreviewButton(
+                        ToWorkloadActionGroup(rects.WorkloadUpdateDraw, rects.WorkloadActionClip),
+                        ToWorkloadActionGroup(rects.WorkloadUpdate, rects.WorkloadActionClip),
+                        "Update",
+                        () => QueuePreviewLifecycleAction(
+                            preview,
+                            () => preview.UpdatePreview(),
+                            notifyPawnTables: true),
+                        interactive && preview.CanUpdatePreview,
+                        preview.CommitBlockedMessage.AnyNonWhitespace()
+                            ? preview.CommitBlockedMessage
+                            : "Update applies this semantic diff and replaces the same workload template. " +
+                              "Hover to inspect changed pawn/worktype cells. Scroll here to move the Work tab.");
+                }
+
                 DrawWorkloadPreviewButton(
-                    rects.WorkloadSaveAs,
-                    "Save As",
+                    ToWorkloadActionGroup(rects.WorkloadCancelDraw, rects.WorkloadActionClip),
+                    ToWorkloadActionGroup(rects.WorkloadCancel, rects.WorkloadActionClip),
+                    PreviewActionLabel(rects.WorkloadCancelDraw, "Cancel", "C"),
                     () => QueuePreviewLifecycleAction(
                         preview,
-                        BeginWorkloadPreviewSaveAsEditor,
-                        notifyPawnTables: false),
-                    preview.CanForkPreview,
+                        () => preview.CancelPreview(),
+                        notifyPawnTables: true),
+                    enabled: interactive && preview.CanCancelPreview,
+                    tooltip: preview.IsMultiplayerCommitInFlight
+                        ? preview.MultiplayerStatusExplanation
+                        : "Cancel the preview and keep live work priorities unchanged.");
+                DrawWorkloadPreviewButton(
+                    ToWorkloadActionGroup(rects.WorkloadApplyDraw, rects.WorkloadActionClip),
+                    ToWorkloadActionGroup(rects.WorkloadApply, rects.WorkloadActionClip),
+                    PreviewActionLabel(rects.WorkloadApplyDraw, "Apply", "A"),
+                    () => QueuePreviewLifecycleAction(
+                        preview,
+                        () => preview.ApplyPreview(),
+                        notifyPawnTables: true),
+                    interactive && preview.CanApplyPreview,
                     preview.CommitBlockedMessage);
             }
-            if (rects.HasWorkloadUpdate)
+            finally
             {
-                DrawWorkloadPreviewButton(
-                    rects.WorkloadUpdate,
-                    "Update",
-                    () => QueuePreviewLifecycleAction(
-                        preview,
-                        () => preview.UpdatePreview(),
-                        notifyPawnTables: true),
-                    preview.CanUpdatePreview,
-                    preview.CommitBlockedMessage.AnyNonWhitespace()
-                        ? preview.CommitBlockedMessage
-                        : "Update applies this semantic diff and replaces the same workload template. " +
-                          "Hover to inspect changed pawn/worktype cells. Scroll here to move the Work tab.");
+                GUI.EndGroup();
             }
-
-            DrawWorkloadPreviewButton(
-                rects.WorkloadCancel,
-                PreviewActionLabel(rects.WorkloadCancel, "Cancel", "C"),
-                () => QueuePreviewLifecycleAction(
-                    preview,
-                    () => preview.CancelPreview(),
-                    notifyPawnTables: true),
-                enabled: true,
-                tooltip: "Cancel the preview and keep live work priorities unchanged.");
-            DrawWorkloadPreviewButton(
-                rects.WorkloadApply,
-                PreviewActionLabel(rects.WorkloadApply, "Apply", "A"),
-                () => QueuePreviewLifecycleAction(
-                    preview,
-                    () => preview.ApplyPreview(),
-                    notifyPawnTables: true),
-                preview.CanApplyPreview,
-                preview.CommitBlockedMessage);
         }
 
         private static void DrawWorkloadPreviewButton(
-            Rect rect,
+            Rect drawRect,
+            Rect hitRect,
             string label,
             Action onClicked,
             bool enabled,
             string tooltip)
         {
-            if (rect.width <= 0f)
+            if (drawRect.width <= 0f || hitRect.width <= 0f)
             {
                 return;
             }
 
-            bool clicked = Widgets.ButtonText(rect, label, active: enabled);
+            bool clicked = Widgets.ButtonText(drawRect, label, active: enabled);
             if (tooltip.AnyNonWhitespace())
             {
-                TooltipHandler.TipRegion(rect, tooltip);
+                TooltipHandler.TipRegion(hitRect, tooltip);
             }
 
             if (clicked && enabled)
             {
                 onClicked?.Invoke();
             }
+        }
+
+        private static Rect ToWorkloadActionGroup(Rect rect, Rect clip)
+        {
+            rect.position -= clip.position;
+            return rect;
         }
 
         private static void QueuePreviewLifecycleAction(

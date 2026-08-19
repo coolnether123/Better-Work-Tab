@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.Settings;
@@ -159,12 +160,19 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             if (!WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
                     WorkTabEffectiveStateDimension.SpecificJobOrder) ||
-                _pawn == null ||
                 _workType == null ||
                 _workGivers.Count < 2)
             {
                 return;
             }
+
+            WorkloadWorkTypeOrderKey orderKey = _pawn == null
+                ? WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(_workType)
+                : WorkTabEffectiveStateIds.ForWorkTypeOrder(_pawn, _workType);
+            WorkloadWorkTypeOrderPayload projectedOrder =
+                WorkTabEffectiveStateRuntime.ResolveWorkTypeOrder(orderKey).IsSet
+                    ? WorkTabEffectiveStateRuntime.ResolveWorkTypeOrder(orderKey).Value
+                    : null;
 
             var fallbackIndices = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < _workGivers.Count; i++)
@@ -173,6 +181,19 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 if (!defName.NullOrEmpty() && !fallbackIndices.ContainsKey(defName))
                 {
                     fallbackIndices.Add(defName, i);
+                }
+            }
+
+            var projectedIndices = new Dictionary<string, int>(StringComparer.Ordinal);
+            if (projectedOrder != null && projectedOrder.IsValid)
+            {
+                for (int i = 0; i < projectedOrder.OrderedWorkGivers.Count; i++)
+                {
+                    string defName = projectedOrder.OrderedWorkGivers[i]?.Value;
+                    if (!defName.NullOrEmpty() && !projectedIndices.ContainsKey(defName))
+                    {
+                        projectedIndices.Add(defName, i);
+                    }
                 }
             }
 
@@ -186,16 +207,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 int rightFallback = rightName.NullOrEmpty() || !fallbackIndices.TryGetValue(rightName, out int rightIndex)
                     ? int.MaxValue
                     : rightIndex;
-                int leftOrder = WorkTabEffectiveStateRuntime.GetSpecificJobOrder(
-                    _pawn,
-                    _workType,
-                    left?.def,
-                    leftFallback);
-                int rightOrder = WorkTabEffectiveStateRuntime.GetSpecificJobOrder(
-                    _pawn,
-                    _workType,
-                    right?.def,
-                    rightFallback);
+                int leftOrder = leftName.NullOrEmpty() ||
+                                !projectedIndices.TryGetValue(leftName, out int projectedLeft)
+                    ? leftFallback
+                    : projectedLeft;
+                int rightOrder = rightName.NullOrEmpty() ||
+                                 !projectedIndices.TryGetValue(rightName, out int projectedRight)
+                    ? rightFallback
+                    : projectedRight;
                 int comparison = leftOrder.CompareTo(rightOrder);
                 return comparison != 0
                     ? comparison
@@ -335,9 +354,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 : $"{_pawn.LabelShortCap}: {workTypeLabel}";
             if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
             {
-                titleText += _pawn == null
-                    ? " (preview order unavailable)"
-                    : " (preview order staged here)";
+                titleText += " (preview order staged here)";
             }
             Widgets.Label(new Rect(0, 0, inRect.width, 24f), titleText.Colorize(Color.gray));
         }
@@ -420,7 +437,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 "columns.showMovedColorTint",
                 BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true))
                 ? HeaderUtility.Colors.MovedMarkerColor
-                : BetterWorkTabMod.Settings.angledHeaderColor;
+                : BWTWorkTabEffectiveSettings.GetColor(
+                    "headers.angledColor",
+                    BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
 
             Widgets.Label(textRect, label);
             DrawVanillaStem(textRect, headerRect.yMax);
@@ -647,20 +666,18 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private void HandleHeaderDrag(int index, bool isHovered)
         {
-            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
-                _pawn == null)
-            {
-                if (isHovered && Event.current.type == EventType.Repaint)
-                {
-                    TooltipHandler.TipRegion(
-                        new Rect(WindowPadding + index * _columnWidth, HeaderTop, _columnWidth, _dynamicHeaderHeight - HeaderTop),
-                        "Specific-job ordering is not projected in this workload preview.");
-                }
-                return;
-            }
-
             // Guard: Don't start drag if event was already consumed (e.g., by priority box click)
             if (Event.current.type == EventType.Used) return;
+
+            if (isHovered &&
+                WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
+                Event.current.type == EventType.MouseDown &&
+                Event.current.button == 1)
+            {
+                ShowPreviewOrderMenu();
+                Event.current.Use();
+                return;
+            }
 
             if (isHovered && !_dragHandler.IsDragging)
             {
@@ -670,6 +687,55 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     Event.current.Use();
                 }
             }
+        }
+
+        private void ShowPreviewOrderMenu()
+        {
+            WorkloadPreviewController controller = WorkloadPreviewController.Current;
+            if (controller == null || _workType == null)
+            {
+                return;
+            }
+
+            WorkloadWorkTypeOrderKey key = _pawn == null
+                ? WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(_workType)
+                : WorkTabEffectiveStateIds.ForWorkTypeOrder(_pawn, _workType);
+            var options = new List<FloatMenuOption>();
+            options.Add(new FloatMenuOption(
+                "Clear workload order",
+                () => controller.SetWorkTypeOrderPreviewIntent(
+                    key,
+                    WorkloadIntent<WorkloadWorkTypeOrderPayload>.Clear)));
+            options.Add(new FloatMenuOption(
+                "Remove workload order opinion",
+                () => controller.SetWorkTypeOrderPreviewIntent(
+                    key,
+                    WorkloadIntent<WorkloadWorkTypeOrderPayload>.NoOpinion)));
+
+            var names = new List<WorkGiverKey>(_workGivers.Count);
+            for (int i = 0; i < _workGivers.Count; i++)
+            {
+                WorkGiverDef definition = _workGivers[i]?.def;
+                if (definition == null || definition.defName.NullOrEmpty())
+                {
+                    return;
+                }
+
+                names.Add(new WorkGiverKey(definition.defName));
+            }
+
+            WorkloadWorkTypeOrderPayload currentOrder =
+                new WorkloadWorkTypeOrderPayload(names);
+            if (currentOrder.IsValid)
+            {
+                options.Add(new FloatMenuOption(
+                    "Re-add displayed order to workload",
+                    () => controller.SetWorkTypeOrderPreviewIntent(
+                        key,
+                        WorkloadIntent<WorkloadWorkTypeOrderPayload>.CreateSet(currentOrder))));
+            }
+
+            Find.WindowStack.Add(new FloatMenu(options));
         }
 
         private void RecalculateVanillaHeaderLevels()

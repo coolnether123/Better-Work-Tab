@@ -1,10 +1,12 @@
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.Workloads;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -54,15 +56,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             if (WorkTabEffectiveStateRuntime.IsPreviewActive &&
-                (pawn == null || FluffyTimeScheduleAssigner.IsOpen))
+                FluffyTimeScheduleAssigner.IsOpen)
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
-                    pawn == null
-                        ? WorkTabEffectiveStateDimension.SpecificJobOverride
-                        : WorkTabEffectiveStateDimension.Schedule,
-                    pawn == null
-                        ? "Global work-giver authority cannot be represented by a pawn-scoped preview key."
-                        : "Fluffy's live scheduler owns the current work-giver cell.");
+                    WorkTabEffectiveStateDimension.Schedule,
+                    "Fluffy's live scheduler owns the current work-giver cell.");
                 return;
             }
 
@@ -257,7 +255,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 DrawPriorityBoxContents(boxRect, workGiverPriority, false, presentation.HasScheduleIndicator);
             }
 
-            if (presentation.HasScheduleIndicator)
+            if (presentation.HasScheduleIndicator || presentation.HasGlobalOverride)
             {
                 DrawOverrideRingIfVisible(boxRect);
             }
@@ -748,6 +746,22 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
+            if (evt.type == EventType.MouseDown &&
+                evt.button == 1 &&
+                WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
+                    WorkTabEffectiveStateDimension.SpecificJobOverride))
+            {
+                ShowPreviewSpecificJobMenu(
+                    pawnId,
+                    workType ?? WorkGiverReassignmentManager.GetTargetWorkType(workGiverDef) ??
+                    workGiverDef?.workType,
+                    workGiverDef,
+                    currentPriority);
+                evt.Use();
+                return;
+            }
+
             if (evt.type == EventType.MouseDown)
             {
                 if (hasPawnOverride)
@@ -834,6 +848,53 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
                 evt.Use();
             }
+        }
+
+        private static void ShowPreviewSpecificJobMenu(
+            int pawnId,
+            WorkTypeDef workType,
+            WorkGiverDef workGiverDef,
+            int displayedPriority)
+        {
+            WorkloadPreviewController controller = WorkloadPreviewController.Current;
+            if (controller == null || workType == null || workGiverDef == null)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOverride,
+                    "The specific-job preview target is no longer available.");
+                return;
+            }
+
+            WorkloadSpecificJobTargetKey key = pawnId >= 0
+                ? WorkloadSpecificJobTargetKey.ForPawn(
+                    new PawnKey(pawnId.ToString()),
+                    WorkTabEffectiveStateIds.ForWorkType(workType),
+                    WorkTabEffectiveStateIds.ForWorkGiver(workGiverDef))
+                : WorkloadSpecificJobTargetKey.Global(
+                    WorkTabEffectiveStateIds.ForWorkType(workType),
+                    WorkTabEffectiveStateIds.ForWorkGiver(workGiverDef));
+            var options = new List<FloatMenuOption>
+            {
+                new FloatMenuOption(
+                    "Clear workload priority",
+                    () => controller.SetSpecificJobPreviewIntent(
+                        key,
+                        WorkloadIntent<WorkloadSpecificPriorityPayload>.Clear)),
+                new FloatMenuOption(
+                    "Remove workload priority opinion",
+                    () => controller.SetSpecificJobPreviewIntent(
+                        key,
+                        WorkloadIntent<WorkloadSpecificPriorityPayload>.NoOpinion))
+            };
+
+            int priority = WorkPrioritySystem.ClampPriority(displayedPriority);
+            options.Add(new FloatMenuOption(
+                "Re-add displayed priority to workload",
+                () => controller.SetSpecificJobPreviewIntent(
+                    key,
+                    WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(
+                        new WorkloadSpecificPriorityPayload(priority)))));
+            Find.WindowStack.Add(new FloatMenu(options));
         }
 
         private static int GetNextPriority(

@@ -191,6 +191,7 @@
     <Compile Include="Features\TimePriority\TimePriorityScheduleEditor.cs" />
     <Compile Include="Features\TimePriority\FluffyTimeScheduleAssigner.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleData.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityMutationAuthorization.cs" />
     <Compile Include="Features\TimePriority\TimePriorityService.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTarget.cs" />
     <Compile Include="Features\TimePriority\TimePriorityCacheKey.cs" />

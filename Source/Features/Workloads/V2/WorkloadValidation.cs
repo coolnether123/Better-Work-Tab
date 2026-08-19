@@ -118,7 +118,14 @@ namespace Better_Work_Tab.Features.Workloads.V2
         ConflictingManualModes = 18,
         ScopeStateMismatch = 19,
         UnownedStateDimension = 20,
-        InvalidManualModeScope = 21
+        InvalidManualModeScope = 21,
+        InvalidIntentState = 22,
+        InvalidTargetScope = 23,
+        InvalidSchedulePayload = 24,
+        InvalidOrderPayload = 25,
+        InvalidSettingOwnership = 26,
+        DuplicateSpecificJobIntent = 27,
+        DuplicateSpecificJobOrderIntent = 28
     }
 
     public sealed class WorkloadValidationIssue
@@ -284,41 +291,59 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
             WorkloadProjectedState state = template.ProjectedState ?? WorkloadProjectedState.Empty;
 
+            if (state.HasAmbiguousSpecificPriorityIntents)
+            {
+                Add(
+                    issues,
+                    WorkloadValidationCode.DuplicateSpecificJobIntent,
+                    "state.specificPriorityIntents",
+                    "The workload contains duplicate specific-job priority targets; the state is ambiguous and cannot be applied.");
+            }
+
+            if (state.HasAmbiguousWorkTypeOrderIntents)
+            {
+                Add(
+                    issues,
+                    WorkloadValidationCode.DuplicateSpecificJobOrderIntent,
+                    "state.workTypeOrderIntents",
+                    "The workload contains duplicate WorkType order targets; the state is ambiguous and cannot be applied.");
+            }
+
             CheckOwnedDimension(
                 issues,
                 definition.OwnershipDimensions,
                 WorkloadStateDimension.ParentPriorities,
-                state.ParentPriorities.Count,
+                state.ParentPriorities.Count + state.ParentPriorityIntents.Count,
                 "state.parentPriorities");
             CheckOwnedDimension(
                 issues,
                 definition.OwnershipDimensions,
                 WorkloadStateDimension.ManualModes,
-                state.ManualModes.Count,
+                state.ManualModes.Count + state.ManualModeIntents.Count,
                 "state.manualModes");
             CheckOwnedDimension(
                 issues,
                 definition.OwnershipDimensions,
                 WorkloadStateDimension.Schedules,
-                state.Schedules.Count,
+                state.Schedules.Count + state.ScheduleIntents.Count,
                 "state.schedules");
             CheckOwnedDimension(
                 issues,
                 definition.OwnershipDimensions,
                 WorkloadStateDimension.SpecificJobOverrides,
-                state.SpecificJobOverrides.Count,
+                state.SpecificJobOverrides.Count + state.SpecificPriorityIntents.Count,
                 "state.specificJobOverrides");
             CheckOwnedDimension(
                 issues,
                 definition.OwnershipDimensions,
                 WorkloadStateDimension.SpecificJobOrder,
-                state.SpecificJobOrder.Count,
+                state.SpecificJobOrder.Count + state.WorkTypeOrderIntents.Count,
                 "state.specificJobOrder");
             CheckOwnedDimension(
                 issues,
                 definition.OwnershipDimensions,
                 WorkloadStateDimension.PresentationSettings,
-                state.PresentationSettings.Count,
+                state.PresentationSettings.Count + state.PresentationSettingIntents.Count,
                 "state.presentationSettings");
 
             var manualValues = new HashSet<bool>();
@@ -419,7 +444,189 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 }
             }
 
+            for (int i = 0; i < state.ParentPriorityIntents.Count; i++)
+            {
+                WorkloadParentPriorityIntentEntry entry = state.ParentPriorityIntents[i];
+                CheckPawn(issues, catalog, entry.Key.Pawn, "state.parentPriorityIntents[" + i + "].pawn");
+                CheckWorkType(issues, catalog, entry.Key.WorkType, "state.parentPriorityIntents[" + i + "].workType");
+                CheckScopePawn(issues, definition.Scope, entry.Key.Pawn, "state.parentPriorityIntents[" + i + "].pawn");
+                CheckIntentState(issues, entry.Intent.State, "state.parentPriorityIntents[" + i + "].intent");
+                if (entry.Intent.HasValue && !entry.Intent.Value.IsValid)
+                {
+                    Add(issues, WorkloadValidationCode.InvalidSpecificJobValue, "state.parentPriorityIntents[" + i + "].value", "The typed priority payload is invalid.");
+                }
+            }
+
+            for (int i = 0; i < state.ManualModeIntents.Count; i++)
+            {
+                WorkloadManualModeIntentEntry entry = state.ManualModeIntents[i];
+                CheckPawn(issues, catalog, entry.Key.Pawn, "state.manualModeIntents[" + i + "].pawn");
+                CheckWorkType(issues, catalog, entry.Key.WorkType, "state.manualModeIntents[" + i + "].workType");
+                CheckScopePawn(issues, definition.Scope, entry.Key.Pawn, "state.manualModeIntents[" + i + "].pawn");
+                CheckIntentState(issues, entry.Intent.State, "state.manualModeIntents[" + i + "].intent");
+            }
+
+            for (int i = 0; i < state.ScheduleIntents.Count; i++)
+            {
+                WorkloadScheduleIntentEntry entry = state.ScheduleIntents[i];
+                CheckScheduleTarget(issues, catalog, definition.Scope, entry.Key, "state.scheduleIntents[" + i + "]");
+                CheckIntentState(issues, entry.Intent.State, "state.scheduleIntents[" + i + "].intent");
+                if (entry.Intent.HasValue && !entry.Intent.Value.IsValid)
+                {
+                    Add(issues, WorkloadValidationCode.InvalidSchedulePayload, "state.scheduleIntents[" + i + "].value", "A schedule payload must contain 24 valid priorities and a valid pinned-hour mask.");
+                }
+            }
+
+            for (int i = 0; i < state.SpecificPriorityIntents.Count; i++)
+            {
+                WorkloadSpecificPriorityIntentEntry entry = state.SpecificPriorityIntents[i];
+                CheckSpecificTarget(issues, catalog, definition.Scope, entry.Key, "state.specificPriorityIntents[" + i + "]");
+                CheckIntentState(issues, entry.Intent.State, "state.specificPriorityIntents[" + i + "].intent");
+                if (entry.Intent.HasValue && !entry.Intent.Value.IsValid)
+                {
+                    Add(issues, WorkloadValidationCode.InvalidSpecificJobValue, "state.specificPriorityIntents[" + i + "].value", "The typed specific-priority payload is invalid.");
+                }
+            }
+
+            for (int i = 0; i < state.WorkTypeOrderIntents.Count; i++)
+            {
+                WorkloadWorkTypeOrderIntentEntry entry = state.WorkTypeOrderIntents[i];
+                CheckOrderTarget(issues, catalog, definition.Scope, entry.Key, "state.workTypeOrderIntents[" + i + "]");
+                CheckIntentState(issues, entry.Intent.State, "state.workTypeOrderIntents[" + i + "].intent");
+                if (entry.Intent.HasValue && !entry.Intent.Value.IsValid)
+                {
+                    Add(issues, WorkloadValidationCode.InvalidOrderPayload, "state.workTypeOrderIntents[" + i + "].value", "A WorkType order payload must be a complete unique permutation.");
+                }
+                if (entry.Intent.HasValue && catalog.HasWorkGiverIds)
+                {
+                    for (int orderIndex = 0;
+                         orderIndex < entry.Intent.Value.OrderedWorkGivers.Count;
+                         orderIndex++)
+                    {
+                        if (!catalog.ContainsWorkGiver(entry.Intent.Value.OrderedWorkGivers[orderIndex]))
+                        {
+                            Add(
+                                issues,
+                                WorkloadValidationCode.UnknownWorkGiverId,
+                                "state.workTypeOrderIntents[" + i + "].value[" + orderIndex + "]",
+                                "The ordered WorkGiver ID is not present in the supplied catalog.");
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < state.PresentationSettingIntents.Count; i++)
+            {
+                WorkloadPresentationSettingIntentEntry entry = state.PresentationSettingIntents[i];
+                if (!entry.Key.AnyNonWhitespace())
+                {
+                    Add(issues, WorkloadValidationCode.MissingPresentationSettingKey, "state.presentationSettingIntents[" + i + "].key", "A typed presentation setting key is required.");
+                }
+                CheckIntentState(issues, entry.Intent.State, "state.presentationSettingIntents[" + i + "].intent");
+                if (entry.Intent.HasValue && !entry.Intent.Value.IsValid)
+                {
+                    Add(issues, WorkloadValidationCode.InvalidSettingOwnership, "state.presentationSettingIntents[" + i + "].ownership", "The presentation setting ownership is invalid.");
+                }
+            }
+
             return new WorkloadValidationResult(issues);
+        }
+
+        private static void CheckIntentState(
+            List<WorkloadValidationIssue> issues,
+            WorkloadIntentState state,
+            string path)
+        {
+            if (state < WorkloadIntentState.NoOpinion || state > WorkloadIntentState.Clear)
+            {
+                Add(issues, WorkloadValidationCode.InvalidIntentState, path, "The workload intent state is unknown.");
+            }
+        }
+
+        private static void CheckScheduleTarget(
+            List<WorkloadValidationIssue> issues,
+            WorkloadCatalog catalog,
+            WorkloadScope scope,
+            WorkloadScheduleTargetKey key,
+            string path)
+        {
+            WorkloadScheduleTargetKey safeKey = key ?? new WorkloadScheduleTargetKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                WorkloadScheduleTargetKind.ParentWorkType,
+                null);
+            if (!safeKey.IsValid)
+            {
+                Add(issues, WorkloadValidationCode.InvalidTargetScope, path, "The schedule target scope or target kind is invalid.");
+                return;
+            }
+
+            if (safeKey.IsGlobal)
+            {
+                CheckWorkType(issues, catalog, safeKey.WorkType, path + ".workType");
+                CheckWorkGiver(issues, catalog, safeKey.WorkGiver, path + ".workGiver");
+                return;
+            }
+
+            CheckPawn(issues, catalog, safeKey.Pawn, path + ".pawn");
+            CheckWorkType(issues, catalog, safeKey.WorkType, path + ".workType");
+            CheckScopePawn(issues, scope, safeKey.Pawn, path + ".pawn");
+            if (safeKey.TargetKind == WorkloadScheduleTargetKind.WorkGiver)
+            {
+                CheckWorkGiver(issues, catalog, safeKey.WorkGiver, path + ".workGiver");
+            }
+        }
+
+        private static void CheckSpecificTarget(
+            List<WorkloadValidationIssue> issues,
+            WorkloadCatalog catalog,
+            WorkloadScope scope,
+            WorkloadSpecificJobTargetKey key,
+            string path)
+        {
+            WorkloadSpecificJobTargetKey safeKey = key ?? new WorkloadSpecificJobTargetKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                null,
+                null);
+            if (!safeKey.IsValid)
+            {
+                Add(issues, WorkloadValidationCode.InvalidTargetScope, path, "The specific-job target scope is invalid.");
+                return;
+            }
+
+            if (!safeKey.IsGlobal)
+            {
+                CheckPawn(issues, catalog, safeKey.Pawn, path + ".pawn");
+                CheckScopePawn(issues, scope, safeKey.Pawn, path + ".pawn");
+            }
+            CheckWorkType(issues, catalog, safeKey.WorkType, path + ".workType");
+            CheckWorkGiver(issues, catalog, safeKey.WorkGiver, path + ".workGiver");
+        }
+
+        private static void CheckOrderTarget(
+            List<WorkloadValidationIssue> issues,
+            WorkloadCatalog catalog,
+            WorkloadScope scope,
+            WorkloadWorkTypeOrderKey key,
+            string path)
+        {
+            WorkloadWorkTypeOrderKey safeKey = key ?? new WorkloadWorkTypeOrderKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                null);
+            if (!safeKey.IsValid)
+            {
+                Add(issues, WorkloadValidationCode.InvalidTargetScope, path, "The WorkType order target scope is invalid.");
+                return;
+            }
+
+            if (!safeKey.IsGlobal)
+            {
+                CheckPawn(issues, catalog, safeKey.Pawn, path + ".pawn");
+                CheckScopePawn(issues, scope, safeKey.Pawn, path + ".pawn");
+            }
+            CheckWorkType(issues, catalog, safeKey.WorkType, path + ".workType");
         }
 
         private static void CheckSpecificJob(

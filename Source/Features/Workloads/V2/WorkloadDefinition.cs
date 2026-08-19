@@ -66,7 +66,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
     public static class WorkloadSchema
     {
-        public const int CurrentVersion = 1;
+        // V2 is the first typed workload document. It is a workload-data
+        // schema revision only; the BWT/mod version remains independent.
+        public const int CurrentVersion = 2;
+        public const int LegacyVersion = 1;
     }
 
     public sealed class WorkloadDefinition

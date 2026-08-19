@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Better_Work_Tab.Features.Workloads.V2;
 
 namespace Better_Work_Tab.UI.WorkGrid.Projection
@@ -32,10 +33,178 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
     }
 
     /// <summary>
+    /// Resolution of one exact effective-state layer. NoOpinion means that the
+    /// layer has no value for the target; Clear is an explicit tombstone for
+    /// that layer and must never be collapsed into NoOpinion by a cache.
+    /// </summary>
+    public enum WorkTabEffectiveStateResolutionState
+    {
+        NoOpinion = 0,
+        Set = 1,
+        Clear = 2
+    }
+
+    public readonly struct WorkTabEffectiveStateResolution<T> : IEquatable<WorkTabEffectiveStateResolution<T>>
+    {
+        private WorkTabEffectiveStateResolution(
+            WorkTabEffectiveStateResolutionState state,
+            T value)
+        {
+            State = state;
+            Value = value;
+        }
+
+        public WorkTabEffectiveStateResolutionState State { get; }
+        public T Value { get; }
+        public bool IsNoOpinion => State == WorkTabEffectiveStateResolutionState.NoOpinion;
+        public bool IsSet => State == WorkTabEffectiveStateResolutionState.Set;
+        public bool IsClear => State == WorkTabEffectiveStateResolutionState.Clear;
+
+        public static WorkTabEffectiveStateResolution<T> NoOpinion =>
+            new WorkTabEffectiveStateResolution<T>(
+                WorkTabEffectiveStateResolutionState.NoOpinion,
+                default(T));
+
+        public static WorkTabEffectiveStateResolution<T> Clear =>
+            new WorkTabEffectiveStateResolution<T>(
+                WorkTabEffectiveStateResolutionState.Clear,
+                default(T));
+
+        public static WorkTabEffectiveStateResolution<T> Set(T value) =>
+            new WorkTabEffectiveStateResolution<T>(
+                WorkTabEffectiveStateResolutionState.Set,
+                value);
+
+        public bool Equals(WorkTabEffectiveStateResolution<T> other)
+        {
+            return State == other.State &&
+                   EqualityComparer<T>.Default.Equals(Value, other.Value);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is WorkTabEffectiveStateResolution<T> other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return ((int)State * 397) ^
+                       EqualityComparer<T>.Default.GetHashCode(Value);
+            }
+        }
+
+        public override string ToString()
+        {
+            object boxed = Value;
+            return State + (IsSet ? ":" + (boxed == null ? string.Empty : boxed.ToString()) : string.Empty);
+        }
+    }
+
+    /// <summary>
     /// A resolver used by the live adapter. Returning false means that the
     /// adapter has no value for the key and lets the provider's fallback win.
     /// </summary>
     public delegate bool WorkTabEffectiveStateResolver<TKey, TValue>(TKey key, out TValue value);
+
+    /// <summary>
+    /// Revision vector consumed by effective-state and optimized-renderer
+    /// cache keys. ProviderGeneration identifies replacement of an otherwise
+    /// similarly named provider; the remaining fields identify the live or
+    /// session-local inputs that can change a projected read.
+    /// </summary>
+    public readonly struct WorkTabEffectiveStateRevisionVector : IEquatable<WorkTabEffectiveStateRevisionVector>
+    {
+        public WorkTabEffectiveStateRevisionVector(
+            long providerGeneration,
+            long sourceRevision,
+            long sessionRevision,
+            long persistenceRevision,
+            long authorityRevision,
+            long scheduleRevision,
+            long specificRevision,
+            long settingsRevision,
+            long membershipRevision)
+        {
+            ProviderGeneration = providerGeneration;
+            SourceRevision = sourceRevision;
+            SessionRevision = sessionRevision;
+            PersistenceRevision = persistenceRevision;
+            AuthorityRevision = authorityRevision;
+            ScheduleRevision = scheduleRevision;
+            SpecificRevision = specificRevision;
+            SettingsRevision = settingsRevision;
+            MembershipRevision = membershipRevision;
+        }
+
+        public long ProviderGeneration { get; }
+        public long SourceRevision { get; }
+        public long SessionRevision { get; }
+        public long PersistenceRevision { get; }
+        public long AuthorityRevision { get; }
+        public long ScheduleRevision { get; }
+        public long SpecificRevision { get; }
+        public long SettingsRevision { get; }
+        public long MembershipRevision { get; }
+
+        public static WorkTabEffectiveStateRevisionVector FromRevision(long revision)
+        {
+            return new WorkTabEffectiveStateRevisionVector(
+                0L,
+                revision,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L);
+        }
+
+        public bool Equals(WorkTabEffectiveStateRevisionVector other)
+        {
+            return ProviderGeneration == other.ProviderGeneration &&
+                   SourceRevision == other.SourceRevision &&
+                   SessionRevision == other.SessionRevision &&
+                   PersistenceRevision == other.PersistenceRevision &&
+                   AuthorityRevision == other.AuthorityRevision &&
+                   ScheduleRevision == other.ScheduleRevision &&
+                   SpecificRevision == other.SpecificRevision &&
+                   SettingsRevision == other.SettingsRevision &&
+                   MembershipRevision == other.MembershipRevision;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is WorkTabEffectiveStateRevisionVector other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = ProviderGeneration.GetHashCode();
+                hash = (hash * 397) ^ SourceRevision.GetHashCode();
+                hash = (hash * 397) ^ SessionRevision.GetHashCode();
+                hash = (hash * 397) ^ PersistenceRevision.GetHashCode();
+                hash = (hash * 397) ^ AuthorityRevision.GetHashCode();
+                hash = (hash * 397) ^ ScheduleRevision.GetHashCode();
+                hash = (hash * 397) ^ SpecificRevision.GetHashCode();
+                hash = (hash * 397) ^ SettingsRevision.GetHashCode();
+                return (hash * 397) ^ MembershipRevision.GetHashCode();
+            }
+        }
+
+        public override string ToString()
+        {
+            return ProviderGeneration + "/" + SourceRevision + "/" +
+                   SessionRevision + "/" + PersistenceRevision + "/" +
+                   AuthorityRevision + "/" + ScheduleRevision + "/" +
+                   SpecificRevision + "/" + SettingsRevision + "/" +
+                   MembershipRevision;
+        }
+    }
 
     /// <summary>
     /// Small immutable stamp for snapshot and cache consumers. A preview edit
@@ -48,15 +217,26 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             string providerId,
             long revision,
             WorkTabEffectiveStateSource source)
+            : this(providerId, revision, source, WorkTabEffectiveStateRevisionVector.FromRevision(revision))
+        {
+        }
+
+        public WorkTabEffectiveStateRevision(
+            string providerId,
+            long revision,
+            WorkTabEffectiveStateSource source,
+            WorkTabEffectiveStateRevisionVector revisionVector)
         {
             ProviderId = providerId ?? string.Empty;
             Revision = revision;
             Source = source;
+            RevisionVector = revisionVector;
         }
 
         public string ProviderId { get; }
         public long Revision { get; }
         public WorkTabEffectiveStateSource Source { get; }
+        public WorkTabEffectiveStateRevisionVector RevisionVector { get; }
         public bool IsLive => Source == WorkTabEffectiveStateSource.Live;
         public bool IsPreview => Source == WorkTabEffectiveStateSource.Preview;
 
@@ -65,7 +245,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             return provider != null &&
                    StringComparer.Ordinal.Equals(ProviderId, provider.ProviderId) &&
                    Revision == provider.Revision &&
-                   Source == provider.Source;
+                   Source == provider.Source &&
+                   RevisionVector.Equals(
+                       provider is IWorkTabEffectiveStateV2Provider v2
+                           ? v2.RevisionVector
+                           : WorkTabEffectiveStateRevisionVector.FromRevision(provider.Revision));
         }
 
         public bool IsStale(IWorkTabEffectiveStateProvider provider)
@@ -77,7 +261,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         {
             return Revision == other.Revision &&
                    Source == other.Source &&
-                   StringComparer.Ordinal.Equals(ProviderId, other.ProviderId);
+                   StringComparer.Ordinal.Equals(ProviderId, other.ProviderId) &&
+                   RevisionVector.Equals(other.RevisionVector);
         }
 
         public override bool Equals(object obj)
@@ -89,8 +274,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         {
             unchecked
             {
-                return ((StringComparer.Ordinal.GetHashCode(ProviderId ?? string.Empty) * 397) ^
-                        Revision.GetHashCode()) * 397 ^ (int)Source;
+                int hash = ((StringComparer.Ordinal.GetHashCode(ProviderId ?? string.Empty) * 397) ^
+                            Revision.GetHashCode()) * 397 ^ (int)Source;
+                hash = (hash * 397) ^ RevisionVector.GetHashCode();
+                return hash;
             }
         }
 
@@ -110,7 +297,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
         public override string ToString()
         {
-            return ProviderId + "@" + Revision + ":" + Source;
+            return ProviderId + "@" + Revision + ":" + Source + "[" + RevisionVector + "]";
         }
     }
 
@@ -158,6 +345,55 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             WorkloadScalarValue fallbackValue);
 
         bool TryGetPresentationSetting(string key, out WorkloadScalarValue value);
+    }
+
+    /// <summary>
+    /// V2 projection surface. Resolution methods report the exact layer owned
+    /// by the provider. Consumers that need an effective value should use the
+    /// provider's legacy Get/TryGet methods or the runtime adapters, which
+    /// compose Clear by continuing to the canonical lower-precedence layer.
+    /// </summary>
+    public interface IWorkTabEffectiveStateV2Provider
+    {
+        WorkTabEffectiveStateRevisionVector RevisionVector { get; }
+
+        WorkTabEffectiveStateResolution<int> ResolveParentPriority(WorkloadParentPriorityKey key);
+        WorkTabEffectiveStateResolution<bool> ResolveManualMode(WorkloadParentPriorityKey key);
+        WorkTabEffectiveStateResolution<WorkloadSchedulePayload> ResolveSchedule(WorkloadScheduleTargetKey key);
+        WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload> ResolveSpecificJobPriority(WorkloadSpecificJobTargetKey key);
+        WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload> ResolveWorkTypeOrder(WorkloadWorkTypeOrderKey key);
+        WorkTabEffectiveStateResolution<WorkloadSettingValue> ResolvePresentationSetting(string key);
+    }
+
+    /// <summary>
+    /// Typed preview writes used by schedule, specific-job, and settings
+    /// adapters. The older editor remains available for existing callers.
+    /// </summary>
+    public interface IWorkTabEffectiveStateV2Editor
+    {
+        WorkTabEffectiveStateMutationResult SetSchedule(
+            WorkloadScheduleTargetKey key,
+            WorkloadSchedulePayload payload);
+
+        WorkTabEffectiveStateMutationResult ClearSchedule(WorkloadScheduleTargetKey key);
+
+        WorkTabEffectiveStateMutationResult SetSpecificJobPriority(
+            WorkloadSpecificJobTargetKey key,
+            WorkloadSpecificPriorityPayload payload);
+
+        WorkTabEffectiveStateMutationResult ClearSpecificJobPriority(WorkloadSpecificJobTargetKey key);
+
+        WorkTabEffectiveStateMutationResult SetWorkTypeOrder(
+            WorkloadWorkTypeOrderKey key,
+            WorkloadWorkTypeOrderPayload payload);
+
+        WorkTabEffectiveStateMutationResult ClearWorkTypeOrder(WorkloadWorkTypeOrderKey key);
+
+        WorkTabEffectiveStateMutationResult SetPresentationSetting(
+            string key,
+            WorkloadSettingValue value);
+
+        WorkTabEffectiveStateMutationResult ClearPresentationSettingV2(string key);
     }
 
     /// <summary>

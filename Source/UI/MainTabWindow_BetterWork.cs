@@ -399,6 +399,17 @@ namespace Better_Work_Tab.UI
                     WorkTabChromeGeometry.GetInfoIconRect(inRect));
             if (!routedWorkloadFooterInput &&
                 !routedPreviewScroll &&
+                _workloadPreviewController.IsUnsafePreviewInputBlocked)
+            {
+                // A synchronized Apply/Update/Fork owns the detached preview
+                // until its terminal acknowledgement. Keep repaint/scroll
+                // behavior alive, but do not let grid, schedule, context, or
+                // settings input mutate the draft mid-transaction.
+                return;
+            }
+
+            if (!routedWorkloadFooterInput &&
+                !routedPreviewScroll &&
                 SpineTiming.Enabled)
             {
                 SpineTiming.Time(
@@ -483,8 +494,11 @@ namespace Better_Work_Tab.UI
             PawnOrganizerSystem organizer,
             Event evt)
         {
-            TimePriorityScheduleEditor.Draw(organizer?.Layout);
-            FluffyTimeScheduleAssigner.Draw(inRect, organizer?.Layout, base.ExtraBottomSpace);
+            if (!_workloadPreviewController.IsUnsafePreviewInputBlocked)
+            {
+                TimePriorityScheduleEditor.Draw(organizer?.Layout);
+                FluffyTimeScheduleAssigner.Draw(inRect, organizer?.Layout, base.ExtraBottomSpace);
+            }
             _subWorkStyleChooserPresenter.Draw(organizer?.Layout, windowRect, inRect);
 
             if (SpineTiming.Enabled)
@@ -522,7 +536,12 @@ namespace Better_Work_Tab.UI
                 HeaderButtons.GetBottomButtonRects(inRect, gearRect);
             if (!_workloadPreviewController.ShouldRouteInspectionWheel(
                     evt,
-                    buttonRects.WorkloadUpdate) ||
+                    buttonRects.HasWorkloadUpdate
+                        ? buttonRects.WorkloadUpdate
+                        : Rect.zero,
+                    buttonRects.HasWorkloadPreview
+                        ? buttonRects.WorkloadApply
+                        : Rect.zero) ||
                 table == null)
             {
                 return false;
@@ -686,7 +705,6 @@ namespace Better_Work_Tab.UI
         {
             base.PostClose();
             BWTWorkTabTutorial.NotifyWorkTabClosed();
-            BWTBetaFeedbackButton.NotifyTabClosed();
             // Clear float menu highlights when Work tab is closed
             HighlightState.ClearWorktypeHighlight();
             MouseStateManager.ClearHover();

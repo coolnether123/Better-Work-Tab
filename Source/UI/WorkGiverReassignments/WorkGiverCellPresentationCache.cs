@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using System;
@@ -98,20 +99,71 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             CellPresentation presentation)
         {
             WorkGiverDef workGiverDef = workGiver?.def;
-            bool hasProjectedOverride = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
-                pawn,
-                workType,
-                workGiverDef,
-                out int projectedPriority);
+            WorkloadSpecificJobTargetKey specificTarget = pawn == null
+                ? WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(workType, workGiverDef)
+                : WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiverDef);
+            WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload> specificResolution =
+                specificTarget.IsValid
+                    ? ResolveExactSpecificJobPriority(specificTarget)
+                    : WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
+            WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload> effectiveResolution =
+                specificTarget.IsValid
+                    ? WorkTabEffectiveStateRuntime.ResolveSpecificJobPriority(specificTarget)
+                    : WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
+            bool hasProjectedOverride = specificResolution.IsSet;
+            int projectedPriority = hasProjectedOverride
+                ? specificResolution.Value.Priority
+                : 0;
+            bool hasProjectedClear = specificResolution.IsClear ||
+                                     (specificResolution.IsNoOpinion && effectiveResolution.IsClear);
+            bool hasProjectedFallbackOverride = false;
+            if (pawn != null && hasProjectedClear)
+            {
+                WorkloadSpecificJobTargetKey globalTarget =
+                    WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(workType, workGiverDef);
+                WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload> globalResolution =
+                    ResolveExactSpecificJobPriority(globalTarget);
+                if (globalResolution.IsSet)
+                {
+                    projectedPriority = globalResolution.Value.Priority;
+                    hasProjectedFallbackOverride = true;
+                }
+            }
+
+            if (pawn != null && !hasProjectedOverride &&
+                !hasProjectedFallbackOverride && !hasProjectedClear)
+            {
+                hasProjectedOverride = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
+                    pawn,
+                    workType,
+                    workGiverDef,
+                    out projectedPriority);
+            }
             bool hasPawnOverride = pawn != null &&
                                    (hasProjectedOverride ||
-                                    WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, workGiverDef));
-            int basePriority = hasProjectedOverride
-                ? WorkPrioritySystem.ClampPriority(projectedPriority)
-                : WorkGiverReassignmentManager.GetWorkGiverPriority(
+                                    hasProjectedFallbackOverride ||
+                                    (!hasProjectedClear &&
+                                     WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, workGiverDef)));
+            bool hasGlobalOverride = pawn == null && hasProjectedOverride;
+            int basePriority;
+            if (hasProjectedOverride || hasProjectedFallbackOverride)
+            {
+                basePriority = WorkPrioritySystem.ClampPriority(projectedPriority);
+            }
+            else if (hasProjectedClear)
+            {
+                // A typed Clear is an explicit removal of the specific-job
+                // opinion. Do not fall through to the live override while the
+                // preview is active; the parent priority is the next value.
+                basePriority = parentPriority;
+            }
+            else
+            {
+                basePriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
                     pawn,
                     workGiverDef,
                     parentPriority);
+            }
             bool projectedScheduleOwnsCell =
                 WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
                     WorkTabEffectiveStateDimension.Schedule);
@@ -155,17 +207,54 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     hasScheduleIndicator = TimePriorityService.HasCustomSchedule(scheduleTarget, basePriority);
                 }
             }
-            else if (pawn != null)
+            else
             {
-                // The projected schedule contract currently carries only an
-                // opaque ScheduleKey. It cannot safely answer hourly priority
-                // or link-state questions, so the cell remains at its
-                // effective non-schedule priority and hides the live schedule
-                // indicator rather than reading TimePriorityService.
-                inheritedPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
-                    pawn,
-                    workGiverDef,
-                    parentPriority);
+                TimePriorityTarget target = pawn == null
+                    ? TimePriorityTarget.ForWorkGiver(null, workType, workGiverDef)
+                    : TimePriorityTarget.ForWorkGiver(pawn, workType, workGiverDef);
+                if (target.TryGetWorkloadScheduleTarget(
+                    out WorkloadScheduleTargetKey scheduleKey,
+                        out _))
+                {
+                    WorkTabEffectiveStateResolution<WorkloadSchedulePayload> scheduleResolution =
+                        ResolveExactSchedule(scheduleKey);
+                    if (scheduleResolution.IsSet && scheduleResolution.Value != null &&
+                        scheduleResolution.Value.IsValid)
+                    {
+                        int scheduleHour = pawn == null ? 0 : TimePriorityService.GetCurrentHour(pawn);
+                        int scheduledPriority = scheduleResolution.Value.IsPinned(scheduleHour)
+                            ? scheduleResolution.Value.PriorityAt(scheduleHour)
+                            : basePriority;
+                        effectivePriority = basePriority > WorkPrioritySystem.DisabledPriority
+                            ? scheduledPriority
+                            : basePriority;
+                        hasScheduleIndicator = true;
+                        scheduleTarget = target;
+                        scheduleFallbackPriority = basePriority;
+                    }
+                    else
+                    {
+                        // The canonical evaluator composes local/global
+                        // targets and treats an exact typed Clear as a
+                        // tombstone, so a live schedule cannot leak through.
+                        TimePriorityEvaluation evaluation = TimePriorityService.EvaluateWorkGiverPriority(
+                            pawn,
+                            workType,
+                            workGiverDef,
+                            basePriority);
+                        effectivePriority = evaluation.EffectivePriority;
+                        hasScheduleIndicator = evaluation.HasSchedule;
+                        scheduleTarget = evaluation.Target;
+                        scheduleFallbackPriority = evaluation.BasePriority;
+                    }
+                }
+
+                inheritedPriority = pawn == null
+                    ? parentPriority
+                    : WorkGiverReassignmentManager.GetWorkGiverPriority(
+                        pawn,
+                        workGiverDef,
+                        parentPriority);
             }
 
             presentation ??= new CellPresentation();
@@ -178,12 +267,33 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             presentation.BasePriority = basePriority;
             presentation.EffectivePriority = effectivePriority;
             presentation.HasPawnOverride = hasPawnOverride;
+            presentation.HasGlobalOverride = hasGlobalOverride;
             presentation.HasScheduleIndicator = hasScheduleIndicator;
             presentation.ScheduleTarget = scheduleTarget;
             presentation.ScheduleFallbackPriority = scheduleFallbackPriority;
             presentation.InheritedPriority = inheritedPriority;
             RefreshDynamicState(presentation, pawn, workType, workGiver);
             return presentation;
+        }
+
+        private static WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>
+            ResolveExactSpecificJobPriority(WorkloadSpecificJobTargetKey key)
+        {
+            IWorkTabEffectiveStateV2Provider provider =
+                WorkTabEffectiveStateRuntime.CurrentProvider as IWorkTabEffectiveStateV2Provider;
+            return provider == null || key == null
+                ? WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion
+                : provider.ResolveSpecificJobPriority(key);
+        }
+
+        private static WorkTabEffectiveStateResolution<WorkloadSchedulePayload>
+            ResolveExactSchedule(WorkloadScheduleTargetKey key)
+        {
+            IWorkTabEffectiveStateV2Provider provider =
+                WorkTabEffectiveStateRuntime.CurrentProvider as IWorkTabEffectiveStateV2Provider;
+            return provider == null || key == null
+                ? WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion
+                : provider.ResolveSchedule(key);
         }
 
         private static void RefreshDynamicState(
@@ -380,6 +490,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             internal int BasePriority;
             internal int EffectivePriority;
             internal bool HasPawnOverride;
+            internal bool HasGlobalOverride;
             internal bool WorkTypeDisabled;
             internal bool DisabledByAge;
             internal int MinimumAge;
