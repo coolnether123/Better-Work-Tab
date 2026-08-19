@@ -5,6 +5,7 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using RimWorld;
@@ -218,7 +219,9 @@ namespace Better_Work_Tab.Features.Tutorial
             WorkTabLayoutColumn column,
             IWorkTabLayoutController layout)
         {
-            if ((BetterWorkTabMod.Settings?.enableAngledHeaders ?? false) &&
+            if (BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.HeadersAngled,
+                    BetterWorkTabMod.Settings?.enableAngledHeaders ?? false) &&
                 TryGetAngledHeaderQuad(column, layout, out Vector2[] angledQuad))
             {
                 // Offset along the edge normals rather than away from the quad's

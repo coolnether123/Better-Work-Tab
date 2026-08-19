@@ -11,6 +11,13 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 {
     internal sealed class RuleBuilder2ApplyService
     {
+        private enum ApplyResult
+        {
+            NoChange,
+            Changed,
+            Failed
+        }
+
         private readonly RuleBuilder2Evaluator evaluator = new RuleBuilder2Evaluator();
 
         public int Apply(RuleBuilder2Ruleset ruleset, out List<string> warnings, bool persistRuleset = true)
@@ -22,15 +29,31 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 return 0;
             }
 
+            if (!WorkAssignmentRuleset.CanApplyLiveRuleset(out string rejectionReason))
+            {
+                warnings.Add(rejectionReason);
+                WorkAssignmentRuleset.RejectLiveRulesetApplication(rejectionReason);
+                return 0;
+            }
+
             RuleBuilder2SleekPriorityTranslation.AddApplyWarningIfNeeded(ruleset, warnings);
 
-            WorkPrioritySystem.SetManualPriorities(true);
+            if (!WorkPrioritySystem.SetManualPriorities(true))
+            {
+                warnings.Add(WorkAssignmentRuleset.LiveRulesetManualPriorityBlockedReason);
+                WorkAssignmentRuleset.RejectLiveRulesetApplication(
+                    WorkAssignmentRuleset.LiveRulesetManualPriorityBlockedReason);
+                return 0;
+            }
             List<Pawn> pawns = RuleBuilder2Evaluator.GetCurrentPawns();
             int changed = 0;
 
             if (ruleset.ResetBeforeApplying)
             {
-                WorkAssignmentRuleset.SetAllToZero();
+                if (!WorkAssignmentRuleset.SetAllToZero())
+                {
+                    return 0;
+                }
             }
 
             foreach (RuleBuilder2Card card in ruleset.Cards
@@ -65,7 +88,24 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                         int currentPriority = RuleBuilder2Evaluator.GetCurrentPriority(pawn, workType, workGiver);
                         bool matched = evaluator.MatchesConditions(card, pawn, workType, workGiver, currentPriority);
 
-                        if (matched && ApplyCardToPawn(card, pawn, workType, workGiver, currentPriority, warnings))
+                        if (!matched)
+                        {
+                            continue;
+                        }
+
+                        ApplyResult result = ApplyCardToPawn(
+                            card,
+                            pawn,
+                            workType,
+                            workGiver,
+                            currentPriority,
+                            warnings);
+                        if (result == ApplyResult.Failed)
+                        {
+                            return 0;
+                        }
+
+                        if (result == ApplyResult.Changed)
                         {
                             changed++;
                         }
@@ -83,7 +123,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             return changed;
         }
 
-        private static bool ApplyCardToPawn(
+        private static ApplyResult ApplyCardToPawn(
             RuleBuilder2Card card,
             Pawn pawn,
             WorkTypeDef workType,
@@ -101,29 +141,49 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 targetPriority != 0 &&
                 currentPriority < targetPriority)
             {
-                return false;
+                return ApplyResult.NoChange;
             }
-
-            bool changed = false;
 
             switch (card.Action.Kind)
             {
                 case RuleBuilder2ActionKind.FollowGlobal:
                     warnings.Add("Follow global/default priority is preview-only for now. Clear sub-work overrides from the Work tab if needed.");
-                    return false;
+                    return ApplyResult.NoChange;
                 case RuleBuilder2ActionKind.SetTimeSchedule:
                 case RuleBuilder2ActionKind.SetSubWorkSchedule:
-                    changed |= ApplyBasePriority(pawn, workType, workGiver, targetPriority, currentPriority, warnings);
+                    ApplyResult baseResult = ApplyBasePriority(
+                        pawn,
+                        workType,
+                        workGiver,
+                        targetPriority,
+                        currentPriority,
+                        warnings);
+                    if (baseResult == ApplyResult.Failed || !TryRecheckWriterAuthority(warnings))
+                    {
+                        return ApplyResult.Failed;
+                    }
+
                     card.Action.EnsureSchedule(targetPriority);
                     TimePriorityTarget scheduleTarget = workGiver == null
                         ? TimePriorityTarget.ForRuntimeWorkType(pawn, workType)
                         : TimePriorityTarget.ForRuntimeWorkGiver(pawn, workType, workGiver);
-                    TimePriorityService.SetScheduleSynced(
-                        scheduleTarget,
-                        card.Action.HourlyPriorities.ToArray(),
-                        TimePriorityService.CreateAllHoursPinnedState(),
-                        targetPriority);
-                    return true;
+                    if (!TimePriorityService.SetScheduleSynced(
+                            scheduleTarget,
+                            card.Action.HourlyPriorities.ToArray(),
+                            TimePriorityService.CreateAllHoursPinnedState(),
+                            targetPriority))
+                    {
+                        return RejectWriteFailure(
+                            warnings,
+                            "Rule Builder 2.0 could not write a work-priority schedule.");
+                    }
+
+                    if (!TryRecheckWriterAuthority(warnings))
+                    {
+                        return ApplyResult.Failed;
+                    }
+
+                    return ApplyResult.Changed;
                 case RuleBuilder2ActionKind.Disable:
                 case RuleBuilder2ActionKind.SetPriority:
                     return ApplyBasePriority(pawn, workType, workGiver, targetPriority, currentPriority, warnings);
@@ -131,11 +191,11 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     AddWarningOnce(
                         warnings,
                         "Skipped unsupported Rule Builder 2.0 action kind: " + (int)card.Action.Kind + ".");
-                    return false;
+                    return ApplyResult.NoChange;
             }
         }
 
-        private static bool ApplyBasePriority(
+        private static ApplyResult ApplyBasePriority(
             Pawn pawn,
             WorkTypeDef workType,
             WorkGiverDef workGiver,
@@ -146,7 +206,12 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             targetPriority = RuleBuilder2SleekPriorityTranslation.TranslatePriority(targetPriority);
             if (targetPriority == currentPriority)
             {
-                return false;
+                return ApplyResult.NoChange;
+            }
+
+            if (!TryRecheckWriterAuthority(warnings))
+            {
+                return ApplyResult.Failed;
             }
 
             if (workGiver != null)
@@ -157,11 +222,10 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     {
                         AddWarningOnce(
                             warnings,
-                            "Sleek Work Priorities' per-job store was unavailable; this sub-work rule was kept in BWT's fallback store.");
-                        WorkGiverReassignmentManager.SetPawnOverrideSynced(
-                            pawn.thingIDNumber,
-                            workGiver.defName,
-                            targetPriority);
+                            "Sleek Work Priorities' per-job store was unavailable; this sub-work rule was not applied.");
+                        return RejectWriteFailure(
+                            warnings,
+                            "Rule Builder 2.0 could not write a specific-job priority.");
                     }
                 }
                 else
@@ -171,13 +235,45 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                         workGiver.defName,
                         targetPriority);
                 }
+
+                if (!TryRecheckWriterAuthority(warnings))
+                {
+                    return ApplyResult.Failed;
+                }
             }
             else
             {
-                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, targetPriority);
+                if (!WorkPrioritySystem.SetPriority(pawn.workSettings, workType, targetPriority))
+                {
+                    return RejectWriteFailure(
+                        warnings,
+                        "Rule Builder 2.0 could not write a work-type priority.");
+                }
             }
 
-            return true;
+            return ApplyResult.Changed;
+        }
+
+        private static bool TryRecheckWriterAuthority(List<string> warnings)
+        {
+            if (WorkAssignmentRuleset.CanApplyLiveRuleset(out string rejectionReason))
+            {
+                return true;
+            }
+
+            AddWarningOnce(warnings, rejectionReason);
+            WorkAssignmentRuleset.RejectLiveRulesetApplication(rejectionReason);
+            return false;
+        }
+
+        private static ApplyResult RejectWriteFailure(List<string> warnings, string fallbackReason)
+        {
+            string rejectionReason = WorkAssignmentRuleset.CanApplyLiveRuleset(out string authorityReason)
+                ? fallbackReason
+                : authorityReason;
+            AddWarningOnce(warnings, rejectionReason);
+            WorkAssignmentRuleset.RejectLiveRulesetApplication(rejectionReason);
+            return ApplyResult.Failed;
         }
 
         private static void AddWarningOnce(List<string> warnings, string warning)

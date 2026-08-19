@@ -6,6 +6,8 @@ using UnityEngine;
 using Verse;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Workloads;
 
 namespace Better_Work_Tab.Features
 {
@@ -15,6 +17,59 @@ namespace Better_Work_Tab.Features
     public class WorkAssignmentRuleset : IExposable
     {
         //private readonly BetterWorkTabSettings _settings;
+
+        internal const string LiveRulesetApplicationBlockedReason =
+            "Ruleset application is blocked while a V2 workload preview is active.";
+
+        internal const string LiveRulesetApplicationAuthorityBlockedReason =
+            "Ruleset application requires coherent Better Work Tab priority authority. Better Work Tab is read-only while an external priority authority is active or authority is changing.";
+
+        internal const string LiveRulesetManualPriorityBlockedReason =
+            "Ruleset application could not enable manual work priorities.";
+
+        internal const string LiveRulesetPriorityWriteFailedReason =
+            "Ruleset application could not write a work priority.";
+
+        internal static bool CanApplyLiveRuleset(out string rejectionReason)
+        {
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive ||
+                WorkloadGateway.IsV2PreviewSessionActive)
+            {
+                rejectionReason = LiveRulesetApplicationBlockedReason;
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.ParentPriority,
+                    rejectionReason);
+                return false;
+            }
+
+            if (!PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
+            {
+                rejectionReason = LiveRulesetApplicationAuthorityBlockedReason;
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.ParentPriority,
+                    rejectionReason);
+                return false;
+            }
+
+            rejectionReason = null;
+            return true;
+        }
+
+        internal static void RejectLiveRulesetApplication(string rejectionReason)
+        {
+            if (!rejectionReason.NullOrEmpty())
+            {
+                Messages.Message(rejectionReason, MessageTypeDefOf.RejectInput, false);
+            }
+        }
+
+        internal static void RejectLiveRulesetWriteFailure()
+        {
+            string rejectionReason = CanApplyLiveRuleset(out string authorityReason)
+                ? LiveRulesetPriorityWriteFailedReason
+                : authorityReason;
+            RejectLiveRulesetApplication(rejectionReason);
+        }
 
         public string Name;
         public bool ResetBeforeApplying = true;
@@ -62,9 +117,15 @@ namespace Better_Work_Tab.Features
             EnsurePriorityOrder();
         }
 
-        public static void SetAllToZero()
+        public static bool SetAllToZero()
         {
-            new WorkAssignmentRuleset("Reset", new List<WorkAssignmentRule> {
+            if (!CanApplyLiveRuleset(out string rejectionReason))
+            {
+                RejectLiveRulesetApplication(rejectionReason);
+                return false;
+            }
+
+            return new WorkAssignmentRuleset("Reset", new List<WorkAssignmentRule> {
                         new WorkAssignmentRule(new WorkAssignmentParameters("Reset", 0, allowOverwritingHigherPriority: true))
                     }).ApplyAutoAssignments();
         }
@@ -72,15 +133,25 @@ namespace Better_Work_Tab.Features
         /// <summary>
         /// Applies all configured auto-assignment rules to the free colonists on the current map.
         /// </summary>
-        public void ApplyAutoAssignments()
+        public bool ApplyAutoAssignments()
         {
-            var map = Find.CurrentMap;
-            if (map == null) return;
+            if (!CanApplyLiveRuleset(out string rejectionReason))
+            {
+                RejectLiveRulesetApplication(rejectionReason);
+                return false;
+            }
 
-            WorkPrioritySystem.SetManualPriorities(true);
+            var map = Find.CurrentMap;
+            if (map == null) return false;
+
+            if (!WorkPrioritySystem.SetManualPriorities(true))
+            {
+                RejectLiveRulesetApplication(LiveRulesetManualPriorityBlockedReason);
+                return false;
+            }
 
             var pawns = map.mapPawns.FreeColonists.ToList();
-            if (pawns.Count == 0) return;
+            if (pawns.Count == 0) return true;
 
             var allWorkTypes = CachedWorkTypes;
 
@@ -112,7 +183,18 @@ namespace Better_Work_Tab.Features
                         int originalPriority = pawn.workSettings.GetPriority(worktype);
                         bool pawnAlreadyAssigned = originalPriority > 0;
                         //// Apply all rules
-                        if (rule.Apply(pawn, pawns, worktype))
+                        bool shouldSkipRemainingPawns = rule.Apply(
+                            pawn,
+                            pawns,
+                            worktype,
+                            out bool mutationFailed);
+                        if (mutationFailed)
+                        {
+                            RejectLiveRulesetWriteFailure();
+                            return false;
+                        }
+
+                        if (shouldSkipRemainingPawns)
                         {
                             //Log.Message("assigned " + worktype.defName +" to " + pawn.NameShortColored +". Skipping remaining pawns.");
                             //Apply returns true if the rest of the pawns should be skipped for this worktype
@@ -139,7 +221,11 @@ namespace Better_Work_Tab.Features
                         {
                             BetterWorkTabMod.DebugLog($"Resetting {worktype.defName} for {p.NameShortColored} before random assignment.", DebugFeature.Rules);
                             //if (p.workSettings.GetPriority(worktype) == rule.Parameters.Priority)
-                            p.workSettings.SetPriority(worktype, 0);
+                            if (!WorkPrioritySystem.SetPriority(p.workSettings, worktype, 0))
+                            {
+                                RejectLiveRulesetWriteFailure();
+                                return false;
+                            }
                         }
                         // Mirrors vanilla RimWorld's selection logic for picking one pawn among eligible candidates.
                         List<Pawn> eligiblePawns = new List<Pawn>();
@@ -153,10 +239,14 @@ namespace Better_Work_Tab.Features
 
                         if (eligiblePawns.Count > 0)
                         {
-                            WorkPrioritySystem.SetPriority(
-                                eligiblePawns.RandomElement().workSettings,
-                                worktype,
-                                rule.Parameters.Priority);
+                            if (!WorkPrioritySystem.SetPriority(
+                                    eligiblePawns.RandomElement().workSettings,
+                                    worktype,
+                                    rule.Parameters.Priority))
+                            {
+                                RejectLiveRulesetWriteFailure();
+                                return false;
+                            }
                         }
                     }
 
@@ -169,6 +259,8 @@ namespace Better_Work_Tab.Features
 
                 }
             }
+
+            return true;
         }
 
         public void ExposeData()

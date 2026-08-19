@@ -182,6 +182,88 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 }
             }
 
+            if ((dimensions & WorkloadOwnershipDimensions.ParentPriorities) != 0)
+            {
+                for (int i = 0; i < state.ParentPriorityIntents.Count; i++)
+                {
+                    WorkloadParentPriorityIntentEntry entry = state.ParentPriorityIntents[i];
+                    values[ComposeKey(
+                        WorkloadStateDimension.ParentPriorities,
+                        "intent:" + entry.Key.CanonicalKey)] = entry.Intent.CanonicalForm;
+                }
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.ManualModes) != 0)
+            {
+                for (int i = 0; i < state.ManualModeIntents.Count; i++)
+                {
+                    WorkloadManualModeIntentEntry entry = state.ManualModeIntents[i];
+                    values[ComposeKey(
+                        WorkloadStateDimension.ManualModes,
+                        "intent:" + entry.Key.CanonicalKey)] = entry.Intent.CanonicalForm;
+                }
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.Schedules) != 0)
+            {
+                for (int i = 0; i < state.ScheduleIntents.Count; i++)
+                {
+                    WorkloadScheduleIntentEntry entry = state.ScheduleIntents[i];
+                    values[ComposeKey(
+                        WorkloadStateDimension.Schedules,
+                        "intent:" + entry.Key.CanonicalKey)] = entry.Intent.CanonicalForm;
+                }
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.SpecificJobOverrides) != 0)
+            {
+                for (int i = 0; i < state.SpecificPriorityIntents.Count; i++)
+                {
+                    WorkloadSpecificPriorityIntentEntry entry = state.SpecificPriorityIntents[i];
+                    if (entry == null || entry.Intent.IsNoOpinion) continue;
+                    values[ComposeKey(
+                        WorkloadStateDimension.SpecificJobOverrides,
+                        "intent:" + entry.Key.CanonicalKey)] = entry.Intent.CanonicalForm;
+                }
+
+                if (state.HasAmbiguousSpecificPriorityIntents)
+                {
+                    values[ComposeKey(
+                        WorkloadStateDimension.SpecificJobOverrides,
+                        "invalid:duplicate-target")] = "1";
+                }
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.SpecificJobOrder) != 0)
+            {
+                for (int i = 0; i < state.WorkTypeOrderIntents.Count; i++)
+                {
+                    WorkloadWorkTypeOrderIntentEntry entry = state.WorkTypeOrderIntents[i];
+                    if (entry == null || entry.Intent.IsNoOpinion) continue;
+                    values[ComposeKey(
+                        WorkloadStateDimension.SpecificJobOrder,
+                        "intent:" + entry.Key.CanonicalKey)] = entry.Intent.CanonicalForm;
+                }
+
+                if (state.HasAmbiguousWorkTypeOrderIntents)
+                {
+                    values[ComposeKey(
+                        WorkloadStateDimension.SpecificJobOrder,
+                        "invalid:duplicate-target")] = "1";
+                }
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.PresentationSettings) != 0)
+            {
+                for (int i = 0; i < state.PresentationSettingIntents.Count; i++)
+                {
+                    WorkloadPresentationSettingIntentEntry entry = state.PresentationSettingIntents[i];
+                    values[ComposeKey(
+                        WorkloadStateDimension.PresentationSettings,
+                        "intent:" + WorkloadCanonical.Encode(entry.Key))] = entry.Intent.CanonicalForm;
+                }
+            }
+
             return values;
         }
 

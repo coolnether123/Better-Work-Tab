@@ -4,7 +4,6 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using Better_Work_Tab.Features.Feedback;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using System.Xml;
@@ -368,15 +367,6 @@ namespace Better_Work_Tab.UI.Settings
                 source.tutorialLessonIdsAlreadyUsed ?? new List<string>();
             destination.tutorialDiscoveryOfferAcknowledged =
                 source.tutorialDiscoveryOfferAcknowledged;
-            destination.tutorialLessonFeedback =
-                source.tutorialLessonFeedback ?? new List<BWTTutorialLessonFeedback>();
-            destination.tutorialOverallFeedback = source.tutorialOverallFeedback ?? string.Empty;
-            destination.betaFeatureRatings =
-                source.betaFeatureRatings ?? new List<BWTFeatureRating>();
-            destination.betaProblemReports =
-                source.betaProblemReports ?? new List<BWTProblemReport>();
-            destination.betaOverallFeedback = source.betaOverallFeedback ?? string.Empty;
-            destination.betaTesterHandle = source.betaTesterHandle ?? string.Empty;
         }
 
         private static string TemporaryExportPath(string operation)

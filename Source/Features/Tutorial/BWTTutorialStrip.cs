@@ -198,9 +198,12 @@ namespace Better_Work_Tab.Features.Tutorial
                 rightEdge = exit.xMin - ButtonGap;
             }
 
-            float skipWidth = MeasureButtonWidth(SkipLabel(content.Mode));
-            skip = new Rect(rightEdge - skipWidth, buttonTop, skipWidth, ButtonHeight);
-            rightEdge = skip.xMin - ButtonGap;
+            if (content.Mode != BWTTutorialStripMode.Browse)
+            {
+                float skipWidth = MeasureButtonWidth(SkipLabel(content.Mode));
+                skip = new Rect(rightEdge - skipWidth, buttonTop, skipWidth, ButtonHeight);
+                rightEdge = skip.xMin - ButtonGap;
+            }
 
             // Only while browsing. During a lesson the player is being asked to
             // do one thing, and a second call to action next to it competes
@@ -403,8 +406,6 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 case BWTTutorialStripMode.Complete:
                     return T("BWT_Tutorial_Outcome_Continue");
-                case BWTTutorialStripMode.Browse:
-                    return T("BWT_Tutorial_GiveFeedback");
                 default:
                     return T("BWT_Tutorial_SkipLesson");
             }

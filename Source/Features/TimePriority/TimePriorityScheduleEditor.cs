@@ -335,14 +335,6 @@ namespace Better_Work_Tab.Features.TimePriority
                 return;
             }
 
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
-            {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    "The existing hourly schedule editor cannot represent the preview ScheduleKey contract.");
-                return;
-            }
-
             int currentPriority;
             TimePriorityTarget target;
             if (workGiver != null)
@@ -373,6 +365,14 @@ namespace Better_Work_Tab.Features.TimePriority
                 target = TimePriorityTarget.ForWorkType(pawn, workType);
             }
 
+            if (!TimePriorityService.CanEditScheduleFromEditor(target, out string reason))
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    reason);
+                return;
+            }
+
             Rect sourceRect = new Rect(Verse.UI.screenWidth / 2f - 12f, Verse.UI.screenHeight / 2f - 12f, 24f, 24f);
             _session = new Session(new TargetInfo(target, sourceRect, currentPriority));
             TimePriorityService.GetPrioritiesForDisplay(target, currentPriority);
@@ -389,11 +389,11 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            if (!TimePriorityService.CanEditScheduleFromEditor(target, out string reason))
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    "The existing hourly schedule editor cannot represent the preview ScheduleKey contract.");
+                    reason);
                 return false;
             }
 
@@ -425,14 +425,6 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             if (!IsEnabled || !HasBetterWorkTabScheduleAuthority || layout == null)
             {
-                return false;
-            }
-
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
-            {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    "Hourly schedule sessions are blocked during preview.");
                 return false;
             }
 
@@ -468,17 +460,6 @@ namespace Better_Work_Tab.Features.TimePriority
             if (layout == null || evt == null)
             {
                 return false;
-            }
-
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive &&
-                _session != null &&
-                (evt.type == EventType.MouseDown || evt.type == EventType.ScrollWheel))
-            {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    "Hourly schedule edits are blocked while a preview provider is active.");
-                evt.Use();
-                return true;
             }
 
             if (_session != null && evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
@@ -522,15 +503,6 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             if (!HasBetterWorkTabScheduleAuthority)
             {
-                FinishClose(notifyLayout: false);
-                return;
-            }
-
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive && _session != null)
-            {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    "The live hourly schedule surface is hidden during preview.");
                 FinishClose(notifyLayout: false);
                 return;
             }
@@ -695,15 +667,6 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (TryFindCellHit(evt.mousePosition, out CellHit hit))
             {
-                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
-                {
-                    WorkTabEffectiveStateRuntime.ReportBlocked(
-                        WorkTabEffectiveStateDimension.Schedule,
-                        "Hourly schedule edits are blocked while a preview provider is active.");
-                    evt.Use();
-                    return true;
-                }
-
                 if (IsControlHeld(evt))
                 {
                     StartCloseAnimation(GetPointRect(evt.mousePosition));
@@ -714,18 +677,40 @@ namespace Better_Work_Tab.Features.TimePriority
 
                 int current = TimePriorityService.GetPriorityAtHour(hit.Target, hit.FallbackPriority, hit.Hour);
                 bool pinned = TimePriorityService.IsCustomScheduledHour(hit.Target, hit.Hour, hit.FallbackPriority);
+                bool accepted;
+                string reason;
                 if (pinned && IsAtCycleEnd(current, evt))
                 {
-                    TimePriorityService.ClearPriorityAtHourSynced(hit.Target, hit.Hour);
+                    accepted = TimePriorityService.TryClearScheduleHourFromEditor(
+                        hit.Target,
+                        hit.Hour,
+                        hit.FallbackPriority,
+                        out reason);
                 }
                 else
                 {
                     int next = GetNextPriorityForInput(current, evt);
-                    TimePriorityService.SetPriorityAtHourSynced(hit.Target, hit.Hour, next, hit.FallbackPriority);
+                    accepted = TimePriorityService.TrySetScheduleHourFromEditor(
+                        hit.Target,
+                        hit.Hour,
+                        next,
+                        hit.FallbackPriority,
+                        out reason);
                 }
 
-                _tutorialEditRevision++;
-                SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                if (!accepted)
+                {
+                    WorkTabEffectiveStateRuntime.ReportBlocked(
+                        WorkTabEffectiveStateDimension.Schedule,
+                        reason ?? "The hourly schedule write was rejected.");
+                }
+
+                if (accepted)
+                {
+                    _tutorialEditRevision++;
+                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                }
+
                 evt.Use();
                 return true;
             }
@@ -793,12 +778,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void CopySchedule(CopyPasteHit hit)
         {
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive ||
-                !HasBetterWorkTabScheduleAuthority)
+            if (!HasBetterWorkTabScheduleAuthority)
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    "Schedule copy cannot be represented by the preview ScheduleKey contract.");
+                    "Schedule copy is unavailable while Better Work Tab does not own priority data.");
                 return;
             }
 
@@ -809,12 +793,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void PasteSchedule(CopyPasteHit hit)
         {
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive ||
-                !HasBetterWorkTabScheduleAuthority)
+            if (!HasBetterWorkTabScheduleAuthority)
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    "Schedule paste cannot be represented by the preview ScheduleKey contract.");
+                    "Schedule paste is unavailable while Better Work Tab does not own priority data.");
                 return;
             }
 
@@ -826,11 +809,19 @@ namespace Better_Work_Tab.Features.TimePriority
             int[] beforePriorities = TimePriorityService.GetPrioritiesForDisplay(hit.Target, hit.FallbackPriority);
             int[] afterPriorities = snapshot.CopyPriorities();
             EnsureTargetVisibleForTransfer(hit);
-            TimePriorityService.SetScheduleSynced(
+            if (!TimePriorityService.TrySetScheduleFromEditor(
                 hit.Target,
                 afterPriorities,
                 snapshot.CopyUnlinkedHours(),
-                hit.FallbackPriority);
+                hit.FallbackPriority,
+                out string reason))
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    reason ?? "The schedule paste was rejected.");
+                return;
+            }
+
             TimePriorityScheduleTransferFeedback.StartPaste(hit.Target, beforePriorities, afterPriorities, closeWhenComplete: true);
             Messages.Message("Pasted " + snapshot.Label + " time priorities.", MessageTypeDefOf.PositiveEvent, false);
         }
@@ -937,12 +928,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static void ToggleTarget(TargetInfo target)
         {
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive ||
-                !HasBetterWorkTabScheduleAuthority)
+            if (!HasBetterWorkTabScheduleAuthority)
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    "Hourly schedule sessions are blocked during preview.");
+                    "Hourly schedule sessions are unavailable while Better Work Tab does not own priority data.");
                 return;
             }
 
@@ -1035,7 +1025,6 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             if (!IsEnabled ||
                 !HasBetterWorkTabScheduleAuthority ||
-                WorkTabEffectiveStateRuntime.IsPreviewActive ||
                 _session == null ||
                 pawn == null ||
                 pawn.Dead ||
@@ -1153,18 +1142,6 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             if (!HasBetterWorkTabScheduleAuthority)
             {
-                hour = -1;
-                fallbackPriority = 0;
-                unlinked = false;
-                displayedPriority = 0;
-                return false;
-            }
-
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
-            {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    "Hourly schedule link state is unavailable because the preview ScheduleKey has no hourly projection.");
                 hour = -1;
                 fallbackPriority = 0;
                 unlinked = false;
