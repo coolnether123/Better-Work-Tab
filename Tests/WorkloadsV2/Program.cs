@@ -11,6 +11,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("specific-jobs-and-tombstones", SpecificJobTests.Run),
             new TestCase("session-lifecycle", SessionTests.Run),
             new TestCase("persistence-and-migration", PersistenceTests.Run),
+            new TestCase("reassignment-cleanup", ReassignmentCleanupTests.Run),
             new TestCase("mp-protocol", MpProtocolTests.Run),
             new TestCase("gateway-multiplayer-contracts", GatewayMultiplayerTests.Run),
             new TestCase("gateway-lifecycle-contracts", GatewayLifecycleTests.Run),

@@ -28,6 +28,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             RollbackLeaseCannotBecomeSuccessAfterFailure(backend, contracts);
             TemplateWritesUseTheSameTransactionBoundary(backend);
             FreshnessRevisionsAreCapturedAndValidatedIndependently(backend, multiplayer);
+            PersistenceRevalidatesRuntimeStateBeforeTemplateWrites(backend);
         }
 
         private static void PrepareIsReadOnlyAndExecuteIsCapabilityBound(
@@ -236,6 +237,108 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 multiplayer,
                 "The idempotency key was reused with a different canonical payload.",
                 "conflicting idempotent retries must fail closed");
+        }
+
+        private static void PersistenceRevalidatesRuntimeStateBeforeTemplateWrites(string backend)
+        {
+            int validationCall = backend.IndexOf(
+                "ValidatePersistenceRuntimeState(",
+                StringComparison.Ordinal);
+            int updateBranch = backend.IndexOf(
+                "if (decisionKind == WorkloadDecisionKind.Update && !plan.Diff.IsEmpty)",
+                StringComparison.Ordinal);
+            int persistenceMutation = backend.IndexOf(
+                "persistence = new PersistenceMutation(",
+                updateBranch,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                validationCall >= 0 && updateBranch > validationCall && persistenceMutation > validationCall,
+                "Update and Fork must revalidate runtime state before staging persistence");
+
+            int helperStart = backend.IndexOf(
+                "private static void ValidatePersistenceRuntimeState(",
+                StringComparison.Ordinal);
+            int helperEnd = backend.IndexOf(
+                "private static bool HasPersistedDimension(",
+                helperStart,
+                StringComparison.Ordinal);
+            TestAssert.True(helperStart >= 0 && helperEnd > helperStart,
+                "the persistence runtime validation seam must remain explicit");
+            string helper = backend.Substring(helperStart, helperEnd - helperStart);
+
+            TestAssert.Contains(
+                helper,
+                "BuildRuntimeContext(targetTemplate, report)",
+                "Update/Fork must resolve the current pawn, WorkTypeDef, and WorkGiverDef catalog");
+            TestAssert.Contains(
+                helper,
+                "ValidateScopeEntries(scope, runtime, report)",
+                "removed or stale scoped pawns must fail closed before persistence");
+            TestAssert.Contains(
+                helper,
+                "ValidateRuntimeEntries(",
+                "legacy runtime entries must reuse the canonical target resolver");
+            TestAssert.Contains(
+                helper,
+                "requireLiveBaseline: false",
+                "Update/Fork must not inherit Apply-only live value-baseline requirements");
+            TestAssert.Contains(
+                helper,
+                "useTargetTemplateState: true",
+                "Update/Fork must validate the exact detached persistence payload");
+            TestAssert.Contains(
+                helper,
+                "report.MissingOrStaleCount > 0",
+                "removed definitions and targets must produce structured stale diagnostics");
+            TestAssert.Contains(
+                helper,
+                "TimePriorityService.CurrentVersion != baseline.ScheduleRevision",
+                "schedule service drift must block stale schedule persistence");
+            TestAssert.Contains(
+                helper,
+                "WorkGiverReassignmentManager.CurrentSyncVersion != baseline.SpecificJobRevision",
+                "specific-job service drift must block stale persistence");
+            TestAssert.Contains(
+                helper,
+                "ComputeTaxonomyFingerprint(runtime)",
+                "changed WorkGiver taxonomy must block Update/Fork persistence");
+            TestAssert.Contains(
+                helper,
+                "WorkPrioritySystem.IsBwtMutationAuthorityCurrent(baseline.AuthorityRevision)",
+                "authority drift must block Update/Fork persistence without handoff");
+            TestAssert.Contains(
+                backend,
+                "BWTWorkloadSettingsOwnershipPolicy.TryGetStageableDefinition(",
+                "settings ownership must be checked against the live stageable registry");
+            TestAssert.False(
+                helper.IndexOf("ApplyLive(", StringComparison.Ordinal) >= 0,
+                "Update/Fork runtime revalidation must not mutate the live colony");
+
+            // Deterministic model coverage for the four persistence outcomes
+            // represented by the production source contract above.
+            var catalog = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "pawn:p1",
+                "worktype:PlantWork",
+                "workgiver:PlantCut"
+            };
+            TestAssert.False(
+                catalog.Contains("workgiver:RemovedWorkGiver"),
+                "a removed WorkGiver identity must be rejected by the runtime catalog");
+            catalog.Remove("worktype:PlantWork");
+            TestAssert.False(
+                catalog.Contains("worktype:PlantWork"),
+                "a removed WorkType identity must be rejected by the runtime catalog");
+            TestAssert.True(
+                !StringComparer.Ordinal.Equals("taxonomy-a", "taxonomy-b"),
+                "a changed taxonomy fingerprint must be treated as drift");
+            TestAssert.True(
+                !StringComparer.Ordinal.Equals("authority-a", "authority-b"),
+                "a changed authority identity must be treated as drift");
+            TestAssert.True(
+                StringComparer.Ordinal.Equals("taxonomy-a", "taxonomy-a") &&
+                StringComparer.Ordinal.Equals("authority-a", "authority-a"),
+                "unchanged runtime identity, taxonomy, and authority must permit valid persistence");
         }
 
         private static string FindRepositoryRoot()

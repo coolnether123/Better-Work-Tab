@@ -63,6 +63,7 @@
     <Compile Include="SpecificJobTests.cs" />
     <Compile Include="SessionTests.cs" />
     <Compile Include="PersistenceTests.cs" />
+    <Compile Include="ReassignmentCleanupTests.cs" />
     <Compile Include="MpProtocolTests.cs" />
     <Compile Include="GatewayMultiplayerTests.cs" />
     <Compile Include="GatewayLifecycleTests.cs" />

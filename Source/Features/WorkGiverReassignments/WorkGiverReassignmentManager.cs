@@ -3089,21 +3089,41 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static void CleanupOrphanedReassignments()
         {
             var data = Data;
-            if (data?.WorkGiverToWorkTypeMap == null)
+            if (data == null)
             {
                 return;
             }
 
-            var orphaned = new List<string>();
+            data.EnsureCollections();
+            var orphanedWorkGivers = new List<string>();
             foreach (var wgName in data.WorkGiverToWorkTypeMap.Keys.ToList())
             {
                 if (DefDatabase<WorkGiverDef>.GetNamedSilentFail(wgName) == null)
                 {
-                    orphaned.Add(wgName);
+                    orphanedWorkGivers.Add(wgName);
                 }
             }
 
-            foreach (var wgName in orphaned)
+            var orphanedGlobalPriorityClears = new List<string>();
+            foreach (string wgName in data.GlobalWorkGiverPriorityClears.ToList())
+            {
+                WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(wgName);
+                if (workGiver == null || GetTargetWorkType(workGiver) == null)
+                {
+                    orphanedGlobalPriorityClears.Add(wgName);
+                }
+            }
+
+            var orphanedGlobalOrderClears = new List<string>();
+            foreach (string workTypeName in data.GlobalWorkTypeOrderClears.ToList())
+            {
+                if (DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeName) == null)
+                {
+                    orphanedGlobalOrderClears.Add(workTypeName);
+                }
+            }
+
+            foreach (var wgName in orphanedWorkGivers)
             {
                 data.WorkGiverToWorkTypeMap.Remove(wgName);
                 foreach (var list in data.WorkTypeWorkGiverOrder.Values)
@@ -3122,10 +3142,26 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 }
             }
 
-            if (orphaned.Count > 0)
+            foreach (string wgName in orphanedGlobalPriorityClears)
             {
+                data.GlobalWorkGiverPriorityClears.Remove(wgName);
+            }
+
+            foreach (string workTypeName in orphanedGlobalOrderClears)
+            {
+                data.GlobalWorkTypeOrderClears.Remove(workTypeName);
+            }
+
+            int removedCount = orphanedWorkGivers.Count +
+                orphanedGlobalPriorityClears.Count +
+                orphanedGlobalOrderClears.Count;
+            if (removedCount > 0)
+            {
+                data.SyncVersion++;
                 InvalidateCaches();
-                BetterWorkTabMod.DebugLog($"Cleaned up {orphaned.Count} orphaned WorkGiver reassignments", DebugFeature.General);
+                BetterWorkTabMod.DebugLog(
+                    $"Cleaned up {removedCount} orphaned WorkGiver reassignment and global tombstone entries",
+                    DebugFeature.General);
             }
         }
     }

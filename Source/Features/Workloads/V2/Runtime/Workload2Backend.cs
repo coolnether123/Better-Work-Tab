@@ -4009,6 +4009,22 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         report,
                         "preflight");
                 }
+                else
+                {
+                    // Update and Fork do not apply the live colony, so they do
+                    // not use Apply's optimistic value-baseline comparisons.
+                    // They still must resolve every persisted runtime identity
+                    // against the current catalog and reject taxonomy,
+                    // service-revision, settings-ownership, or authority drift
+                    // before staging a persistence mutation.
+                    ValidatePersistenceRuntimeState(
+                        session,
+                        targetTemplate,
+                        plan,
+                        scope,
+                        backendBaseline,
+                        report);
+                }
 
                 if (decisionKind == WorkloadDecisionKind.Update && !plan.Diff.IsEmpty)
                 {
@@ -4638,20 +4654,28 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadBackendDimensionBaseline baseline,
             WorkloadScope scope,
             RuntimeContext runtime,
-            WorkloadV2CommitReport report)
+            WorkloadV2CommitReport report,
+            bool requireLiveBaseline = true,
+            bool useTargetTemplateState = false,
+            string operationName = "apply")
         {
-            if (baseline == null || targetTemplate?.Definition == null) return;
-            WorkloadProjectedState state = session?.ProjectedState ??
-                targetTemplate.ProjectedState ?? WorkloadProjectedState.Empty;
+            if (targetTemplate?.Definition == null) return;
+            WorkloadProjectedState state = useTargetTemplateState
+                ? targetTemplate.ProjectedState ?? WorkloadProjectedState.Empty
+                : session?.ProjectedState ?? targetTemplate.ProjectedState ?? WorkloadProjectedState.Empty;
             WorkloadOwnershipDimensions ownership = targetTemplate.Definition.OwnershipDimensions;
-            if (ownership.Owns(WorkloadStateDimension.Schedules) && baseline.Schedules.Count > 0)
+            if (ownership.Owns(WorkloadStateDimension.Schedules))
             {
-                EnsureTypedBaselineCurrent(baseline, runtime, report, "schedule");
+                if (requireLiveBaseline && baseline != null && baseline.Schedules.Count > 0)
+                {
+                    EnsureTypedBaselineCurrent(baseline, runtime, report, "schedule");
+                }
+
                 for (int i = 0; i < state.ScheduleIntents.Count; i++)
                 {
                     WorkloadScheduleIntentEntry entry = state.ScheduleIntents[i];
                     if (entry == null || entry.Intent.IsNoOpinion) continue;
-                    if (!entry.Key.IsGlobal && session.IsExcludedForApply(entry.Key.Pawn))
+                    if (!entry.Key.IsGlobal && !useTargetTemplateState && session.IsExcludedForApply(entry.Key.Pawn))
                     {
                         report.Add(
                             WorkloadV2CommitMessageKind.Excluded,
@@ -4665,19 +4689,18 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     {
                         Abort(
                             WorkloadDiagnosticCode.InvalidState,
-                            "The V2 apply was blocked because schedule target " + entry.Key + " is stale or outside scope.");
+                            "The V2 " + operationName + " was blocked because schedule target " + entry.Key + " is stale or outside scope.");
                     }
                 }
             }
 
-            if (ownership.Owns(WorkloadStateDimension.SpecificJobOverrides) &&
-                baseline.SpecificPriorities.Count > 0)
+            if (ownership.Owns(WorkloadStateDimension.SpecificJobOverrides))
             {
                 for (int i = 0; i < state.SpecificPriorityIntents.Count; i++)
                 {
                     WorkloadSpecificPriorityIntentEntry entry = state.SpecificPriorityIntents[i];
                     if (entry == null || entry.Intent.IsNoOpinion) continue;
-                    if (!entry.Key.IsGlobal && session.IsExcludedForApply(entry.Key.Pawn))
+                    if (!entry.Key.IsGlobal && !useTargetTemplateState && session.IsExcludedForApply(entry.Key.Pawn))
                     {
                         report.Add(
                             WorkloadV2CommitMessageKind.Excluded,
@@ -4703,7 +4726,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         {
                             Abort(
                                 WorkloadDiagnosticCode.InvalidState,
-                                "The V2 apply was blocked because specific-job target " + entry.Key + " is stale.");
+                                "The V2 " + operationName + " was blocked because specific-job target " + entry.Key + " is stale.");
                         }
                     }
                     else if (entry.Key.IsGlobal &&
@@ -4717,20 +4740,19 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     {
                         Abort(
                             WorkloadDiagnosticCode.InvalidState,
-                            "The V2 apply was blocked because global specific-job target " + entry.Key +
+                            "The V2 " + operationName + " was blocked because global specific-job target " + entry.Key +
                             " is stale: " + reason);
                     }
                 }
             }
 
-            if (ownership.Owns(WorkloadStateDimension.SpecificJobOrder) &&
-                baseline.WorkTypeOrders.Count > 0)
+            if (ownership.Owns(WorkloadStateDimension.SpecificJobOrder))
             {
                 for (int i = 0; i < state.WorkTypeOrderIntents.Count; i++)
                 {
                     WorkloadWorkTypeOrderIntentEntry entry = state.WorkTypeOrderIntents[i];
                     if (entry == null || entry.Intent.IsNoOpinion) continue;
-                    if (!entry.Key.IsGlobal && session.IsExcludedForApply(entry.Key.Pawn))
+                    if (!entry.Key.IsGlobal && !useTargetTemplateState && session.IsExcludedForApply(entry.Key.Pawn))
                     {
                         report.Add(
                             WorkloadV2CommitMessageKind.Excluded,
@@ -4744,15 +4766,142 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     {
                         Abort(
                             WorkloadDiagnosticCode.InvalidState,
-                            "The V2 apply was blocked because WorkGiver order target " + entry.Key + " is stale or invalid.");
+                            "The V2 " + operationName + " was blocked because WorkGiver order target " + entry.Key + " is stale or invalid.");
                     }
                 }
             }
 
-            if (ownership.Owns(WorkloadStateDimension.PresentationSettings) &&
-                baseline.SettingsSnapshot != null)
+            if (requireLiveBaseline && ownership.Owns(WorkloadStateDimension.PresentationSettings) &&
+                baseline?.SettingsSnapshot != null)
             {
                 EnsureSettingsBaselineCurrent(baseline, report);
+            }
+        }
+
+        private static void ValidatePersistenceRuntimeState(
+            WorkloadSession session,
+            WorkloadTemplate targetTemplate,
+            WorkloadPreviewPlan plan,
+            WorkloadScope scope,
+            WorkloadBackendDimensionBaseline baseline,
+            WorkloadV2CommitReport report)
+        {
+            if (baseline == null)
+            {
+                Abort(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The V2 persistence operation is missing its service-owned runtime baseline.");
+            }
+
+            RuntimeContext runtime = BuildRuntimeContext(targetTemplate, report);
+            ValidateScopeEntries(scope, runtime, report);
+            ValidateRuntimeEntries(
+                session,
+                targetTemplate,
+                plan,
+                scope,
+                runtime,
+                report,
+                operationName: "persistence");
+            ValidateTypedRuntimeEntries(
+                session,
+                targetTemplate,
+                baseline,
+                scope,
+                runtime,
+                report,
+                requireLiveBaseline: false,
+                useTargetTemplateState: true,
+                operationName: "persistence");
+
+            if (report.MissingOrStaleCount > 0)
+            {
+                Abort(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The V2 persistence operation was blocked because a workload-owned runtime identity is stale or missing.");
+            }
+
+            WorkloadProjectedState state = targetTemplate.ProjectedState ?? WorkloadProjectedState.Empty;
+            WorkloadOwnershipDimensions ownership = targetTemplate.Definition.OwnershipDimensions;
+            bool hasSchedules = HasPersistedDimension(state, WorkloadStateDimension.Schedules);
+            bool hasSpecificJobs =
+                HasPersistedDimension(state, WorkloadStateDimension.SpecificJobOverrides) ||
+                HasPersistedDimension(state, WorkloadStateDimension.SpecificJobOrder);
+            bool hasPriorityRuntime =
+                hasSchedules ||
+                hasSpecificJobs ||
+                HasPersistedDimension(state, WorkloadStateDimension.ParentPriorities) ||
+                HasPersistedDimension(state, WorkloadStateDimension.ManualModes);
+
+            if (hasSchedules && TimePriorityService.CurrentVersion != baseline.ScheduleRevision)
+            {
+                AbortBaselineChanged(
+                    report,
+                    "schedule",
+                    "The hourly schedule service revision changed while the workload preview was open.");
+            }
+
+            if (hasSpecificJobs)
+            {
+                if (WorkGiverReassignmentManager.CurrentSyncVersion != baseline.SpecificJobRevision)
+                {
+                    AbortBaselineChanged(
+                        report,
+                        "specific-job.revision",
+                        "The WorkGiver reassignment revision changed while the workload preview was open.");
+                }
+
+                if (!StringComparer.Ordinal.Equals(
+                        baseline.TaxonomyFingerprint,
+                        ComputeTaxonomyFingerprint(runtime)))
+                {
+                    AbortBaselineChanged(
+                        report,
+                        "specific-job.taxonomy",
+                        "The WorkGiver taxonomy changed while the workload preview was open.");
+                }
+            }
+
+            if (hasPriorityRuntime &&
+                !WorkPrioritySystem.IsBwtMutationAuthorityCurrent(baseline.AuthorityRevision))
+            {
+                AbortBaselineChanged(
+                    report,
+                    "priority-authority",
+                    "Priority mutation authority changed while the workload preview was open; the projected workload was not persisted.");
+            }
+
+            // Keep the ownership value referenced here so this persistence
+            // boundary remains explicit when a dimension has no current entry.
+            // ValidateTypedStateForCommit has already checked the live
+            // stageable-settings registry before this runtime pass.
+            if (ownership.Owns(WorkloadStateDimension.PresentationSettings))
+            {
+                ValidateTypedStateForCommit(targetTemplate, baseline, false, report);
+            }
+        }
+
+        private static bool HasPersistedDimension(
+            WorkloadProjectedState state,
+            WorkloadStateDimension dimension)
+        {
+            if (state == null) return false;
+            switch (dimension)
+            {
+                case WorkloadStateDimension.ParentPriorities:
+                    return state.ParentPriorities.Count > 0 || state.ParentPriorityIntents.Count > 0;
+                case WorkloadStateDimension.ManualModes:
+                    return state.ManualModes.Count > 0 || state.ManualModeIntents.Count > 0;
+                case WorkloadStateDimension.Schedules:
+                    return state.Schedules.Count > 0 || state.ScheduleIntents.Count > 0;
+                case WorkloadStateDimension.SpecificJobOverrides:
+                    return state.SpecificJobOverrides.Count > 0 || state.SpecificPriorityIntents.Count > 0;
+                case WorkloadStateDimension.SpecificJobOrder:
+                    return state.SpecificJobOrder.Count > 0 || state.WorkTypeOrderIntents.Count > 0;
+                case WorkloadStateDimension.PresentationSettings:
+                    return state.PresentationSettings.Count > 0 || state.PresentationSettingIntents.Count > 0;
+                default:
+                    return false;
             }
         }
 
@@ -4964,7 +5113,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadPreviewPlan plan,
             WorkloadScope scope,
             RuntimeContext runtime,
-            WorkloadV2CommitReport report)
+            WorkloadV2CommitReport report,
+            string operationName = "apply")
         {
             WorkloadOwnershipDimensions ownership = targetTemplate.Definition.OwnershipDimensions;
             WorkloadProjectedState before = plan?.BeforeState ?? WorkloadProjectedState.Empty;
@@ -5000,7 +5150,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     {
                         Abort(
                             WorkloadDiagnosticCode.InvalidState,
-                            "The V2 apply was blocked during preflight because " +
+                             "The V2 " + operationName + " was blocked during preflight because " +
                             difference.Key + " is stale or missing.");
                     }
                 }
@@ -5037,7 +5187,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     {
                         Abort(
                             WorkloadDiagnosticCode.InvalidState,
-                            "The V2 apply was blocked during preflight because " +
+                             "The V2 " + operationName + " was blocked during preflight because " +
                             difference.Key + " is stale or missing.");
                     }
                 }
@@ -5081,7 +5231,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     {
                         Abort(
                             WorkloadDiagnosticCode.InvalidState,
-                            "The V2 apply was blocked during preflight because " +
+                             "The V2 " + operationName + " was blocked during preflight because " +
                             difference.Key + " is stale or missing.");
                     }
                 }
@@ -5126,7 +5276,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     {
                         Abort(
                             WorkloadDiagnosticCode.InvalidState,
-                            "The V2 apply was blocked during preflight because " +
+                             "The V2 " + operationName + " was blocked during preflight because " +
                             difference.Key + " is stale or missing.");
                     }
                 }
