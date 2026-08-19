@@ -19,8 +19,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
             string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
             string session = Read(root, "Source", "Features", "Workloads", "V2", "WorkloadSession.cs");
+            string english = Read(root, "Languages", "English", "Keyed", "English.xml");
+            string settings = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
 
             FooterSelectorKeepsManagerAndPreviewActionsSeparate(header);
+            PickerRowsOnlySelectWorkloads(header);
+            PreviewActionsUseVisibleHitRects(header);
+            NarrowFooterGeometryIsBounded(header);
+            DeletedFeedbackCopyIsAbsent(english, settings);
             FooterActionsAcceptTypedState(gateway, session);
             DynamicOwnershipReachesCommitPayload(backend, session);
             IncludeUsesTheAuthoritativeBaselineAndApplyPath(gateway, backend);
@@ -99,6 +105,105 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 header.IndexOf("target.width * progress", StringComparison.Ordinal) >= 0,
                 "preview reveal must not scale action widths in place");
+        }
+
+        private static void PickerRowsOnlySelectWorkloads(string header)
+        {
+            int start = header.IndexOf(
+                "private static void SelectWorkloadInline(",
+                StringComparison.Ordinal);
+            int end = header.IndexOf(
+                "private static void BeginWorkloadFooterEditor(",
+                start,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                start >= 0 && end > start,
+                "the workload picker row handler must remain a distinct source path");
+
+            string rowPath = header.Substring(start, end - start);
+            TestAssert.Contains(
+                rowPath,
+                "WorkloadGateway.SelectWorkload(stableId)",
+                "a picker row must only select/manage the workload");
+            TestAssert.False(
+                rowPath.IndexOf("preview.SelectWorkload", StringComparison.Ordinal) >= 0,
+                "a picker row must not start or switch a projected preview");
+            TestAssert.False(
+                rowPath.IndexOf("BeginCurrentPreview", StringComparison.Ordinal) >= 0,
+                "only the workload main button may enter preview");
+        }
+
+        private static void PreviewActionsUseVisibleHitRects(string header)
+        {
+            int start = header.IndexOf(
+                "private static void DrawWorkloadPreviewButton(",
+                StringComparison.Ordinal);
+            int end = header.IndexOf(
+                "private static Rect ToWorkloadActionGroup(",
+                start,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                start >= 0 && end > start,
+                "the preview action painter must remain a single shared draw/input helper");
+
+            string actionPath = header.Substring(start, end - start);
+            TestAssert.Contains(
+                actionPath,
+                "Widgets.ButtonInvisible(hitRect)",
+                "partially revealed actions must only accept input in their visible hit rectangle");
+            TestAssert.Contains(
+                actionPath,
+                "Widgets.ButtonText(drawRect, label, active: enabled)",
+                "fully revealed actions must retain the native footer button rendering");
+            TestAssert.Contains(
+                actionPath,
+                "Widgets.DrawBoxSolid(\n                    drawRect",
+                "partially revealed actions must still draw from their translated rectangle");
+            TestAssert.Contains(
+                actionPath,
+                "Widgets.DrawHighlight(hitRect)",
+                "action hover feedback must follow the visible hit rectangle");
+        }
+
+        private static void NarrowFooterGeometryIsBounded(string header)
+        {
+            TestAssert.Contains(
+                header,
+                "private static void LayoutNormalFooter(",
+                "normal footer geometry must have an explicit bounded layout pass");
+            TestAssert.Contains(
+                header,
+                "float minimumBothWidth",
+                "normal footer geometry must reserve compact selector minimums before placing controls");
+            TestAssert.Contains(
+                header,
+                "TakeFromRight(",
+                "normal footer controls must be placed through the shared bounded geometry helper");
+            TestAssert.Contains(
+                header,
+                "rects.CompactRulesetMain",
+                "narrow ruleset controls must have a compact rendering path");
+            TestAssert.Contains(
+                header,
+                "Mathf.Max(1f, inRect.width - 8f)",
+                "the workload picker width must be bounded by the available Work-tab content");
+            TestAssert.False(
+                header.IndexOf("Mathf.Max(210f, inRect.width - 8f)", StringComparison.Ordinal) >= 0,
+                "the workload picker must not force a width larger than a narrow Work-tab");
+        }
+
+        private static void DeletedFeedbackCopyIsAbsent(string english, string settings)
+        {
+            TestAssert.False(
+                english.IndexOf("feedback", StringComparison.OrdinalIgnoreCase) >= 0,
+                "deleted feedback feature copy must not remain in shipped English text");
+            TestAssert.False(
+                settings.IndexOf("Beta Testing Phase", StringComparison.OrdinalIgnoreCase) >= 0,
+                "deleted beta-testing copy must not remain in shipped settings text");
+            TestAssert.Contains(
+                english,
+                "BWT_Tutorial_FinishLesson",
+                "unrelated tutorial lesson text must remain available");
         }
 
         private static void FooterActionsAcceptTypedState(

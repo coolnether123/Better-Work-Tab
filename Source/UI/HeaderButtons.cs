@@ -99,6 +99,7 @@ namespace Better_Work_Tab.UI
             public bool HasWorkloadSaveAs;
             public bool HasWorkloadUpdate;
             public bool CompactWorkloadMain;
+            public bool CompactRulesetMain;
 
             /// <summary>
             /// The left edge of everything in the row, so the footer hint text
@@ -211,31 +212,149 @@ namespace Better_Work_Tab.UI
 
             _workloadPreviewRevealIncludesUpdate = false;
 
-            if (settings?.enableAutoAssignFeature ?? true)
-            {
-                float width = BWTBottomBarSelector.MeasureWidth(RuleBuilderGateway.CurrentRulesetLabel());
-                rects.RulesetMenu = new Rect(xRight - SelectorMenuWidth, y, SelectorMenuWidth, rowHeight);
-                rects.RulesetMain = new Rect(rects.RulesetMenu.x - width, y, width, rowHeight);
-                rects.HasRuleset = true;
-                xRight = rects.RulesetMain.x - GroupGap;
-            }
-
-            if (workloadsEnabled && hasWorkloadComponent)
-            {
-                float width = BWTBottomBarSelector.MeasureWidth(WorkloadGeometryLabel());
-                bool showWorkloadMenu = true;
-                rects.WorkloadMenu = new Rect(xRight - SelectorMenuWidth, y, SelectorMenuWidth, rowHeight);
-                rects.WorkloadMain = new Rect(rects.WorkloadMenu.x - width, y, width, rowHeight);
-
-                rects.HasWorkload = true;
-                rects.HasWorkloadMenu = showWorkloadMenu;
-                xRight = rects.WorkloadMain.x - GroupGap;
-
-            }
-
-            rects.LeftEdge = Mathf.Max(inRect.xMin, xRight);
+            LayoutNormalFooter(
+                rowLeft,
+                xRight,
+                y,
+                rowHeight,
+                settings?.enableAutoAssignFeature ?? true,
+                workloadsEnabled && hasWorkloadComponent,
+                ref rects);
 
             return rects;
+        }
+
+        private static void LayoutNormalFooter(
+            float leftEdge,
+            float rightEdge,
+            float y,
+            float height,
+            bool allowRuleset,
+            bool allowWorkload,
+            ref BottomButtonRects rects)
+        {
+            float available = Mathf.Max(0f, rightEdge - leftEdge);
+            if (available <= 0f)
+            {
+                rects.LeftEdge = leftEdge;
+                return;
+            }
+
+            float workloadWidth = allowWorkload
+                ? BWTBottomBarSelector.MeasureWidth(WorkloadGeometryLabel())
+                : 0f;
+            float rulesetWidth = allowRuleset
+                ? BWTBottomBarSelector.MeasureWidth(RuleBuilderGateway.CurrentRulesetLabel())
+                : 0f;
+            bool showWorkloadMenu = allowWorkload;
+            bool showRuleset = allowRuleset;
+            float minimumRulesetWidth = CompactOptionalSelectorMainWidth;
+
+            if (!allowWorkload)
+            {
+                float minimumRulesetGroup = minimumRulesetWidth + SelectorMenuWidth;
+                if (available < minimumRulesetGroup)
+                {
+                    rulesetWidth = available;
+                }
+                else
+                {
+                    rulesetWidth = Mathf.Min(
+                        rulesetWidth,
+                        available - SelectorMenuWidth);
+                }
+                showRuleset = allowRuleset && rulesetWidth > 0f;
+            }
+
+            // Keep the normal footer on its established right-hand baseline,
+            // but reduce the naming halves before allowing any rectangle to
+            // cross the Work-tab content edge. The compact minimums retain a
+            // usable selector in narrow tabs; the ruleset is the optional
+            // group that gives way first when even both compact selectors do
+            // not fit.
+            float minimumWorkloadWidth = CompactSelectorMainWidth;
+            float minimumBothWidth = minimumWorkloadWidth + SelectorMenuWidth +
+                GroupGap + minimumRulesetWidth + SelectorMenuWidth;
+            if (allowWorkload && showRuleset && available >= minimumBothWidth)
+            {
+                float preferred = workloadWidth + SelectorMenuWidth +
+                    GroupGap + rulesetWidth + SelectorMenuWidth;
+                float deficit = Mathf.Max(0f, preferred - available);
+                float workloadReduction = Mathf.Min(
+                    deficit,
+                    Mathf.Max(0f, workloadWidth - minimumWorkloadWidth));
+                workloadWidth -= workloadReduction;
+                deficit -= workloadReduction;
+                float rulesetReduction = Mathf.Min(
+                    deficit,
+                    Mathf.Max(0f, rulesetWidth - minimumRulesetWidth));
+                rulesetWidth -= rulesetReduction;
+            }
+            else if (allowWorkload && showRuleset)
+            {
+                showRuleset = false;
+            }
+
+            if (showWorkloadMenu)
+            {
+                float minimumWorkloadGroup = minimumWorkloadWidth + SelectorMenuWidth;
+                if (available < minimumWorkloadGroup)
+                {
+                    showWorkloadMenu = false;
+                    workloadWidth = available;
+                }
+                else if (!showRuleset)
+                {
+                    workloadWidth = Mathf.Min(
+                        workloadWidth,
+                        available - SelectorMenuWidth);
+                }
+            }
+
+            float x = rightEdge;
+            if (showRuleset)
+            {
+                rects.RulesetMenu = TakeFromRight(
+                    ref x,
+                    leftEdge,
+                    SelectorMenuWidth,
+                    y,
+                    height);
+                rects.RulesetMain = TakeFromRight(
+                    ref x,
+                    leftEdge,
+                    rulesetWidth,
+                    y,
+                    height);
+                rects.HasRuleset = rects.RulesetMain.width > 0f &&
+                    rects.RulesetMenu.width > 0f;
+                rects.CompactRulesetMain = rects.RulesetMain.width <=
+                    CompactOptionalSelectorMainWidth + 0.01f;
+                x -= GroupGap;
+            }
+
+            if (showWorkloadMenu)
+            {
+                rects.WorkloadMenu = TakeFromRight(
+                    ref x,
+                    leftEdge,
+                    SelectorMenuWidth,
+                    y,
+                    height);
+            }
+
+            rects.WorkloadMain = TakeFromRight(
+                ref x,
+                leftEdge,
+                workloadWidth,
+                y,
+                height);
+            rects.HasWorkload = allowWorkload && rects.WorkloadMain.width > 0f;
+            rects.HasWorkloadMenu = allowWorkload &&
+                showWorkloadMenu && rects.WorkloadMenu.width > 0f;
+            rects.CompactWorkloadMain = rects.WorkloadMain.width <=
+                CompactSelectorMainWidth + 0.01f;
+            rects.LeftEdge = Mathf.Max(leftEdge, x);
         }
 
         private static void LayoutBoundedWorkloadPreview(
@@ -807,13 +926,17 @@ namespace Better_Work_Tab.UI
             string name = RuleBuilderGateway.CurrentRulesetLabel();
             bool hasRuleset = RuleBuilderGateway.HasCurrentRuleset();
 
-            if (BWTBottomBarSelector.DrawMain(
+            string tooltip = hasRuleset
+                ? "BWT_BottomBar_RulesetTooltip".Translate(name)
+                : "BWT_BottomBar_RulesetTooltipEmpty".Translate();
+            bool clicked = rects.CompactRulesetMain
+                ? DrawCompactSelectorMain(rects.RulesetMain, "R", tooltip)
+                : BWTBottomBarSelector.DrawMain(
                     rects.RulesetMain,
                     name,
                     hasRuleset,
-                    hasRuleset
-                        ? "BWT_BottomBar_RulesetTooltip".Translate(name)
-                        : "BWT_BottomBar_RulesetTooltipEmpty".Translate()))
+                    tooltip);
+            if (clicked)
             {
                 if (hasRuleset)
                 {
@@ -1019,7 +1142,47 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            bool clicked = Widgets.ButtonText(drawRect, label, active: enabled);
+            bool fullyVisible = Mathf.Abs(drawRect.xMin - hitRect.xMin) < 0.01f &&
+                                Mathf.Abs(drawRect.xMax - hitRect.xMax) < 0.01f &&
+                                Mathf.Abs(drawRect.yMin - hitRect.yMin) < 0.01f &&
+                                Mathf.Abs(drawRect.yMax - hitRect.yMax) < 0.01f;
+            bool clicked;
+            if (fullyVisible)
+            {
+                clicked = Widgets.ButtonText(drawRect, label, active: enabled);
+            }
+            else
+            {
+                Color previousColor = GUI.color;
+                Widgets.DrawBoxSolid(
+                    drawRect,
+                    enabled
+                        ? new Color(0.15f, 0.15f, 0.15f, 0.95f)
+                        : new Color(0.1f, 0.1f, 0.1f, 0.7f));
+                Widgets.DrawBox(drawRect, 1);
+                if (enabled && Mouse.IsOver(hitRect))
+                {
+                    Widgets.DrawHighlight(hitRect);
+                }
+
+                TextAnchor previousAnchor = Text.Anchor;
+                GameFont previousFont = Text.Font;
+                bool previousWrap = Text.WordWrap;
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+                GUI.color = enabled ? Color.white : BWTUiPalette.DimmedText;
+                Widgets.Label(drawRect, label);
+                Text.WordWrap = previousWrap;
+                Text.Font = previousFont;
+                Text.Anchor = previousAnchor;
+                GUI.color = previousColor;
+
+                // The translated draw rectangle can extend beneath the
+                // selector while the lane reveals. Only the visible clipped
+                // rectangle is a real control during that transition.
+                clicked = enabled && Widgets.ButtonInvisible(hitRect);
+            }
             if (tooltip.AnyNonWhitespace())
             {
                 TooltipHandler.TipRegion(hitRect, tooltip);
@@ -1072,6 +1235,13 @@ namespace Better_Work_Tab.UI
                 value,
                 hasValue,
                 tooltip);
+        }
+
+        private static bool DrawCompactSelectorMain(Rect rect, string label, string tooltip)
+        {
+            bool clicked = Widgets.ButtonText(rect, label, active: true);
+            TooltipHandler.TipRegion(rect, tooltip);
+            return clicked;
         }
 
         private static string PreviewActionLabel(Rect rect, string fullLabel, string compactLabel)
@@ -1248,7 +1418,7 @@ namespace Better_Work_Tab.UI
                     : 136f;
             float width = Mathf.Min(
                 WorkloadPopoverWidth,
-                Mathf.Max(210f, inRect.width - 8f));
+                Mathf.Max(1f, inRect.width - 8f));
             float height = Mathf.Min(
                 desiredHeight,
                 Mathf.Max(84f, inRect.height - 8f));
@@ -1490,17 +1660,6 @@ namespace Better_Work_Tab.UI
 
         private static void SelectWorkloadInline(string stableId)
         {
-            WorkloadPreviewController preview = WorkloadPreviewController.Current;
-            if (preview != null && WorkloadGateway.CurrentMode == WorkloadBackendMode.Modern)
-            {
-                CloseWorkloadFooterPopover();
-                QueuePreviewLifecycleAction(
-                    preview,
-                    () => preview.SelectWorkload(stableId),
-                    notifyPawnTables: true);
-                return;
-            }
-
             bool selected = WorkloadGateway.SelectWorkload(stableId).Succeeded;
             if (!selected)
             {

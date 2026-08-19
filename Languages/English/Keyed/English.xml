@@ -179,7 +179,7 @@
 
 <!-- Unified Work-tab tutorial -->
 <BWT_Tutorial_Welcome_Title>Better Work Tab feature tour</BWT_Tutorial_Welcome_Title>
-<BWT_Tutorial_Welcome_Body>This tour assumes you already know RimWorld's Work tab and focuses only on what Better Work Tab adds or changes. You can pause at any time and return later. Optional feedback can be copied afterward; nothing is sent automatically.</BWT_Tutorial_Welcome_Body>
+<BWT_Tutorial_Welcome_Body>This tour assumes you already know RimWorld's Work tab and focuses only on what Better Work Tab adds or changes. You can pause at any time and return later.</BWT_Tutorial_Welcome_Body>
 <BWT_Tutorial_Welcome_WhatsNew>Explore 2.0 additions</BWT_Tutorial_Welcome_WhatsNew>
 <BWT_Tutorial_Welcome_Full>Explore all BWT features</BWT_Tutorial_Welcome_Full>
 <BWT_Tutorial_NotNow>Not now</BWT_Tutorial_NotNow>
@@ -307,7 +307,7 @@
 <BWT_Tutorial_FluffyCoexistence_ActionSwitch>Both mods remain active; this changes only the visible Work interface. Switch to Fluffy now. This lesson window will stay open.</BWT_Tutorial_FluffyCoexistence_ActionSwitch>
 <BWT_Tutorial_FluffyCoexistence_ActionReturn>Fluffy now owns the Work interface, while Better Work Tab remains active. Return to verify its settings and column state.</BWT_Tutorial_FluffyCoexistence_ActionReturn>
 <BWT_Tutorial_FluffyCoexistence_ActionPreserved>You returned to Better Work Tab. Its specific-job presentation and stored column order were preserved while Fluffy owned the interface.</BWT_Tutorial_FluffyCoexistence_ActionPreserved>
-<BWT_Tutorial_FluffyCoexistence_ActionChanged>You returned to Better Work Tab, but its stored presentation or column order changed. Please mention this in the lesson feedback.</BWT_Tutorial_FluffyCoexistence_ActionChanged>
+<BWT_Tutorial_FluffyCoexistence_ActionChanged>You returned to Better Work Tab, but its stored presentation or column order changed. Review the lesson details before continuing.</BWT_Tutorial_FluffyCoexistence_ActionChanged>
 <BWT_Tutorial_FluffyCoexistence_Outcome>Switched back. Better Work Tab kept your columns and jobs.</BWT_Tutorial_FluffyCoexistence_Outcome>
 <BWT_Tutorial_FluffySwitch>Switch to Fluffy's interface</BWT_Tutorial_FluffySwitch>
 <BWT_Tutorial_BWTReturn>Return to Better Work Tab</BWT_Tutorial_BWTReturn>
