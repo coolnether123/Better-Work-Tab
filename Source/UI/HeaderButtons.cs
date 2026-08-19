@@ -32,7 +32,6 @@ namespace Better_Work_Tab.UI
         private const float SelectorMenuWidth = BWTBottomBarSelector.MenuWidth;
         private const float GroupGap = 6f;
         private const float InterControlGap = 6f;
-        private const float FeedbackButtonSize = 24f;
         private const float FluffyTopButtonSize = 30f;
         private const float FluffyTopButtonGap = 4f;
         private const float CompactPreviewActionGap = 3f;
@@ -83,14 +82,12 @@ namespace Better_Work_Tab.UI
             public Rect WorkloadUpdate;
             public Rect WorkloadCancel;
             public Rect WorkloadApply;
-            public Rect Feedback;
             public bool HasRuleset;
             public bool HasWorkload;
             public bool HasWorkloadMenu;
             public bool HasWorkloadPreview;
             public bool HasWorkloadSaveAs;
             public bool HasWorkloadUpdate;
-            public bool HasFeedback;
             public bool CompactWorkloadMain;
 
             /// <summary>
@@ -217,28 +214,7 @@ namespace Better_Work_Tab.UI
 
             }
 
-            // The beta feedback button anchors to the left end of the row rather
-            // than to the settings icon. Sitting between the icon and the pickers
-            // made it read as another settings affordance; out here it reads as
-            // its own thing, and it keeps its place when a picker is switched off.
-            if (!rects.HasWorkloadPreview)
-            {
-                rects.HasFeedback = xRight - inRect.xMin >= FeedbackButtonSize + 6f;
-            }
-
-            if (rects.HasFeedback)
-            {
-                rects.Feedback = new Rect(
-                    xRight - FeedbackButtonSize,
-                    y + ((rowHeight - FeedbackButtonSize) * 0.5f),
-                    FeedbackButtonSize,
-                    FeedbackButtonSize);
-                rects.LeftEdge = rects.Feedback.x;
-            }
-            else
-            {
-                rects.LeftEdge = Mathf.Max(inRect.xMin, xRight);
-            }
+            rects.LeftEdge = Mathf.Max(inRect.xMin, xRight);
 
             return rects;
         }
@@ -269,13 +245,12 @@ namespace Better_Work_Tab.UI
             bool showRuleset = false;
             bool showUpdate = false;
             bool showSaveAs = false;
-            bool showFeedback = false;
             float rulesetWidth = CompactOptionalSelectorMainWidth;
             float used = mandatoryWidth;
 
             // Add optional affordances in reverse removal order. Consequently,
-            // narrowing removes feedback, Save As, Update, and the ruleset before
-            // the three application controls ever surrender their lane.
+            // narrowing removes Save As, Update, and the ruleset before the three
+            // application controls ever surrender their lane.
             if (used + SelectorMenuWidth <= available)
             {
                 showWorkloadMenu = true;
@@ -301,19 +276,12 @@ namespace Better_Work_Tab.UI
                 showSaveAs = true;
                 used += actionGap + compactSaveAsWidth;
             }
-            if (used + GroupGap + FeedbackButtonSize <= available)
-            {
-                showFeedback = true;
-                used += GroupGap + FeedbackButtonSize;
-            }
-
             if (available < mandatoryWidth)
             {
                 showWorkloadMenu = false;
                 showRuleset = false;
                 showUpdate = false;
                 showSaveAs = false;
-                showFeedback = false;
                 actionGap = available >= 24f
                     ? Mathf.Min(CompactPreviewActionGap, available / 24f)
                     : 0f;
@@ -376,27 +344,12 @@ namespace Better_Work_Tab.UI
                 x -= actionGap;
                 rects.WorkloadSaveAs = TakeFromRight(ref x, leftEdge, compactSaveAsWidth, y, height);
             }
-            if (showFeedback)
-            {
-                x = Mathf.Max(leftEdge, x - GroupGap);
-                float feedbackSize = Mathf.Min(
-                    Mathf.Min(FeedbackButtonSize, height),
-                    x - leftEdge);
-                rects.Feedback = new Rect(
-                    x - feedbackSize,
-                    y + ((height - feedbackSize) * 0.5f),
-                    feedbackSize,
-                    feedbackSize);
-                x = rects.Feedback.xMin;
-            }
-
             rects.HasWorkloadPreview =
                 rects.HasWorkload &&
                 rects.WorkloadCancel.width > 0f &&
                 rects.WorkloadApply.width > 0f;
             rects.HasWorkloadSaveAs = showSaveAs && rects.WorkloadSaveAs.width > 0f;
             rects.HasWorkloadUpdate = showUpdate && rects.WorkloadUpdate.width > 0f;
-            rects.HasFeedback = showFeedback && rects.Feedback.width > 0f;
             rects.LeftEdge = Mathf.Max(leftEdge, x);
         }
 
@@ -610,10 +563,6 @@ namespace Better_Work_Tab.UI
                 WorkloadPreviewController.Current?.UpdateFooterInspectionHover(Rect.zero);
             }
 
-            if (rects.HasFeedback)
-            {
-                BWTBetaFeedbackButton.Draw(rects.Feedback);
-            }
         }
 
         /// <summary>

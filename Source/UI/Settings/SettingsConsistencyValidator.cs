@@ -43,11 +43,6 @@ namespace Better_Work_Tab.UI.Settings
             nameof(BetterWorkTabSettings.sleekWorkTabChoicePromptDismissed),
             nameof(BetterWorkTabSettings.sleekWorkTabUseMixedByDefault),
 
-            // Beta feedback bookkeeping: accumulated Work-tab time and whether
-            // the nudge has been answered. Neither is a preference, so neither
-            // belongs in the settings window.
-            nameof(BetterWorkTabSettings.betaFeedbackWorkTabSeconds),
-            nameof(BetterWorkTabSettings.betaFeedbackPromptAnswered)
         };
 
         private static readonly HashSet<string> UnregisteredPreferenceFields = new HashSet<string>

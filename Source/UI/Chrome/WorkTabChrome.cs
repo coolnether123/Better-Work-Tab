@@ -107,7 +107,6 @@ namespace Better_Work_Tab.UI.Chrome
             bool mouseInside = !BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(inRect);
             Rect infoRect = WorkTabChromeGeometry.GetInfoIconRect(inRect);
             DrawBottomRightButtons(layout, inRect, infoRect);
-            BWTBetaFeedbackButton.Tick();
             if (mouseInside)
             {
                 DrawInfoButton(infoRect);
