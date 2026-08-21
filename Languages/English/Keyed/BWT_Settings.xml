@@ -366,6 +366,14 @@
     <BWT_Settings_features.workloads_Tooltip>Save the colony&apos;s current pawn work priorities as a named layout and restore it later.</BWT_Settings_features.workloads_Tooltip>
     <BWT_Settings_workloads.warnOnApply>Warn before applying Workload</BWT_Settings_workloads.warnOnApply>
     <BWT_Settings_workloads.warnOnApply_Tooltip>Show a confirmation warning before applying a workload to all colonists.</BWT_Settings_workloads.warnOnApply_Tooltip>
+    <BWT_Settings_workloads.previewRevealAnimation>Animate workload preview reveal</BWT_Settings_workloads.previewRevealAnimation>
+    <BWT_Settings_workloads.previewRevealAnimation_Tooltip>Animate the workload preview controls as they appear and disappear.</BWT_Settings_workloads.previewRevealAnimation_Tooltip>
+    <BWT_Settings_workloads.previewRevealSpeed>Workload preview reveal speed</BWT_Settings_workloads.previewRevealSpeed>
+    <BWT_Settings_workloads.previewRevealSpeed_Tooltip>Controls how quickly the workload preview controls slide into view.</BWT_Settings_workloads.previewRevealSpeed_Tooltip>
+    <BWT_Settings_workloads.inspectionHighlights>Workload inspection highlights</BWT_Settings_workloads.inspectionHighlights>
+    <BWT_Settings_workloads.inspectionHighlights_Tooltip>Highlight changed workload rows and cells while inspecting a workload preview.</BWT_Settings_workloads.inspectionHighlights_Tooltip>
+    <BWT_Settings_workloads.inspectionOpacity>Workload inspection highlight opacity</BWT_Settings_workloads.inspectionOpacity>
+    <BWT_Settings_workloads.inspectionOpacity_Tooltip>Controls the opacity of workload inspection highlights.</BWT_Settings_workloads.inspectionOpacity_Tooltip>
     <BWT_Settings_advanced.workloadsLegacy>Use legacy Workloads (1.0.5)</BWT_Settings_advanced.workloadsLegacy>
     <BWT_Settings_advanced.workloadsLegacy_Tooltip>Use the original Workloads behavior from Better Work Tab 1.0.5 instead of the modern Workloads implementation.</BWT_Settings_advanced.workloadsLegacy_Tooltip>
     <BWT_Settings_features.subWorkJobs>Specific jobs</BWT_Settings_features.subWorkJobs>

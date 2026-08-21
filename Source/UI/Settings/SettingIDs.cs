@@ -157,6 +157,10 @@ namespace Better_Work_Tab.UI.Settings
         public const string AutoassignWarnOnApply = "autoassign.warnOnApply";
         public const string WorkloadsPersistDividers = "workloads.persistDividers";
         public const string WorkloadsWarnOnApply = "workloads.warnOnApply";
+        public const string WorkloadsPreviewRevealAnimation = "workloads.previewRevealAnimation";
+        public const string WorkloadsPreviewRevealSpeed = "workloads.previewRevealSpeed";
+        public const string WorkloadsInspectionHighlights = "workloads.inspectionHighlights";
+        public const string WorkloadsInspectionOpacity = "workloads.inspectionOpacity";
         public const string HideWorktypes = "ux.hideWorktypes";
         public const string AdvancedScrollWheelPriority = "advanced.scrollWheelPriority";
         public const string HeadersHeader = "headers.header";

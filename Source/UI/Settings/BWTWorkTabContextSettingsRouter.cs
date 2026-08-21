@@ -418,12 +418,16 @@ namespace Better_Work_Tab.UI.Settings
             {
                 if (isWorkloadButton)
                 {
-                    return CreateContextRequest(
+                    return CreateWorkloadContextRequest(
                         "Workload Buttons",
-                        "Settings related to workload buttons, saved workloads, warnings, and divider persistence.",
+                        "Settings related to workload buttons, preview reveal controls, inspection highlights, saved workloads, and warnings.",
                         FeaturesWorkloads,
                         false,
                         FeaturesWorkloads,
+                        WorkloadsPreviewRevealAnimation,
+                        WorkloadsPreviewRevealSpeed,
+                        WorkloadsInspectionHighlights,
+                        WorkloadsInspectionOpacity,
                         WorkloadsWarnOnApply,
                         FeaturesUiElements);
                 }
@@ -790,7 +794,7 @@ namespace Better_Work_Tab.UI.Settings
                 return true;
             }
 
-            if (rects.ContainsWorkload(mousePosition))
+            if (rects.ContainsWorkloadFooter(mousePosition))
             {
                 isWorkloadButton = true;
                 return true;
@@ -874,7 +878,11 @@ namespace Better_Work_Tab.UI.Settings
                 HeadersAngleRotation,
                 "headers.horizontalOffset",
                 "headers.angledColor",
-                HeadersUnderlineColor
+                HeadersUnderlineColor,
+                WorkloadsPreviewRevealAnimation,
+                WorkloadsPreviewRevealSpeed,
+                WorkloadsInspectionHighlights,
+                WorkloadsInspectionOpacity
             };
 
         private static readonly Dictionary<string, string> BlockedReasons =
@@ -2809,6 +2817,13 @@ namespace Better_Work_Tab.UI.Settings
                 ColumnsShowBaselineLine,
                 "columns.showMovedColorTint",
                 "columns.movedMarkerColor");
+
+            Add(metadata, "Workload presentation",
+                WorkloadsPreviewRevealAnimation,
+                WorkloadsPreviewRevealSpeed,
+                WorkloadsInspectionHighlights,
+                WorkloadsInspectionOpacity,
+                WorkloadsWarnOnApply);
 
             return metadata;
         }

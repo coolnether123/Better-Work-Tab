@@ -379,6 +379,9 @@ namespace Better_Work_Tab.UI
                 // this dispatch ahead of gameplay input so the following Alt-click
                 // can resolve the binding that was registered for this frame.
                 _workGridInteractionRouter.Route(workGridRect, organizer, evt);
+                _workGridInteractionRouter.TryHandleFooterContextSettings(
+                    inRect,
+                    evt);
                 return;
             }
 
@@ -387,16 +390,30 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            Rect gearRect = WorkTabChromeGeometry.GetInfoIconRect(inRect);
+            if (evt.type == EventType.MouseDown &&
+                evt.button == 0 &&
+                evt.alt &&
+                !_workloadPreviewController.IsUnsafePreviewInputBlocked &&
+                HeaderButtons.GetBottomButtonRects(inRect, gearRect)
+                    .ContainsWorkloadFooter(evt.mousePosition) &&
+                _workGridInteractionRouter.TryHandleFooterContextSettings(
+                    inRect,
+                    evt))
+            {
+                return;
+            }
+
             bool routedWorkloadFooterInput = HeaderButtons.TryHandleWorkloadFooterInput(
                 inRect,
-                WorkTabChromeGeometry.GetInfoIconRect(inRect),
+                gearRect,
                 evt);
             bool routedPreviewScroll = !routedWorkloadFooterInput &&
                 TryRouteWorkloadPreviewScroll(
                     evt,
                     table,
                     inRect,
-                    WorkTabChromeGeometry.GetInfoIconRect(inRect));
+                    gearRect);
             if (!routedWorkloadFooterInput &&
                 !routedPreviewScroll &&
                 _workloadPreviewController.IsUnsafePreviewInputBlocked)

@@ -282,14 +282,24 @@ namespace Better_Work_Tab.UI.Chrome
         private static void DrawManualModeInspectionIndicator(Rect checkboxRect)
         {
             WorkloadPreviewController preview = WorkloadPreviewController.Current;
-            if (preview == null ||
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.WorkloadsInspectionHighlights,
+                    settings?.enableWorkloadInspectionHighlights ??
+                        DefaultSettings.enableWorkloadInspectionHighlights) ||
+                preview == null ||
                 !WorkloadPreviewController.IsInspectionActiveForCurrentTab ||
                 !preview.HasManualModeInspectionChange)
             {
                 return;
             }
 
-            GUI.color = new Color(0.95f, 0.70f, 0.25f, 0.9f);
+            int opacity = BWTWorkTabEffectiveSettings.GetInt(
+                SettingIDs.WorkloadsInspectionOpacity,
+                settings?.workloadInspectionOpacity ??
+                    DefaultSettings.workloadInspectionOpacity);
+            float normalizedOpacity = BetterWorkTabSettings.ClampWorkloadInspectionOpacity(opacity) / 100f;
+            GUI.color = new Color(0.95f, 0.70f, 0.25f, 0.9f * normalizedOpacity);
             Widgets.DrawBox(checkboxRect.ExpandedBy(2f), 2);
             GUI.color = Color.white;
             TooltipHandler.TipRegion(

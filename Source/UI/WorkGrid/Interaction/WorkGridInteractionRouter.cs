@@ -47,6 +47,21 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
         internal bool ControlGestureActive { get; private set; }
         internal bool PointerGestureActive { get; private set; }
 
+        // Footer Alt-clicks are routed before the normal footer actions. The
+        // window uses this narrow entry point to register and consume the
+        // clipped footer rectangles without replaying the Work-grid router.
+        internal bool TryHandleFooterContextSettings(
+            Rect inRect,
+            Event evt)
+        {
+            if (evt == null)
+            {
+                return false;
+            }
+
+            return _contextSettingsInteractionController.TryHandleFooterInput(inRect, evt);
+        }
+
         internal void Route(Rect inRect, PawnOrganizerSystem organizer, Event evt)
         {
             if (evt == null)

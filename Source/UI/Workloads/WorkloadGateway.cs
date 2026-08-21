@@ -2188,12 +2188,10 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             descriptor = result.Value;
-            if (WorkloadGateway.CurrentMode == WorkloadBackendMode.Modern &&
-                !BeginCurrentPreview())
-            {
-                return false;
-            }
-
+            // Creating a workload already captured the live Work-tab state in
+            // WorkloadGateway.CreateWorkload. Do not immediately reopen it as
+            // a projected preview: saving the current tab must not create a
+            // second, ghosted presentation of the same state.
             SetMessage("BWT_Workload_Created".Translate(descriptor.Label).ToString());
             return true;
         }
