@@ -60,7 +60,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    "Fluffy's live scheduler owns the current work-giver cell.");
+                    "BWT_Workload_FluffyScheduleUnavailable".Translate());
                 return;
             }
 
@@ -509,7 +509,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             DrawOverrideRingIfVisible(boxRect);
             DrawOverrideResetAnimation(pawn.thingIDNumber, wg.def, boxRect);
-            TooltipHandler.TipRegion(boxRect, "Parent work is disabled. Click the priority box to enable the parent work type; click the gold ring to follow the global sub-work priority again.");
+            TooltipHandler.TipRegion(boxRect, "BWT_SpecificJob_ParentDisabledOverride".Translate());
             if (ShouldHandleInput)
             {
                 HandleParentDisabledOverrideClick(wg, pawn, workType, boxRect, workGiverPriority);
@@ -861,7 +861,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.SpecificJobOverride,
-                    "The specific-job preview target is no longer available.");
+                    "BWT_Workload_SpecificJobOrderTargetMissing".Translate());
                 return;
             }
 
@@ -876,12 +876,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption(
-                    "Clear workload priority",
+                    "BWT_Workload_ClearSpecificJobPriority".Translate(),
                     () => controller.SetSpecificJobPreviewIntent(
                         key,
                         WorkloadIntent<WorkloadSpecificPriorityPayload>.Clear)),
                 new FloatMenuOption(
-                    "Remove workload priority opinion",
+                    "BWT_Workload_LeaveSpecificJobPriorityUnchanged".Translate(),
                     () => controller.SetSpecificJobPreviewIntent(
                         key,
                         WorkloadIntent<WorkloadSpecificPriorityPayload>.NoOpinion))
@@ -889,7 +889,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             int priority = WorkPrioritySystem.ClampPriority(displayedPriority);
             options.Add(new FloatMenuOption(
-                "Re-add displayed priority to workload",
+                "BWT_Workload_SaveDisplayedSpecificJobPriority".Translate(),
                 () => controller.SetSpecificJobPreviewIntent(
                     key,
                     WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(

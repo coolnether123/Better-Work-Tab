@@ -144,7 +144,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             SubWorkHeaderAffordance.DrawBackBadge(rect);
-            TooltipHandler.TipRegion(rect, "Back to work types. Escape also works.");
+            TooltipHandler.TipRegion(rect, "BWT_SpecificJob_BackToWorkTypes".Translate());
             MouseoverSounds.DoRegion(rect);
 
             Rect labelRect = new Rect(

@@ -35,8 +35,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
     /// </summary>
     internal static class WorkPriorityCommandGateway
     {
-        private const string ExternalPriorityAuthorityReason =
-            "Better Work Tab is read-only while an external priority authority is active.";
+        private static string ExternalPriorityAuthorityReason =>
+            "BWT_Priority_ReadOnlyExternal".Translate();
 
         private static IWorkGridCommandObserver _observer;
 
@@ -247,7 +247,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
 
             if (WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
-                errorMessage = "Specific-job ordering is blocked in preview because the active Work-tab layout owner cannot consume projected order.";
+                errorMessage = "BWT_Workload_SpecificJobOrderUnavailable".Translate();
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.SpecificJobOrder,
                     errorMessage);
@@ -266,7 +266,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                                 out errorMessage);
             if (!accepted && errorMessage == null)
             {
-                errorMessage = "Invalid work-giver move command.";
+                errorMessage = "BWT_Workload_SpecificJobMoveInvalid".Translate();
             }
 
             Observe(command.Kind, accepted, accepted ? command.WorkGiverDefName : errorMessage);
@@ -345,7 +345,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.SpecificJobOverride,
-                    "No specific-job keys were available for the requested work type.");
+                    "BWT_Workload_SpecificJobOrderTargetMissing".Translate());
                 return false;
             }
 

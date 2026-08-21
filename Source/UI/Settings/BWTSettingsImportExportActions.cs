@@ -18,11 +18,11 @@ namespace Better_Work_Tab.UI.Settings
         {
             return new SettingsImportExportActions
             {
-                ExportLabel = "Export",
-                ImportLabel = "Import",
-                FileLabel = "File",
-                ClipboardLabel = "Clipboard",
-                CancelLabel = "Cancel",
+                ExportLabel = "BWT_Settings_ImportExport_Export".Translate(),
+                ImportLabel = "BWT_Settings_ImportExport_Import".Translate(),
+                FileLabel = "BWT_Settings_ImportExport_File".Translate(),
+                ClipboardLabel = "BWT_Settings_ImportExport_Clipboard".Translate(),
+                CancelLabel = "Cancel".Translate(),
                 ExportToClipboard = () => ExportToClipboard(settings),
                 ExportToFile = () => ShowExportPathDialog(settings),
                 ImportFromClipboard = () => ConfirmImport(() => ImportFromClipboard(settings, afterImport)),
@@ -35,21 +35,21 @@ namespace Better_Work_Tab.UI.Settings
             try
             {
                 GUIUtility.systemCopyBuffer = BWTSettingsJsonService.Export(settings);
-                Messages.Message("All Better Work Tab settings data copied to clipboard.", MessageTypeDefOf.PositiveEvent, false);
+                Messages.Message("BWT_Settings_ImportExport_Copied".Translate(), MessageTypeDefOf.PositiveEvent, false);
             }
             catch (Exception ex)
             {
                 Log.Error($"[Better Work Tab] Failed to export settings to the clipboard: {ex}");
-                Messages.Message("Failed to export Better Work Tab settings. Check the log for details.", MessageTypeDefOf.RejectInput, false);
+                Messages.Message("BWT_Settings_ImportExport_ExportFailed".Translate(), MessageTypeDefOf.RejectInput, false);
             }
         }
 
         private static void ShowExportPathDialog(BetterWorkTabSettings settings)
         {
             Find.WindowStack.Add(new Dialog_BWTSettingsJsonPath(
-                "Export All Better Work Tab Settings Data",
+                "BWT_Settings_ImportExport_ExportTitle".Translate(),
                 DefaultPath,
-                "Export",
+                "BWT_Settings_ImportExport_Export".Translate(),
                 path =>
                 {
                     try
@@ -61,12 +61,12 @@ namespace Better_Work_Tab.UI.Settings
                         }
 
                         File.WriteAllText(path, BWTSettingsJsonService.Export(settings));
-                        Messages.Message($"All Better Work Tab settings data exported to {path}.", MessageTypeDefOf.PositiveEvent, false);
+                        Messages.Message("BWT_Settings_ImportExport_Exported".Translate(path), MessageTypeDefOf.PositiveEvent, false);
                     }
                     catch (Exception ex)
                     {
                         Log.Error($"[Better Work Tab] Failed to export settings to {path}: {ex}");
-                        Messages.Message("Failed to export Better Work Tab settings. Check the log for details.", MessageTypeDefOf.RejectInput, false);
+                        Messages.Message("BWT_Settings_ImportExport_ExportFailed".Translate(), MessageTypeDefOf.RejectInput, false);
                     }
                 }));
         }
@@ -79,16 +79,16 @@ namespace Better_Work_Tab.UI.Settings
         private static void ShowImportPathDialog(BetterWorkTabSettings settings, Action afterImport)
         {
             Find.WindowStack.Add(new Dialog_BWTSettingsJsonPath(
-                "Import Better Work Tab Settings",
+                "BWT_Settings_ImportExport_ImportTitle".Translate(),
                 DefaultPath,
-                "Import",
+                "BWT_Settings_ImportExport_Import".Translate(),
                 path =>
                 {
                     try
                     {
                         if (!File.Exists(path))
                         {
-                            Messages.Message("That Better Work Tab settings file does not exist.", MessageTypeDefOf.RejectInput, false);
+                            Messages.Message("BWT_Settings_ImportExport_FileMissing".Translate(), MessageTypeDefOf.RejectInput, false);
                             return;
                         }
 
@@ -97,7 +97,7 @@ namespace Better_Work_Tab.UI.Settings
                     catch (Exception ex)
                     {
                         Log.Error($"[Better Work Tab] Failed to import settings from {path}: {ex}");
-                        Messages.Message("Failed to import Better Work Tab settings. Check the log for details.", MessageTypeDefOf.RejectInput, false);
+                        Messages.Message("BWT_Settings_ImportExport_ImportFailed".Translate(), MessageTypeDefOf.RejectInput, false);
                     }
                 }));
         }
@@ -117,10 +117,10 @@ namespace Better_Work_Tab.UI.Settings
         private static void ConfirmImport(Action action)
         {
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation(
-                "Importing will overwrite all Better Work Tab settings data, including rulesets, layout state, viewed-setting history, and recent colors. Continue?",
+                "BWT_Settings_ImportExport_ConfirmImport".Translate(),
                 action,
                 destructive: true,
-                title: "Import Better Work Tab Settings"));
+                title: "BWT_Settings_ImportExport_ImportTitle".Translate()));
         }
 
         private static string DefaultPath => Path.Combine(GenFilePaths.ConfigFolderPath, DefaultFileName);

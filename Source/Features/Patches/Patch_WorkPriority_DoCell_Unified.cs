@@ -191,7 +191,7 @@ namespace Better_Work_Tab.Patches
                 {
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.ParentPriority,
-                        "Sleek owns this visible cell and has no preview editor bridge.");
+                        "BWT_Workload_SleekCellUnavailable".Translate());
                     Event.current?.Use();
                     return false;
                 }
@@ -211,7 +211,7 @@ namespace Better_Work_Tab.Patches
                 {
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.SpecificJobOverride,
-                        "Fluffy owns this work-giver column and has no preview editor bridge.");
+                        "BWT_Workload_FluffySpecificJobUnavailable".Translate());
                     Event.current?.Use();
                     return false;
                 }
@@ -261,7 +261,7 @@ namespace Better_Work_Tab.Patches
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    "Fluffy's live scheduler owns the current Work-tab surface.");
+                    "BWT_Workload_FluffyScheduleUnavailable".Translate());
                 return false;
             }
 
@@ -1308,7 +1308,7 @@ namespace Better_Work_Tab.Patches
 
             WorkTabEffectiveStateRuntime.ReportBlocked(
                 WorkTabEffectiveStateDimension.Schedule,
-                "Fluffy's live scheduler cannot be opened or closed during preview.");
+                "BWT_Workload_FluffySchedulePreviewBlocked".Translate());
             __result = false;
             return false;
         }
@@ -1327,7 +1327,7 @@ namespace Better_Work_Tab.Patches
 
             WorkTabEffectiveStateRuntime.ReportBlocked(
                 WorkTabEffectiveStateDimension.Schedule,
-                "Fluffy's live scheduler input is blocked during preview.");
+                "BWT_Workload_FluffySchedulePreviewBlocked".Translate());
             evt?.Use();
             __result = true;
             return false;
@@ -1348,7 +1348,7 @@ namespace Better_Work_Tab.Patches
 
             WorkTabEffectiveStateRuntime.ReportBlocked(
                 WorkTabEffectiveStateDimension.Schedule,
-                "Fluffy-style scheduler surface is hidden during workload preview.");
+                "BWT_Workload_FluffyScheduleHidden".Translate());
             return false;
         }
     }

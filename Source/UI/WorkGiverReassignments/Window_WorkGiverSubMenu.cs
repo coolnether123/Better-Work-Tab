@@ -490,8 +490,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 sb.Append("\n\n").Append(desc);
             }
 
-            sb.Append("\n\n").Append("Drag to reorder");
-            sb.Append("\n").Append("Hold drag to move; drag out to another work type header to reassign");
+            sb.Append("\n\n").Append("BWT_SpecificJob_DragToReorder".Translate());
+            sb.Append("\n").Append("BWT_SpecificJob_DragToMove".Translate());
 
             return sb.ToString();
         }
@@ -702,12 +702,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 : WorkTabEffectiveStateIds.ForWorkTypeOrder(_pawn, _workType);
             var options = new List<FloatMenuOption>();
             options.Add(new FloatMenuOption(
-                "Clear workload order",
+                "BWT_Workload_ClearSpecificJobOrder".Translate(),
                 () => controller.SetWorkTypeOrderPreviewIntent(
                     key,
                     WorkloadIntent<WorkloadWorkTypeOrderPayload>.Clear)));
             options.Add(new FloatMenuOption(
-                "Remove workload order opinion",
+                "BWT_Workload_LeaveSpecificJobOrderUnchanged".Translate(),
                 () => controller.SetWorkTypeOrderPreviewIntent(
                     key,
                     WorkloadIntent<WorkloadWorkTypeOrderPayload>.NoOpinion)));
@@ -729,7 +729,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (currentOrder.IsValid)
             {
                 options.Add(new FloatMenuOption(
-                    "Re-add displayed order to workload",
+                    "BWT_Workload_SaveDisplayedSpecificJobOrder".Translate(),
                     () => controller.SetWorkTypeOrderPreviewIntent(
                         key,
                         WorkloadIntent<WorkloadWorkTypeOrderPayload>.CreateSet(currentOrder))));
@@ -778,7 +778,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             int count = overrides.Count;
             
             Rect textRect = new Rect(footerRect.x + 5f, footerRect.y + 8f, footerRect.width - 40f, 24f);
-            Widgets.Label(textRect, $"Pawns with overrides: {count}");
+            Widgets.Label(textRect, "BWT_SpecificJob_PawnsWithOverrides".Translate(count));
             
             Rect btnRect = new Rect(footerRect.xMax - 30f, footerRect.y + 8f, 24f, 24f);
             if (Widgets.ButtonText(btnRect, "▼"))
@@ -792,7 +792,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             List<FloatMenuOption> options = new List<FloatMenuOption>();
             if (pawns.Count == 0)
             {
-                options.Add(new FloatMenuOption("None", null));
+                options.Add(new FloatMenuOption("BWT_None".Translate(), null));
             }
             else
             {

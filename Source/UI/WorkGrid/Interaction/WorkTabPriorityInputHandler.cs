@@ -50,7 +50,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 {
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.Schedule,
-                        "Fluffy's live scheduler owns this input surface.");
+                        "BWT_Workload_FluffyScheduleUnavailable".Translate());
                     evt.Use();
                     return true;
                 }
@@ -79,7 +79,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 {
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.ParentPriority,
-                        "Sleek owns this visible cell and has no preview editor bridge.");
+                        "BWT_Workload_SleekCellUnavailable".Translate());
                     evt.Use();
                     return true;
                 }

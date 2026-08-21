@@ -282,7 +282,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
             ReportBlocked(
                 WorkTabEffectiveStateDimension.ParentPriority,
-                "The active preview provider has no effective-state editor.");
+                "BWT_Workload_PawnCannotChange".Translate());
             return false;
         }
 
@@ -304,7 +304,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
             ReportBlocked(
                 WorkTabEffectiveStateDimension.Schedule,
-                "The active preview provider has no typed V2 editor.");
+                "BWT_Workload_HourlyPriorityUnavailable".Translate());
             return false;
         }
 
@@ -663,7 +663,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             {
                 ReportBlocked(
                     WorkTabEffectiveStateDimension.ManualMode,
-                    "The active preview provider does not own manual mode.");
+                    "BWT_Workload_ModeUnavailable".Translate());
                 return false;
             }
 
@@ -712,7 +712,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             {
                 ReportBlocked(
                     WorkTabEffectiveStateDimension.ManualMode,
-                    "No live pawn/work-type keys were available for the preview manual-mode edit.");
+                    "BWT_Workload_PawnCannotChange".Translate());
                 return false;
             }
 
@@ -723,7 +723,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             WorkTabEffectiveStateDimension dimension,
             string reason)
         {
-            string safeReason = reason ?? "unsupported effective-state operation.";
+            string safeReason = reason ?? "BWT_Workload_OperationFailed".Translate();
             IWorkTabEffectiveStateProvider provider = CurrentProvider;
             string diagnosticKey = provider.ProviderId + "@" + provider.Revision + "|" +
                                    dimension + "|" + safeReason;

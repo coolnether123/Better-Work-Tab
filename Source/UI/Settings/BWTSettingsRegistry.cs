@@ -353,7 +353,7 @@ namespace Better_Work_Tab.UI.Settings
 
             if (Widgets.ButtonText(buttonRect, GetSubWorkTransitionModeLabel(settings)))
             {
-                var offOption = new FloatMenuOption("Off (instant)", () =>
+                var offOption = new FloatMenuOption("BWT_SubWorkTransition_Off".Translate(), () =>
                     {
                         settings.enableSubWorkTransitionAnimation = false;
                         HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
@@ -387,9 +387,9 @@ namespace Better_Work_Tab.UI.Settings
                         : classicOption;
                 var optionDescriptions = new Dictionary<FloatMenuOption, string>
                 {
-                    [offOption] = "Turns the specific-job transition animation off. Columns change immediately when entering or leaving the specific-job view.",
-                    [classicOption] = "Uses BWT's original transition: columns glide into position with a brief flash while entering or leaving the specific-job view.",
-                    [pixelOption] = "Keeps the columns in place while a grey pixel wave passes across them, progressively revealing or hiding the specific-job view."
+                    [offOption] = "BWT_SubWorkTransition_Off_Description".Translate(),
+                    [classicOption] = "BWT_Enum_SubWorkTransitionStyle_ClassicGlideFlash_Description".Translate(),
+                    [pixelOption] = "BWT_Enum_SubWorkTransitionStyle_PixelWaveFlip_Description".Translate()
                 };
                 Find.WindowStack.Add(new DescribedFloatMenu(options, selectedOption, label, tooltip, optionDescriptions));
             }
@@ -409,7 +409,7 @@ namespace Better_Work_Tab.UI.Settings
         {
             if (settings == null || !settings.enableSubWorkTransitionAnimation)
             {
-                return "Off (instant)";
+                return "BWT_SubWorkTransition_Off".Translate();
             }
 
             return GetSubWorkTransitionStyleLabel(settings.subWorkTransitionStyle);
@@ -858,7 +858,7 @@ namespace Better_Work_Tab.UI.Settings
                          s.Color_FloatMenuHighlight = picked;
                          s.Color_CustomSimilarWorktypeHighlight = picked;
                          s.Write();
-                         Messages.Message("Master color applied to all highlight settings.", MessageTypeDefOf.PositiveEvent, false);
+                         Messages.Message("BWT_Settings_MasterHighlightColor_Applied".Translate(), MessageTypeDefOf.PositiveEvent, false);
                      }));
                 }
             }
@@ -1155,7 +1155,7 @@ namespace Better_Work_Tab.UI.Settings
                             div.Height = settings.dividerHeight;
                         }
                         MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-                        Messages.Message("Dividers reset to default height.", MessageTypeDefOf.PositiveEvent, false);
+                        Messages.Message("BWT_Settings_DividerHeight_Reset".Translate(), MessageTypeDefOf.PositiveEvent, false);
                     }
                 }
             }
@@ -1674,7 +1674,7 @@ namespace Better_Work_Tab.UI.Settings
                         return;
                     }
 
-                    Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Restore every Better Work Tab setting to its default? Your current settings will be lost.", () =>
+                    Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("BWT_Settings_RestoreDefaults_Confirm".Translate(), () =>
                     {
                         if (BWTWorkloadSettingsOwnershipPolicy.IsBulkSettingsOperationBlocked(out string confirmationBlockReason))
                         {
@@ -1685,8 +1685,8 @@ namespace Better_Work_Tab.UI.Settings
                         settings.RestoreDefaults();
                         WorkColumnOrderManager.ResetToVanilla();
                         settings.Write();
-                        Messages.Message("Factory defaults restored.", MessageTypeDefOf.PositiveEvent, false);
-                    }, true, "Confirm Restore"));
+                        Messages.Message("BWT_Settings_RestoreDefaults_Done".Translate(), MessageTypeDefOf.PositiveEvent, false);
+                    }, true, "BWT_Settings_RestoreDefaults_Title".Translate()));
                 }
             }
             )

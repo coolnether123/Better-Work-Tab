@@ -6,7 +6,7 @@
     <BWT_Settings_UI_Settings>Settings</BWT_Settings_UI_Settings>
     <BWT_Settings_UI_Controls>Controls</BWT_Settings_UI_Controls>
     <BWT_Settings_UI_Edit>Edit</BWT_Settings_UI_Edit>
-    <BWT_Settings_UI_AdvancedSearchNotice>Found in Advanced settings: {0} — click to switch to Advanced</BWT_Settings_UI_AdvancedSearchNotice>
+    <BWT_Settings_UI_AdvancedSearchNotice>Found in Advanced settings: {0}. Click to switch to Advanced.</BWT_Settings_UI_AdvancedSearchNotice>
     <BWT_Settings_UI_Close>Close</BWT_Settings_UI_Close>
     <BWT_Settings_UI_CurrentSelection>Currently selected</BWT_Settings_UI_CurrentSelection>
     <BWT_Settings_UI_PreviewingOption>Previewing option</BWT_Settings_UI_PreviewingOption>
@@ -16,13 +16,15 @@
     <BWT_Enum_SubWorkDrilldownModifier_Shift_Description>Use Shift plus the configured mouse button for specific jobs. This may conflict with skill displays and column grouping.</BWT_Enum_SubWorkDrilldownModifier_Shift_Description>
     <BWT_Enum_SubWorkDrilldownButton_Left_Description>Use the left mouse button with the configured modifier to enter or leave the specific-job view.</BWT_Enum_SubWorkDrilldownButton_Left_Description>
     <BWT_Enum_SubWorkDrilldownButton_Right_Description>Use the right mouse button with the configured modifier to enter or leave the specific-job view.</BWT_Enum_SubWorkDrilldownButton_Right_Description>
-    <BWT_Enum_SubWorkDrilldownStyle_NotChosen_Description>No specific-job presentation has been selected yet. Better Work Tab will ask for a choice before opening that view.</BWT_Enum_SubWorkDrilldownStyle_NotChosen_Description>
+    <BWT_Enum_SubWorkDrilldownStyle_NotChosen_Description>No specific-job layout has been selected yet. Better Work Tab will ask before opening that view.</BWT_Enum_SubWorkDrilldownStyle_NotChosen_Description>
     <BWT_Enum_SubWorkDrilldownStyle_FocusView_Description>Opens the chosen work type in a focused full-tab view containing only its specific jobs.</BWT_Enum_SubWorkDrilldownStyle_FocusView_Description>
     <BWT_Enum_SubWorkDrilldownStyle_ExpandBeside_Description>Expands the chosen work type's specific-job columns beside the parent column in the main Work table.</BWT_Enum_SubWorkDrilldownStyle_ExpandBeside_Description>
     <BWT_Enum_SubWorkTransitionStyle_ClassicGlideFlash_Description>Slides specific-job columns into position and uses a brief flash during the transition.</BWT_Enum_SubWorkTransitionStyle_ClassicGlideFlash_Description>
     <BWT_Enum_SubWorkTransitionStyle_PixelWaveFlip_Description>Keeps columns in position while a grey pixel wave progressively reveals or hides the specific-job view.</BWT_Enum_SubWorkTransitionStyle_PixelWaveFlip_Description>
+    <BWT_SubWorkTransition_Off>Off (instant)</BWT_SubWorkTransition_Off>
+    <BWT_SubWorkTransition_Off_Description>Turns off the specific-job transition animation. Columns change immediately when you enter or leave the specific-job view.</BWT_SubWorkTransition_Off_Description>
     <BWT_Enum_SubWorkDisabledParentMode_ParentWorkDisablesSubWork_Description>Vanilla behavior: disabling a Work type also disables its specific jobs, including locked priorities.</BWT_Enum_SubWorkDisabledParentMode_ParentWorkDisablesSubWork_Description>
-    <BWT_Enum_SubWorkDisabledParentMode_LockedSubWorkOverridesParent_Description>In singleplayer, locked specific jobs can run while their parent is disabled. Multiplayer keeps vanilla parent-disable behavior for determinism.</BWT_Enum_SubWorkDisabledParentMode_LockedSubWorkOverridesParent_Description>
+    <BWT_Enum_SubWorkDisabledParentMode_LockedSubWorkOverridesParent_Description>In singleplayer, locked specific jobs can run while their parent is disabled. Multiplayer keeps vanilla behavior so every player gets the same result.</BWT_Enum_SubWorkDisabledParentMode_LockedSubWorkOverridesParent_Description>
     <BWT_Enum_PriorityMode_Vanilla_Description>Uses RimWorld's standard priority range and behavior. Better Work Tab does not own or expand the priority range.</BWT_Enum_PriorityMode_Vanilla_Description>
     <BWT_Enum_PriorityMode_Auto_Description>Uses vanilla priorities by default, then safely adopts a compatible expanded range when another provider or existing high priorities require it.</BWT_Enum_PriorityMode_Auto_Description>
     <BWT_Enum_PriorityMode_ExternalProvider_Description>Delegates the priority range to the selected compatible external provider. Better Work Tab presents and edits the values supplied by that provider.</BWT_Enum_PriorityMode_ExternalProvider_Description>
@@ -36,9 +38,9 @@
     <BWT_Enum_SkillViewHoverMode_Standard_Description>Keeps priority as the main cell value and shows skill information as the smaller secondary value, matching the priority-focused Work-tab interaction.</BWT_Enum_SkillViewHoverMode_Standard_Description>
     <BWT_Enum_SkillViewHoverMode_SkillFocused_Description>Makes the skill level the large central value and moves priority to the smaller corner value while the hover effect is active.</BWT_Enum_SkillViewHoverMode_SkillFocused_Description>
     <BWT_Enum_SkillViewHoverMode_None_Description>Does not change cell contents on hover. The normal priority and configured skill overlays remain as they were.</BWT_Enum_SkillViewHoverMode_None_Description>
-    <BWT_Enum_HoverEffectScope_CellOnly_Description>Applies the configured priority/skill hover presentation only to the single work cell under the pointer.</BWT_Enum_HoverEffectScope_CellOnly_Description>
-    <BWT_Enum_HoverEffectScope_ColumnWide_Description>Applies the configured priority/skill hover presentation to every visible pawn cell in the work column under the pointer.</BWT_Enum_HoverEffectScope_ColumnWide_Description>
-    <BWT_Enum_WorkGridRendererMode_Auto_Description>Uses the optimized renderer when compatible; otherwise, the Work grid falls back to vanilla. Other Better Work Tab features remain active.</BWT_Enum_WorkGridRendererMode_Auto_Description>
+    <BWT_Enum_HoverEffectScope_CellOnly_Description>Shows the configured priority and skill hover effect only in the cell under the pointer.</BWT_Enum_HoverEffectScope_CellOnly_Description>
+    <BWT_Enum_HoverEffectScope_ColumnWide_Description>Shows the configured priority and skill hover effect in every visible pawn cell in the column under the pointer.</BWT_Enum_HoverEffectScope_ColumnWide_Description>
+    <BWT_Enum_WorkGridRendererMode_Auto_Description>Uses the optimized renderer when compatible. Otherwise, the Work grid falls back to vanilla. Other Better Work Tab features remain active.</BWT_Enum_WorkGridRendererMode_Auto_Description>
     <BWT_Enum_WorkGridRendererMode_Optimized_Description>Uses the optimized layered renderer. If a safety check fails, the Work grid falls back to vanilla.</BWT_Enum_WorkGridRendererMode_Optimized_Description>
     <BWT_Enum_WorkGridRendererMode_Vanilla_Description>Always uses RimWorld's native Work-grid renderer. Better Work Tab's other enabled features remain available around that vanilla rendering path.</BWT_Enum_WorkGridRendererMode_Vanilla_Description>
     <BWT_Enum_RulesetViewMode_Raw>Classic list</BWT_Enum_RulesetViewMode_Raw>
@@ -47,8 +49,8 @@
     <BWT_Enum_RulesetViewMode_Regular_Description>Shows the guided visual rule builder as the ruleset editor.</BWT_Enum_RulesetViewMode_Regular_Description>
     <BWT_Enum_RulesetViewMode_Both>Both</BWT_Enum_RulesetViewMode_Both>
     <BWT_Enum_RulesetViewMode_Both_Description>Makes both the visual rule builder and classic ruleset list available so the player can choose either workflow.</BWT_Enum_RulesetViewMode_Both_Description>
-    <BWT_Enum_WorkTabOwnerPreference_BetterWorkTab_Description>Keeps Better Work Tab in control of the Work tab and its compatibility infrastructure.</BWT_Enum_WorkTabOwnerPreference_BetterWorkTab_Description>
-    <BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab_Description>Hands the Work tab to Fluffy's Work Tab while Better Work Tab contains its own conflicting presentation features.</BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab_Description>
+    <BWT_Enum_WorkTabOwnerPreference_BetterWorkTab_Description>Keeps Better Work Tab in control of the Work tab and compatibility features.</BWT_Enum_WorkTabOwnerPreference_BetterWorkTab_Description>
+    <BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab_Description>Hands the Work tab to Fluffy's Work Tab and hides conflicting Better Work Tab display features.</BWT_Enum_WorkTabOwnerPreference_FluffyWorkTab_Description>
     <BWT_Enum_WorkTabOwnerPreference_SleekWorkPriorities>Sleek Work Priorities</BWT_Enum_WorkTabOwnerPreference_SleekWorkPriorities>
      <BWT_Enum_WorkTabOwnerPreference_SleekWorkPriorities_Description>Hands the complete Work tab to Sleek Work Priorities, including its grid, groups, focus cards, and per-job priority features.</BWT_Enum_WorkTabOwnerPreference_SleekWorkPriorities_Description>
      <BWT_Enum_WorkTabOwnerPreference_BetterWorkTabWithSleekWorkPriorities>Better Work Tab + Sleek Work Priorities</BWT_Enum_WorkTabOwnerPreference_BetterWorkTabWithSleekWorkPriorities>
@@ -78,8 +80,120 @@
     <BWT_SleekChoice_SleekOnly>Use Sleek only</BWT_SleekChoice_SleekOnly>
     <BWT_Sleek_SettingsHint>Alt-click settings</BWT_Sleek_SettingsHint>
     <BWT_Sleek_SettingsHint_Tooltip>Open Better Work Tab settings without leaving Sleek's Work tab.</BWT_Sleek_SettingsHint_Tooltip>
-    <BWT_Sleek_FooterHint>Better Work Tab: right-click colonist names for organization; Alt-click for settings.</BWT_Sleek_FooterHint>
+    <BWT_Sleek_FooterHint>Better Work Tab: right-click colonist names to organize them. Alt-click for settings.</BWT_Sleek_FooterHint>
     <BWT_Settings_UI_PinnedSettings>★ Pinned Settings</BWT_Settings_UI_PinnedSettings>
+
+    <!-- Settings, dialogs, and Work tab -->
+    <BWT_Settings_UI_ColorPreviewTooltip>Hover here, or adjust the picker to preview this color on the Work tab.</BWT_Settings_UI_ColorPreviewTooltip>
+    <BWT_Settings_UI_Filter>Filter</BWT_Settings_UI_Filter>
+    <BWT_Settings_UI_AllSettings>All settings</BWT_Settings_UI_AllSettings>
+    <BWT_Dialog_None>(none)</BWT_Dialog_None>
+    <BWT_Dialog_Accept>Accept</BWT_Dialog_Accept>
+    <BWT_Dialog_UseDefault>Use default</BWT_Dialog_UseDefault>
+    <BWT_Dialog_PawnTitle_Title>Change pawn title</BWT_Dialog_PawnTitle_Title>
+    <BWT_Dialog_PawnTitle_Default>Default title: {0}</BWT_Dialog_PawnTitle_Default>
+    <BWT_Dialog_PawnTitle_BlankUsesDefault>Leave blank to use the default title.</BWT_Dialog_PawnTitle_BlankUsesDefault>
+    <BWT_Dialog_Divider_DefaultName>New divider</BWT_Dialog_Divider_DefaultName>
+    <BWT_Dialog_Divider_Title>Edit divider</BWT_Dialog_Divider_Title>
+    <BWT_Dialog_Divider_Color>Divider color</BWT_Dialog_Divider_Color>
+    <BWT_Dialog_Divider_ColorDisabled>Divider color (disabled)</BWT_Dialog_Divider_ColorDisabled>
+    <BWT_Dialog_Divider_ShowLabel>Show label</BWT_Dialog_Divider_ShowLabel>
+    <BWT_Dialog_Divider_TextSize>Text size: {0}</BWT_Dialog_Divider_TextSize>
+    <BWT_Dialog_Divider_Height>Height: {0:F0}px</BWT_Dialog_Divider_Height>
+    <BWT_Dialog_Divider_Thin>Thin</BWT_Dialog_Divider_Thin>
+    <BWT_Dialog_Divider_Tall>Tall</BWT_Dialog_Divider_Tall>
+    <BWT_Dialog_Font_Tiny>Tiny</BWT_Dialog_Font_Tiny>
+    <BWT_Dialog_Font_Small>Small</BWT_Dialog_Font_Small>
+    <BWT_Dialog_Font_Medium>Medium</BWT_Dialog_Font_Medium>
+    <BWT_Dialog_Workload_NameTitle>Name workload</BWT_Dialog_Workload_NameTitle>
+    <BWT_Chrome_BackToWorkTypesTooltip>Return to Work types. {0} or press Escape.</BWT_Chrome_BackToWorkTypesTooltip>
+    <BWT_Chrome_Colonists>Colonists: {0}</BWT_Chrome_Colonists>
+    <BWT_Chrome_Beds>Beds: {0}</BWT_Chrome_Beds>
+    <BWT_Chrome_AltClickSettings>Alt-click for settings</BWT_Chrome_AltClickSettings>
+    <BWT_Chrome_ManualPriorityPreviewWarning>This preview changes manual-priority mode for the whole game.</BWT_Chrome_ManualPriorityPreviewWarning>
+    <BWT_Context_InsertDividerAbove>Insert divider above</BWT_Context_InsertDividerAbove>
+    <BWT_Context_InsertDividerBelow>Insert divider below</BWT_Context_InsertDividerBelow>
+    <BWT_Context_SetBackgroundColor>Set background color...</BWT_Context_SetBackgroundColor>
+    <BWT_Context_ChangeTitle>Change title...</BWT_Context_ChangeTitle>
+    <BWT_Context_ClearBackgroundColor>Clear background color</BWT_Context_ClearBackgroundColor>
+    <BWT_Context_CopyPawnRow>Copy {0}'s row to my layout and stop following</BWT_Context_CopyPawnRow>
+    <BWT_Context_MembershipExcluded>Unavailable. Excluded by the saved workload.</BWT_Context_MembershipExcluded>
+    <BWT_Context_MembershipPawnUnavailable>Unavailable. Pawn is missing or out of date.</BWT_Context_MembershipPawnUnavailable>
+    <BWT_Context_IncludeInApplication>Include in this workload</BWT_Context_IncludeInApplication>
+    <BWT_Context_ExcludeFromApplication>Exclude from this workload</BWT_Context_ExcludeFromApplication>
+    <BWT_Context_MembershipOutsideScope>Unavailable. Outside the saved workload.</BWT_Context_MembershipOutsideScope>
+    <BWT_Context_MembershipUnavailable>Unavailable for this pawn</BWT_Context_MembershipUnavailable>
+    <BWT_Context_Edit>Edit...</BWT_Context_Edit>
+    <BWT_Context_CopyDivider>Copy this divider to my layout and stop following</BWT_Context_CopyDivider>
+    <BWT_Settings_OptionalMod_Required>Requires {0}.</BWT_Settings_OptionalMod_Required>
+    <BWT_Settings_OptionalMod_OpenWorkshop>Open Workshop</BWT_Settings_OptionalMod_OpenWorkshop>
+    <BWT_Settings_OptionalMod_WorkshopTooltip>Requires {0}. Open its Steam Workshop page.</BWT_Settings_OptionalMod_WorkshopTooltip>
+    <BWT_Settings_Json_FilePath>JSON file path</BWT_Settings_Json_FilePath>
+    <BWT_Settings_Json_DefaultFolder>Default folder: {0}</BWT_Settings_Json_DefaultFolder>
+    <BWT_Settings_Json_OpenFolder>Open folder</BWT_Settings_Json_OpenFolder>
+    <BWT_Settings_Json_InvalidPath>Enter a valid JSON file path.</BWT_Settings_Json_InvalidPath>
+    <BWT_Settings_ImportExport_Export>Export</BWT_Settings_ImportExport_Export>
+    <BWT_Settings_ImportExport_Import>Import</BWT_Settings_ImportExport_Import>
+    <BWT_Settings_ImportExport_File>File</BWT_Settings_ImportExport_File>
+    <BWT_Settings_ImportExport_Clipboard>Clipboard</BWT_Settings_ImportExport_Clipboard>
+    <BWT_Settings_ImportExport_Copied>Copied Better Work Tab settings to the clipboard.</BWT_Settings_ImportExport_Copied>
+    <BWT_Settings_ImportExport_ExportTitle>Export Better Work Tab settings</BWT_Settings_ImportExport_ExportTitle>
+    <BWT_Settings_ImportExport_Exported>Exported Better Work Tab settings to {0}.</BWT_Settings_ImportExport_Exported>
+    <BWT_Settings_ImportExport_ExportFailed>Couldn't export Better Work Tab settings. Check the log.</BWT_Settings_ImportExport_ExportFailed>
+    <BWT_Settings_ImportExport_ImportTitle>Import Better Work Tab settings</BWT_Settings_ImportExport_ImportTitle>
+    <BWT_Settings_ImportExport_FileMissing>That Better Work Tab settings file doesn't exist.</BWT_Settings_ImportExport_FileMissing>
+    <BWT_Settings_ImportExport_ImportFailed>Couldn't import Better Work Tab settings. Check the log.</BWT_Settings_ImportExport_ImportFailed>
+    <BWT_Settings_ImportExport_ConfirmImport>Importing replaces all Better Work Tab settings, including rules, layout state, viewed settings, and recent colors. Continue?</BWT_Settings_ImportExport_ConfirmImport>
+    <BWT_Settings_Search_AdvancedSetting>an Advanced setting</BWT_Settings_Search_AdvancedSetting>
+    <BWT_Settings_Search_MatchCount> ({0} matches)</BWT_Settings_Search_MatchCount>
+    <BWT_Settings_Search_HiddenInSimple>This result is hidden in Simple view. Switch to Advanced to show it.</BWT_Settings_Search_HiddenInSimple>
+    <BWT_Settings_Search_AdvancedContext>Advanced setting: {0}. Switch to Advanced to show it.</BWT_Settings_Search_AdvancedContext>
+    <BWT_Settings_Search_None>None</BWT_Settings_Search_None>
+    <BWT_Settings_Search_AliasStatus>{0} active, {1} pending</BWT_Settings_Search_AliasStatus>
+    <BWT_Settings_Search_Reset>Reset</BWT_Settings_Search_Reset>
+    <BWT_Settings_Search_AliasPrivacy>Better Work Tab waits for three repeated corrections before learning a local search alias. Search text stays on this computer.</BWT_Settings_Search_AliasPrivacy>
+    <BWT_Settings_Filter_SpecificJobs>Specific jobs</BWT_Settings_Filter_SpecificJobs>
+    <BWT_Settings_Filter_Headers>Headers</BWT_Settings_Filter_Headers>
+    <BWT_Settings_Filter_Dividers>Dividers</BWT_Settings_Filter_Dividers>
+    <BWT_Settings_Filter_DragDrop>Drag and drop</BWT_Settings_Filter_DragDrop>
+    <BWT_Settings_Filter_Priorities>Priorities</BWT_Settings_Filter_Priorities>
+    <BWT_Settings_Filter_HourlyPriorities>Hourly priorities</BWT_Settings_Filter_HourlyPriorities>
+    <BWT_Settings_Filter_FluffyStyle>Fluffy-style Work tab</BWT_Settings_Filter_FluffyStyle>
+    <BWT_Settings_Filter_Workloads>Workloads</BWT_Settings_Filter_Workloads>
+    <BWT_Settings_Filter_RuleBuilder>Rule Builder</BWT_Settings_Filter_RuleBuilder>
+    <BWT_Settings_Filter_Highlights>Highlights</BWT_Settings_Filter_Highlights>
+    <BWT_Settings_Filter_Display>Work tab display</BWT_Settings_Filter_Display>
+    <BWT_Settings_Filter_Controls>Controls and shortcuts</BWT_Settings_Filter_Controls>
+    <BWT_Settings_Filter_Presets>Presets</BWT_Settings_Filter_Presets>
+    <BWT_Settings_Filter_States>States</BWT_Settings_Filter_States>
+    <BWT_Settings_Filter_Systems>Systems</BWT_Settings_Filter_Systems>
+    <BWT_Settings_Filter_Versions>Versions</BWT_Settings_Filter_Versions>
+    <BWT_Settings_Filter_WorkTabStyle>Expanded Work tab</BWT_Settings_Filter_WorkTabStyle>
+    <BWT_Settings_Filter_WorkTabStyleTooltip>Show settings for compact headers, priorities, specific jobs, dividers, dragging, skill overlays, workloads, and hourly priorities.</BWT_Settings_Filter_WorkTabStyleTooltip>
+    <BWT_Settings_Filter_VanillaPlus>Vanilla+</BWT_Settings_Filter_VanillaPlus>
+    <BWT_Settings_Filter_VanillaPlusTooltip>Show settings that stay close to vanilla while adding headers, dragging, highlights, skill overlays, counts, priority display, and spacing.</BWT_Settings_Filter_VanillaPlusTooltip>
+    <BWT_Settings_Filter_Enabled>Enabled settings</BWT_Settings_Filter_Enabled>
+    <BWT_Settings_Filter_EnabledTooltip>Show enabled on/off settings only.</BWT_Settings_Filter_EnabledTooltip>
+    <BWT_Settings_Filter_Disabled>Disabled settings</BWT_Settings_Filter_Disabled>
+    <BWT_Settings_Filter_DisabledTooltip>Show disabled on/off settings only.</BWT_Settings_Filter_DisabledTooltip>
+    <BWT_Settings_Filter_Changed>Changed from default</BWT_Settings_Filter_Changed>
+    <BWT_Settings_Filter_ChangedTooltip>Show settings that differ from their default value.</BWT_Settings_Filter_ChangedTooltip>
+    <BWT_Settings_Filter_NotViewed>Not yet viewed</BWT_Settings_Filter_NotViewed>
+    <BWT_Settings_Filter_NotViewedTooltip>Show settings whose tooltip you have not opened.</BWT_Settings_Filter_NotViewedTooltip>
+    <BWT_Settings_Filter_Animations>Animations</BWT_Settings_Filter_Animations>
+    <BWT_Settings_Filter_AnimationsTooltip>Show animation and cursor movement settings.</BWT_Settings_Filter_AnimationsTooltip>
+    <BWT_Settings_Filter_SystemTooltip>Show settings under {0}.</BWT_Settings_Filter_SystemTooltip>
+    <BWT_Settings_Filter_VersionTooltip>Show settings added or changed in this Better Work Tab version.</BWT_Settings_Filter_VersionTooltip>
+    <BWT_Settings_Filter_Context>Context</BWT_Settings_Filter_Context>
+    <BWT_Settings_Preview_Work>Work</BWT_Settings_Preview_Work>
+    <BWT_Settings_Preview_Live>Live preview: {0}</BWT_Settings_Preview_Live>
+    <BWT_Settings_MasterHighlightColor_Applied>Applied the master color to all highlight settings.</BWT_Settings_MasterHighlightColor_Applied>
+    <BWT_Settings_DividerHeight_Reset>Reset all dividers to the default height.</BWT_Settings_DividerHeight_Reset>
+    <BWT_Settings_RestoreDefaults_Title>Restore defaults</BWT_Settings_RestoreDefaults_Title>
+    <BWT_Settings_RestoreDefaults_Confirm>Restore every Better Work Tab setting to its default? Your current settings will be lost.</BWT_Settings_RestoreDefaults_Confirm>
+    <BWT_Settings_RestoreDefaults_Done>Restored all default settings.</BWT_Settings_RestoreDefaults_Done>
+    <BWT_Settings_WorkloadMode_PreviewBlocked>Close the workload preview before changing workload mode.</BWT_Settings_WorkloadMode_PreviewBlocked>
+    <BWT_Settings_WorkloadMode_ChangeFailed>Better Work Tab could not change the workload mode.</BWT_Settings_WorkloadMode_ChangeFailed>
     
     <!-- Mod Compatibility -->
     <BWT_Settings_modcompat.header>Mod Compatibility</BWT_Settings_modcompat.header>
@@ -255,7 +369,7 @@
     <BWT_Settings_advanced.workloadsLegacy>Use legacy Workloads (1.0.5)</BWT_Settings_advanced.workloadsLegacy>
     <BWT_Settings_advanced.workloadsLegacy_Tooltip>Use the original Workloads behavior from Better Work Tab 1.0.5 instead of the modern Workloads implementation.</BWT_Settings_advanced.workloadsLegacy_Tooltip>
     <BWT_Settings_features.subWorkJobs>Specific jobs</BWT_Settings_features.subWorkJobs>
-    <BWT_Settings_features.subWorkJobs_Tooltip>Open a Work column to set priorities for its individual jobs. Use the shortcut below on a Work header or cell; use it again, or press Escape, to return.</BWT_Settings_features.subWorkJobs_Tooltip>
+    <BWT_Settings_features.subWorkJobs_Tooltip>Open a Work column to set priorities for its individual jobs. Use the shortcut below on a Work header or cell. Use it again, or press Escape, to return.</BWT_Settings_features.subWorkJobs_Tooltip>
     <BWT_Settings_subWorkJobs.openModifier>Shortcut modifier</BWT_Settings_subWorkJobs.openModifier>
     <BWT_Settings_subWorkJobs.openModifier_Tooltip>Modifier key used with the mouse button below to open or leave the specific-job view.</BWT_Settings_subWorkJobs.openModifier_Tooltip>
     <BWT_Settings_subWorkJobs.openButton>Shortcut mouse button</BWT_Settings_subWorkJobs.openButton>
@@ -311,11 +425,11 @@
     <BWT_Settings_ui.autoDisabledPriorityFixedValue>Fixed re-enabled priority</BWT_Settings_ui.autoDisabledPriorityFixedValue>
     <BWT_Settings_ui.autoDisabledPriorityFixedValue_Tooltip>Priority number used when the setting above is Fixed Priority.</BWT_Settings_ui.autoDisabledPriorityFixedValue_Tooltip>
     <BWT_Settings_ui.priorityColorPercentageGreen>Green priority threshold</BWT_Settings_ui.priorityColorPercentageGreen>
-    <BWT_Settings_ui.priorityColorPercentageGreen_Tooltip>For extended priorities, color the highest-priority number range green. Lower numbers are acted on first; this percentage is measured from priority 1 toward the maximum.</BWT_Settings_ui.priorityColorPercentageGreen_Tooltip>
+    <BWT_Settings_ui.priorityColorPercentageGreen_Tooltip>For extended priorities, color the highest-priority number range green. Lower numbers are acted on first. This percentage is measured from priority 1 toward the maximum.</BWT_Settings_ui.priorityColorPercentageGreen_Tooltip>
     <BWT_Settings_ui.priorityColorPercentageYellow>Yellow priority threshold</BWT_Settings_ui.priorityColorPercentageYellow>
     <BWT_Settings_ui.priorityColorPercentageYellow_Tooltip>For extended priorities, color priority numbers yellow through this cumulative percentage of the range. Lower numbers are acted on first.</BWT_Settings_ui.priorityColorPercentageYellow_Tooltip>
     <BWT_Settings_ui.priorityColorPercentageTan>Tan priority threshold</BWT_Settings_ui.priorityColorPercentageTan>
-    <BWT_Settings_ui.priorityColorPercentageTan_Tooltip>For extended priorities, color priority numbers tan through this cumulative percentage of the range. Lower numbers are acted on first; later numbers are gray.</BWT_Settings_ui.priorityColorPercentageTan_Tooltip>
+    <BWT_Settings_ui.priorityColorPercentageTan_Tooltip>For extended priorities, color priority numbers tan through this cumulative percentage of the range. Lower numbers are acted on first. Later numbers are gray.</BWT_Settings_ui.priorityColorPercentageTan_Tooltip>
     <BWT_Settings_features.multiplayer>Multiplayer Sync</BWT_Settings_features.multiplayer>
     <BWT_Settings_features.multiplayer_Tooltip>Enable multiplayer synchronization options.</BWT_Settings_features.multiplayer_Tooltip>
     <BWT_Settings_highlights.hover>Highlight on Hover</BWT_Settings_highlights.hover>
@@ -469,7 +583,7 @@
     <BWT_Settings_headers.underlineColor>Work-header underline color</BWT_Settings_headers.underlineColor>
     <BWT_Settings_headers.underlineColor_Tooltip>Colors the line beneath angled Work names and the stem used by vanilla-style Work headers.</BWT_Settings_headers.underlineColor_Tooltip>
     <BWT_Settings_headers.horizontalOffset>Horizontal offset</BWT_Settings_headers.horizontalOffset>
-    <BWT_Settings_headers.horizontalOffset_Tooltip>Adjust the horizontal position of angled headers. 0 is centered; 10 is the default. At -90°, the offset is automatically set to 0 for alignment.</BWT_Settings_headers.horizontalOffset_Tooltip>
+    <BWT_Settings_headers.horizontalOffset_Tooltip>Adjust the horizontal position of angled headers. 0 is centered, and 10 is the default. At -90°, the offset is automatically set to 0 for alignment.</BWT_Settings_headers.horizontalOffset_Tooltip>
     <BWT_Settings_compat.chronosPointer.header>Chronos Pointer integration (2 settings)</BWT_Settings_compat.chronosPointer.header>
     <BWT_Settings_compat.chronosPointer.header_Tooltip>Optional Work-tab time-bar integration for Chronos Pointer.</BWT_Settings_compat.chronosPointer.header_Tooltip>
     <BWT_Settings_ui.chronosPointerTimePriority>Chronos Pointer time bar</BWT_Settings_ui.chronosPointerTimePriority>
@@ -490,7 +604,7 @@
     <BWT_Settings_controls.fluffy.expand>Open or close specific jobs</BWT_Settings_controls.fluffy.expand>
     <BWT_Settings_controls.fluffy.expand_Tooltip>Fluffy&apos;s native Ctrl-header gesture is preserved. When BWT owns the tab, the configured specific-job shortcut routes through BWT and Expand beside opens Fluffy-style columns.</BWT_Settings_controls.fluffy.expand_Tooltip>
     <BWT_Settings_controls.fluffy.batch>Change a whole Work column</BWT_Settings_controls.fluffy.batch>
-    <BWT_Settings_controls.fluffy.batch_Tooltip>Shift-scroll changes all capable pawn priorities. Shift-click changes a whole specific-job column; on root Work headers, BWT&apos;s optional grouping action owns Shift-left-click.</BWT_Settings_controls.fluffy.batch_Tooltip>
+    <BWT_Settings_controls.fluffy.batch_Tooltip>Shift-scroll changes all capable pawn priorities. Shift-click changes a whole specific-job column. On root Work headers, BWT&apos;s optional grouping action uses Shift-left-click.</BWT_Settings_controls.fluffy.batch_Tooltip>
     <BWT_Settings_controls.fluffy.pawnRows>Adjust a pawn row</BWT_Settings_controls.fluffy.pawnRows>
     <BWT_Settings_controls.fluffy.pawnRows_Tooltip>Fluffy&apos;s Shift-click and Shift-wheel pawn-name gesture remains available when Fluffy owns the Work tab. BWT-owned layouts keep fixed aligned pawn-row heights.</BWT_Settings_controls.fluffy.pawnRows_Tooltip>
 </LanguageData>

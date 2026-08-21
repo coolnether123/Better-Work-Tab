@@ -47,8 +47,8 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 Rect upRect = new Rect(deleteRect.x - 26f, deleteRect.y, 24f, 24f);
                 Rect downRect = new Rect(upRect.x - 26f, upRect.y, 24f, 24f);
 
-                if (Verse.Widgets.ButtonText(upRect, "Up")) return RowAction.MoveUp;
-                if (Verse.Widgets.ButtonText(downRect, "Dn")) return RowAction.MoveDown;
+                if (Verse.Widgets.ButtonText(upRect, "BWT_MoveRuleUp".Translate())) return RowAction.MoveUp;
+                if (Verse.Widgets.ButtonText(downRect, "BWT_MoveRuleDown".Translate())) return RowAction.MoveDown;
                 if (Verse.Widgets.ButtonImage(deleteRect, TexButton.Delete, Color.white, GenUI.MouseoverColor))
                     return RowAction.Delete;
             }

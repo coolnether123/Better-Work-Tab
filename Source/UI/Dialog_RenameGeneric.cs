@@ -62,7 +62,7 @@ namespace Better_Work_Tab.UI
                 _focusedRenameField = true;
             }
 
-            if (Widgets.ButtonText(new Rect(15f, inRect.height - 35f - 10f, inRect.width - 30f, 35f), "OK") || enterPressed)
+            if (Widgets.ButtonText(new Rect(15f, inRect.height - 35f - 10f, inRect.width - 30f, 35f), "OK".Translate()) || enterPressed)
             {
                 if (_currentName.Length == 0)
                 {

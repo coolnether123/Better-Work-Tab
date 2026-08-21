@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Spine.UI.SettingsFramework;
+using Verse;
 
 namespace Better_Work_Tab.UI.Settings
 {
@@ -38,7 +39,7 @@ namespace Better_Work_Tab.UI.Settings
                 Id = "context." + SanitizeId(request.Label),
                 Label = request.Label,
                 Category = "context",
-                CategoryLabel = "Context",
+                CategoryLabel = "BWT_Settings_Filter_Context".Translate(),
                 Tooltip = request.Tooltip,
                 Predicate = (def, _) => def != null && !string.IsNullOrEmpty(def.Id) && ids.Contains(def.Id),
                 IncludeChildrenOfMatches = true

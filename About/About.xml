@@ -21,14 +21,14 @@
   </supportedVersions>
  <packageId>Coolnether123.BetterWorkTab</packageId>
  <modVersion>2.0.0</modVersion>
-  <description><![CDATA[Better Work Tab v2.0 overhauls RimWorld's Work tab with drag-and-drop, skill overlays, automation rules, sub-work jobs, time priority schedules, extended priorities, and visual customization.
+  <description><![CDATA[Better Work Tab v2.0 adds drag-and-drop ordering, skill overlays, automation rules, sub-work jobs, time priority schedules, extended priorities, and visual customization to RimWorld's Work tab.
 
-All features are toggleable in settings with extensive customization options.
+You can toggle features in settings.
 
 <b>Features</b>
 - Drag and drop work column and pawn row reordering
 - Extended max priorities from vanilla 4 up to 99
-- Sub-work job drilldown with global and pawn-specific priorities
+- Specific-job view with shared and pawn-specific priorities
 - Time-of-day priority schedules for work and sub-work jobs
 - Skill level overlay (hold SHIFT)
 - Auto-assignment rulesets
@@ -40,14 +40,14 @@ All features are toggleable in settings with extensive customization options.
 - Colonist and bed counts
 - Right-click pawn quick actions
 - Multiplayer support for supported versions with Zetrith Multiplayer
-- Detailed settings for UI, priorities, rules, workloads, and layout
-- Optional Fluffy-style layout with right-expanding specific jobs; installed Fluffy icons are used for its top controls, with an off-by-default BWT substitute available standalone
+- Settings for UI, priorities, rules, workloads, and layout
+- Optional Fluffy-style layout with right-expanding specific jobs. It uses installed Fluffy icons for top controls, with an off-by-default BWT text substitute available without Fluffy
 
 <b>Compatibility</b>
 - Compatible with most work-type mods
 - [FSF] Complex Jobs column ordering is supported
 - Vanilla Skills Expanded passion types are supported in rule conditions when the mod is active
-- Do Once - Noncommittal Work is compatible; BWT suppresses its duplicate borrowed menu patches and uses BWT's sub-work-aware version
+- Do Once - Noncommittal Work is compatible. BWT suppresses its duplicate borrowed menu patches and uses BWT's specific-job-aware version
 - Useful Marks markers appear on pawn icons when available
 - Grouped Pawns List is overridden inside this Work tab
 - CompactWorkTab overlaps this UI and should not be used together
@@ -55,10 +55,10 @@ All features are toggleable in settings with extensive customization options.
 
 <b>Credits and licensing</b>
 - Fluffy's Work Tab by Fluffy inspired the Fluffy-style layout and remains supported as an optional compatibility target
-- Fluffy Work Tab software/documentation is MIT licensed; its art and sounds are not bundled with BWT
+- Fluffy Work Tab software and documentation are MIT licensed. Its art and sounds are not bundled with BWT
 - Full notices: https://github.com/coolnether123/Better-Work-Tab/blob/Dev/THIRD_PARTY_NOTICES.md
 
-<b>Version Support</b>
+<b>Version support</b>
 - 1.6 -> v2.0
 - 1.5 -> v2.0
 - 1.4 -> v2.0

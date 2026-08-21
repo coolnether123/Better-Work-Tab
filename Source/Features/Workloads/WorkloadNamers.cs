@@ -68,7 +68,7 @@ namespace Better_Work_Tab.Features.Workloads
             Rect rect = new Rect(inRect);
             Text.Font = GameFont.Medium;
             rect.height = Text.LineHeight + 10f;
-            Widgets.Label(rect, "Name New Workload");
+            Widgets.Label(rect, "BWT_Dialog_Workload_NameTitle".Translate());
             Text.Font = GameFont.Small;
             GUI.SetNextControlName("RenameField");
             string text = Widgets.TextField(new Rect(0f, rect.height, inRect.width, 35f), curName);
@@ -86,7 +86,7 @@ namespace Better_Work_Tab.Features.Workloads
                 Verse.UI.FocusControl("RenameField", this);
                 focusedRenameField = true;
             }
-            if (!(Widgets.ButtonText(new Rect(15f, inRect.height - 35f - 10f, inRect.width - 15f - 15f, 35f), "OK") || flag))
+            if (!(Widgets.ButtonText(new Rect(15f, inRect.height - 35f - 10f, inRect.width - 15f - 15f, 35f), "OK".Translate()) || flag))
             {
                 return;
             }
