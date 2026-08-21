@@ -34,7 +34,9 @@
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadKeys.cs" Link="Production\WorkloadKeys.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadDefinition.cs" Link="Production\WorkloadDefinition.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadScope.cs" Link="Production\WorkloadScope.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadInspectionSemantics.cs" Link="Production\WorkloadInspectionSemantics.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadMembership.cs" Link="Production\WorkloadMembership.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadPersistenceReceiptRecovery.cs" Link="Production\WorkloadPersistenceReceiptRecovery.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadState.cs" Link="Production\WorkloadState.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadDiff.cs" Link="Production\WorkloadDiff.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadValidation.cs" Link="Production\WorkloadValidation.cs" />
@@ -62,6 +64,8 @@
     <Compile Include="ProjectionAndSettingsTests.cs" />
     <Compile Include="SpecificJobTests.cs" />
     <Compile Include="SessionTests.cs" />
+    <Compile Include="PersistenceReceiptRecoveryTests.cs" />
+    <Compile Include="InspectionSemanticsTests.cs" />
     <Compile Include="PersistenceTests.cs" />
     <Compile Include="ReassignmentCleanupTests.cs" />
     <Compile Include="MpProtocolTests.cs" />

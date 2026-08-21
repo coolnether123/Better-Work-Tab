@@ -737,7 +737,8 @@ namespace Better_Work_Tab.UI.Workloads
         internal static WorkloadOperationResult<WorkloadSession> RebaseV2PreviewAfterPersistence(
             WorkloadPersistenceReceipt receipt,
             WorkloadDecisionKind decisionKind = WorkloadDecisionKind.Apply,
-            string targetStableId = null)
+            string targetStableId = null,
+            string forkLabel = null)
         {
             if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
             {
@@ -760,7 +761,10 @@ namespace Better_Work_Tab.UI.Workloads
             if (receipt == null)
             {
                 WorkloadOperationResult<WorkloadPersistenceReceipt> recovered =
-                    modern.RecoverPersistenceReceipt(decisionKind, targetStableId);
+                    modern.RecoverPersistenceReceipt(
+                        decisionKind,
+                        targetStableId,
+                        forkLabel);
                 if (!recovered.Succeeded || recovered.Value == null)
                 {
                     return WorkloadOperationResult<WorkloadSession>.Fail(
@@ -974,15 +978,6 @@ namespace Better_Work_Tab.UI.Workloads
     /// remains the only persistence/live-commit crossing point; this controller
     /// only keeps the session-local model and its effective-state providers.
     /// </summary>
-    internal enum WorkloadInspectionCellKind
-    {
-        None = 0,
-        ParentPriority = 1,
-        SpecificPriority = 2,
-        Schedule = 3,
-        Ordering = 4
-    }
-
     internal enum WorkloadInspectionTargetKind
     {
         ParentPriority = 0,
@@ -1057,6 +1052,7 @@ namespace Better_Work_Tab.UI.Workloads
         private WorkloadInspectionContext _inspectionIndexContext;
         private WorkloadInspectionContext _inspectionContext;
         private bool _hasInspectionCellTargets;
+        private bool _hasManualModeInspectionChange;
         private WorkloadMembershipSnapshot _membershipSnapshot;
         private WorkloadSession _membershipSnapshotSession;
         private long _membershipSnapshotProjectionRevision = long.MinValue;
@@ -1269,6 +1265,20 @@ namespace Better_Work_Tab.UI.Workloads
 
                 EnsureInspectionIndex();
                 return _hasInspectionCellTargets;
+            }
+        }
+
+        internal bool HasManualModeInspectionChange
+        {
+            get
+            {
+                if (!IsInspectionActive)
+                {
+                    return false;
+                }
+
+                EnsureInspectionIndex();
+                return _hasManualModeInspectionChange;
             }
         }
 
@@ -1627,7 +1637,8 @@ namespace Better_Work_Tab.UI.Workloads
                     WorkloadGateway.RebaseV2PreviewAfterPersistence(
                         status?.Result?.PersistenceReceipt,
                         _multiplayerDecision,
-                        expectedStableId);
+                        expectedStableId,
+                        _multiplayerForkLabel);
                 WorkloadOperationResult<WorkloadSession> adopted =
                     rebased.Succeeded
                         ? WorkloadGateway.AdoptV2PreviewSession()
@@ -2720,101 +2731,6 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
-        internal WorkloadInspectionCellKind GetInspectionCellKind(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiver)
-        {
-            EnsureInspectionIndex();
-            if (pawn == null || pawn.thingIDNumber <= 0 || workType == null ||
-                workType.defName.NullOrEmpty())
-            {
-                return WorkloadInspectionCellKind.None;
-            }
-
-            int pawnId = pawn.thingIDNumber;
-            string workTypeName = workType.defName;
-            string workGiverName = workGiver?.defName;
-            if (_changedInspectionTargets.Contains(new InspectionTargetKey(
-                    InspectionTargetKind.ParentPriority,
-                    WorkloadTargetScope.PawnLocal,
-                    0,
-                    pawnId,
-                    workTypeName,
-                    null)))
-            {
-                return WorkloadInspectionCellKind.ParentPriority;
-            }
-
-            if (_changedInspectionTargets.Contains(new InspectionTargetKey(
-                    InspectionTargetKind.Schedule,
-                    WorkloadTargetScope.PawnLocal,
-                    (int)WorkloadScheduleTargetKind.ParentWorkType,
-                    pawnId,
-                    workTypeName,
-                    null)) ||
-                (workGiverName != null && _changedInspectionTargets.Contains(new InspectionTargetKey(
-                    InspectionTargetKind.Schedule,
-                    WorkloadTargetScope.PawnLocal,
-                    (int)WorkloadScheduleTargetKind.WorkGiver,
-                    pawnId,
-                    workTypeName,
-                    workGiverName))) ||
-                (workGiverName != null && _changedInspectionTargets.Contains(new InspectionTargetKey(
-                    InspectionTargetKind.Schedule,
-                    WorkloadTargetScope.GlobalShared,
-                    (int)WorkloadScheduleTargetKind.WorkGiver,
-                    -1,
-                    workTypeName,
-                    workGiverName))))
-            {
-                return WorkloadInspectionCellKind.Schedule;
-            }
-
-            if (_changedInspectionTargets.Contains(new InspectionTargetKey(
-                    InspectionTargetKind.Ordering,
-                    WorkloadTargetScope.PawnLocal,
-                    0,
-                    pawnId,
-                    workTypeName,
-                    null)) ||
-                _changedInspectionTargets.Contains(new InspectionTargetKey(
-                    InspectionTargetKind.Ordering,
-                    WorkloadTargetScope.GlobalShared,
-                    0,
-                    -1,
-                    workTypeName,
-                    null)))
-            {
-                return WorkloadInspectionCellKind.Ordering;
-            }
-
-            if (workGiverName == null)
-            {
-                return WorkloadInspectionCellKind.None;
-            }
-
-            if (_changedInspectionTargets.Contains(new InspectionTargetKey(
-                    InspectionTargetKind.SpecificPriority,
-                    WorkloadTargetScope.PawnLocal,
-                    0,
-                    pawnId,
-                    workTypeName,
-                    workGiverName)) ||
-                _changedInspectionTargets.Contains(new InspectionTargetKey(
-                    InspectionTargetKind.SpecificPriority,
-                    WorkloadTargetScope.GlobalShared,
-                    0,
-                    -1,
-                    workTypeName,
-                    workGiverName)))
-            {
-                return WorkloadInspectionCellKind.SpecificPriority;
-            }
-
-            return WorkloadInspectionCellKind.None;
-        }
-
         /// <summary>
         /// Applies a typed preview intent from a context-menu callback. These
         /// callbacks run outside the Work-tab provider scope, so they must
@@ -3345,8 +3261,18 @@ namespace Better_Work_Tab.UI.Workloads
             _inspectionTargets.Clear();
             _changedSchedulePawnIds.Clear();
             _hasInspectionCellTargets = false;
+            _hasManualModeInspectionChange = false;
             if (diff != null)
             {
+                WorkloadProjectedState inspectionBaseline =
+                    _inspectionContext == WorkloadInspectionContext.Live
+                        ? _session.LiveBaselineState
+                        : _session.TemplateBaselineState;
+                _hasManualModeInspectionChange =
+                    WorkloadInspectionSemantics.HasEffectiveManualModeChange(
+                        inspectionBaseline,
+                        _session.ProjectedState);
+
                 for (int i = 0; i < diff.Changes.Count; i++)
                 {
                     WorkloadChange change = diff.Changes[i];
@@ -3373,7 +3299,6 @@ namespace Better_Work_Tab.UI.Workloads
                     switch (change.Dimension)
                     {
                         case WorkloadStateDimension.ParentPriorities:
-                        case WorkloadStateDimension.ManualModes:
                             if (pawnId > 0 && workType != null && workType.IsValid)
                             {
                                 _changedInspectionTargets.Add(new InspectionTargetKey(
@@ -3385,6 +3310,11 @@ namespace Better_Work_Tab.UI.Workloads
                                     null));
                                 _hasInspectionCellTargets = true;
                             }
+                            break;
+                        case WorkloadStateDimension.ManualModes:
+                            // Manual mode is globally effective. Its
+                            // compatibility entries are intentionally not
+                            // projected into pawn x WorkType cell targets.
                             break;
                         case WorkloadStateDimension.Schedules:
                             if (pawnId > 0)
@@ -3464,6 +3394,7 @@ namespace Better_Work_Tab.UI.Workloads
             _inspectionTargets.Clear();
             _changedSchedulePawnIds.Clear();
             _hasInspectionCellTargets = false;
+            _hasManualModeInspectionChange = false;
             _inspectionIndexSession = null;
             _inspectionIndexSessionRevision = long.MinValue;
             _inspectionIndexContext = WorkloadInspectionContext.None;
