@@ -685,18 +685,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
+            if (preview.HasInspectionRowLevelChanges)
+            {
+                DrawWorkloadInspectionRows(
+                    rowDescriptors,
+                    totalWidth,
+                    rowGeometry,
+                    visibleRows,
+                    preview);
+            }
+
             if (!preview.HasInspectionCellTargets)
             {
-                if (preview.HasInspectionRowLevelChanges)
-                {
-                    DrawWorkloadInspectionRows(
-                        rowDescriptors,
-                        totalWidth,
-                        rowGeometry,
-                        visibleRows,
-                        preview);
-                }
-
                 // Membership-only and presentation-only changes are rendered
                 // by their own paths (or have no grid visual). Do not walk the
                 // body columns for them.
