@@ -1397,7 +1397,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
         internal WorkloadOperationResult<WorkloadPersistenceReceipt> RecoverPersistenceReceipt(
             WorkloadDecisionKind decisionKind,
-            string targetStableId)
+            string targetStableId,
+            string forkLabel)
         {
             if (_previewSession == null)
             {
@@ -1409,7 +1410,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return _applyService.RecoverPersistenceReceipt(
                 _previewSession,
                 decisionKind,
-                targetStableId);
+                targetStableId,
+                forkLabel);
         }
 
         internal WorkloadOperationResult<WorkloadSession> BuildMultiplayerSession(
@@ -2880,7 +2882,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         internal WorkloadOperationResult<WorkloadPersistenceReceipt> RecoverPersistenceReceipt(
             WorkloadSession session,
             WorkloadDecisionKind decisionKind,
-            string targetStableId)
+            string targetStableId,
+            string forkLabel)
         {
             if (session == null || session.SourceTemplate == null ||
                 session.SourceTemplate.Definition == null)
@@ -2964,52 +2967,18 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return receipt;
             }
 
-            string expectedTargetIdentity =
-                WorkloadSession.GetSourceIdentity(session.TargetTemplate);
-            if (!StringComparer.Ordinal.Equals(
-                    receipt.Value.TargetIdentity,
-                    expectedTargetIdentity))
-            {
-                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The current V2 target identity is stale relative to the active preview.");
-            }
-
-            int expectedRevision = baseline.PersistenceRevision;
-            bool requiresPostWriteRevision = decisionKind == WorkloadDecisionKind.Fork ||
-                !StringComparer.Ordinal.Equals(
-                    receipt.Value.TargetIdentity,
-                    sourceIdentity);
-            if (requiresPostWriteRevision)
-            {
-                if (expectedRevision == int.MaxValue)
-                {
-                    return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                        WorkloadDiagnosticCode.PersistenceConflict,
-                        "The V2 persistence revision cannot prove the recovered write.");
-                }
-
-                expectedRevision++;
-            }
-
-            if (receipt.Value.PersistenceRevision != expectedRevision)
-            {
-                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The current V2 persistence revision is not the authoritative post-write revision.");
-            }
-
-            if (decisionKind == WorkloadDecisionKind.Fork &&
-                !StringComparer.Ordinal.Equals(
-                    receipt.Value.CurrentWorkloadId,
-                    targetStableId))
-            {
-                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The recovered V2 Fork target is not the current workload.");
-            }
-
-            return receipt;
+            return WorkloadPersistenceReceiptRecovery.TryRecover(
+                session,
+                decisionKind,
+                targetStableId,
+                forkLabel,
+                baseline.PersistenceRevision,
+                baseline.PersistenceFingerprint,
+                new WorkloadPersistenceRecoverySnapshot(
+                    receipt.Value.TargetTemplate,
+                    receipt.Value.PersistenceRevision,
+                    receipt.Value.PersistenceFingerprint,
+                    receipt.Value.CurrentWorkloadId));
         }
 
         internal WorkloadOperationResult<WorkloadProjectedState> CaptureLiveBaseline(

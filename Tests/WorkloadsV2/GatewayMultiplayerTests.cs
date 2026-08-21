@@ -312,8 +312,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "receipt recovery must use the confirmed Save/Fork decision");
             TestAssert.Contains(
                 gateway,
-                "modern.RecoverPersistenceReceipt(decisionKind, targetStableId)",
+                "modern.RecoverPersistenceReceipt(\n                        decisionKind,\n                        targetStableId,\n                        forkLabel)",
                 "a terminal success without a receipt must ask the authoritative UI backend to recover it");
+            TestAssert.Contains(
+                completion,
+                "_multiplayerForkLabel",
+                "Save As receipt recovery must carry the requested fork label through completion");
             TestAssert.Contains(
                 backend,
                 "pending?.Result",
@@ -355,8 +359,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "receipt recovery must reject non-authoritative persistence metadata");
             TestAssert.Contains(
                 recovery,
-                "The current V2 persistence revision is not the authoritative post-write revision.",
-                "receipt recovery must reject stale or ambiguous post-write revisions");
+                "baseline.PersistenceRevision",
+                "receipt recovery must pass the captured persistence revision to the pure seam");
+            TestAssert.Contains(
+                recovery,
+                "WorkloadPersistenceReceiptRecovery.TryRecover(",
+                "receipt recovery must retain fail-closed revision and identity validation in production code");
             TestAssert.False(
                 recovery.IndexOf("CaptureLiveBaseline", StringComparison.Ordinal) >= 0 ||
                 recovery.IndexOf("RebasePreviewAfterPersistence", StringComparison.Ordinal) >= 0 ||
