@@ -18,6 +18,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string header = Read(root, "Source", "UI", "HeaderButtons.cs");
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
             string renderer = Read(root, "Source", "UI", "WorkGrid", "Rendering", "WorkTabBodyRenderer.cs");
+            string chrome = Read(root, "Source", "UI", "Chrome", "WorkTabChrome.cs");
+            string inspectionSemantics = Read(
+                root,
+                "Source",
+                "Features",
+                "Workloads",
+                "V2",
+                "WorkloadInspectionSemantics.cs");
             string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
             string session = Read(root, "Source", "Features", "Workloads", "V2", "WorkloadSession.cs");
             string english = Read(root, "Languages", "English", "Keyed", "English.xml");
@@ -29,7 +37,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             NarrowFooterGeometryIsBounded(header);
             DeletedFeedbackCopyIsAbsent(english, settings);
             FooterActionsAcceptTypedState(gateway, session);
-            InspectionUsesRevisionCachesAndContext(header, gateway, renderer);
+            InspectionUsesRevisionCachesAndContext(
+                header,
+                gateway,
+                renderer,
+                chrome,
+                inspectionSemantics);
             DynamicOwnershipReachesCommitPayload(backend, session);
             IncludeUsesTheAuthoritativeBaselineAndApplyPath(gateway, backend);
             LegacyPayloadsRemainFailClosed(gateway, backend, session);
@@ -43,7 +56,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         private static void InspectionUsesRevisionCachesAndContext(
             string header,
             string gateway,
-            string renderer)
+            string renderer,
+            string chrome,
+            string inspectionSemantics)
         {
             TestAssert.Contains(
                 gateway,
@@ -115,8 +130,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "cell inspection must enumerate the cached changed targets");
             TestAssert.Contains(
                 drawPath,
-                "DrawGlobalInspectionTarget(",
-                "global inspection changes must draw affected columns across visible rows");
+                "_inspectionGlobalColumns",
+                "global inspection changes must aggregate affected columns before row drawing");
+            TestAssert.Contains(
+                drawPath,
+                "_inspectionCellMasks",
+                "inspection changes must aggregate one semantic mask per visible cell");
             TestAssert.Contains(
                 drawPath,
                 "WorkGridInteractionGeometry.GetAnimatedBodyContentRect",
@@ -133,6 +152,30 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 renderer,
                 "WorkPriorityCellGeometry.GetDrawnPriorityBoxRect",
                 "priority inspection must use the authoritative drawn box geometry");
+            TestAssert.Contains(
+                renderer,
+                "GetSpecificColumns(target.WorkType, target.WorkGiver)",
+                "specific inspection targets must use the direct semantic index");
+            TestAssert.Contains(
+                renderer,
+                "GetOrderingColumns(target.WorkType)",
+                "ordering inspection targets must use the direct semantic index");
+            TestAssert.Contains(
+                renderer,
+                "right: true",
+                "ordering inspection must retain a distinct right-edge marker");
+            TestAssert.Contains(
+                inspectionSemantics,
+                "_values[key] = existing | kind",
+                "inspection semantic kinds must compose rather than use precedence");
+            TestAssert.Contains(
+                gateway,
+                "_hasManualModeInspectionChange",
+                "manual mode inspection must remain a single global semantic marker");
+            TestAssert.Contains(
+                chrome,
+                "GetManualPrioritiesCheckboxRect",
+                "manual-priority input and inspection geometry must share the chrome helper");
             TestAssert.Contains(
                 renderer,
                 "_inspectionBindingSubWorkRevision = subWorkRevision",

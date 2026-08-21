@@ -16,6 +16,7 @@ using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Workloads;
 using RimWorld;
 using Spine.Profiling;
 using Spine.UI.WidgetExtensions;
@@ -238,7 +239,7 @@ namespace Better_Work_Tab.UI.Chrome
             Text.Font = GameFont.Small;
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
-            Rect rect = new Rect(5f, 5f, 140f, 30f);
+            Rect rect = WorkTabChromeGeometry.GetManualPrioritiesCheckboxRect();
             int maxPriority = WorkPrioritySystem.GetMaxPriority();
             EnsureUiTextCache(maxPriority);
             bool wasEnabled = WorkTabEffectiveStateRuntime.IsPreviewActive
@@ -255,6 +256,8 @@ namespace Better_Work_Tab.UI.Chrome
                 requestedEnabled = wasEnabled;
             }
 
+            DrawManualModeInspectionIndicator(rect);
+
             bool isEnabled = WorkTabEffectiveStateRuntime.IsPreviewActive
                 ? requestedEnabled
                 : Current.Game.playSettings.useWorkPriorities;
@@ -270,6 +273,24 @@ namespace Better_Work_Tab.UI.Chrome
             {
                 UIHighlighter.HighlightOpportunity(rect, "ManualPriorities-Off");
             }
+        }
+
+        private static void DrawManualModeInspectionIndicator(Rect checkboxRect)
+        {
+            WorkloadPreviewController preview = WorkloadPreviewController.Current;
+            if (preview == null ||
+                !WorkloadPreviewController.IsInspectionActiveForCurrentTab ||
+                !preview.HasManualModeInspectionChange)
+            {
+                return;
+            }
+
+            GUI.color = new Color(0.95f, 0.70f, 0.25f, 0.9f);
+            Widgets.DrawBox(checkboxRect.ExpandedBy(2f), 2);
+            GUI.color = Color.white;
+            TooltipHandler.TipRegion(
+                checkboxRect,
+                "This preview changes the global manual-priority mode.");
         }
 
         private void DrawPriorityLegend(Rect rect)

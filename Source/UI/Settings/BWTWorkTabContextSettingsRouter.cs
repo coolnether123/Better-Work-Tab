@@ -736,7 +736,7 @@ namespace Better_Work_Tab.UI.Settings
 
         private static bool TryGetManualPrioritiesContext(Vector2 mousePosition)
         {
-            return new Rect(5f, 5f, 220f, 90f).Contains(mousePosition);
+            return WorkTabChromeGeometry.GetManualPrioritiesContextRect().Contains(mousePosition);
         }
 
         private static bool TryGetPriorityLegendContext(Rect inRect, Vector2 mousePosition)
