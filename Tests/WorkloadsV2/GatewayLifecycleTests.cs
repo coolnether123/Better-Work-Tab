@@ -16,9 +16,23 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             string root = FindRepositoryRoot();
             string header = Read(root, "Source", "UI", "HeaderButtons.cs");
+            string selector = Read(root, "Source", "UI", "BWTBottomBarSelector.cs");
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
             string renderer = Read(root, "Source", "UI", "WorkGrid", "Rendering", "WorkTabBodyRenderer.cs");
             string chrome = Read(root, "Source", "UI", "Chrome", "WorkTabChrome.cs");
+            string contextRouter = Read(root, "Source", "UI", "Settings", "BWTWorkTabContextSettingsRouter.cs");
+            string settingsModel = Read(root, "Source", "BetterWorkTabSettings.cs");
+            string settingIds = Read(root, "Source", "UI", "Settings", "SettingIDs.cs");
+            string settingsTranslations = Read(root, "Languages", "English", "Keyed", "BWT_Settings.xml");
+            string mainWindow = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
+            string interactionRouter = Read(root, "Source", "UI", "WorkGrid", "Interaction", "WorkGridInteractionRouter.cs");
+            string footerContextController = Read(
+                root,
+                "Source",
+                "UI",
+                "WorkGrid",
+                "Interaction",
+                "WorkTabContextSettingsInteractionController.cs");
             string inspectionSemantics = Read(
                 root,
                 "Source",
@@ -31,10 +45,21 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string english = Read(root, "Languages", "English", "Keyed", "English.xml");
             string settings = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
 
-            FooterSelectorKeepsManagerAndPreviewActionsSeparate(header);
+            FooterSelectorKeepsManagerAndPreviewActionsSeparate(header, gateway);
             WorkloadMenuUsesStableIds(header);
             PreviewActionsUseVisibleHitRects(header);
             NarrowFooterGeometryIsBounded(header);
+            SelectorSpacingIsMeasuredWithoutLeadingReserve(selector);
+            WorkloadFooterContextRoutingIsClippedAndSettingsBacked(
+                header,
+                contextRouter,
+                settingsModel,
+                settingIds,
+                settingsTranslations,
+                mainWindow,
+                interactionRouter,
+                footerContextController,
+                settings);
             DeletedFeedbackCopyIsAbsent(english, settings);
             FooterActionsAcceptTypedState(gateway, session);
             InspectionUsesRevisionCachesAndContext(
@@ -191,7 +216,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         }
 
         private static void FooterSelectorKeepsManagerAndPreviewActionsSeparate(
-            string header)
+            string header,
+            string gateway)
         {
             int main = header.IndexOf(
                 "if (DrawWorkloadMainControl(",
@@ -214,8 +240,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the selected modern workload name button must enter the projected preview");
             TestAssert.Contains(
                 nameButtonPath,
-                "Select a workload with the ... menu before opening a preview.",
-                "the empty name button must not open the workload manager");
+                "BWT_Workload_SelectBeforePreview\".Translate()",
+                "the empty name button must report the no-selection state without opening the workload manager");
             TestAssert.False(
                 nameButtonPath.IndexOf("OpenWorkloadFooterPicker();", StringComparison.Ordinal) >= 0,
                 "the workload name button must never open the workload picker");
@@ -239,6 +265,24 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 header,
                 "rects.HasWorkloadUpdate ? rects.WorkloadUpdate : Rect.zero",
                 "Update must retain the footer inspection hover geometry");
+            int createStart = gateway.IndexOf(
+                "internal bool CreateWorkload(string label, out WorkloadDescriptor descriptor)",
+                StringComparison.Ordinal);
+            int createEnd = gateway.IndexOf(
+                "internal bool RenameWorkload(string stableId, string label)",
+                createStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                createStart >= 0 && createEnd > createStart,
+                "workload creation must remain an isolated lifecycle operation");
+            string createPath = gateway.Substring(createStart, createEnd - createStart);
+            TestAssert.Contains(
+                createPath,
+                "WorkloadGateway.CreateWorkload(label)",
+                "saving a workload must use the current Work-tab capture path");
+            TestAssert.False(
+                createPath.IndexOf("BeginCurrentPreview()", StringComparison.Ordinal) >= 0,
+                "saving the captured Work-tab state must not reopen it as a ghost preview");
             TestAssert.Contains(
                 header,
                 "SpineEasing.Move01(",
@@ -325,20 +369,140 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string actionPath = header.Substring(start, end - start);
             TestAssert.Contains(
                 actionPath,
-                "Widgets.ButtonInvisible(hitRect)",
+                "hitRect.Contains(current.mousePosition)",
                 "partially revealed actions must only accept input in their visible hit rectangle");
             TestAssert.Contains(
                 actionPath,
                 "Widgets.ButtonText(drawRect, label, active: enabled)",
-                "fully revealed actions must retain the native footer button rendering");
+                "preview actions must retain the native footer button rendering throughout the reveal");
+            TestAssert.False(
+                actionPath.IndexOf("Widgets.DrawBoxSolid(", StringComparison.Ordinal) >= 0,
+                "preview actions must not switch to a custom solid renderer while partially revealed");
+            TestAssert.False(
+                actionPath.IndexOf("Widgets.ButtonInvisible(hitRect)", StringComparison.Ordinal) >= 0,
+                "preview actions must not switch to a custom invisible control while partially revealed");
+        }
+
+        private static void SelectorSpacingIsMeasuredWithoutLeadingReserve(string selector)
+        {
+            TestAssert.False(
+                selector.IndexOf("LeadingSlotSize", StringComparison.Ordinal) >= 0,
+                "selectors must not reserve the removed leading icon slot");
+            TestAssert.False(
+                selector.IndexOf("LeadingTextGap", StringComparison.Ordinal) >= 0,
+                "selectors must not reserve the removed leading icon gap");
             TestAssert.Contains(
-                actionPath,
-                "Widgets.DrawBoxSolid(\n                    drawRect",
-                "partially revealed actions must still draw from their translated rectangle");
+                selector,
+                "float textX = rect.x + SidePadding;",
+                "selector labels must begin at the normal side padding");
             TestAssert.Contains(
-                actionPath,
-                "Widgets.DrawHighlight(hitRect)",
-                "action hover feedback must follow the visible hit rectangle");
+                selector,
+                "(SidePadding * 2f);",
+                "selector measurement must include only the two side paddings around text");
+        }
+
+        private static void WorkloadFooterContextRoutingIsClippedAndSettingsBacked(
+            string header,
+            string contextRouter,
+            string settingsModel,
+            string settingIds,
+            string settingsTranslations,
+            string mainWindow,
+            string interactionRouter,
+            string footerContextController,
+            string settingsRegistry)
+        {
+            TestAssert.Contains(
+                contextRouter,
+                "rects.ContainsWorkloadFooter(mousePosition)",
+                "workload contextual settings must include the visible footer, not only the selector");
+            TestAssert.Contains(
+                contextRouter,
+                "CreateWorkloadContextRequest(",
+                "workload footer settings must use the workload ownership-aware context request");
+
+            string[] ids =
+            {
+                "WorkloadsPreviewRevealAnimation",
+                "WorkloadsPreviewRevealSpeed",
+                "WorkloadsInspectionHighlights",
+                "WorkloadsInspectionOpacity"
+            };
+            string[] fields =
+            {
+                "enableWorkloadPreviewRevealAnimation",
+                "workloadPreviewRevealSpeed",
+                "enableWorkloadInspectionHighlights",
+                "workloadInspectionOpacity"
+            };
+            for (int i = 0; i < ids.Length; i++)
+            {
+                TestAssert.Contains(settingIds, ids[i], "workload presentation setting ID must be declared");
+                TestAssert.Contains(contextRouter, ids[i], "workload presentation setting must be routable by Alt-click");
+                TestAssert.Contains(settingsModel, fields[i], "workload presentation setting must have a persisted field/default");
+            }
+
+            TestAssert.Contains(
+                settingsModel,
+                "NormalizeWorkloadPresentationSettings();",
+                "workload presentation settings must normalize persisted values on load");
+            TestAssert.Contains(
+                settingsRegistry,
+                ".DefaultTo(DefaultSettings.workloadPreviewRevealSpeed)",
+                "workload reveal speed must participate in registered reset behavior");
+            TestAssert.Contains(
+                settingsRegistry,
+                ".ControlsChildren()",
+                "inspection highlight settings must own their opacity child");
+
+            TestAssert.Contains(
+                contextRouter,
+                "StageablePresentationSettingIds",
+                "workload presentation settings must remain inside the preview ownership boundary");
+            TestAssert.Contains(
+                header,
+                "rects.ContainsWorkloadFooter(evt.mousePosition)",
+                "the normal footer input path must reserve Alt-clicks over visible workload controls");
+            TestAssert.Contains(
+                mainWindow,
+                "TryHandleFooterContextSettings(\n                    inRect,",
+                "the window must give contextual settings first refusal before normal footer actions");
+            TestAssert.Contains(
+                interactionRouter,
+                "_contextSettingsInteractionController.TryHandleFooterInput(inRect, evt)",
+                "footer contextual routing must reuse the existing context-settings controller");
+            TestAssert.Contains(
+                footerContextController,
+                "rects.ContainsWorkloadFooter(evt.mousePosition)",
+                "footer registration must use the authoritative visible footer hit helper");
+            TestAssert.Contains(
+                footerContextController,
+                "rects.HasWorkloadSaveAs ? rects.WorkloadSaveAs : Rect.zero",
+                "Save As contextual routing must use its clipped visible rectangle");
+            TestAssert.Contains(
+                footerContextController,
+                "rects.HasWorkloadUpdate ? rects.WorkloadUpdate : Rect.zero",
+                "Save contextual routing must use its clipped visible rectangle");
+            TestAssert.Contains(
+                footerContextController,
+                "rects.WorkloadCancel",
+                "Cancel contextual routing must use the shared footer geometry");
+            TestAssert.Contains(
+                footerContextController,
+                "rects.WorkloadApply",
+                "Apply contextual routing must use the shared footer geometry");
+            TestAssert.Contains(
+                header,
+                "animated: animated",
+                "preview reveal animation must be controlled by the effective workload setting");
+            TestAssert.Contains(
+                settingsTranslations,
+                "BWT_Settings_workloads.previewRevealAnimation",
+                "workload presentation settings must have player-facing translations");
+            TestAssert.Contains(
+                settingsTranslations,
+                "BWT_Settings_workloads.inspectionOpacity",
+                "workload inspection opacity must have a player-facing translation");
         }
 
         private static void NarrowFooterGeometryIsBounded(string header)
@@ -543,11 +707,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             TestAssert.Contains(
                 header,
-                "\"Save\",",
+                "\"BWT_Workload_Save\".Translate(),",
                 "the visible Update action must be labeled Save");
             TestAssert.Contains(
                 header,
-                "Save applies this semantic diff",
+                "\"BWT_Workload_SaveTooltip\".Translate()",
                 "Save hover text must describe persistence-only replacement");
             TestAssert.Contains(
                 session,
