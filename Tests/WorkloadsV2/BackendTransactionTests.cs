@@ -29,6 +29,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TemplateWritesUseTheSameTransactionBoundary(backend);
             FreshnessRevisionsAreCapturedAndValidatedIndependently(backend, multiplayer);
             PersistenceRevalidatesRuntimeStateBeforeTemplateWrites(backend);
+            SaveRebaseAndForkCurrentIdentityAreTransactional(backend);
         }
 
         private static void PrepareIsReadOnlyAndExecuteIsCapabilityBound(
@@ -339,6 +340,60 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 StringComparer.Ordinal.Equals("taxonomy-a", "taxonomy-a") &&
                 StringComparer.Ordinal.Equals("authority-a", "authority-a"),
                 "unchanged runtime identity, taxonomy, and authority must permit valid persistence");
+        }
+
+        private static void SaveRebaseAndForkCurrentIdentityAreTransactional(string backend)
+        {
+            TestAssert.Contains(
+                backend,
+                "BuildPersistenceReceipt(",
+                "Update/Fork must build a receipt from the authoritative persisted target");
+            TestAssert.Contains(
+                backend,
+                "executionContext.PersistenceRebase(receipt.Value)",
+                "single-player persistence must rebase only after the write and round trip succeed");
+            TestAssert.Contains(
+                backend,
+                "RekeyBackendBaseline(",
+                "successful Save As must rekey the service-owned baseline");
+            TestAssert.Contains(
+                backend,
+                "successResult.PersistenceReceipt = executionContext?.PersistenceReceipt",
+                "the committed receipt must cross the MP status boundary rather than a peer session");
+
+            int persistencePlanStart = backend.IndexOf(
+                "// Update and Fork do not apply the live colony",
+                StringComparison.Ordinal);
+            int applyLiveStart = backend.IndexOf(
+                "ApplyLive(live, runtimePlan",
+                persistencePlanStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                persistencePlanStart >= 0 && applyLiveStart > persistencePlanStart,
+                "the Update/Fork persistence-only planning boundary must remain explicit");
+            string persistencePlan = backend.Substring(
+                persistencePlanStart,
+                applyLiveStart - persistencePlanStart);
+            TestAssert.False(
+                persistencePlan.IndexOf("ApplyLive(", StringComparison.Ordinal) >= 0,
+                "Save and Save As must never call the live colony writer");
+
+            TestAssert.Contains(
+                backend,
+                "store.CurrentWorkloadId = mutation.StableId",
+                "Fork must activate the new current workload in the same persistence mutation");
+            TestAssert.Contains(
+                backend,
+                "mutation.PreviousCurrentWorkloadId",
+                "Fork current-ID activation must retain rollback metadata");
+            TestAssert.Contains(
+                backend,
+                "if (mutation.CurrentWorkloadIdChanged)",
+                "Fork rollback must restore the prior current workload identity");
+            TestAssert.Contains(
+                backend,
+                "Keep the lease active so the protocol can still issue",
+                "a failed final confirmation must remain rollback-recoverable");
         }
 
         private static string FindRepositoryRoot()

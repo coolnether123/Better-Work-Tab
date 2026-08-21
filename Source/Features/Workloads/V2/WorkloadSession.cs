@@ -418,6 +418,53 @@ namespace Better_Work_Tab.Features.Workloads.V2
         internal IReadOnlyList<string> OrderedWorkGiverNames { get; private set; }
     }
 
+    /// <summary>
+    /// Authoritative evidence produced by a successful V2 persistence mutation.
+    /// The session may rebase from this receipt only after the write has
+    /// round-tripped through the persistence record and its CAS metadata is
+    /// authoritative.
+    /// </summary>
+    internal sealed class WorkloadPersistenceReceipt
+    {
+        internal WorkloadPersistenceReceipt(
+            WorkloadDecisionKind decisionKind,
+            string sourceStableId,
+            string targetStableId,
+            string sourceIdentity,
+            string targetIdentity,
+            WorkloadTemplate targetTemplate,
+            int previousPersistenceRevision,
+            string previousPersistenceFingerprint,
+            int persistenceRevision,
+            string persistenceFingerprint,
+            string currentWorkloadId)
+        {
+            DecisionKind = decisionKind;
+            SourceStableId = sourceStableId ?? string.Empty;
+            TargetStableId = targetStableId ?? string.Empty;
+            SourceIdentity = sourceIdentity ?? string.Empty;
+            TargetIdentity = targetIdentity ?? string.Empty;
+            TargetTemplate = targetTemplate;
+            PreviousPersistenceRevision = previousPersistenceRevision;
+            PreviousPersistenceFingerprint = previousPersistenceFingerprint ?? string.Empty;
+            PersistenceRevision = persistenceRevision;
+            PersistenceFingerprint = persistenceFingerprint ?? string.Empty;
+            CurrentWorkloadId = currentWorkloadId ?? string.Empty;
+        }
+
+        internal WorkloadDecisionKind DecisionKind { get; private set; }
+        internal string SourceStableId { get; private set; }
+        internal string TargetStableId { get; private set; }
+        internal string SourceIdentity { get; private set; }
+        internal string TargetIdentity { get; private set; }
+        internal WorkloadTemplate TargetTemplate { get; private set; }
+        internal int PreviousPersistenceRevision { get; private set; }
+        internal string PreviousPersistenceFingerprint { get; private set; }
+        internal int PersistenceRevision { get; private set; }
+        internal string PersistenceFingerprint { get; private set; }
+        internal string CurrentWorkloadId { get; private set; }
+    }
+
     public sealed class WorkloadSession
     {
         private readonly WorkloadValidationContext _validationContext;
@@ -751,16 +798,15 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadPreviewPlan plan = BuildPlan(WorkloadDecisionKind.Update);
             if (!plan.CanProceed)
             {
-                return Rejected(WorkloadDecisionKind.Update, plan, "The updated template did not pass validation.");
+                return Rejected(WorkloadDecisionKind.Update, plan, "The workload template did not pass validation.");
             }
 
             WorkloadTemplate updatedTemplate = TargetTemplate;
-            WorkloadSession updated = TerminalSession(updatedTemplate, WorkloadSessionStatus.Updated);
             return new WorkloadSessionDecision(
                 WorkloadDecisionKind.Update,
                 true,
                 plan,
-                updated,
+                this,
                 updatedTemplate,
                 null,
                 null);
@@ -787,15 +833,102 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
             string safeLabel = (label ?? string.Empty).AnyNonWhitespace() ? label : SourceTemplate.Label;
             WorkloadTemplate forkedTemplate = BuildTargetTemplate(BuildPersistenceState(), safeId, safeLabel);
-            WorkloadSession forked = TerminalSession(forkedTemplate, WorkloadSessionStatus.Forked);
             return new WorkloadSessionDecision(
                 WorkloadDecisionKind.Fork,
                 true,
                 plan,
-                forked,
+                this,
                 forkedTemplate,
                 null,
                 null);
+        }
+
+        /// <summary>
+        /// Replaces the persisted/template side of an open preview after a
+        /// successful Update or Fork. This is deliberately a nonterminal
+        /// transition: the captured live baseline, runtime baseline, preview
+        /// identity, and temporary exclusions remain in the same session.
+        /// </summary>
+        internal WorkloadSession RebaseAfterPersistence(
+            WorkloadPersistenceReceipt receipt)
+        {
+            if (receipt == null || receipt.TargetTemplate == null ||
+                receipt.TargetTemplate.Definition == null ||
+                (receipt.DecisionKind != WorkloadDecisionKind.Update &&
+                 receipt.DecisionKind != WorkloadDecisionKind.Fork))
+            {
+                return null;
+            }
+
+            if (!StringComparer.Ordinal.Equals(
+                    SourceTemplate.StableId,
+                    receipt.SourceStableId) ||
+                !StringComparer.Ordinal.Equals(
+                    receipt.TargetTemplate.StableId,
+                    receipt.TargetStableId) ||
+                !StringComparer.Ordinal.Equals(
+                    SourceIdentity,
+                    receipt.SourceIdentity) ||
+                !StringComparer.Ordinal.Equals(
+                    GetSourceIdentity(SourceTemplate),
+                    receipt.SourceIdentity) ||
+                !StringComparer.Ordinal.Equals(
+                    GetSourceIdentity(receipt.TargetTemplate),
+                    receipt.TargetIdentity) ||
+                receipt.PreviousPersistenceRevision < 0 ||
+                receipt.PersistenceRevision < 0 ||
+                string.IsNullOrWhiteSpace(receipt.PreviousPersistenceFingerprint) ||
+                string.IsNullOrWhiteSpace(receipt.PersistenceFingerprint))
+            {
+                return null;
+            }
+
+            if (receipt.DecisionKind == WorkloadDecisionKind.Update &&
+                !StringComparer.Ordinal.Equals(
+                    receipt.SourceStableId,
+                    receipt.TargetStableId))
+            {
+                return null;
+            }
+
+            if (receipt.DecisionKind == WorkloadDecisionKind.Fork &&
+                (StringComparer.Ordinal.Equals(
+                    receipt.SourceStableId,
+                    receipt.TargetStableId) ||
+                 string.IsNullOrWhiteSpace(receipt.CurrentWorkloadId) ||
+                 !StringComparer.Ordinal.Equals(
+                     receipt.CurrentWorkloadId,
+                     receipt.TargetStableId)))
+            {
+                return null;
+            }
+
+            WorkloadProjectedState rebasedProjectedState = NormalizeState(
+                receipt.TargetTemplate,
+                ProjectedState);
+            WorkloadProjectedState rebasedTemplateState = NormalizeState(
+                receipt.TargetTemplate,
+                receipt.TargetTemplate.ProjectedState);
+            var rebased = new WorkloadSession(
+                receipt.TargetTemplate,
+                rebasedTemplateState,
+                LiveBaselineState,
+                rebasedProjectedState,
+                WorkloadSessionStatus.Open,
+                _validationContext,
+                receipt.TargetIdentity,
+                HasCapturedLiveBaseline,
+                RuntimeBaseline,
+                PreviewSessionId,
+                NextRevision(SessionRevision, true),
+                NextRevision(
+                    MembershipRevision,
+                    HasMembershipChange(ProjectedState, rebasedProjectedState)));
+
+            // The committed target is now the template baseline. Temporary
+            // exclusions may still affect the in-memory projection, but they
+            // are intentionally omitted by BuildPersistenceState().
+            return rebased.TemplateDiff.IsEmpty ? rebased : null;
         }
 
         private WorkloadPreviewPlan BuildPlan(WorkloadDecisionKind kind)
