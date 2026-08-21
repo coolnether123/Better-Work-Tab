@@ -33,6 +33,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             DynamicOwnershipReachesCommitPayload(backend, session);
             IncludeUsesTheAuthoritativeBaselineAndApplyPath(gateway, backend);
             LegacyPayloadsRemainFailClosed(gateway, backend, session);
+            SaveAndForkRemainActiveAfterPersistence(
+                header,
+                gateway,
+                backend,
+                session);
         }
 
         private static void InspectionUsesRevisionCachesAndContext(
@@ -305,15 +310,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             TestAssert.Contains(
                 gateway,
-                "internal bool CanApplyPreview =>\n            IsActive && !IsMultiplayerCommitInFlight && !HasUnsupportedOwnedPresentationState",
+                "internal bool CanApplyPreview =>\n            IsActive && !IsUnsafePreviewInputBlocked && !HasUnsupportedOwnedPresentationState",
                 "Apply must remain enabled for typed schedule/settings payloads while retaining MP and legacy gates");
             TestAssert.Contains(
                 gateway,
-                "internal bool CanUpdatePreview =>\n            IsActive && !IsMultiplayerCommitInFlight && HasSemanticDiff &&",
+                "internal bool CanUpdatePreview =>\n            IsActive && !IsUnsafePreviewInputBlocked && HasSemanticDiff &&",
                 "Update must be semantic-diff driven rather than dimension-presence driven");
             TestAssert.Contains(
                 gateway,
-                "internal bool CanForkPreview =>\n            IsActive && !IsMultiplayerCommitInFlight && !HasUnsupportedOwnedPresentationState",
+                "internal bool CanForkPreview =>\n            IsActive && !IsUnsafePreviewInputBlocked && !HasUnsupportedOwnedPresentationState",
                 "Fork must share the same typed-state gate as direct commit calls");
             TestAssert.Contains(
                 gateway,
@@ -447,6 +452,104 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     "ownership.Owns(WorkloadStateDimension.PresentationSettings) &&\n                        WorkloadV2OwnershipResolver.HasLegacyPayload",
                     StringComparison.Ordinal) >= 0,
                 "legacy presentation rejection must not depend on an old ownership bit");
+        }
+
+        private static void SaveAndForkRemainActiveAfterPersistence(
+            string header,
+            string gateway,
+            string backend,
+            string session)
+        {
+            TestAssert.Contains(
+                header,
+                "\"Save\",",
+                "the visible Update action must be labeled Save");
+            TestAssert.Contains(
+                header,
+                "Save applies this semantic diff",
+                "Save hover text must describe persistence-only replacement");
+            TestAssert.Contains(
+                session,
+                "internal WorkloadSession RebaseAfterPersistence(",
+                "Save/Fork must use an explicit nonterminal session rebase seam");
+
+            int updateStart = session.IndexOf(
+                "public WorkloadSessionDecision Update()",
+                StringComparison.Ordinal);
+            int planStart = session.IndexOf(
+                "private WorkloadPreviewPlan BuildPlan(",
+                updateStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                updateStart >= 0 && planStart > updateStart,
+                "the nonterminal Update/Fork planning region must remain explicit");
+            string updateForkPlanning = session.Substring(updateStart, planStart - updateStart);
+            TestAssert.False(
+                updateForkPlanning.IndexOf("TerminalSession(", StringComparison.Ordinal) >= 0,
+                "Save and Save As planning must not terminalize the preview");
+            TestAssert.Contains(
+                session,
+                "return rebased.TemplateDiff.IsEmpty ? rebased : null;",
+                "session rebase must fail closed unless the committed target is the new baseline");
+
+            TestAssert.Contains(
+                backend,
+                "BuildPersistenceReceipt(",
+                "persistence commits must produce a receipt from the round-tripped target");
+            TestAssert.Contains(
+                backend,
+                "RekeyBackendBaseline(",
+                "the backend baseline must be rekeyed from the old source identity");
+            TestAssert.Contains(
+                backend,
+                "CurrentWorkloadIdChanged",
+                "Fork current-ID activation must belong to the rollback-aware persistence mutation");
+
+            int updatePreviewStart = gateway.IndexOf(
+                "internal bool UpdatePreview()",
+                StringComparison.Ordinal);
+            int forkPreviewStart = gateway.IndexOf(
+                "internal bool ForkPreview(",
+                updatePreviewStart,
+                StringComparison.Ordinal);
+            int resetStart = gateway.IndexOf(
+                "internal void ResetForWindowClose()",
+                forkPreviewStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                updatePreviewStart >= 0 && forkPreviewStart > updatePreviewStart &&
+                resetStart > forkPreviewStart,
+                "Save and Save As controller boundaries must remain explicit");
+            string updatePreview = gateway.Substring(
+                updatePreviewStart,
+                forkPreviewStart - updatePreviewStart);
+            string forkPreview = gateway.Substring(
+                forkPreviewStart,
+                resetStart - forkPreviewStart);
+            TestAssert.Contains(
+                updatePreview,
+                "AdoptRebasedPreview(result)",
+                "Save must adopt the backend-rebased preview instead of closing it");
+            TestAssert.Contains(
+                forkPreview,
+                "AdoptRebasedPreview(result)",
+                "Save As must adopt the new active identity without closing the preview");
+            TestAssert.False(
+                updatePreview.IndexOf("ClearLocalSession()", StringComparison.Ordinal) >= 0 ||
+                forkPreview.IndexOf("ClearLocalSession()", StringComparison.Ordinal) >= 0,
+                "successful Save and Save As must not clear the local preview session");
+            TestAssert.Contains(
+                gateway,
+                "WorkloadGateway.AdoptV2PreviewSession(result.RebasedSession)",
+                "the controller must adopt the backend-authoritative rebased session");
+            TestAssert.Contains(
+                gateway,
+                "WorkloadGateway.RebaseV2PreviewAfterPersistence(",
+                "the controller must rebase the UI backend from the final MP persistence receipt");
+            TestAssert.Contains(
+                gateway,
+                "RebuildProjection(_session.ProjectedState)",
+                "rebasing must rebuild the projected provider and invalidate inspection state");
         }
 
         private static string FindRepositoryRoot()

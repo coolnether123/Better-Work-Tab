@@ -204,6 +204,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         public WorkloadTemplate ResultTemplate { get; private set; }
         public string StableId { get; private set; }
         public bool PreviewCleared { get; internal set; }
+        internal WorkloadPersistenceReceipt PersistenceReceipt { get; set; }
+        internal WorkloadSession RebasedSession { get; set; }
         public bool IsSemanticNoOp => Report?.IsSemanticNoOp == true;
         public bool LiveStateChanged => Report?.LiveStateChanged == true;
         public bool TemplatePersisted => Report?.TemplatePersisted == true;
@@ -1361,6 +1363,38 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return WorkloadOperationResult.Ok();
         }
 
+        internal WorkloadOperationResult<WorkloadSession> RebasePreviewAfterPersistence(
+            WorkloadPersistenceReceipt receipt)
+        {
+            if (_previewSession == null)
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.NotFound,
+                    "There is no active V2 preview session to rebase.");
+            }
+
+            WorkloadSession rebased = _previewSession.RebaseAfterPersistence(receipt);
+            if (rebased == null)
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The V2 persistence receipt does not match the active preview source or target.");
+            }
+
+            WorkloadOperationResult rekey = _applyService.RekeyBackendBaseline(
+                _previewSession,
+                receipt);
+            if (!rekey.Succeeded)
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    rekey.Code,
+                    rekey.Message);
+            }
+
+            _previewSession = rebased;
+            return WorkloadOperationResult<WorkloadSession>.Ok(_previewSession);
+        }
+
         internal WorkloadOperationResult<WorkloadSession> BuildMultiplayerSession(
             WorkloadTransactionRequest request,
             WorkloadTemplate projectedTemplate)
@@ -1626,7 +1660,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return _applyService.AbortPrepared(lease);
         }
 
-        internal bool ConfirmMultiplayerCommit(WorkloadV2ApplyService.WorkloadCommitRollbackLease lease)
+        internal bool ConfirmMultiplayerCommit(
+            WorkloadV2ApplyService.WorkloadCommitRollbackLease lease)
         {
             return _applyService.ConfirmPrepared(lease);
         }
@@ -1746,11 +1781,21 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 _previewSession,
                 decisionKind,
                 forkStableId,
-                forkLabel);
+                forkLabel,
+                decisionKind == WorkloadDecisionKind.Apply
+                    ? null
+                    : receipt => RebasePreviewAfterPersistence(receipt).Succeeded);
             if (result.Succeeded)
             {
-                _previewSession = null;
-                result.PreviewCleared = true;
+                if (decisionKind == WorkloadDecisionKind.Apply)
+                {
+                    _previewSession = null;
+                    result.PreviewCleared = true;
+                }
+                else
+                {
+                    result.RebasedSession = _previewSession;
+                }
             }
 
             return result;
@@ -2364,6 +2409,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
             _pendingByRequestId.TryGetValue(result.RequestId, out var pending);
             bool confirmed = true;
+            bool rollbackAfterConfirmationFailure = false;
+            string terminalDetail = result.Detail;
             if (result.Accepted &&
                 result.TerminalState == WorkloadTransactionTerminalState.Succeeded &&
                 pending != null)
@@ -2372,7 +2419,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     pending.Backend.ConfirmMultiplayerCommit(pending.Lease);
                 if (!confirmed)
                 {
-                    state = WorkloadMultiplayerCommitState.RollbackFailed;
+                    rollbackAfterConfirmationFailure = pending.Backend == null ||
+                        pending.Backend.AbortMultiplayerCommit(pending.Lease);
+                    state = rollbackAfterConfirmationFailure
+                        ? WorkloadMultiplayerCommitState.RolledBack
+                        : WorkloadMultiplayerCommitState.RollbackFailed;
                 }
             }
             if (pending?.Lease?.RecoveryRequired == true)
@@ -2382,8 +2433,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             Status(result.RequestId, state,
                 state == WorkloadMultiplayerCommitState.RollbackFailed
                     ? WorkloadDiagnosticCode.RollbackFailed
-                    : result.Accepted ? WorkloadDiagnosticCode.None : WorkloadDiagnosticCode.InvalidState,
-                result.Detail, pending?.Result);
+                    : result.Accepted && !rollbackAfterConfirmationFailure
+                        ? WorkloadDiagnosticCode.None
+                        : WorkloadDiagnosticCode.InvalidState,
+                terminalDetail, pending?.Result);
             if (pending != null && state != WorkloadMultiplayerCommitState.RollbackFailed)
             {
                 _pendingByRequestId.Remove(result.RequestId);
@@ -2683,6 +2736,63 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             _backendBaselines[identity] = baseline;
+        }
+
+        internal WorkloadOperationResult RekeyBackendBaseline(
+            WorkloadSession session,
+            WorkloadPersistenceReceipt receipt)
+        {
+            string oldIdentity = session?.SourceIdentity ?? string.Empty;
+            string newIdentity = receipt?.TargetIdentity ?? string.Empty;
+            if (session == null || receipt == null ||
+                string.IsNullOrWhiteSpace(oldIdentity) ||
+                string.IsNullOrWhiteSpace(newIdentity) ||
+                !StringComparer.Ordinal.Equals(oldIdentity, receipt.SourceIdentity) ||
+                !StringComparer.Ordinal.Equals(
+                    WorkloadSession.GetSourceIdentity(session.SourceTemplate),
+                    oldIdentity) ||
+                receipt.PersistenceRevision < 0 ||
+                string.IsNullOrWhiteSpace(receipt.PersistenceFingerprint))
+            {
+                return WorkloadOperationResult.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The V2 service-owned baseline rekey receipt is not authoritative.");
+            }
+
+            if (!_backendBaselines.TryGetValue(oldIdentity, out var baseline) ||
+                baseline == null ||
+                !baseline.HasPersistenceBaseline ||
+                baseline.PersistenceRevision != receipt.PreviousPersistenceRevision ||
+                !StringComparer.Ordinal.Equals(
+                    baseline.PersistenceFingerprint,
+                    receipt.PreviousPersistenceFingerprint))
+            {
+                return WorkloadOperationResult.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The V2 service-owned baseline no longer matches the committed persistence receipt.");
+            }
+
+            if (!StringComparer.Ordinal.Equals(oldIdentity, newIdentity) &&
+                _backendBaselines.ContainsKey(newIdentity))
+            {
+                return WorkloadOperationResult.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The V2 target identity already has a service-owned baseline.");
+            }
+
+            // The typed/runtime snapshots remain the exact opening snapshots.
+            // Only persistence metadata is advanced after the authoritative
+            // round trip; no live recapture is permitted on this path.
+            if (!StringComparer.Ordinal.Equals(oldIdentity, newIdentity))
+            {
+                _backendBaselines.Remove(oldIdentity);
+                _backendBaselines.Add(newIdentity, baseline);
+            }
+
+            baseline.PersistenceRevision = receipt.PersistenceRevision;
+            baseline.PersistenceFingerprint = receipt.PersistenceFingerprint;
+            baseline.HasPersistenceBaseline = true;
+            return WorkloadOperationResult.Ok();
         }
 
         internal bool TryGetBackendBaseline(
@@ -3688,9 +3798,18 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadSession session,
             WorkloadDecisionKind decisionKind,
             string forkStableId,
-            string forkLabel)
+            string forkLabel,
+            Func<WorkloadPersistenceReceipt, bool> rebaseAfterPersistence = null)
         {
-            return CommitCore(session, decisionKind, forkStableId, forkLabel, null);
+            return CommitCore(
+                session,
+                decisionKind,
+                forkStableId,
+                forkLabel,
+                new WorkloadCommitExecutionContext
+                {
+                    PersistenceRebase = rebaseAfterPersistence
+                });
         }
 
         internal WorkloadV2CommitResult ValidatePrepared(
@@ -3770,7 +3889,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     }
                     return persistenceRestored && liveRestored;
                 },
-                () => executionContext?.MutationAuthorization?.FinalizeSuccess(),
+                () =>
+                {
+                    executionContext?.MutationAuthorization?.FinalizeSuccess();
+                    return true;
+                },
                 recoveryRequired);
         }
 
@@ -4189,6 +4312,35 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     NotifyCommitChanged(plan, live);
                 }
 
+                if (decisionKind != WorkloadDecisionKind.Apply &&
+                    ((persistence != null && persistence.WasApplied) ||
+                     (decisionKind == WorkloadDecisionKind.Update && plan.Diff.IsEmpty)))
+                {
+                    WorkloadOperationResult<WorkloadPersistenceReceipt> receipt =
+                        BuildPersistenceReceipt(
+                            store,
+                            persistence,
+                            decisionKind,
+                            sourceStableId,
+                            targetStableId,
+                            session.SourceIdentity,
+                            backendBaseline);
+                    if (!receipt.Succeeded)
+                    {
+                        Abort(receipt.Code, receipt.Message);
+                    }
+
+                    executionContext.PersistenceReceipt = receipt.Value;
+                    if (executionContext.RetainRollbackUntilConfirmation != true &&
+                        (executionContext.PersistenceRebase == null ||
+                         !executionContext.PersistenceRebase(receipt.Value)))
+                    {
+                        Abort(
+                            WorkloadDiagnosticCode.InvalidState,
+                            "The V2 preview could not rebase from the authoritative persistence receipt.");
+                    }
+                }
+
                 report.IsSemanticNoOp = plan.Diff.IsEmpty;
                 if (executionContext?.RetainRollbackUntilConfirmation == true)
                 {
@@ -4210,10 +4362,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         : "The V2 workload was applied.")
                     : decisionKind == WorkloadDecisionKind.Update
                         ? (plan.Diff.IsEmpty
-                            ? "The V2 workload update was a semantic no-op."
-                            : "The V2 workload template was updated.") + temporaryScopeNote
+                            ? "The V2 workload save was a semantic no-op."
+                            : "The V2 workload template was saved.") + temporaryScopeNote
                         : "The V2 workload template was forked." + temporaryScopeNote;
-                return new WorkloadV2CommitResult(
+                var successResult = new WorkloadV2CommitResult(
                     true,
                     WorkloadDiagnosticCode.None,
                     successMessage,
@@ -4221,6 +4373,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     plan,
                     targetTemplate,
                     targetStableId);
+                successResult.PersistenceReceipt = executionContext?.PersistenceReceipt;
+                return successResult;
             }
             catch (CommitAbortException exception)
             {
@@ -4393,6 +4547,87 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             return record;
+        }
+
+        private static WorkloadOperationResult<WorkloadPersistenceReceipt> BuildPersistenceReceipt(
+            WorkloadV2PersistenceEnvelope store,
+            PersistenceMutation mutation,
+            WorkloadDecisionKind decisionKind,
+            string sourceStableId,
+            string targetStableId,
+            string sourceIdentity,
+            WorkloadBackendDimensionBaseline baseline)
+        {
+            if (store == null ||
+                (mutation == null && baseline == null) ||
+                (mutation != null && !mutation.WasApplied) ||
+                (decisionKind != WorkloadDecisionKind.Update &&
+                 decisionKind != WorkloadDecisionKind.Fork))
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The V2 persistence receipt was requested before a committed mutation existed.");
+            }
+
+            if (store.HasDuplicateStableId(targetStableId))
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.AmbiguousStableId,
+                    "The committed V2 target stable ID is no longer unique.");
+            }
+
+            WorkloadV2PersistenceRecord record = store.Find(targetStableId);
+            if (record == null)
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.UnknownWorkloadId,
+                    "The committed V2 target record could not be round-tripped.");
+            }
+
+            WorkloadOperationResult<WorkloadTemplate> target =
+                WorkloadV2RecordConverter.TryToTemplate(record);
+            if (!target.Succeeded || target.Value == null)
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    target.Code,
+                    target.Message);
+            }
+
+            string persistenceFingerprint = store.ComputeContentFingerprint();
+            if (string.IsNullOrWhiteSpace(store.PersistenceFingerprint) ||
+                !StringComparer.Ordinal.Equals(
+                    store.PersistenceFingerprint,
+                    persistenceFingerprint))
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The V2 persistence metadata was not authoritative after the write.");
+            }
+
+            string targetIdentity = WorkloadSession.GetSourceIdentity(target.Value);
+            if (!StringComparer.Ordinal.Equals(
+                    target.Value.StableId,
+                    targetStableId) ||
+                string.IsNullOrWhiteSpace(targetIdentity))
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The committed V2 target identity could not be established safely.");
+            }
+
+            return WorkloadOperationResult<WorkloadPersistenceReceipt>.Ok(
+                new WorkloadPersistenceReceipt(
+                    decisionKind,
+                    sourceStableId,
+                    targetStableId,
+                    sourceIdentity,
+                    targetIdentity,
+                    target.Value,
+                    mutation?.PreviousRevision ?? baseline.PersistenceRevision,
+                    mutation?.PreviousFingerprint ?? baseline.PersistenceFingerprint,
+                    store.PersistenceRevision,
+                    persistenceFingerprint,
+                    store.CurrentWorkloadId));
         }
 
         private static bool TemplatesMatchPreviewSource(
@@ -5815,7 +6050,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (result.HasLiveMutations && MultiplayerBridge.Active && !multiplayerAuthorized)
             {
                 const string message =
-                    "V2 Apply live mutations require immediate authoritative acknowledgement and are unavailable in the active multiplayer route. Update and Fork remain persistence-only operations.";
+                    "V2 Apply live mutations require immediate authoritative acknowledgement and are unavailable in the active multiplayer route. Save and Fork remain persistence-only operations.";
                 report.Add(
                     WorkloadV2CommitMessageKind.Unsupported,
                     "apply.multiplayer-acknowledgement",
@@ -7981,6 +8216,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             mutation.PreviousRevision = store.PersistenceRevision;
             mutation.PreviousFingerprint = store.ComputeContentFingerprint();
+            mutation.PreviousCurrentWorkloadId = store.CurrentWorkloadId;
             if (!store.TryCommitRevision(
                     mutation.ExpectedRevision,
                     mutation.ExpectedFingerprint,
@@ -8010,10 +8246,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 store.Records.Add(mutation.Record);
                 mutation.AddedRecord = true;
+                // Fork is one CAS-owned persistence mutation: the new record
+                // becomes current together with the add. The target stable ID
+                // is already part of the canonical MP request/fingerprint.
+                store.CurrentWorkloadId = mutation.StableId;
+                mutation.CurrentWorkloadIdChanged = true;
             }
 
-            store.RefreshPersistenceMetadata(false);
             mutation.WasApplied = true;
+            store.RefreshPersistenceMetadata(false);
         }
 
         private static void EnsureUpdateTarget(
@@ -8173,6 +8414,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     }
                 }
 
+                if (mutation.CurrentWorkloadIdChanged)
+                {
+                    store.CurrentWorkloadId = mutation.PreviousCurrentWorkloadId ?? string.Empty;
+                }
+
                 store.PersistenceRevision = mutation.PreviousRevision;
                 store.PersistenceFingerprint = mutation.PreviousFingerprint ?? string.Empty;
                 store.RefreshDiagnostics();
@@ -8199,6 +8445,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     // that succeeded while another live dimension failed
                     // would be treated as a stale second write.
                     mutation.WasApplied = false;
+                    mutation.CurrentWorkloadIdChanged = false;
                     mutation.RevisionAdvanced = false;
                 }
 
@@ -9045,11 +9292,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             internal bool ValidateOnly;
             internal bool MultiplayerAuthorized;
             internal bool RetainRollbackUntilConfirmation;
+            internal Func<WorkloadPersistenceReceipt, bool> PersistenceRebase;
             internal TimePriorityMutationAuthorization MutationAuthorization;
             internal string PreparedPlanFingerprint;
             internal object RequestIdentity;
             internal object SessionIdentity;
             internal WorkloadCommitRollbackLease RollbackLease;
+            internal WorkloadPersistenceReceipt PersistenceReceipt;
         }
 
         internal sealed class WorkloadCommitRollbackLease
@@ -9063,13 +9312,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             private readonly Func<bool> _rollback;
-            private readonly Action _confirm;
+            private readonly Func<bool> _confirm;
             private LeaseState _state;
             private bool _rollbackInProgress;
 
             internal WorkloadCommitRollbackLease(
                 Func<bool> rollback,
-                Action confirm = null,
+                Func<bool> confirm = null,
                 bool recoveryRequired = false)
             {
                 _rollback = rollback;
@@ -9132,8 +9381,24 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     return false;
                 }
 
+                bool finalized;
+                try
+                {
+                    finalized = _confirm == null || _confirm();
+                }
+                catch
+                {
+                    finalized = false;
+                }
+
+                if (!finalized)
+                {
+                    // Keep the lease active so the protocol can still issue
+                    // its exactly-once rollback request.
+                    return false;
+                }
+
                 _state = LeaseState.Confirmed;
-                _confirm?.Invoke();
                 return true;
             }
         }
@@ -9171,6 +9436,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             internal string ExpectedFingerprint { get; private set; }
             internal int PreviousRevision { get; set; }
             internal string PreviousFingerprint { get; set; }
+            internal string PreviousCurrentWorkloadId { get; set; }
+            internal bool CurrentWorkloadIdChanged { get; set; }
             internal bool RevisionAdvanced { get; set; }
         }
     }

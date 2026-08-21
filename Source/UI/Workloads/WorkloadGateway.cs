@@ -58,7 +58,7 @@ namespace Better_Work_Tab.UI.Workloads
             if (_isPreviewActive?.Invoke() == true)
             {
                 _reportPreviewMessage?.Invoke(
-                    "Finish, Update, Save As, Apply, or Cancel the active workload preview before opening the workload list.");
+                    "Finish, Save, Save As, Apply, or Cancel the active workload preview before opening the workload list.");
                 return false;
             }
 
@@ -728,6 +728,49 @@ namespace Better_Work_Tab.UI.Workloads
                     "V2 preview is unavailable while legacy workloads are active."));
         }
 
+        internal static WorkloadOperationResult<WorkloadSession> AdoptV2PreviewSession(
+            WorkloadSession session)
+        {
+            return SetV2PreviewSession(session);
+        }
+
+        internal static WorkloadOperationResult<WorkloadSession> RebaseV2PreviewAfterPersistence(
+            WorkloadPersistenceReceipt receipt)
+        {
+            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
+            {
+                return NoCurrentGame<WorkloadSession>();
+            }
+
+            if (ResolveMode() != WorkloadBackendMode.Modern)
+            {
+                return V2Unavailable<WorkloadSession>(
+                    "V2 preview rebasing is unavailable while legacy workloads are active.");
+            }
+
+            return modern.RebasePreviewAfterPersistence(receipt);
+        }
+
+        internal static WorkloadOperationResult<WorkloadSession> AdoptV2PreviewSession()
+        {
+            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
+            {
+                return NoCurrentGame<WorkloadSession>();
+            }
+
+            if (ResolveMode() != WorkloadBackendMode.Modern ||
+                modern.PreviewSession == null)
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.NotFound,
+                    "There is no authoritative rebased V2 preview session to adopt.");
+            }
+
+            // Read the session from the active UI backend. Temporary peer
+            // transaction backends are never copied into this controller.
+            return modern.SetPreviewSession(modern.PreviewSession);
+        }
+
         internal static WorkloadOperationResult<WorkloadSession> EditV2Preview(
             Action<WorkloadDraft> edit)
         {
@@ -816,7 +859,7 @@ namespace Better_Work_Tab.UI.Workloads
             return DispatchV2Commit(
                 WorkloadDecisionKind.Update,
                 modern => modern.CommitUpdate(),
-                "V2 update is unavailable while legacy workloads are active.");
+                "V2 save is unavailable while legacy workloads are active.");
         }
 
         internal static WorkloadV2CommitResult CommitV2Fork(
@@ -941,6 +984,7 @@ namespace Better_Work_Tab.UI.Workloads
         private string _multiplayerCommitMessage = string.Empty;
         private bool _multiplayerRecoveryBlocked;
         private bool _multiplayerTerminalHandled;
+        private bool _previewRecoveryBlocked;
         private readonly HashSet<InspectionTargetKey> _changedInspectionTargets =
             new HashSet<InspectionTargetKey>();
         private readonly HashSet<int> _changedSchedulePawnIds =
@@ -1249,7 +1293,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return clearMessage.AnyNonWhitespace()
                     ? clearMessage
                       : "This workload contains a legacy or unsupported workload-owned " +
-                      "payload. Apply, Update, and Save As are disabled so state cannot be " +
+                      "payload. Apply, Save, and Save As are disabled so state cannot be " +
                       "silently dropped.";
             }
         }
@@ -1271,17 +1315,20 @@ namespace Better_Work_Tab.UI.Workloads
         /// a synchronized transaction or rollback is unresolved, while still
         /// allowing the existing table scroll path to service inspection.
         /// </summary>
-        internal bool IsUnsafePreviewInputBlocked => IsMultiplayerCommitInFlight;
+        internal bool IsUnsafePreviewInputBlocked =>
+            IsMultiplayerCommitInFlight || _previewRecoveryBlocked;
 
         internal bool CanCancelPreview => IsActive && !IsMultiplayerCommitInFlight;
         internal bool CanApplyPreview =>
-            IsActive && !IsMultiplayerCommitInFlight && !HasUnsupportedOwnedPresentationState;
+            IsActive && !IsUnsafePreviewInputBlocked && !HasUnsupportedOwnedPresentationState;
         internal bool CanUpdatePreview =>
-            IsActive && !IsMultiplayerCommitInFlight && HasSemanticDiff &&
+            IsActive && !IsUnsafePreviewInputBlocked && HasSemanticDiff &&
             !HasUnsupportedOwnedPresentationState;
         internal bool CanForkPreview =>
-            IsActive && !IsMultiplayerCommitInFlight && !HasUnsupportedOwnedPresentationState;
-        internal string CommitBlockedMessage => IsMultiplayerCommitInFlight
+            IsActive && !IsUnsafePreviewInputBlocked && !HasUnsupportedOwnedPresentationState;
+        internal string CommitBlockedMessage => _previewRecoveryBlocked
+            ? "The active preview is recovery-blocked because its committed persistence identity could not be adopted safely. Cancel the preview before retrying."
+            : IsMultiplayerCommitInFlight
             ? MultiplayerStatusExplanation
             : HasUnsupportedOwnedPresentationState
                 ? UnsupportedPresentationCommitReason
@@ -1307,6 +1354,11 @@ namespace Better_Work_Tab.UI.Workloads
                            (_multiplayerCommitMessage.AnyNonWhitespace()
                                ? " " + _multiplayerCommitMessage
                                : string.Empty);
+                }
+
+                if (_previewRecoveryBlocked)
+                {
+                    return "The active workload preview is recovery-blocked until its persisted identity is safely adopted or the preview is cancelled.";
                 }
 
                 return _multiplayerCommitMessage ?? string.Empty;
@@ -1378,7 +1430,7 @@ namespace Better_Work_Tab.UI.Workloads
                 case WorkloadDecisionKind.Apply:
                     return "apply";
                 case WorkloadDecisionKind.Update:
-                    return "update";
+                    return "save";
                 case WorkloadDecisionKind.Fork:
                     return "Save As";
                 default:
@@ -1505,7 +1557,16 @@ namespace Better_Work_Tab.UI.Workloads
                 case WorkloadMultiplayerCommitState.Failed:
                     // PollMultiplayerRollbackState upgrades this to a locked
                     // recovery state when the protocol is still awaiting
-                    // rollback reports. Keep the draft untouched either way.
+                    // rollback reports. A confirmed persistence mutation with
+                    // a failed UI rebase is a distinct local recovery block:
+                    // keep the draft and old backend session untouched until
+                    // the user cancels it.
+                    if (status.Code == WorkloadDiagnosticCode.PersistenceConflict &&
+                        status.Result?.PersistenceReceipt != null)
+                    {
+                        _previewRecoveryBlocked = true;
+                        _multiplayerTerminalHandled = true;
+                    }
                     SetMessage(MultiplayerStatusExplanation);
                     return;
                 default:
@@ -1518,6 +1579,46 @@ namespace Better_Work_Tab.UI.Workloads
         {
             if (_multiplayerTerminalHandled || !IsActive)
             {
+                return;
+            }
+
+            if (_multiplayerDecision != WorkloadDecisionKind.Apply)
+            {
+                WorkloadOperationResult<WorkloadSession> rebased =
+                    WorkloadGateway.RebaseV2PreviewAfterPersistence(
+                        status?.Result?.PersistenceReceipt);
+                WorkloadOperationResult<WorkloadSession> adopted =
+                    rebased.Succeeded
+                        ? WorkloadGateway.AdoptV2PreviewSession()
+                        : rebased;
+                string expectedStableId = _multiplayerDecision == WorkloadDecisionKind.Fork
+                    ? _multiplayerForkStableId
+                    : SourceStableId;
+                if (!adopted.Succeeded || adopted.Value == null ||
+                    !StringComparer.Ordinal.Equals(
+                        adopted.Value.SourceTemplate.StableId,
+                        expectedStableId))
+                {
+                    _previewRecoveryBlocked = true;
+                    _multiplayerCommitState = WorkloadMultiplayerCommitState.Failed;
+                    _multiplayerCommitMessage =
+                        "The synchronized " + MultiplayerDecisionLabel(_multiplayerDecision) +
+                        " completed, but the authoritative rebased preview could not be adopted safely.";
+                    SetMessage(MultiplayerStatusExplanation);
+                    return;
+                }
+
+                _session = adopted.Value;
+                RebuildProjection(_session.ProjectedState);
+                _multiplayerTerminalHandled = true;
+                string saveMessage = status?.Message;
+                string confirmedDecision = MultiplayerDecisionLabel(_multiplayerDecision);
+                ClearMultiplayerAttempt();
+                SetMessage(
+                    (saveMessage ?? string.Empty).AnyNonWhitespace()
+                        ? saveMessage
+                        : "The synchronized " + confirmedDecision +
+                          " was confirmed; the preview remains open.");
                 return;
             }
 
@@ -1978,7 +2079,7 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             SetMessage(
-                "Finish, Update, Save As, Apply, or Cancel the active workload preview " +
+                "Finish, Save, Save As, Apply, or Cancel the active workload preview " +
                 "before " + (operation ?? "changing workloads") + ".");
             return false;
         }
@@ -2276,6 +2377,42 @@ namespace Better_Work_Tab.UI.Workloads
             return true;
         }
 
+        private bool AdoptRebasedPreview(WorkloadV2CommitResult result)
+        {
+            string operationLabel = result?.Report?.DecisionKind == WorkloadDecisionKind.Fork
+                ? "Save As"
+                : "Save";
+            if (result == null || result.RebasedSession == null)
+            {
+                _previewRecoveryBlocked = true;
+                SetMessage(
+                    "The workload " + operationLabel.ToLowerInvariant() +
+                    " succeeded, but its authoritative rebased preview was not available. Cancel the preview before retrying.");
+                return false;
+            }
+
+            WorkloadOperationResult<WorkloadSession> adopted =
+                WorkloadGateway.AdoptV2PreviewSession(result.RebasedSession);
+            string expectedStableId = result.Report?.TargetStableId ?? result.StableId;
+            if (!adopted.Succeeded || adopted.Value == null ||
+                !StringComparer.Ordinal.Equals(
+                    adopted.Value.SourceTemplate.StableId,
+                    expectedStableId))
+            {
+                _previewRecoveryBlocked = true;
+                SetMessage(
+                    "The workload " + operationLabel.ToLowerInvariant() +
+                    " succeeded, but the persisted identity could not be adopted safely. Cancel the preview before retrying.");
+                return false;
+            }
+
+            _session = adopted.Value;
+            _previewRecoveryBlocked = false;
+            RebuildProjection(_session.ProjectedState);
+            ResetCompletedMultiplayerAttemptIfPayloadChanged();
+            return true;
+        }
+
         internal bool UpdatePreview()
         {
             if (!IsActive)
@@ -2291,7 +2428,7 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (!HasSemanticDiff)
             {
-                SetMessage("Update is available only when the semantic diff is non-empty.");
+                SetMessage("Save is available only when the semantic diff is non-empty.");
                 return false;
             }
 
@@ -2313,7 +2450,7 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (!HasSemanticDiff)
             {
-                SetMessage("Update is available only when the semantic diff is non-empty.");
+                SetMessage("Save is available only when the semantic diff is non-empty.");
                 return false;
             }
 
@@ -2330,7 +2467,11 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
-            ClearLocalSession();
+            if (!AdoptRebasedPreview(result))
+            {
+                return false;
+            }
+
             SetMessage(result.Message);
             return true;
         }
@@ -2377,9 +2518,11 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
-            // The gateway's fork target is a new stable ID. The source session
-            // ID remains untouched, so Save As never silently rewrites it.
-            ClearLocalSession();
+            if (!AdoptRebasedPreview(result))
+            {
+                return false;
+            }
+
             SetMessage(result.Message);
             return true;
         }
@@ -2415,12 +2558,12 @@ namespace Better_Work_Tab.UI.Workloads
                     _hasMultiplayerAttempt)
                 {
                     return _multiplayerCommitMessage + " " +
-                           "Finish, Update, Save As, Apply, or Cancel the active preview " +
+                           "Finish, Save, Save As, Apply, or Cancel the active preview " +
                            "before switching workloads.";
                 }
 
                 return "Finish the active workload preview with Apply, Save As, or Cancel before " +
-                       "switching workloads. Update is available when the workload has changes.";
+                       "switching workloads. Save is available when the workload has changes.";
             }
         }
 
@@ -3000,6 +3143,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             WorkloadSurfaceCoordinator.OpenPreview();
             ClearMultiplayerAttempt();
+            _previewRecoveryBlocked = false;
             _session = session;
             _boundComponent = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             RebuildProjection(_session.ProjectedState);
@@ -3040,6 +3184,7 @@ namespace Better_Work_Tab.UI.Workloads
             _inspectionContext = WorkloadInspectionContext.None;
             ClearInspectionIndex();
             ClearMultiplayerAttempt();
+            _previewRecoveryBlocked = false;
         }
 
         private void SetMessage(string message)
