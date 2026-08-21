@@ -17,20 +17,126 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string root = FindRepositoryRoot();
             string header = Read(root, "Source", "UI", "HeaderButtons.cs");
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
+            string renderer = Read(root, "Source", "UI", "WorkGrid", "Rendering", "WorkTabBodyRenderer.cs");
             string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
             string session = Read(root, "Source", "Features", "Workloads", "V2", "WorkloadSession.cs");
             string english = Read(root, "Languages", "English", "Keyed", "English.xml");
             string settings = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
 
             FooterSelectorKeepsManagerAndPreviewActionsSeparate(header);
-            PickerRowsOnlySelectWorkloads(header);
+            WorkloadMenuUsesStableIds(header);
             PreviewActionsUseVisibleHitRects(header);
             NarrowFooterGeometryIsBounded(header);
             DeletedFeedbackCopyIsAbsent(english, settings);
             FooterActionsAcceptTypedState(gateway, session);
+            InspectionUsesRevisionCachesAndContext(header, gateway, renderer);
             DynamicOwnershipReachesCommitPayload(backend, session);
             IncludeUsesTheAuthoritativeBaselineAndApplyPath(gateway, backend);
             LegacyPayloadsRemainFailClosed(gateway, backend, session);
+            SaveAndForkRemainActiveAfterPersistence(
+                header,
+                gateway,
+                backend,
+                session);
+        }
+
+        private static void InspectionUsesRevisionCachesAndContext(
+            string header,
+            string gateway,
+            string renderer)
+        {
+            TestAssert.Contains(
+                gateway,
+                "private void EnsureSemanticDiffCache()",
+                "inspection must have an explicit semantic-diff cache boundary");
+            TestAssert.Contains(
+                gateway,
+                "_semanticDiffSessionRevision == _session.SessionRevision",
+                "semantic diffs must be reused for an unchanged session revision");
+            TestAssert.Contains(
+                gateway,
+                "_inspectionIndexContext == _inspectionContext",
+                "the inspection index must invalidate when Apply/Update context changes");
+            TestAssert.Contains(
+                gateway,
+                "_cachedLiveDiff = liveResult.Succeeded && liveResult.Value != null",
+                "Apply inspection must cache the live-impact diff separately");
+            TestAssert.Contains(
+                gateway,
+                "overApply && HasLiveImpact",
+                "Apply hover must select the live-impact inspection context");
+            TestAssert.Contains(
+                gateway,
+                "overUpdate && HasTemplateDiff",
+                "Save/Update hover must select the template inspection context");
+            TestAssert.Contains(
+                gateway,
+                "overSaveAs && HasTemplateDiff",
+                "Save As hover and scroll must select the template inspection context");
+            TestAssert.Contains(
+                gateway,
+                "internal bool HasInspectionRowLevelChanges",
+                "legacy schedule-only inspection must expose the cached row-level change index");
+            TestAssert.Contains(
+                gateway,
+                "return _changedSchedulePawnIds.Count > 0",
+                "row-level inspection must reuse the cached schedule pawn index");
+            TestAssert.Contains(
+                gateway,
+                "separate row indicator path",
+                "membership changes must remain outside the priority-cell overlay index");
+
+            int drawStart = renderer.IndexOf(
+                "private void DrawWorkloadInspectionHighlights(",
+                StringComparison.Ordinal);
+            int bindingStart = renderer.IndexOf(
+                "private void EnsureInspectionColumnBindings(",
+                drawStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                drawStart >= 0 && bindingStart > drawStart,
+                "inspection drawing and binding-cache seams must remain explicit");
+            string drawPath = renderer.Substring(drawStart, bindingStart - drawStart);
+            TestAssert.Contains(
+                drawPath,
+                "preview.HasInspectionCellTargets",
+                "no-cell and membership-only inspections must avoid the draw walk");
+            TestAssert.Contains(
+                drawPath,
+                "preview.HasInspectionRowLevelChanges",
+                "legacy schedule-only inspection must use a row-level fast path");
+            TestAssert.Contains(
+                drawPath,
+                "preview.IsInspectionRowLevelChanged(descriptor.Pawn)",
+                "legacy schedule-only inspection must draw only affected visible rows");
+            TestAssert.Contains(
+                drawPath,
+                "preview.InspectionTargets",
+                "cell inspection must enumerate the cached changed targets");
+            TestAssert.Contains(
+                drawPath,
+                "DrawGlobalInspectionTarget(",
+                "global inspection changes must draw affected columns across visible rows");
+            TestAssert.Contains(
+                drawPath,
+                "WorkGridInteractionGeometry.GetAnimatedBodyContentRect",
+                "inspection must recalculate animated body geometry each draw");
+            TestAssert.False(
+                drawPath.IndexOf("TryGetWorkGiverForColumn", StringComparison.Ordinal) >= 0,
+                "sub-work semantic resolution must not occur inside the row/cell hot loop");
+            TestAssert.Contains(
+                header,
+                "rects.HasWorkloadSaveAs ? rects.WorkloadSaveAs : Rect.zero",
+                "Save As inspection routing must use its clipped visible hit rectangle");
+
+            TestAssert.Contains(
+                renderer,
+                "WorkPriorityCellGeometry.GetDrawnPriorityBoxRect",
+                "priority inspection must use the authoritative drawn box geometry");
+            TestAssert.Contains(
+                renderer,
+                "_inspectionBindingSubWorkRevision = subWorkRevision",
+                "sub-work binding semantics must be cached at the existing layout revision boundary");
         }
 
         private static void FooterSelectorKeepsManagerAndPreviewActionsSeparate(
@@ -107,30 +213,49 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "preview reveal must not scale action widths in place");
         }
 
-        private static void PickerRowsOnlySelectWorkloads(string header)
+        private static void WorkloadMenuUsesStableIds(string header)
         {
             int start = header.IndexOf(
-                "private static void SelectWorkloadInline(",
+                "private static List<FloatMenuOption> BuildWorkloadPickerOptions(",
                 StringComparison.Ordinal);
             int end = header.IndexOf(
-                "private static void BeginWorkloadFooterEditor(",
+                "private static void OpenWorkloadManagementMenu(",
                 start,
                 StringComparison.Ordinal);
             TestAssert.True(
                 start >= 0 && end > start,
-                "the workload picker row handler must remain a distinct source path");
+                "the workload picker must remain a distinct FloatMenu construction path");
 
             string rowPath = header.Substring(start, end - start);
             TestAssert.Contains(
                 rowPath,
-                "WorkloadGateway.SelectWorkload(stableId)",
-                "a picker row must only select/manage the workload");
+                "() => SelectWorkloadInline(stableId)",
+                "a workload menu option must capture the stable ID for selection");
+            TestAssert.Contains(
+                rowPath,
+                "() => OpenWorkloadManagementMenu(stableId)",
+                "the management menu option must capture the current stable ID");
             TestAssert.False(
                 rowPath.IndexOf("preview.SelectWorkload", StringComparison.Ordinal) >= 0,
-                "a picker row must not start or switch a projected preview");
+                "a workload menu option must not start or switch a projected preview");
             TestAssert.False(
                 rowPath.IndexOf("BeginCurrentPreview", StringComparison.Ordinal) >= 0,
                 "only the workload main button may enter preview");
+            TestAssert.Contains(
+                header,
+                "WorkloadGateway.SelectWorkload(stableId)",
+                "a workload menu selection must route through the gateway by stable ID");
+            TestAssert.Contains(
+                header,
+                "stableId: stableId",
+                "rename callbacks must retain stable workload identity");
+            TestAssert.Contains(
+                header,
+                "new FloatMenu(BuildWorkloadPickerOptions())",
+                "the visible workload picker must use the native FloatMenu stack");
+            TestAssert.False(
+                header.IndexOf("DrawWorkloadFooterPicker", StringComparison.Ordinal) >= 0,
+                "the bespoke workload picker panel must be removed");
         }
 
         private static void PreviewActionsUseVisibleHitRects(string header)
@@ -181,15 +306,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "normal footer controls must be placed through the shared bounded geometry helper");
             TestAssert.Contains(
                 header,
-                "rects.CompactRulesetMain",
-                "narrow ruleset controls must have a compact rendering path");
+                "float minimumWorkloadWidth",
+                "narrow footer geometry must compact only the workload naming half");
+            TestAssert.False(
+                header.IndexOf("CompactRulesetMain", StringComparison.Ordinal) >= 0,
+                "ruleset selector metrics must not acquire workload-specific compact rendering");
             TestAssert.Contains(
                 header,
                 "Mathf.Max(1f, inRect.width - 8f)",
-                "the workload picker width must be bounded by the available Work-tab content");
+                "the workload editor surface must be bounded by the available Work-tab content");
             TestAssert.False(
-                header.IndexOf("Mathf.Max(210f, inRect.width - 8f)", StringComparison.Ordinal) >= 0,
-                "the workload picker must not force a width larger than a narrow Work-tab");
+                header.IndexOf("Widgets.BeginScrollView", StringComparison.Ordinal) >= 0,
+                "the workload picker must not retain bespoke scroll-panel rendering");
         }
 
         private static void DeletedFeedbackCopyIsAbsent(string english, string settings)
@@ -212,15 +340,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             TestAssert.Contains(
                 gateway,
-                "internal bool CanApplyPreview =>\n            IsActive && !IsMultiplayerCommitInFlight && !HasUnsupportedOwnedPresentationState",
+                "internal bool CanApplyPreview =>\n            IsActive && !IsUnsafePreviewInputBlocked && !HasUnsupportedOwnedPresentationState",
                 "Apply must remain enabled for typed schedule/settings payloads while retaining MP and legacy gates");
             TestAssert.Contains(
                 gateway,
-                "internal bool CanUpdatePreview =>\n            IsActive && !IsMultiplayerCommitInFlight && HasSemanticDiff &&",
+                "internal bool CanUpdatePreview =>\n            IsActive && !IsUnsafePreviewInputBlocked && HasSemanticDiff &&",
                 "Update must be semantic-diff driven rather than dimension-presence driven");
             TestAssert.Contains(
                 gateway,
-                "internal bool CanForkPreview =>\n            IsActive && !IsMultiplayerCommitInFlight && !HasUnsupportedOwnedPresentationState",
+                "internal bool CanForkPreview =>\n            IsActive && !IsUnsafePreviewInputBlocked && !HasUnsupportedOwnedPresentationState",
                 "Fork must share the same typed-state gate as direct commit calls");
             TestAssert.Contains(
                 gateway,
@@ -354,6 +482,104 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     "ownership.Owns(WorkloadStateDimension.PresentationSettings) &&\n                        WorkloadV2OwnershipResolver.HasLegacyPayload",
                     StringComparison.Ordinal) >= 0,
                 "legacy presentation rejection must not depend on an old ownership bit");
+        }
+
+        private static void SaveAndForkRemainActiveAfterPersistence(
+            string header,
+            string gateway,
+            string backend,
+            string session)
+        {
+            TestAssert.Contains(
+                header,
+                "\"Save\",",
+                "the visible Update action must be labeled Save");
+            TestAssert.Contains(
+                header,
+                "Save applies this semantic diff",
+                "Save hover text must describe persistence-only replacement");
+            TestAssert.Contains(
+                session,
+                "internal WorkloadSession RebaseAfterPersistence(",
+                "Save/Fork must use an explicit nonterminal session rebase seam");
+
+            int updateStart = session.IndexOf(
+                "public WorkloadSessionDecision Update()",
+                StringComparison.Ordinal);
+            int planStart = session.IndexOf(
+                "private WorkloadPreviewPlan BuildPlan(",
+                updateStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                updateStart >= 0 && planStart > updateStart,
+                "the nonterminal Update/Fork planning region must remain explicit");
+            string updateForkPlanning = session.Substring(updateStart, planStart - updateStart);
+            TestAssert.False(
+                updateForkPlanning.IndexOf("TerminalSession(", StringComparison.Ordinal) >= 0,
+                "Save and Save As planning must not terminalize the preview");
+            TestAssert.Contains(
+                session,
+                "return rebased.TemplateDiff.IsEmpty ? rebased : null;",
+                "session rebase must fail closed unless the committed target is the new baseline");
+
+            TestAssert.Contains(
+                backend,
+                "BuildPersistenceReceipt(",
+                "persistence commits must produce a receipt from the round-tripped target");
+            TestAssert.Contains(
+                backend,
+                "RekeyBackendBaseline(",
+                "the backend baseline must be rekeyed from the old source identity");
+            TestAssert.Contains(
+                backend,
+                "CurrentWorkloadIdChanged",
+                "Fork current-ID activation must belong to the rollback-aware persistence mutation");
+
+            int updatePreviewStart = gateway.IndexOf(
+                "internal bool UpdatePreview()",
+                StringComparison.Ordinal);
+            int forkPreviewStart = gateway.IndexOf(
+                "internal bool ForkPreview(",
+                updatePreviewStart,
+                StringComparison.Ordinal);
+            int resetStart = gateway.IndexOf(
+                "internal void ResetForWindowClose()",
+                forkPreviewStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                updatePreviewStart >= 0 && forkPreviewStart > updatePreviewStart &&
+                resetStart > forkPreviewStart,
+                "Save and Save As controller boundaries must remain explicit");
+            string updatePreview = gateway.Substring(
+                updatePreviewStart,
+                forkPreviewStart - updatePreviewStart);
+            string forkPreview = gateway.Substring(
+                forkPreviewStart,
+                resetStart - forkPreviewStart);
+            TestAssert.Contains(
+                updatePreview,
+                "AdoptRebasedPreview(result)",
+                "Save must adopt the backend-rebased preview instead of closing it");
+            TestAssert.Contains(
+                forkPreview,
+                "AdoptRebasedPreview(result)",
+                "Save As must adopt the new active identity without closing the preview");
+            TestAssert.False(
+                updatePreview.IndexOf("ClearLocalSession()", StringComparison.Ordinal) >= 0 ||
+                forkPreview.IndexOf("ClearLocalSession()", StringComparison.Ordinal) >= 0,
+                "successful Save and Save As must not clear the local preview session");
+            TestAssert.Contains(
+                gateway,
+                "WorkloadGateway.AdoptV2PreviewSession(result.RebasedSession)",
+                "the controller must adopt the backend-authoritative rebased session");
+            TestAssert.Contains(
+                gateway,
+                "WorkloadGateway.RebaseV2PreviewAfterPersistence(",
+                "the controller must rebase the UI backend from the final MP persistence receipt");
+            TestAssert.Contains(
+                gateway,
+                "RebuildProjection(_session.ProjectedState)",
+                "rebasing must rebuild the projected provider and invalidate inspection state");
         }
 
         private static string FindRepositoryRoot()

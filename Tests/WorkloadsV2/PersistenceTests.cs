@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Xml;
 using Better_Work_Tab.Features.Workloads.V2;
@@ -231,6 +232,27 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "persistence CAS must accept the captured revision and fingerprint");
             TestAssert.False(cas.TryValidateCompareAndSwap(expectedRevision - 1, expectedFingerprint, out casError),
                 "persistence CAS must reject a stale revision");
+
+            string beforeCurrentIdFingerprint = cas.ComputeContentFingerprint();
+            cas.CurrentWorkloadId = "night-shift";
+            TestAssert.False(
+                StringComparer.Ordinal.Equals(
+                    beforeCurrentIdFingerprint,
+                    cas.ComputeContentFingerprint()),
+                "the active workload identity must participate in the persistence fingerprint");
+            TestAssert.False(
+                cas.TryValidateCompareAndSwap(
+                    expectedRevision,
+                    beforeCurrentIdFingerprint,
+                    out casError),
+                "a current-workload activation must invalidate an older CAS fingerprint");
+            cas.RefreshPersistenceMetadata(false);
+            TestAssert.True(
+                cas.TryValidateCompareAndSwap(
+                    expectedRevision,
+                    cas.PersistenceFingerprint,
+                    out casError),
+                "the post-activation persistence receipt must use authoritative metadata");
         }
     }
 }
