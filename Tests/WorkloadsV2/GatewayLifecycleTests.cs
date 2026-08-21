@@ -124,6 +124,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 drawPath,
                 "preview.IsInspectionRowLevelChanged(descriptor.Pawn)",
                 "legacy schedule-only inspection must draw only affected visible rows");
+            TestAssert.True(
+                drawPath.IndexOf(
+                    "preview.HasInspectionRowLevelChanges",
+                    StringComparison.Ordinal) <
+                drawPath.IndexOf(
+                    "if (!preview.HasInspectionCellTargets)",
+                    StringComparison.Ordinal),
+                "row-level schedule inspection must run even when normal cell targets also exist");
             TestAssert.Contains(
                 drawPath,
                 "preview.InspectionTargets",
