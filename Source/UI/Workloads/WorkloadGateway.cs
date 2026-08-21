@@ -983,6 +983,40 @@ namespace Better_Work_Tab.UI.Workloads
         Ordering = 4
     }
 
+    internal enum WorkloadInspectionTargetKind
+    {
+        ParentPriority = 0,
+        SpecificPriority = 1,
+        Schedule = 2,
+        Ordering = 3
+    }
+
+    internal readonly struct WorkloadInspectionTarget
+    {
+        internal WorkloadInspectionTarget(
+            WorkloadInspectionTargetKind kind,
+            WorkloadTargetScope scope,
+            int scheduleKind,
+            int pawnId,
+            string workType,
+            string workGiver)
+        {
+            Kind = kind;
+            Scope = scope;
+            ScheduleKind = scheduleKind;
+            PawnId = pawnId;
+            WorkType = workType ?? string.Empty;
+            WorkGiver = workGiver ?? string.Empty;
+        }
+
+        internal WorkloadInspectionTargetKind Kind { get; }
+        internal WorkloadTargetScope Scope { get; }
+        internal int ScheduleKind { get; }
+        internal int PawnId { get; }
+        internal string WorkType { get; }
+        internal string WorkGiver { get; }
+    }
+
     internal sealed class WorkloadPreviewController
     {
         private readonly BwtLiveWorkTabEffectiveStateAdapter _liveAdapter;
@@ -1010,9 +1044,9 @@ namespace Better_Work_Tab.UI.Workloads
         private bool _previewRecoveryBlocked;
         private readonly HashSet<InspectionTargetKey> _changedInspectionTargets =
             new HashSet<InspectionTargetKey>();
+        private readonly List<WorkloadInspectionTarget> _inspectionTargets =
+            new List<WorkloadInspectionTarget>(16);
         private readonly HashSet<int> _changedSchedulePawnIds =
-            new HashSet<int>();
-        private readonly HashSet<int> _changedPawnIds =
             new HashSet<int>();
         private WorkloadSession _semanticDiffSession;
         private long _semanticDiffSessionRevision = long.MinValue;
@@ -1023,7 +1057,6 @@ namespace Better_Work_Tab.UI.Workloads
         private WorkloadInspectionContext _inspectionIndexContext;
         private WorkloadInspectionContext _inspectionContext;
         private bool _hasInspectionCellTargets;
-        private bool _hasGlobalInspectionCellTargets;
         private WorkloadMembershipSnapshot _membershipSnapshot;
         private WorkloadSession _membershipSnapshotSession;
         private long _membershipSnapshotProjectionRevision = long.MinValue;
@@ -1239,12 +1272,12 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
-        internal bool HasGlobalInspectionCellTargets
+        internal IReadOnlyList<WorkloadInspectionTarget> InspectionTargets
         {
             get
             {
                 EnsureInspectionIndex();
-                return _hasGlobalInspectionCellTargets;
+                return _inspectionTargets;
             }
         }
         internal string LastMessage => _lastMessage ?? string.Empty;
@@ -2666,13 +2699,6 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
-        internal bool IsInspectionRowAffected(Pawn pawn)
-        {
-            EnsureInspectionIndex();
-            return pawn != null && pawn.thingIDNumber > 0 &&
-                _changedPawnIds.Contains(pawn.thingIDNumber);
-        }
-
         internal bool IsInspectionRowLevelChanged(Pawn pawn)
         {
             EnsureInspectionIndex();
@@ -3316,10 +3342,9 @@ namespace Better_Work_Tab.UI.Workloads
                 ? _cachedLiveDiff
                 : _cachedTemplateDiff;
             _changedInspectionTargets.Clear();
+            _inspectionTargets.Clear();
             _changedSchedulePawnIds.Clear();
-            _changedPawnIds.Clear();
             _hasInspectionCellTargets = false;
-            _hasGlobalInspectionCellTargets = false;
             if (diff != null)
             {
                 for (int i = 0; i < diff.Changes.Count; i++)
@@ -3343,7 +3368,6 @@ namespace Better_Work_Tab.UI.Workloads
                         int.TryParse(pawn.Value, out int parsedPawnId) && parsedPawnId > 0)
                     {
                         pawnId = parsedPawnId;
-                        _changedPawnIds.Add(pawnId);
                     }
 
                     switch (change.Dimension)
@@ -3378,8 +3402,6 @@ namespace Better_Work_Tab.UI.Workloads
                                     workType.Value,
                                     workGiver?.Value));
                                 _hasInspectionCellTargets = true;
-                                _hasGlobalInspectionCellTargets |=
-                                    scope == WorkloadTargetScope.GlobalShared;
                             }
                             break;
                         case WorkloadStateDimension.SpecificJobOverrides:
@@ -3395,8 +3417,6 @@ namespace Better_Work_Tab.UI.Workloads
                                     workType.Value,
                                     workGiver.Value));
                                 _hasInspectionCellTargets = true;
-                                _hasGlobalInspectionCellTargets |=
-                                    scope == WorkloadTargetScope.GlobalShared;
                             }
                             break;
                         case WorkloadStateDimension.SpecificJobOrder:
@@ -3411,8 +3431,6 @@ namespace Better_Work_Tab.UI.Workloads
                                     workType.Value,
                                     null));
                                 _hasInspectionCellTargets = true;
-                                _hasGlobalInspectionCellTargets |=
-                                    scope == WorkloadTargetScope.GlobalShared;
                             }
                             break;
                         case WorkloadStateDimension.Membership:
@@ -3424,6 +3442,17 @@ namespace Better_Work_Tab.UI.Workloads
                 }
             }
 
+            foreach (InspectionTargetKey target in _changedInspectionTargets)
+            {
+                _inspectionTargets.Add(new WorkloadInspectionTarget(
+                    (WorkloadInspectionTargetKind)target.Kind,
+                    target.Scope,
+                    target.ScheduleKind,
+                    target.PawnId,
+                    target.WorkType,
+                    target.WorkGiver));
+            }
+
             _inspectionIndexSession = _session;
             _inspectionIndexSessionRevision = _session.SessionRevision;
             _inspectionIndexContext = _inspectionContext;
@@ -3432,10 +3461,9 @@ namespace Better_Work_Tab.UI.Workloads
         private void ClearInspectionIndex()
         {
             _changedInspectionTargets.Clear();
+            _inspectionTargets.Clear();
             _changedSchedulePawnIds.Clear();
-            _changedPawnIds.Clear();
             _hasInspectionCellTargets = false;
-            _hasGlobalInspectionCellTargets = false;
             _inspectionIndexSession = null;
             _inspectionIndexSessionRevision = long.MinValue;
             _inspectionIndexContext = WorkloadInspectionContext.None;
