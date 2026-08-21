@@ -39,7 +39,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Widgets
                 case ConditionType.Trait:
                 case ConditionType.Gender:
                 case ConditionType.Xenotype:
-                    Verse.Widgets.Label(valueRect, "Configure via add menu");
+                    Verse.Widgets.Label(valueRect, "BWT_ConfigureFromConditionMenu".Translate());
                     break;
                 default:
                     Verse.Widgets.Label(valueRect, "-");

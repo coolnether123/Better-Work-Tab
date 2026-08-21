@@ -1,5 +1,6 @@
 using System;
 using Spine.UI.SettingsFramework;
+using Verse;
 
 namespace Better_Work_Tab.ModSupport
 {
@@ -17,12 +18,14 @@ namespace Better_Work_Tab.ModSupport
             {
                 When = _ => isAvailable == null || !isAvailable(),
                 Reason = _ =>
-                    $"Requires {modName}.",
+                    "BWT_Settings_OptionalMod_Required".Translate(modName),
                 ExternalActionUrl = workshopUrl,
-                ExternalActionLabel = string.IsNullOrEmpty(workshopUrl) ? null : "Open Workshop",
+                ExternalActionLabel = string.IsNullOrEmpty(workshopUrl)
+                    ? null
+                    : "BWT_Settings_OptionalMod_OpenWorkshop".Translate(),
                 ExternalActionTooltip = string.IsNullOrEmpty(workshopUrl)
                     ? null
-                    : $"Requires {modName}. Click to open its Steam Workshop page."
+                    : "BWT_Settings_OptionalMod_WorkshopTooltip".Translate(modName)
             };
         }
     }

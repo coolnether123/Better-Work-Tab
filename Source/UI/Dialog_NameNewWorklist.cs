@@ -26,7 +26,7 @@ namespace Better_Work_Tab.UI
         {
             GUI.BeginGroup(rect);
             float curY = 0f;
-            Widgets.Label(new Rect(0f, curY, rect.width, 35f), "Name new workload");
+            Widgets.Label(new Rect(0f, curY, rect.width, 35f), "BWT_Dialog_Workload_NameTitle".Translate());
             curY += 35f;
 
             string tempName = curName;
@@ -34,7 +34,7 @@ namespace Better_Work_Tab.UI
             curName = tempName;
             curY += 45f;
 
-            if (Widgets.ButtonText(new Rect((rect.width - 120f) / 2f, curY, 120f, 40f), "Accept"))
+            if (Widgets.ButtonText(new Rect((rect.width - 120f) / 2f, curY, 120f, 40f), "BWT_Dialog_Accept".Translate()))
             {
                 workload.RenamableLabel = curName;
                 Close();

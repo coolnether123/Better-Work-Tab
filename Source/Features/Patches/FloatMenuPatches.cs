@@ -285,7 +285,7 @@ namespace Better_Work_Tab.Patches
         {
             Patch_FloatMenuOptionProvider_WorkGivers_GetWorkGiverOptionFor.AdditionalOptions.Add(
                 new FloatMenuOption(
-                    "Open " + WorkTypeMenuLabel(workType) + " priority schedule",
+                    "BWT_HourlyPriorities_OpenForWorkType".Translate(WorkTypeMenuLabel(workType)),
                     () => TimePriorityScheduleEditor.OpenForFloatMenu(pawn, workType, workGiver),
                     orderInPriority: -1));
         }
@@ -342,8 +342,7 @@ namespace Better_Work_Tab.Patches
             if (WorkloadPreviewController.Current?.IsActive == true && windowPawn == null)
             {
                 Messages.Message(
-                    "Global/shared work-giver ordering is unavailable while a workload preview is active. " +
-                    "Open a pawn-specific submenu to stage pawn-local order changes.",
+                    "BWT_Workload_SharedSpecificJobOrderUnavailable".Translate(),
                     MessageTypeDefOf.RejectInput,
                     false);
                 return;

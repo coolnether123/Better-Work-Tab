@@ -288,7 +288,7 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    "The active workload preview has no typed 24-hour schedule reader.");
+                    "BWT_Workload_HourlyPriorityUnavailable".Translate());
                 return true;
             }
 

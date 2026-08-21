@@ -129,7 +129,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
             if (_state.SelectedRuleset != null && !_state.SelectedRuleset.IsDefault)
             {
                 Rect editButtonRect = new Rect(newButtonRect.x - 70f - 10f, rect.y + 6f, 70f, 28f);
-                if (RWWidgets.ButtonText(editButtonRect, "Edit"))
+                if (RWWidgets.ButtonText(editButtonRect, "BWT_Edit".Translate()))
                 {
                     OpenRenameDialog(_state.SelectedRuleset);
                 }

@@ -106,18 +106,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             var options = new List<FloatMenuOption>
             {
                 new BWTTutorialFloatMenuOption(
-                    "Insert divider above",
+                    "BWT_Context_InsertDividerAbove".Translate(),
                     () => InsertDividerAbove(pawn),
                     BWTGeneralTutorial.PawnDividerLesson,
                     1,
                     "pawn-divider-insert"),
-                new FloatMenuOption("Insert divider below", () => InsertDividerBelow(pawn)),
+                new FloatMenuOption("BWT_Context_InsertDividerBelow".Translate(), () => InsertDividerBelow(pawn)),
                 // Instrumented like "Change title...": the appearance lesson
                 // teaches both, and this is the one option that is always here.
                 // A pawn whose title cannot be edited would otherwise leave the
                 // lesson pointing at a menu entry that does not exist.
                 new BWTTutorialFloatMenuOption(
-                    "Set background color...",
+                    "BWT_Context_SetBackgroundColor".Translate(),
                     () =>
                     {
                         BWTGeneralTutorial.NotifyPawnAppearanceMenuOptionChosen(editingTitle: false);
@@ -130,7 +130,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             if (PawnTitleUtility.CanEditTitle(pawn))
             {
                 options.Insert(2, new BWTTutorialFloatMenuOption(
-                    "Change title...",
+                    "BWT_Context_ChangeTitle".Translate(),
                     () =>
                 {
                     BWTGeneralTutorial.NotifyPawnAppearanceMenuOptionChosen(editingTitle: true);
@@ -143,7 +143,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
             if (PawnOrganizer.API.PawnColorDatabase.TryGetColor(pawn, out _))
             {
-                options.Add(new FloatMenuOption("Clear background color", () =>
+                options.Add(new FloatMenuOption("BWT_Context_ClearBackgroundColor".Translate(), () =>
                 {
                     PawnOrganizer.API.PawnColorDatabase.ClearColor(pawn);
                 }));
@@ -155,7 +155,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
-                    $"Copy {pawn.NameShortColored} row position to my layout (stop following)",
+                    "BWT_Context_CopyPawnRow".Translate(pawn.NameShortColored),
                     () => LayoutSharingManager.CopyPawnRowToLocalAndStop(pawn)));
             }
 
@@ -182,7 +182,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             if (pawnKey.IsValid && scope.IsExplicitlyExcluded(pawnKey))
             {
                 options.Add(new FloatMenuOption(
-                    "Membership unavailable: excluded by saved workload scope",
+                    "BWT_Context_MembershipExcluded".Translate(),
                     null));
                 return;
             }
@@ -190,7 +190,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             if (!pawnKey.IsValid || record == null || !record.IsAvailable)
             {
                 options.Add(new FloatMenuOption(
-                    "Membership unavailable: pawn is stale or missing",
+                    "BWT_Context_MembershipPawnUnavailable".Translate(),
                     null));
                 return;
             }
@@ -199,7 +199,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 record.Classification == WorkloadMembershipClassification.UnrepresentedNew)
             {
                 options.Add(new FloatMenuOption(
-                    "Include in this application",
+                    "BWT_Context_IncludeInApplication".Translate(),
                     () => TogglePreviewMembership(preview, pawnKey)));
                 return;
             }
@@ -208,7 +208,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 record.IsRepresented)
             {
                 options.Add(new FloatMenuOption(
-                    "Exclude from this application",
+                    "BWT_Context_ExcludeFromApplication".Translate(),
                     () => TogglePreviewMembership(preview, pawnKey)));
                 return;
             }
@@ -216,13 +216,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             if (record.Classification == WorkloadMembershipClassification.UnchangedOutsideScope)
             {
                 options.Add(new FloatMenuOption(
-                    "Membership unavailable: outside saved workload scope",
+                    "BWT_Context_MembershipOutsideScope".Translate(),
                     null));
                 return;
             }
 
             options.Add(new FloatMenuOption(
-                "Membership unavailable for this pawn",
+                "BWT_Context_MembershipUnavailable".Translate(),
                 null));
         }
 
@@ -256,11 +256,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
             var options = new List<FloatMenuOption>
             {
-                new FloatMenuOption("Edit...", () =>
+                new FloatMenuOption("BWT_Context_Edit".Translate(), () =>
                 {
                     Find.WindowStack.Add(new Dialog_EditDivider(divider));
                 }),
-                new FloatMenuOption("Delete", () =>
+                new FloatMenuOption("Delete".Translate(), () =>
                 {
                     PawnOrganizerSystem.Instance?.Layout.RemoveDivider(divider);
                     NotifyDividerLayoutChanged();
@@ -271,7 +271,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             if (LayoutSharingManager.IsFollowing)
             {
                 options.Add(new FloatMenuOption(
-                    "Copy this divider to my layout (stop following)",
+                    "BWT_Context_CopyDivider".Translate(),
                     () => LayoutSharingManager.CopyDividerToLocalAndStop(divider)));
             }
 
@@ -294,7 +294,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return;
             }
 
-            if (layout.AddDividerBeforePawn(pawn, "New Divider", Color.gray) != null)
+            if (layout.AddDividerBeforePawn(pawn, "BWT_Dialog_Divider_DefaultName".Translate(), Color.gray) != null)
             {
                 NotifyDividerLayoutChanged();
             }
@@ -316,7 +316,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return;
             }
 
-            if (layout.AddDividerAfterPawn(pawn, "New Divider", Color.gray) != null)
+            if (layout.AddDividerAfterPawn(pawn, "BWT_Dialog_Divider_DefaultName".Translate(), Color.gray) != null)
             {
                 NotifyDividerLayoutChanged();
             }

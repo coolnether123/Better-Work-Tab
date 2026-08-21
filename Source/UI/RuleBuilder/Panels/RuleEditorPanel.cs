@@ -516,10 +516,10 @@ namespace Better_Work_Tab.UI.RuleBuilder.Panels
             }
 
             GUI.color = RuleBuilderConstants.SubtleTextColor;
-            Verse.Widgets.Label(hintRect, $"0-{maxPriority}  (mouse wheel adjusts by 1)");
+            Verse.Widgets.Label(hintRect, "BWT_PriorityInput_RangeHint".Translate(maxPriority));
             GUI.color = Color.white;
 
-            TooltipHandler.TipRegion(fieldRect, $"Priority value from 0 to {maxPriority}. Use the mouse wheel to adjust quickly.");
+            TooltipHandler.TipRegion(fieldRect, "BWT_PriorityInput_RangeTooltip".Translate(maxPriority));
         }
 
         private void DrawConditionEditor(Rect rect, RuleBuilderState state)

@@ -3,14 +3,13 @@
 ## Fluffy's Work Tab
 
 Better Work Tab includes BWT-owned features and compatibility code inspired by and interoperable with
-[Fluffy's Work Tab](https://github.com/fluffy-mods/WorkTab). This includes the familiar expand-beside
-specific-job presentation, time-based work priorities, and compact top-right controls. Better Work Tab
-uses its own settings, priority stores, column definitions, rendering, and interaction code when Fluffy's
-Work Tab is not installed.
+[Fluffy's Work Tab](https://github.com/fluffy-mods/WorkTab). This includes the expand-beside specific-job
+layout, time-based work priorities, and compact top-right controls. Without Fluffy's Work Tab,
+Better Work Tab uses its own settings, priority stores, column definitions, rendering, and interaction code.
 
-No Fluffy Work Tab imagery, sounds, or other CC BY-SA content are bundled with Better Work Tab. When an
-installed copy of Fluffy Work Tab is detected, BWT may interact with its public/runtime types for
-compatibility and migration, and may display icon textures supplied by that installed copy.
+Better Work Tab does not bundle Fluffy Work Tab imagery, sounds, or other CC BY-SA content. When it
+detects an installed copy of Fluffy Work Tab, BWT may use its public code interfaces for compatibility,
+import compatible settings, and display icon textures from that copy.
 
 Fluffy Work Tab software and documentation are distributed under the MIT License:
 
@@ -34,5 +33,5 @@ Fluffy Work Tab software and documentation are distributed under the MIT License
 The upstream license also applies CC BY-SA 4.0 to its original non-software content. See the
 [upstream license](https://github.com/fluffy-mods/WorkTab/blob/master/LICENSE) for the complete terms.
 
-"Fluffy-style" describes UI inspiration and compatibility. Better Work Tab is not affiliated with or
-endorsed by Fluffy.
+"Fluffy-style" describes UI inspiration and compatibility. Better Work Tab is not affiliated with Fluffy
+or endorsed by Fluffy.

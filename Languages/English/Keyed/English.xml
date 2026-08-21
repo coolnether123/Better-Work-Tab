@@ -2,7 +2,7 @@
 <LanguageData>
 <BWTNotAssignedDoOnce>{0} Once</BWTNotAssignedDoOnce>
 <BWTNotAssignedAssignWork>Open {0} in Work tab</BWTNotAssignedAssignWork>
-<BWTManageWorkGivers>Open {0} sub-work ({1})</BWTManageWorkGivers>
+<BWTManageWorkGivers>Open specific jobs for {0} ({1})</BWTManageWorkGivers>
 <BWT_PriorityOneDoneFirstExtended>Priority 1 is done first.&#10;Priority {0} is done last.</BWT_PriorityOneDoneFirstExtended>
 
 <BWT_Enum_SubWorkTransitionStyle_ClassicGlideFlash>Classic glide</BWT_Enum_SubWorkTransitionStyle_ClassicGlideFlash>
@@ -11,9 +11,9 @@
 <BWT_Enum_SubWorkDrilldownStyle_FocusView>Focus view</BWT_Enum_SubWorkDrilldownStyle_FocusView>
 <BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>Fluffy-style expansion</BWT_Enum_SubWorkDrilldownStyle_ExpandBeside>
 <BWT_SubWork_UseExpandedView>Expand beside</BWT_SubWork_UseExpandedView>
-<BWT_SubWork_UseExpandedView_Tooltip>Keep the main Work columns visible and expand this Work's specific jobs beside it. This enables BWT's optional expanded presentation.</BWT_SubWork_UseExpandedView_Tooltip>
+<BWT_SubWork_UseExpandedView_Tooltip>Keep the main Work columns visible and expand this Work type's specific jobs beside it.</BWT_SubWork_UseExpandedView_Tooltip>
 <BWT_SubWork_UseFocusedView>Focus view</BWT_SubWork_UseFocusedView>
-<BWT_SubWork_UseFocusedView_Tooltip>Return to Better Work Tab's focused full-tab specific-job view and turn off the expanded presentation.</BWT_SubWork_UseFocusedView_Tooltip>
+<BWT_SubWork_UseFocusedView_Tooltip>Show this Work type's specific jobs across the full tab.</BWT_SubWork_UseFocusedView_Tooltip>
 <BWT_SubWork_Chooser_FocusTitle>Better Work Tab focused view</BWT_SubWork_Chooser_FocusTitle>
 <BWT_SubWork_Chooser_FocusDescription>Replace Work columns with this Work's specific jobs.</BWT_SubWork_Chooser_FocusDescription>
 <BWT_SubWork_Chooser_ExpandTitle>Fluffy-style expansion</BWT_SubWork_Chooser_ExpandTitle>
@@ -52,7 +52,7 @@
 
 <BWT_RuleName>Rule Name</BWT_RuleName>
 <BWT_Priority>Priority</BWT_Priority>
-<BWT_Worktype>Target work type</BWT_Worktype>
+<BWT_Worktype>Target Work type</BWT_Worktype>
 <BWT_AllowOverwritingHigherPriority>Allow overwriting higher priority</BWT_AllowOverwritingHigherPriority>
 <BWT_HasHighestSkill>Pawn has highest skill</BWT_HasHighestSkill>
 <BWT_SkipIfAnotherPawnAssigned>Skip if another pawn assigned</BWT_SkipIfAnotherPawnAssigned>
@@ -62,11 +62,11 @@
 <BWT_HasChildOnMap>Has child on map</BWT_HasChildOnMap>
 <BWT_IsNaturalAlwaysAssign>Is vanilla always assign</BWT_IsNaturalAlwaysAssign>
 <BWT_RandomIfMultiple>Random if multiple</BWT_RandomIfMultiple>
-<BWT_IgnoreIfWorktypeNonexistent>Ignore missing work type</BWT_IgnoreIfWorktypeNonexistent>
+<BWT_IgnoreIfWorktypeNonexistent>Ignore missing Work type</BWT_IgnoreIfWorktypeNonexistent>
 <BWT_IsTopXSkill>Is top X skill</BWT_IsTopXSkill>
 <BWT_IsNthBestPawn>Is Nth best pawn</BWT_IsNthBestPawn>
 <BWT_IsNthBestSkill>Is Nth best skill</BWT_IsNthBestSkill>
-<BWT_LimitNumberOfWorktypes>Work type Limit</BWT_LimitNumberOfWorktypes>
+<BWT_LimitNumberOfWorktypes>Work type limit</BWT_LimitNumberOfWorktypes>
 <BWT_SkipIfPriorityForThisWorktypeAreadyAssigned>Skip if this priority is already assigned</BWT_SkipIfPriorityForThisWorktypeAreadyAssigned>
 <BWT_PassionLevel>Passion level</BWT_PassionLevel>
 <BWT_SkillLevelGreaterThan>Skill level more than</BWT_SkillLevelGreaterThan>
@@ -76,36 +76,36 @@
 <BWT_Gender>Assign if gender is</BWT_Gender>
 <BWT_Xenotype>Assign if xenotype is</BWT_Xenotype>
 <BWT_RequiredTrait>Required trait</BWT_RequiredTrait>
-<BWT_AssignSimilarWorktypes>Assign similar work types</BWT_AssignSimilarWorktypes>
+<BWT_AssignSimilarWorktypes>Assign similar Work types</BWT_AssignSimilarWorktypes>
 <BWT_FailedToApplyFallback>Fallback if no pawn matched</BWT_FailedToApplyFallback>
 
 <BWT_RuleName_Desc>A name to make it easier to tell what a rule does.</BWT_RuleName_Desc>
-<BWT_Priority_Desc>The priority to set the work type to. (Vanilla always assigns 3.)</BWT_Priority_Desc>
-<BWT_Worktype_Desc>If assigned, this will be the only work type this rule applies to.</BWT_Worktype_Desc>
+<BWT_Priority_Desc>Set this Work type to this priority. Vanilla's default is 3.</BWT_Priority_Desc>
+<BWT_Worktype_Desc>Limit this rule to one Work type.</BWT_Worktype_Desc>
 <BWT_AllowOverwritingHigherPriority_Desc>By default the highest priority is kept. This allows later rules to overwrite higher priority.</BWT_AllowOverwritingHigherPriority_Desc>
 <BWT_HasHighestSkill_Desc>Assign pawns tied for the highest relevant skill. Vanilla instead assigns one random starting pawn to each Work type.</BWT_HasHighestSkill_Desc>
 <BWT_SkipIfAnotherPawnAssigned_Desc>If another pawn is assigned, do not apply to the current pawn.</BWT_SkipIfAnotherPawnAssigned_Desc>
 <BWT_IsPregnant_Desc>Only apply if the pawn is pregnant.</BWT_IsPregnant_Desc>
 <BWT_IsCapableOfViolence_Desc>Only apply if the pawn is capable of violence.</BWT_IsCapableOfViolence_Desc>
-<BWT_AssignToPawnWithFewestWorkPriorities_Desc>Assign pawns with the fewest existing priorities; ties are included.</BWT_AssignToPawnWithFewestWorkPriorities_Desc>
+<BWT_AssignToPawnWithFewestWorkPriorities_Desc>Assign pawns with the fewest existing priorities. Ties are included.</BWT_AssignToPawnWithFewestWorkPriorities_Desc>
 <BWT_HasChildOnMap_Desc>Only apply if the pawn has a child of learning age on the map.</BWT_HasChildOnMap_Desc>
-<BWT_IsNaturalAlwaysAssign_Desc>Only assign if Vanilla tags the work type as an "always assign" work type. (Vanilla always assigns these.)</BWT_IsNaturalAlwaysAssign_Desc>
-<BWT_RandomIfMultiple_Desc>If multiple pawns were assigned the work type, choose one at random to assign.</BWT_RandomIfMultiple_Desc>
-<BWT_IgnoreIfWorktypeNonexistent_Desc>Only assign this work type if it exists. Used for modded work types.</BWT_IgnoreIfWorktypeNonexistent_Desc>
-<BWT_IsTopXSkill_Desc>Assign when this Work type is among the pawn's top X skills. Vanilla uses the top six.</BWT_IsTopXSkill_Desc>
-<BWT_IsNthBestPawn_Desc>Only assign if the pawn is Nth best at this work type. It must be exact.</BWT_IsNthBestPawn_Desc>
-<BWT_IsNthBestSkill_Desc>Only assign if the work type is this pawn's Nth best skill. It must be exact.</BWT_IsNthBestSkill_Desc>
-<BWT_LimitNumberOfWorktypes_Desc>Only assign if the pawn does not already have this many Work types assigned.</BWT_LimitNumberOfWorktypes_Desc>
-<BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>Only assign if this priority has not already been assigned for this work type.</BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>
-<BWT_PassionLevel_Desc>Only assign if the pawn's best relevant passion for the work type matches the selected passion.</BWT_PassionLevel_Desc>
-<BWT_SkillLevelGreaterThan_Desc>Only assign if the pawn's skill in the work type is greater than this number.</BWT_SkillLevelGreaterThan_Desc>
-<BWT_SkillLevelLessThan_Desc>Only assign if the pawn's skill in the work type is less than this number.</BWT_SkillLevelLessThan_Desc>
+<BWT_IsNaturalAlwaysAssign_Desc>Assign only if vanilla marks this Work type as always assigned.</BWT_IsNaturalAlwaysAssign_Desc>
+<BWT_RandomIfMultiple_Desc>When multiple colonists match this Work type, assign one at random.</BWT_RandomIfMultiple_Desc>
+<BWT_IgnoreIfWorktypeNonexistent_Desc>Skip this rule when the Work type is unavailable, such as when a mod is missing.</BWT_IgnoreIfWorktypeNonexistent_Desc>
+<BWT_IsTopXSkill_Desc>Assign when this Work type is among the colonist's top X skills. Vanilla uses the top six.</BWT_IsTopXSkill_Desc>
+<BWT_IsNthBestPawn_Desc>Assign only if the colonist ranks exactly Nth for this Work type.</BWT_IsNthBestPawn_Desc>
+<BWT_IsNthBestSkill_Desc>Assign only if this Work type is the colonist's Nth-best skill.</BWT_IsNthBestSkill_Desc>
+<BWT_LimitNumberOfWorktypes_Desc>Assign only if the colonist has fewer than this many assigned Work types.</BWT_LimitNumberOfWorktypes_Desc>
+<BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>Assign only if this priority is not already set for this Work type.</BWT_SkipIfPriorityForThisWorktypeAreadyAssigned_Desc>
+<BWT_PassionLevel_Desc>Assign only if the colonist's relevant passion for this Work type matches the selected level.</BWT_PassionLevel_Desc>
+<BWT_SkillLevelGreaterThan_Desc>Assign only if the colonist's skill for this Work type is above this value.</BWT_SkillLevelGreaterThan_Desc>
+<BWT_SkillLevelLessThan_Desc>Assign only if the colonist's skill for this Work type is below this value.</BWT_SkillLevelLessThan_Desc>
 <BWT_MoveSpeedGreaterThan_Desc>Only assign if the pawn's move speed is greater than this number.</BWT_MoveSpeedGreaterThan_Desc>
 <BWT_MoveSpeedLessThan_Desc>Only assign if the pawn's move speed is less than this number.</BWT_MoveSpeedLessThan_Desc>
 <BWT_Gender_Desc>Only assign to pawns of this gender.</BWT_Gender_Desc>
 <BWT_Xenotype_Desc>Only assign to pawns with this xenotype.</BWT_Xenotype_Desc>
 <BWT_RequiredTrait_Desc>Only assign to pawns with this trait.</BWT_RequiredTrait_Desc>
-<BWT_AssignSimilarWorktypes_Desc>Also assign this rule to work types that use the same relevant skills.</BWT_AssignSimilarWorktypes_Desc>
+<BWT_AssignSimilarWorktypes_Desc>Also assign this rule to Work types that use the same relevant skills.</BWT_AssignSimilarWorktypes_Desc>
 <BWT_FailedToApplyFallback_Desc>Apply this rule if the primary rule did not assign any pawns.</BWT_FailedToApplyFallback_Desc>
 
 <BWT_BottomBar_RulesetTooltip>Ruleset: {0}\n\nClick to apply it to your colonists. Use ... to switch ruleset or open the rule builder.</BWT_BottomBar_RulesetTooltip>
@@ -116,27 +116,27 @@
 <BWT_BottomBar_WorkloadTooltipEmpty>No workload is saved yet.\n\nClick to save the current priorities as one.</BWT_BottomBar_WorkloadTooltipEmpty>
 <BWT_BottomBar_WorkloadMenuTooltip>Switch, rename, save or delete workloads.</BWT_BottomBar_WorkloadMenuTooltip>
 
-<BWT_RulesetBuilder_Title>Ruleset builder</BWT_RulesetBuilder_Title>
+<BWT_RulesetBuilder_Title>Rule Builder</BWT_RulesetBuilder_Title>
 <BWT_NoRuleset>No ruleset selected</BWT_NoRuleset>
 <BWT_ManageRulesets>Manage rulesets</BWT_ManageRulesets>
 <BWT_Back>Back</BWT_Back>
 <BWT_EditingRulesFor>Editing rules for {0}</BWT_EditingRulesFor>
 <BWT_AddNewRule>Add new rule</BWT_AddNewRule>
 <BWT_CannotModifyDefault>Default rulesets cannot be edited.</BWT_CannotModifyDefault>
-<BWT_NoRulesForWorkType>No rules for this work type yet.</BWT_NoRulesForWorkType>
+<BWT_NoRulesForWorkType>No rules for this Work type yet.</BWT_NoRulesForWorkType>
 <BWT_AssignPriority>Assign priority</BWT_AssignPriority>
 <BWT_Disabled>Disabled</BWT_Disabled>
 <BWT_PriorityLevel_Tooltip>Set priority to {0}.</BWT_PriorityLevel_Tooltip>
 <BWT_Conditions>Conditions</BWT_Conditions>
 <BWT_AddCondition>Add condition</BWT_AddCondition>
-<BWT_SelectWorkTypeFirst>Select a work type to edit rules.</BWT_SelectWorkTypeFirst>
+<BWT_SelectWorkTypeFirst>Select a Work type to edit its rules.</BWT_SelectWorkTypeFirst>
 <BWT_SelectOrCreateRule>Select a rule or create a new one.</BWT_SelectOrCreateRule>
 <BWT_Add_HasHighestSkill>Require highest skill</BWT_Add_HasHighestSkill>
 <BWT_Add_IsTopXSkill>Require top X skill</BWT_Add_IsTopXSkill>
 <BWT_Add_PassionLevel>Require passion level</BWT_Add_PassionLevel>
 <BWT_Add_SkillLevelGreaterThan>Skill level greater than</BWT_Add_SkillLevelGreaterThan>
 <BWT_Add_SkillLevelLessThan>Skill level less than</BWT_Add_SkillLevelLessThan>
-<BWT_Add_IsNaturalAlwaysAssign>Require always-active work type</BWT_Add_IsNaturalAlwaysAssign>
+<BWT_Add_IsNaturalAlwaysAssign>Require always-active Work type</BWT_Add_IsNaturalAlwaysAssign>
 <BWT_Add_RequiredTrait>Require trait</BWT_Add_RequiredTrait>
 <BWT_Add_Gender>Require gender</BWT_Add_Gender>
 <BWT_Add_Xenotype>Require xenotype</BWT_Add_Xenotype>
@@ -147,22 +147,22 @@
 <BWT_Add_AllowOverwritingHigherPriority>Allow overwriting higher priority</BWT_Add_AllowOverwritingHigherPriority>
 <BWT_NoConditionsAvailable>No additional conditions available.</BWT_NoConditionsAvailable>
 
-<BWT_WorkTypes>Work Types</BWT_WorkTypes>
-<BWT_SelectWorkType>Select Work Type</BWT_SelectWorkType>
+<BWT_WorkTypes>Work types</BWT_WorkTypes>
+<BWT_SelectWorkType>Select Work type</BWT_SelectWorkType>
 <BWT_Matches>Matches</BWT_Matches>
 <BWT_NoConditions>No conditions set. Click below to add.</BWT_NoConditions>
-<BWT_NewRuleset>New Ruleset</BWT_NewRuleset>
+<BWT_NewRuleset>New ruleset</BWT_NewRuleset>
 <BWT_Yes>Yes</BWT_Yes>
 <BWT_No>No</BWT_No>
 <BWT_None>None</BWT_None>
 <BWT_Minor>Minor</BWT_Minor>
 <BWT_Major>Major</BWT_Major>
-<BWT_Step1_Title>Select a work type</BWT_Step1_Title>
+<BWT_Step1_Title>Select a Work type</BWT_Step1_Title>
 <BWT_Step1_Subtitle>Pick a column to configure rules for.</BWT_Step1_Subtitle>
 <BWT_ShowOnlyConfigured>Show only configured ({0})</BWT_ShowOnlyConfigured>
-<BWT_ShowOnlyConfigured_Tooltip>Only show work types that already have rules configured.</BWT_ShowOnlyConfigured_Tooltip>
-<BWT_NoConfiguredWorkTypes>No work types have rules yet.</BWT_NoConfiguredWorkTypes>
-<BWT_NoMatchingWorkTypes>No work types match your search.</BWT_NoMatchingWorkTypes>
+<BWT_ShowOnlyConfigured_Tooltip>Show only Work types with configured rules.</BWT_ShowOnlyConfigured_Tooltip>
+<BWT_NoConfiguredWorkTypes>No Work types have rules yet.</BWT_NoConfiguredWorkTypes>
+<BWT_NoMatchingWorkTypes>No Work types match your search.</BWT_NoMatchingWorkTypes>
 
 <BWT_RelevantSkills>Relevant skills</BWT_RelevantSkills>
 <BWT_RulesConfigured>{0} rules configured</BWT_RulesConfigured>
@@ -179,12 +179,12 @@
 
 <!-- Unified Work-tab tutorial -->
 <BWT_Tutorial_Welcome_Title>Better Work Tab feature tour</BWT_Tutorial_Welcome_Title>
-<BWT_Tutorial_Welcome_Body>This tour assumes you already know RimWorld's Work tab and focuses only on what Better Work Tab adds or changes. You can pause at any time and return later.</BWT_Tutorial_Welcome_Body>
+<BWT_Tutorial_Welcome_Body>This tour covers what Better Work Tab adds to RimWorld's Work tab. Pause any time and return when you are ready.</BWT_Tutorial_Welcome_Body>
 <BWT_Tutorial_Welcome_WhatsNew>Explore 2.0 additions</BWT_Tutorial_Welcome_WhatsNew>
 <BWT_Tutorial_Welcome_Full>Explore all BWT features</BWT_Tutorial_Welcome_Full>
 <BWT_Tutorial_NotNow>Not now</BWT_Tutorial_NotNow>
 <BWT_Upgrade20_PromptTitle>Better Work Tab 2.0</BWT_Upgrade20_PromptTitle>
-<BWT_Upgrade20_PromptBody>Better Work Tab was updated to 2.0. Your settings are preserved, and new features remain disabled to keep existing behavior. Tour the new features?</BWT_Upgrade20_PromptBody>
+<BWT_Upgrade20_PromptBody>Better Work Tab is now 2.0. Your settings are unchanged, and new features start disabled. See what is new?</BWT_Upgrade20_PromptBody>
 <BWT_Upgrade20_StartTutorial>Show me the 2.0 tutorial</BWT_Upgrade20_StartTutorial>
 <BWT_Upgrade20_KeepSettings>Keep my existing settings</BWT_Upgrade20_KeepSettings>
 <BWT_FluffyMigration_Title>Fluffy Work Tab compatibility</BWT_FluffyMigration_Title>
@@ -197,10 +197,10 @@
 <BWT_FluffyMigration_SettingsContextTooltip>Settings for Fluffy-style controls, saved hourly priorities, visible compatibility columns, and choosing which mod owns the Work tab.</BWT_FluffyMigration_SettingsContextTooltip>
 <BWT_Tutorial_Selector_Title>Explore Better Work Tab</BWT_Tutorial_Selector_Title>
 <BWT_Tutorial_Selector_DefaultBody>Click a highlighted name, header, or priority to explore it.</BWT_Tutorial_Selector_DefaultBody>
-<BWT_Tutorial_Selector_AllDoneBody>That is everything you have switched on. There is more available.</BWT_Tutorial_Selector_AllDoneBody>
-<BWT_Tutorial_AlreadyUsing>You are already using this in your colony, so it is checked off. Open it anyway if you want the walkthrough.</BWT_Tutorial_AlreadyUsing>
+<BWT_Tutorial_Selector_AllDoneBody>You have explored every enabled feature. Turn on another feature to see its lesson.</BWT_Tutorial_Selector_AllDoneBody>
+<BWT_Tutorial_AlreadyUsing>Your colony already uses this feature. Open the lesson if you want a refresher.</BWT_Tutorial_AlreadyUsing>
 <BWT_Tutorial_Discover_Button>{0} switched off</BWT_Tutorial_Discover_Button>
-<BWT_Tutorial_Discover_Tooltip>{0} feature(s) are switched off in settings. Open them to see what they do.</BWT_Tutorial_Discover_Tooltip>
+<BWT_Tutorial_Discover_Tooltip>Features switched off: {0}. Open them to see what they do.</BWT_Tutorial_Discover_Tooltip>
 <BWT_Tutorial_Discover_Filter>Not switched on</BWT_Tutorial_Discover_Filter>
 <BWT_Tutorial_Discover_FilterTooltip>Better Work Tab features you have switched off. Turn one on and its walkthrough appears in the Work tab.</BWT_Tutorial_Discover_FilterTooltip>
 <BWT_Tutorial_SkipForNow>Skip for now</BWT_Tutorial_SkipForNow>
@@ -208,7 +208,7 @@
 <BWT_Tutorial_SkipLesson>Skip lesson</BWT_Tutorial_SkipLesson>
 
 <BWT_Tutorial_PawnHub_Title>Better Work Tab pawn tools</BWT_Tutorial_PawnHub_Title>
-<BWT_Tutorial_PawnHub_Body>Better Work Tab adds a pawn action menu for dividers, custom titles, and row colors. Select one of those additions below.</BWT_Tutorial_PawnHub_Body>
+<BWT_Tutorial_PawnHub_Body>Use the pawn action menu to add dividers, change titles, and set row colors. Choose a lesson below.</BWT_Tutorial_PawnHub_Body>
 <BWT_Tutorial_PawnMenu_Label>Open pawn actions</BWT_Tutorial_PawnMenu_Label>
 <BWT_Tutorial_PawnMenu_Title>Open pawn actions</BWT_Tutorial_PawnMenu_Title>
 <BWT_Tutorial_PawnMenu_Preview>Right-click a pawn name to open its Better Work Tab actions.</BWT_Tutorial_PawnMenu_Preview>
@@ -216,23 +216,23 @@
 <BWT_Tutorial_PawnMenu_Outcome>Menu open. These commands change the Work tab view only.</BWT_Tutorial_PawnMenu_Outcome>
 <BWT_Tutorial_PawnDivider_Label>Add a divider</BWT_Tutorial_PawnDivider_Label>
 <BWT_Tutorial_PawnDivider_Title>Organize pawns with dividers</BWT_Tutorial_PawnDivider_Title>
-<BWT_Tutorial_PawnDivider_Preview>Dividers label, separate, collapse, and visually organize groups of pawn rows.</BWT_Tutorial_PawnDivider_Preview>
+<BWT_Tutorial_PawnDivider_Preview>Dividers label groups of colonists and let you collapse their rows.</BWT_Tutorial_PawnDivider_Preview>
 <BWT_Tutorial_PawnDivider_Action>Right-click the highlighted pawn.</BWT_Tutorial_PawnDivider_Action>
-<BWT_Tutorial_PawnDivider_ActionChoose>Select “Insert divider above.”</BWT_Tutorial_PawnDivider_ActionChoose>
-<BWT_Tutorial_PawnDivider_Outcome>Divider added. Group and collapse rows to stay readable.</BWT_Tutorial_PawnDivider_Outcome>
+<BWT_Tutorial_PawnDivider_ActionChoose>Select 'Insert divider above.'</BWT_Tutorial_PawnDivider_ActionChoose>
+<BWT_Tutorial_PawnDivider_Outcome>Divider added. You can now group and collapse these rows.</BWT_Tutorial_PawnDivider_Outcome>
 <BWT_Tutorial_PawnAppearance_Label>Customize pawn row</BWT_Tutorial_PawnAppearance_Label>
 <BWT_Tutorial_PawnAppearance_Title>Change title or color</BWT_Tutorial_PawnAppearance_Title>
 <BWT_Tutorial_PawnAppearance_Preview>The pawn menu can change the displayed title and row background color.</BWT_Tutorial_PawnAppearance_Preview>
 <BWT_Tutorial_PawnAppearance_Action>Right-click the highlighted pawn.</BWT_Tutorial_PawnAppearance_Action>
-<BWT_Tutorial_PawnAppearance_ActionChoose>Select “Set background color...” or “Change title...”.</BWT_Tutorial_PawnAppearance_ActionChoose>
-<BWT_Tutorial_PawnAppearance_ActionChooseColorOnly>Select “Set background color...”.</BWT_Tutorial_PawnAppearance_ActionChooseColorOnly>
+<BWT_Tutorial_PawnAppearance_ActionChoose>Select 'Set background color...' or 'Change title...'.</BWT_Tutorial_PawnAppearance_ActionChoose>
+<BWT_Tutorial_PawnAppearance_ActionChooseColorOnly>Select 'Set background color...'.</BWT_Tutorial_PawnAppearance_ActionChooseColorOnly>
 <BWT_Tutorial_PawnAppearance_ActionColor>Pick a color for this row.</BWT_Tutorial_PawnAppearance_ActionColor>
 <BWT_Tutorial_PawnAppearance_ActionType>Type a different display title in the highlighted field.</BWT_Tutorial_PawnAppearance_ActionType>
 <BWT_Tutorial_PawnAppearance_ActionConfirm>Click OK.</BWT_Tutorial_PawnAppearance_ActionConfirm>
 <BWT_Tutorial_PawnAppearance_Outcome>Row updated. Display only, the colonist is unchanged.</BWT_Tutorial_PawnAppearance_Outcome>
 
 <BWT_Tutorial_HeaderHub_Title>Better Work Tab header tools</BWT_Tutorial_HeaderHub_Title>
-<BWT_Tutorial_HeaderHub_Body>Better Work Tab makes headers interactive: reorder execution, move selected groups, or open specific jobs.</BWT_Tutorial_HeaderHub_Body>
+<BWT_Tutorial_HeaderHub_Body>Use headers to reorder Work types, move selected groups, and open specific jobs.</BWT_Tutorial_HeaderHub_Body>
 <BWT_Tutorial_HeaderReorder_Label>Reorder work columns</BWT_Tutorial_HeaderReorder_Label>
 <BWT_Tutorial_HeaderReorder_Title>Reorder work columns</BWT_Tutorial_HeaderReorder_Title>
 <BWT_Tutorial_HeaderReorder_Preview>Drag a Work header to reorder execution. When priorities match, work runs from left to right.</BWT_Tutorial_HeaderReorder_Preview>
@@ -247,7 +247,7 @@
 <BWT_Tutorial_HeaderGroup_Outcome>Header selected. Drag any selected header to move the group.</BWT_Tutorial_HeaderGroup_Outcome>
 <BWT_Tutorial_HeaderSubWork_Label>Open specific jobs</BWT_Tutorial_HeaderSubWork_Label>
 <BWT_Tutorial_HeaderSubWork_Title>Open specific jobs</BWT_Tutorial_HeaderSubWork_Title>
-<BWT_Tutorial_HeaderSubWork_Preview>Specific jobs can focus or expand the grid, with priorities, overrides, reordering, and reassignment.</BWT_Tutorial_HeaderSubWork_Preview>
+<BWT_Tutorial_HeaderSubWork_Preview>Open specific jobs to set priorities, overrides, order, and reassignment for each job.</BWT_Tutorial_HeaderSubWork_Preview>
 <BWT_Tutorial_HeaderSubWork_ActionShortcut>{0} the highlighted Work header to open its specific jobs.</BWT_Tutorial_HeaderSubWork_ActionShortcut>
 <BWT_Tutorial_HeaderSubWork_Outcome>Specific jobs open. Escape or {0} returns.</BWT_Tutorial_HeaderSubWork_Outcome>
 <BWT_Tutorial_Gesture_LeftClick>LEFT CLICK</BWT_Tutorial_Gesture_LeftClick>
@@ -268,50 +268,200 @@
 <BWT_Tutorial_Gesture_Complete>Finish the lesson</BWT_Tutorial_Gesture_Complete>
 
 <BWT_Tutorial_PriorityHub_Title>Better Work Tab priority tools</BWT_Tutorial_PriorityHub_Title>
-<BWT_Tutorial_PriorityHub_Body>Better Work Tab extends these cells with skill-number views, daily schedules, and a configurable priority range.</BWT_Tutorial_PriorityHub_Body>
-<BWT_Tutorial_PriorityHub_ShiftBody>Better Work Tab is showing the pawn's skill number while Shift is held. Choose “View skill number” for guidance on this added view.</BWT_Tutorial_PriorityHub_ShiftBody>
+<BWT_Tutorial_PriorityHub_Body>Priority cells can show skill numbers, set hourly priorities, and use a wider priority range.</BWT_Tutorial_PriorityHub_Body>
+<BWT_Tutorial_PriorityHub_ShiftBody>Better Work Tab is showing the pawn's skill number while Shift is held. Choose 'View skill number' for guidance on this view.</BWT_Tutorial_PriorityHub_ShiftBody>
 <BWT_Tutorial_HeaderHub_SubWorkBody>Better Work Tab is showing this Work category's specific jobs. Repeat the shortcut or press Escape to return to the category view.</BWT_Tutorial_HeaderHub_SubWorkBody>
 <BWT_Tutorial_PrioritySkill_Label>View skill number</BWT_Tutorial_PrioritySkill_Label>
 <BWT_Tutorial_PrioritySkill_Title>View skill number</BWT_Tutorial_PrioritySkill_Title>
 <BWT_Tutorial_PrioritySkill_Preview>Hold Shift to display the pawn's skill number for that work.</BWT_Tutorial_PrioritySkill_Preview>
 <BWT_Tutorial_PrioritySkill_Action>Hold Shift.</BWT_Tutorial_PrioritySkill_Action>
-<BWT_Tutorial_PrioritySkill_Held>The Work grid is showing each pawn's relevant skill number instead of their priority while Shift is held. Higher skill numbers help you compare who is naturally better at that Work. Keep holding Shift while you look; release it when you are ready to return to priorities.</BWT_Tutorial_PrioritySkill_Held>
+<BWT_Tutorial_PrioritySkill_Held>The Work grid is showing each pawn's relevant skill number instead of their priority while Shift is held. Higher skill numbers help you compare who is naturally better at that Work. Keep holding Shift while you look. Release it when you are ready to return to priorities.</BWT_Tutorial_PrioritySkill_Held>
 <BWT_Tutorial_PrioritySkill_SecondaryVisible>Your current skill-number settings can also show a smaller secondary skill number in the cell corner.</BWT_Tutorial_PrioritySkill_SecondaryVisible>
 <BWT_Tutorial_PrioritySkill_Outcome>Shift shows skill numbers. Priorities were not changed.</BWT_Tutorial_PrioritySkill_Outcome>
 <BWT_Tutorial_PrioritySchedule_Label>Open time schedules</BWT_Tutorial_PrioritySchedule_Label>
 <BWT_Tutorial_PrioritySchedule_Title>Open time schedules</BWT_Tutorial_PrioritySchedule_Title>
-<BWT_Tutorial_PrioritySchedule_Preview>Ctrl-click a priority cell to create a daily schedule with a different priority for each hour.</BWT_Tutorial_PrioritySchedule_Preview>
+<BWT_Tutorial_PrioritySchedule_Preview>Ctrl-click a priority cell to set hourly priorities for that Work type.</BWT_Tutorial_PrioritySchedule_Preview>
 <BWT_Tutorial_PrioritySchedule_ActionOpen>Ctrl-click the highlighted priority cell to open its hourly schedule.</BWT_Tutorial_PrioritySchedule_ActionOpen>
 <BWT_Tutorial_PrioritySchedule_ActionEdit>Change any hour cell: click, right-click, or scroll.</BWT_Tutorial_PrioritySchedule_ActionEdit>
 <BWT_Tutorial_PrioritySchedule_ActionClose>Ctrl-click an hour cell to close the schedule.</BWT_Tutorial_PrioritySchedule_ActionClose>
 <BWT_Tutorial_PrioritySchedule_Outcome>Schedule saved. Ctrl-click the cell to edit all 24 hours.</BWT_Tutorial_PrioritySchedule_Outcome>
 <BWT_Tutorial_PriorityRange_Label>Set priority range</BWT_Tutorial_PriorityRange_Label>
 <BWT_Tutorial_PriorityRange_Title>Set priority range</BWT_Tutorial_PriorityRange_Title>
-<BWT_Tutorial_PriorityRange_Preview>Open the priority provider or maximum setting. Better Work Tab defaults to 1–9, supports 99, and preserves compatible providers.</BWT_Tutorial_PriorityRange_Preview>
+<BWT_Tutorial_PriorityRange_Preview>Open the priority source or maximum setting. Better Work Tab defaults to 1-9, supports 99, and works with compatible priority mods.</BWT_Tutorial_PriorityRange_Preview>
 <BWT_Tutorial_PriorityRange_Filter>Priority range</BWT_Tutorial_PriorityRange_Filter>
-<BWT_Tutorial_PriorityRange_FilterTooltip>Priority provider and maximum-priority settings for the Work tab.</BWT_Tutorial_PriorityRange_FilterTooltip>
+<BWT_Tutorial_PriorityRange_FilterTooltip>Priority source and maximum-priority settings for the Work tab.</BWT_Tutorial_PriorityRange_FilterTooltip>
 <BWT_Tutorial_PriorityRange_Action>Drag the slider to the highest priority number you want.</BWT_Tutorial_PriorityRange_Action>
 <BWT_Tutorial_PriorityRange_Outcome>Priority range set. A wider range gives finer control.</BWT_Tutorial_PriorityRange_Outcome>
 <BWT_Tutorial_Unknown_Action>Return to the tutorial map and select an available lesson.</BWT_Tutorial_Unknown_Action>
 
 <BWT_Tutorial_RuleBuilder2_Label>Try Rule Builder 2.0</BWT_Tutorial_RuleBuilder2_Label>
 <BWT_Tutorial_RuleBuilder2_Title>Rule Builder 2.0</BWT_Tutorial_RuleBuilder2_Title>
-<BWT_Tutorial_RuleBuilder2_Preview>The rewritten builder uses focused cards, a live match preview, and an explicit application system.</BWT_Tutorial_RuleBuilder2_Preview>
-<BWT_Tutorial_RuleBuilder2_Action>Build the rule, check the preview, then apply it.</BWT_Tutorial_RuleBuilder2_Action>
-<BWT_Tutorial_RuleBuilder2_Outcome>Rule ready. Preview never changes priorities, Apply does.</BWT_Tutorial_RuleBuilder2_Outcome>
+<BWT_Tutorial_RuleBuilder2_Preview>Rule Builder 2.0 guides you through choosing a target, conditions, and an action. Check the matching colonists before you apply it.</BWT_Tutorial_RuleBuilder2_Preview>
+<BWT_Tutorial_RuleBuilder2_Action>Choose a target, add conditions, set an action, then check the map.</BWT_Tutorial_RuleBuilder2_Action>
+<BWT_Tutorial_RuleBuilder2_Outcome>Your rule is ready. Map check does not change priorities. Apply does.</BWT_Tutorial_RuleBuilder2_Outcome>
 
 <BWT_Tutorial_FluffyCoexistence_Label>Test full Fluffy coexistence</BWT_Tutorial_FluffyCoexistence_Label>
 <BWT_Tutorial_FluffyCoexistence_Title>Better Work Tab and Fluffy remain active</BWT_Tutorial_FluffyCoexistence_Title>
 <BWT_Tutorial_FluffyCoexistence_Preview>Switch to Fluffy's complete Work interface and back while preserving Better Work Tab state.</BWT_Tutorial_FluffyCoexistence_Preview>
 <BWT_Tutorial_FluffyCoexistence_Action>Switch the Work-tab owner, then come back here.</BWT_Tutorial_FluffyCoexistence_Action>
-<BWT_Tutorial_FluffyCoexistence_ActionSwitch>Both mods remain active; this changes only the visible Work interface. Switch to Fluffy now. This lesson window will stay open.</BWT_Tutorial_FluffyCoexistence_ActionSwitch>
+<BWT_Tutorial_FluffyCoexistence_ActionSwitch>Both mods remain active. This changes only the visible Work interface. Switch to Fluffy now. This lesson window will stay open.</BWT_Tutorial_FluffyCoexistence_ActionSwitch>
 <BWT_Tutorial_FluffyCoexistence_ActionReturn>Fluffy now owns the Work interface, while Better Work Tab remains active. Return to verify its settings and column state.</BWT_Tutorial_FluffyCoexistence_ActionReturn>
-<BWT_Tutorial_FluffyCoexistence_ActionPreserved>You returned to Better Work Tab. Its specific-job presentation and stored column order were preserved while Fluffy owned the interface.</BWT_Tutorial_FluffyCoexistence_ActionPreserved>
-<BWT_Tutorial_FluffyCoexistence_ActionChanged>You returned to Better Work Tab, but its stored presentation or column order changed. Review the lesson details before continuing.</BWT_Tutorial_FluffyCoexistence_ActionChanged>
+<BWT_Tutorial_FluffyCoexistence_ActionPreserved>You returned to Better Work Tab. It kept the specific-job layout and column order used before you switched to Fluffy.</BWT_Tutorial_FluffyCoexistence_ActionPreserved>
+<BWT_Tutorial_FluffyCoexistence_ActionChanged>You returned to Better Work Tab, but its specific-job layout or column order changed. Review the lesson details before continuing.</BWT_Tutorial_FluffyCoexistence_ActionChanged>
 <BWT_Tutorial_FluffyCoexistence_Outcome>Switched back. Better Work Tab kept your columns and jobs.</BWT_Tutorial_FluffyCoexistence_Outcome>
 <BWT_Tutorial_FluffySwitch>Switch to Fluffy's interface</BWT_Tutorial_FluffySwitch>
 <BWT_Tutorial_BWTReturn>Return to Better Work Tab</BWT_Tutorial_BWTReturn>
 <BWT_Tutorial_FinishLesson>Finish lesson</BWT_Tutorial_FinishLesson>
+
+<!-- Work-tab controls -->
+<BWT_Header_ManualPriorities>Manual priorities</BWT_Header_ManualPriorities>
+<BWT_Header_SimplePriorities>Simple priorities</BWT_Header_SimplePriorities>
+<BWT_Header_OpenHourlyPriorities>Open hourly priorities</BWT_Header_OpenHourlyPriorities>
+<BWT_Header_CloseHourlyPriorities>Close hourly priorities</BWT_Header_CloseHourlyPriorities>
+<BWT_Header_ExpandSpecificJobs>Expand all specific jobs</BWT_Header_ExpandSpecificJobs>
+<BWT_Header_CollapseSpecificJobs>Collapse all specific jobs</BWT_Header_CollapseSpecificJobs>
+<BWT_Divider_ExpandSection>Expand section</BWT_Divider_ExpandSection>
+<BWT_Divider_CollapseSection>Collapse section</BWT_Divider_CollapseSection>
+<BWT_SpecificJob_DragToReorder>Drag to reorder</BWT_SpecificJob_DragToReorder>
+<BWT_SpecificJob_DragToMove>Hold and drag to reorder. Drag onto another Work header to move this specific job.</BWT_SpecificJob_DragToMove>
+<BWT_SpecificJob_BackToWorkTypes>Back to Work types. You can also press Escape.</BWT_SpecificJob_BackToWorkTypes>
+<BWT_SpecificJob_PawnsWithOverrides>Pawns with overrides: {0}</BWT_SpecificJob_PawnsWithOverrides>
+<BWT_SpecificJob_ParentDisabledOverride>The parent Work type is disabled. Click the priority box to enable it. Click the gold ring to use the shared specific-job priority again.</BWT_SpecificJob_ParentDisabledOverride>
+
+<!-- Hourly priorities -->
+<BWT_HourlyPriorities_DividerName>{0} hourly priorities</BWT_HourlyPriorities_DividerName>
+<BWT_HourlyPriorities_SelectWholeDay>Select the whole day</BWT_HourlyPriorities_SelectWholeDay>
+<BWT_HourlyPriorities_SelectCurrentHour>Select the current hour</BWT_HourlyPriorities_SelectCurrentHour>
+<BWT_HourlyPriorities_OpenForWorkType>Open hourly priorities for {0}</BWT_HourlyPriorities_OpenForWorkType>
+<BWT_HourlyPriorities_ClearRejected>Could not clear the hourly priorities.</BWT_HourlyPriorities_ClearRejected>
+<BWT_HourlyPriorities_WriteRejected>Could not save the hourly priorities.</BWT_HourlyPriorities_WriteRejected>
+<BWT_HourlyPriorities_CopyUnavailable>Better Work Tab cannot copy hourly priorities while another mod controls priority data.</BWT_HourlyPriorities_CopyUnavailable>
+<BWT_HourlyPriorities_Copied>Copied hourly priorities for {0}.</BWT_HourlyPriorities_Copied>
+<BWT_HourlyPriorities_PasteUnavailable>Better Work Tab cannot paste hourly priorities while another mod controls priority data.</BWT_HourlyPriorities_PasteUnavailable>
+<BWT_HourlyPriorities_PasteRejected>Could not paste the hourly priorities.</BWT_HourlyPriorities_PasteRejected>
+<BWT_HourlyPriorities_Pasted>Pasted hourly priorities from {0}.</BWT_HourlyPriorities_Pasted>
+<BWT_HourlyPriorities_OpenUnavailable>Better Work Tab cannot open hourly priorities while another mod controls priority data.</BWT_HourlyPriorities_OpenUnavailable>
+<BWT_HourlyPriorities_HourTooltip>Hour {0}. Priority {1}.</BWT_HourlyPriorities_HourTooltip>
+<BWT_Priority_ReadOnlyExternal>Another mod controls priority data, so Better Work Tab cannot change this priority.</BWT_Priority_ReadOnlyExternal>
+
+<!-- Workloads -->
+<BWT_Workload_OpenPreviewTooltip>Preview the saved priorities in {0} without changing your colony.</BWT_Workload_OpenPreviewTooltip>
+<BWT_Workload_PreviewUnavailable>Workload previews are unavailable.</BWT_Workload_PreviewUnavailable>
+<BWT_Workload_SelectBeforePreview>Choose a workload from the ... menu before opening a preview.</BWT_Workload_SelectBeforePreview>
+<BWT_Workload_SaveAs>Save as</BWT_Workload_SaveAs>
+<BWT_Workload_SaveAsTooltip>Save these changes as a new workload. Your colony will not change until you press Apply.</BWT_Workload_SaveAsTooltip>
+<BWT_Workload_Save>Save</BWT_Workload_Save>
+<BWT_Workload_SaveTooltip>Save these changes to this workload. Your colony will not change until you press Apply.</BWT_Workload_SaveTooltip>
+<BWT_Workload_Cancel>Cancel</BWT_Workload_Cancel>
+<BWT_Workload_CancelTooltip>Close the preview without changing your colony.</BWT_Workload_CancelTooltip>
+<BWT_Workload_Apply>Apply</BWT_Workload_Apply>
+<BWT_Workload_NoSaved>No saved workloads.</BWT_Workload_NoSaved>
+<BWT_Workload_New>New workload</BWT_Workload_New>
+<BWT_Workload_Actions>Workload actions</BWT_Workload_Actions>
+<BWT_Workload_Rename>Rename</BWT_Workload_Rename>
+<BWT_Workload_Delete>Delete</BWT_Workload_Delete>
+<BWT_Workload_SaveAsTitle>Save workload as</BWT_Workload_SaveAsTitle>
+<BWT_Workload_NewTitle>New workload</BWT_Workload_NewTitle>
+<BWT_Workload_RenameTitle>Rename workload</BWT_Workload_RenameTitle>
+<BWT_Workload_ApplyLegacyTitle>Apply legacy workload?</BWT_Workload_ApplyLegacyTitle>
+<BWT_Workload_ApplyLegacyBody>This replaces every current Work priority with the saved values. Continue?</BWT_Workload_ApplyLegacyBody>
+<BWT_Workload_DefaultName>Workload {0}</BWT_Workload_DefaultName>
+<BWT_Workload_CopyName>{0} copy</BWT_Workload_CopyName>
+<BWT_Workload_NameRequired>Enter a workload name.</BWT_Workload_NameRequired>
+<BWT_Workload_PreviewEnded>This workload preview is no longer open.</BWT_Workload_PreviewEnded>
+<BWT_Workload_OperationFailed>Better Work Tab could not finish that workload action.</BWT_Workload_OperationFailed>
+<BWT_Workload_FinishBeforeOpeningList>Finish or cancel the current workload preview before opening the workload list.</BWT_Workload_FinishBeforeOpeningList>
+<BWT_Workload_NoCurrentGame>Load or start a game before using workloads.</BWT_Workload_NoCurrentGame>
+<BWT_Workload_NotReady>Workloads are not ready yet.</BWT_Workload_NotReady>
+<BWT_Workload_PreviewLegacyUnavailable>Workload previews are unavailable while legacy workloads are enabled.</BWT_Workload_PreviewLegacyUnavailable>
+<BWT_Workload_Empty>This workload does not contain any saved settings.</BWT_Workload_Empty>
+<BWT_Workload_CaptureFailed>Better Work Tab could not read all current Work-tab settings.</BWT_Workload_CaptureFailed>
+<BWT_Workload_ModeUnavailable>That workload mode is unavailable.</BWT_Workload_ModeUnavailable>
+<BWT_Workload_CloseBeforeModeChange>Close the workload preview before changing workload mode.</BWT_Workload_CloseBeforeModeChange>
+<BWT_Workload_UnsupportedData>This workload contains data from an older or unsupported format. Apply and save are disabled to avoid losing it.</BWT_Workload_UnsupportedData>
+<BWT_Workload_UnsupportedDataShort>older or unsupported data</BWT_Workload_UnsupportedDataShort>
+<BWT_Workload_PreviewRefreshFailed>The workload was saved, but Better Work Tab could not refresh the preview. Cancel it before trying again.</BWT_Workload_PreviewRefreshFailed>
+<BWT_Workload_MultiplayerRecovery>Multiplayer is still finishing the previous workload action. You cannot edit this preview yet.</BWT_Workload_MultiplayerRecovery>
+<BWT_Workload_MultiplayerWaiting>Waiting for multiplayer to finish the workload {0}.</BWT_Workload_MultiplayerWaiting>
+<BWT_Workload_StatusRecovery> • finishing</BWT_Workload_StatusRecovery>
+<BWT_Workload_StatusSyncing> • syncing</BWT_Workload_StatusSyncing>
+<BWT_Workload_StatusPreview> • preview</BWT_Workload_StatusPreview>
+<BWT_Workload_ApplyAction>apply</BWT_Workload_ApplyAction>
+<BWT_Workload_SaveAction>save</BWT_Workload_SaveAction>
+<BWT_Workload_SaveAsAction>save as</BWT_Workload_SaveAsAction>
+<BWT_Workload_OperationAction>action</BWT_Workload_OperationAction>
+<BWT_Workload_MultiplayerNotSaved>Multiplayer could not finish the workload {0}. The preview is still open. {1}</BWT_Workload_MultiplayerNotSaved>
+<BWT_Workload_NoChangesMade>No workload settings changed.</BWT_Workload_NoChangesMade>
+<BWT_Workload_MultiplayerSaved>Multiplayer finished the workload {0}. The preview remains open.</BWT_Workload_MultiplayerSaved>
+<BWT_Workload_MultiplayerApplyCloseFailed>Multiplayer applied the workload, but Better Work Tab could not close the preview.</BWT_Workload_MultiplayerApplyCloseFailed>
+<BWT_Workload_MultiplayerConfirmed>Multiplayer finished the workload action.</BWT_Workload_MultiplayerConfirmed>
+<BWT_Workload_SettingsStatus>A workload preview is open. Alt-click still opens the related settings.</BWT_Workload_SettingsStatus>
+<BWT_Workload_PrioritySourceBWT>Priority source: Better Work Tab</BWT_Workload_PrioritySourceBWT>
+<BWT_Workload_PrioritySourceExternal>Priority source: {0}</BWT_Workload_PrioritySourceExternal>
+<BWT_Workload_UnsupportedOlderClears>older reset instructions</BWT_Workload_UnsupportedOlderClears>
+<BWT_Workload_UnsupportedOlderSchedules>older hourly priorities</BWT_Workload_UnsupportedOlderSchedules>
+<BWT_Workload_UnsupportedOlderDisplay>older display settings</BWT_Workload_UnsupportedOlderDisplay>
+<BWT_Workload_UnsupportedList>Unsupported workload data: {0}</BWT_Workload_UnsupportedList>
+<BWT_Workload_ValidationFailed>Cannot apply this workload because some saved data is invalid.</BWT_Workload_ValidationFailed>
+<BWT_Workload_ValidationDetails>Cannot apply this workload: {0}</BWT_Workload_ValidationDetails>
+<BWT_Workload_GameChanged>The game changed before the multiplayer workload finished. Try again.</BWT_Workload_GameChanged>
+<BWT_Workload_FinishPreviewBefore>Finish or cancel the workload preview before {0}.</BWT_Workload_FinishPreviewBefore>
+<BWT_Workload_ChangingWorkloads>changing workloads</BWT_Workload_ChangingWorkloads>
+<BWT_Workload_NotFound>Better Work Tab could not find that workload.</BWT_Workload_NotFound>
+<BWT_Workload_Selected>Workload selected.</BWT_Workload_Selected>
+<BWT_Workload_Creating>creating another workload</BWT_Workload_Creating>
+<BWT_Workload_Created>Created workload {0}.</BWT_Workload_Created>
+<BWT_Workload_Renaming>renaming this workload</BWT_Workload_Renaming>
+<BWT_Workload_Renamed>Workload renamed.</BWT_Workload_Renamed>
+<BWT_Workload_Deleting>deleting this workload</BWT_Workload_Deleting>
+<BWT_Workload_Deleted>Workload deleted.</BWT_Workload_Deleted>
+<BWT_Workload_NoActivePreview>No workload preview is open.</BWT_Workload_NoActivePreview>
+<BWT_Workload_MultiplayerStartFailed>Better Work Tab could not start the multiplayer workload action.</BWT_Workload_MultiplayerStartFailed>
+<BWT_Workload_PreviewCanceled>Preview canceled. Your colony was not changed.</BWT_Workload_PreviewCanceled>
+<BWT_Workload_NothingToSave>Nothing has changed, so there is nothing to save.</BWT_Workload_NothingToSave>
+<BWT_Workload_NoActivePreviewForSaveAs>Open a workload preview before saving it as a new workload.</BWT_Workload_NoActivePreviewForSaveAs>
+<BWT_Workload_Switching>switching workloads</BWT_Workload_Switching>
+<BWT_Workload_FinishBeforeSwitching>Finish or cancel the current workload preview before switching workloads. Save first if you want to keep your changes.</BWT_Workload_FinishBeforeSwitching>
+<BWT_Workload_SpecificJobMissing>That specific job is no longer available.</BWT_Workload_SpecificJobMissing>
+<BWT_Workload_SpecificJobPriorityUnavailable>This workload does not store specific-job priorities.</BWT_Workload_SpecificJobPriorityUnavailable>
+<BWT_Workload_SpecificJobChangeFailed>Better Work Tab could not change that specific job in the preview.</BWT_Workload_SpecificJobChangeFailed>
+<BWT_Workload_SpecificJobOrderTargetMissing>Better Work Tab could not find that specific job in the preview.</BWT_Workload_SpecificJobOrderTargetMissing>
+<BWT_Workload_SpecificJobOrderUnavailable>This workload does not store specific-job order.</BWT_Workload_SpecificJobOrderUnavailable>
+<BWT_Workload_SpecificJobOrderChangeFailed>Better Work Tab could not reorder the specific jobs in the preview.</BWT_Workload_SpecificJobOrderChangeFailed>
+<BWT_Workload_HourlyPriorityMissing>Those hourly priorities are no longer available.</BWT_Workload_HourlyPriorityMissing>
+<BWT_Workload_HourlyPriorityUnavailable>This workload does not store hourly priorities.</BWT_Workload_HourlyPriorityUnavailable>
+<BWT_Workload_HourlyPriorityChangeFailed>Better Work Tab could not change the hourly priorities in the preview.</BWT_Workload_HourlyPriorityChangeFailed>
+<BWT_Workload_PawnCannotChange>This colonist cannot be changed in the current preview.</BWT_Workload_PawnCannotChange>
+<BWT_Workload_PawnMissing>This colonist is no longer available.</BWT_Workload_PawnMissing>
+<BWT_Workload_PawnNeverIncluded>This workload never included that colonist.</BWT_Workload_PawnNeverIncluded>
+<BWT_Workload_PawnIncluded>Colonist included when you apply this workload.</BWT_Workload_PawnIncluded>
+<BWT_Workload_PawnIncludedCurrent>Colonist included with their current Work settings.</BWT_Workload_PawnIncludedCurrent>
+<BWT_Workload_PawnExcluded>Colonist excluded. Their current Work settings will not change.</BWT_Workload_PawnExcluded>
+<BWT_Workload_PawnOutside>This workload does not include that colonist, so their Work settings will not change.</BWT_Workload_PawnOutside>
+<BWT_Workload_PawnNoStoredSettings>This workload does not store any settings that can be copied for this colonist.</BWT_Workload_PawnNoStoredSettings>
+<BWT_Workload_PreviewOpened>Preview open. Your colony will not change until you press Apply.</BWT_Workload_PreviewOpened>
+<BWT_Workload_PawnIncludedTooltip>This colonist is included in the workload preview.</BWT_Workload_PawnIncludedTooltip>
+<BWT_Workload_PawnNewTooltip>This colonist was not in the saved workload. Right-click the row to include them.</BWT_Workload_PawnNewTooltip>
+<BWT_Workload_PawnOutsideTooltip>This workload does not include this colonist. Apply will leave their Work settings unchanged.</BWT_Workload_PawnOutsideTooltip>
+<BWT_Workload_PawnExcludedTooltip>This colonist is excluded from this application. Their Work settings will not change.</BWT_Workload_PawnExcludedTooltip>
+<BWT_Workload_PawnMissingTooltip>This workload includes a colonist who is not currently available.</BWT_Workload_PawnMissingTooltip>
+<BWT_Workload_OrderUndoUnavailable>You cannot undo or redo specific-job order while previewing a workload.</BWT_Workload_OrderUndoUnavailable>
+<BWT_Workload_FluffyScheduleUnavailable>Fluffy controls these hourly priorities, so Better Work Tab cannot change them here.</BWT_Workload_FluffyScheduleUnavailable>
+<BWT_Workload_SleekCellUnavailable>Sleek controls this priority cell, so Better Work Tab cannot change it in the workload preview.</BWT_Workload_SleekCellUnavailable>
+<BWT_Workload_FluffySpecificJobUnavailable>Fluffy controls this specific-job column, so Better Work Tab cannot change it in the workload preview.</BWT_Workload_FluffySpecificJobUnavailable>
+<BWT_Workload_FluffySchedulePreviewBlocked>Close the workload preview before changing Fluffy's hourly priorities.</BWT_Workload_FluffySchedulePreviewBlocked>
+<BWT_Workload_FluffyScheduleHidden>Fluffy's hourly-priority editor is hidden while the workload preview is open.</BWT_Workload_FluffyScheduleHidden>
+<BWT_Workload_MoveSpecificJobUnavailable>You cannot move a specific job to another Work type while previewing a workload.</BWT_Workload_MoveSpecificJobUnavailable>
+<BWT_Workload_SharedSpecificJobOrderUnavailable>Shared specific-job ordering is unavailable during a workload preview. Open a colonist's specific-job menu to preview changes for that colonist.</BWT_Workload_SharedSpecificJobOrderUnavailable>
+<BWT_Workload_ClearSpecificJobPriority>Clear this workload priority</BWT_Workload_ClearSpecificJobPriority>
+<BWT_Workload_LeaveSpecificJobPriorityUnchanged>Do not change this priority</BWT_Workload_LeaveSpecificJobPriorityUnchanged>
+<BWT_Workload_SaveDisplayedSpecificJobPriority>Save the displayed priority in this workload</BWT_Workload_SaveDisplayedSpecificJobPriority>
+<BWT_Workload_ClearSpecificJobOrder>Clear this workload order</BWT_Workload_ClearSpecificJobOrder>
+<BWT_Workload_LeaveSpecificJobOrderUnchanged>Do not change this order</BWT_Workload_LeaveSpecificJobOrderUnchanged>
+<BWT_Workload_SaveDisplayedSpecificJobOrder>Save the displayed order in this workload</BWT_Workload_SaveDisplayedSpecificJobOrder>
+<BWT_Workload_SpecificJobOrderInvalid>Better Work Tab could not read the current specific-job order.</BWT_Workload_SpecificJobOrderInvalid>
+<BWT_Workload_SpecificJobOrderChanged>The specific-job order changed before Better Work Tab could update the preview. Try again.</BWT_Workload_SpecificJobOrderChanged>
+<BWT_Workload_SpecificJobMoveInvalid>Better Work Tab could not move that specific job.</BWT_Workload_SpecificJobMoveInvalid>
 
 
 

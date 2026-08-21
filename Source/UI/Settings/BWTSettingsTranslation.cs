@@ -34,7 +34,7 @@ namespace Better_Work_Tab.UI.Settings
                 const string key = "BWT_Settings_UI_AdvancedSearchNotice";
                 return key.CanTranslate()
                     ? key.Translate()
-                    : "Found in Advanced settings: {0} — click to switch to Advanced";
+                    : "Found in Advanced settings: {0}. Click to switch to Advanced.";
             }
         }
 

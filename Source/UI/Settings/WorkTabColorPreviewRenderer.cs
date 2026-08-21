@@ -154,7 +154,7 @@ namespace Better_Work_Tab.UI.Settings
             WorkGridAnimatedColumnGeometry workColumnGeometry =
                 WorkGridInteractionGeometry.GetAnimatedColumn(workColumn.Value);
             headerRect = workColumnGeometry.HeaderRect;
-            headerLabel = workColumn.Value.Column?.LabelCap ?? "Work";
+            headerLabel = workColumn.Value.Column?.LabelCap ?? "BWT_Settings_Preview_Work".Translate();
             cellText = GetRepresentativeSkillLevel(pawnRow.Value, workColumn.Value);
             Rect pawnScreenRect = layout.GetScreenRect(pawnRow.Value);
             rowRect = Rect.MinMaxRect(gridXMin, pawnScreenRect.y, gridXMax, pawnScreenRect.yMax);
@@ -230,11 +230,11 @@ namespace Better_Work_Tab.UI.Settings
             WorkTypeDef workType = column.SubWorkParent ?? column.Column?.workType;
             if (row.Pawn?.skills == null || workType?.relevantSkills == null || workType.relevantSkills.Count == 0)
             {
-                return "—";
+                return "-";
             }
 
             SkillRecord skill = row.Pawn.skills.GetSkill(workType.relevantSkills[0]);
-            return skill?.Level.ToString() ?? "—";
+            return skill?.Level.ToString() ?? "-";
         }
 
         private static void DrawHeaderTextPreview(Rect rect, string label, Color color)
@@ -303,7 +303,7 @@ namespace Better_Work_Tab.UI.Settings
             GUI.color = Color.white;
             Widgets.Label(
                 new Rect(swatch.xMax + 7f, legend.y, legend.width - 40f, legend.height),
-                "Live preview: " + preview.Label);
+                "BWT_Settings_Preview_Live".Translate(preview.Label));
             GUI.color = oldColor;
             Text.Font = oldFont;
             Text.Anchor = oldAnchor;
