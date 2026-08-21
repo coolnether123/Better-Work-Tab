@@ -29,6 +29,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TemplateWritesUseTheSameTransactionBoundary(backend);
             FreshnessRevisionsAreCapturedAndValidatedIndependently(backend, multiplayer);
             PersistenceRevalidatesRuntimeStateBeforeTemplateWrites(backend);
+            SaveRebaseAndForkCurrentIdentityAreTransactional(backend);
+            ReceiptRecoveryIsReadOnlyAndFailClosed(backend);
         }
 
         private static void PrepareIsReadOnlyAndExecuteIsCapabilityBound(
@@ -341,6 +343,136 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "unchanged runtime identity, taxonomy, and authority must permit valid persistence");
         }
 
+        private static void SaveRebaseAndForkCurrentIdentityAreTransactional(string backend)
+        {
+            TestAssert.Contains(
+                backend,
+                "BuildPersistenceReceipt(",
+                "Update/Fork must build a receipt from the authoritative persisted target");
+            TestAssert.Contains(
+                backend,
+                "executionContext.PersistenceRebase(receipt.Value)",
+                "single-player persistence must rebase only after the write and round trip succeed");
+            TestAssert.Contains(
+                backend,
+                "RekeyBackendBaseline(",
+                "successful Save As must rekey the service-owned baseline");
+            TestAssert.Contains(
+                backend,
+                "successResult.PersistenceReceipt = executionContext?.PersistenceReceipt",
+                "the committed receipt must cross the MP status boundary rather than a peer session");
+
+            int persistencePlanStart = backend.IndexOf(
+                "// Update and Fork do not apply the live colony",
+                StringComparison.Ordinal);
+            int applyLiveStart = backend.IndexOf(
+                "ApplyLive(live, runtimePlan",
+                persistencePlanStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                persistencePlanStart >= 0 && applyLiveStart > persistencePlanStart,
+                "the Update/Fork persistence-only planning boundary must remain explicit");
+            string persistencePlan = backend.Substring(
+                persistencePlanStart,
+                applyLiveStart - persistencePlanStart);
+            TestAssert.False(
+                persistencePlan.IndexOf("ApplyLive(", StringComparison.Ordinal) >= 0,
+                "Save and Save As must never call the live colony writer");
+
+            TestAssert.Contains(
+                backend,
+                "store.CurrentWorkloadId = mutation.StableId",
+                "Fork must activate the new current workload in the same persistence mutation");
+            TestAssert.Contains(
+                backend,
+                "mutation.PreviousCurrentWorkloadId",
+                "Fork current-ID activation must retain rollback metadata");
+            TestAssert.Contains(
+                backend,
+                "if (mutation.CurrentWorkloadIdChanged)",
+                "Fork rollback must restore the prior current workload identity");
+            TestAssert.Contains(
+                backend,
+                "Keep the lease active so the protocol can still issue",
+                "a failed final confirmation must remain rollback-recoverable");
+            TestAssert.Contains(
+                backend,
+                "store.PersistenceRevision != receipt.PersistenceRevision",
+                "preview rebasing must reject a receipt from a different local persistence revision");
+            TestAssert.Contains(
+                backend,
+                "store.PersistenceFingerprint",
+                "preview rebasing must verify the local persistence fingerprint before adopting a receipt");
+            TestAssert.Contains(
+                backend,
+                "store.Find(receipt.TargetStableId)",
+                "preview rebasing must round-trip the local target record before changing baseline identity");
+        }
+
+        private static void ReceiptRecoveryIsReadOnlyAndFailClosed(string backend)
+        {
+            string recovery = Slice(
+                backend,
+                "internal WorkloadOperationResult<WorkloadPersistenceReceipt> RecoverPersistenceReceipt(\n            WorkloadSession session",
+                "internal WorkloadOperationResult<WorkloadProjectedState> CaptureLiveBaseline(");
+            TestAssert.Contains(
+                recovery,
+                "decisionKind != WorkloadDecisionKind.Update",
+                "receipt recovery must reject non-Update/Fork decisions");
+            TestAssert.Contains(
+                recovery,
+                "targetStableId",
+                "receipt recovery must bind the requested target identity");
+            TestAssert.Contains(
+                recovery,
+                "_backendBaselines.TryGetValue(sourceIdentity",
+                "receipt recovery must use the old service-owned source baseline");
+            TestAssert.Contains(
+                recovery,
+                "BuildPersistenceReceipt(",
+                "receipt recovery must reuse the existing target validation");
+            TestAssert.Contains(
+                backend,
+                "store.HasDuplicateStableId(targetStableId)",
+                "the reused receipt builder must reject an ambiguous target");
+            TestAssert.Contains(
+                backend,
+                "WorkloadV2RecordConverter.TryToTemplate(record)",
+                "receipt recovery must round-trip the authoritative persisted target");
+            TestAssert.Contains(
+                recovery,
+                "receipt.Value.TargetIdentity",
+                "receipt recovery must validate the current target identity");
+            TestAssert.Contains(
+                recovery,
+                "receipt.Value.CurrentWorkloadId",
+                "receipt recovery must validate the current workload identity");
+            TestAssert.Contains(
+                backend,
+                "WorkloadScope synchronizedScope",
+                "multiplayer reconstruction must retain the payload scope independently of the stored source scope");
+            TestAssert.Contains(
+                backend,
+                "synchronizedState = synchronizedState.ExcludePawn(excludedPawn)",
+                "multiplayer reconstruction must restore temporary exclusions into the detached session state");
+            TestAssert.Contains(
+                backend,
+                "source.Value.WithDefinition(observedDefinition).WithState(synchronizedState)",
+                "peer baseline capture must observe the payload scope while preserving source identity");
+            TestAssert.Contains(
+                backend,
+                "session.EditState(synchronizedState)",
+                "the reconstructed peer session must use the exclusion-preserving state");
+            TestAssert.Contains(
+                backend,
+                "scope.IsExplicitlyExcluded(entry.Key.Pawn)",
+                "live baseline capture must not require excluded pawn-local identities");
+            TestAssert.False(
+                recovery.IndexOf("CaptureLiveBaseline", StringComparison.Ordinal) >= 0 ||
+                recovery.IndexOf("RekeyBackendBaseline", StringComparison.Ordinal) >= 0,
+                "receipt recovery must not recapture live state or mutate the baseline");
+        }
+
         private static string FindRepositoryRoot()
         {
             return TestSupport.FindRepositoryRoot(
@@ -364,6 +496,16 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
             TestAssert.True(File.Exists(path), "expected production source file is missing: " + path);
             return File.ReadAllText(path).Replace("\r\n", "\n");
+        }
+
+        private static string Slice(string value, string startMarker, string endMarker)
+        {
+            int start = value.IndexOf(startMarker, StringComparison.Ordinal);
+            int end = start < 0
+                ? -1
+                : value.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
+            TestAssert.True(start >= 0 && end > start, "expected backend method boundary is missing");
+            return value.Substring(start, end - start);
         }
     }
 }

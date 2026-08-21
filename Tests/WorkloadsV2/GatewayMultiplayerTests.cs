@@ -23,6 +23,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PendingDuplicatesUseCanonicalCorrelation(backend);
             MismatchedTerminalReplaysRemainConflicts(backend);
             RollbackFailureKeepsThePreviewLocked(gateway);
+            SaveForkRebaseOccursOnlyAtFinalConfirmation(gateway, backend);
+            NullResultSuccessUsesAuthoritativeReceiptRecovery(gateway, backend);
+            ReceiptRecoveryFailureKeepsThePreviewBlocked(gateway, backend);
         }
 
         private static void AcceptedStatesAreNotLifecycleRejections()
@@ -206,6 +209,159 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 gateway,
                 "retained synchronized rollback lease is explicitly resolved",
                 "the UI must explain why a retained rollback lease blocks new commits");
+        }
+
+        private static void SaveForkRebaseOccursOnlyAtFinalConfirmation(
+            string gateway,
+            string backend)
+        {
+            TestAssert.Contains(
+                backend,
+                "ConfirmMultiplayerCommit(pending.Lease)",
+                "the synchronized lease must be confirmed before the UI rebase path");
+            TestAssert.Contains(
+                backend,
+                "pending.Backend.AbortMultiplayerCommit(pending.Lease)",
+                "a failed final rebase must issue the protocol rollback path");
+            TestAssert.Contains(
+                backend,
+                "Keep the lease active so the protocol can still issue",
+                "a rejected final confirmation must leave the rollback lease recoverable");
+            TestAssert.Contains(
+                gateway,
+                "status.Result?.PersistenceReceipt != null",
+                "a post-confirmation UI rebase failure must enter a recoverable preview block");
+            TestAssert.Contains(
+                gateway,
+                "_previewRecoveryBlocked = true;",
+                "a post-confirmation UI rebase failure must block Apply against the old source");
+
+            string terminal = Slice(
+                backend,
+                "public void OnTerminal(",
+                "private bool TryPrepare(");
+            int confirmation = terminal.IndexOf(
+                "ConfirmMultiplayerCommit(",
+                StringComparison.Ordinal);
+            int rebase = terminal.IndexOf(
+                "RebasePreviewAfterPersistence(",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                confirmation >= 0 && rebase < 0,
+                "transport callbacks must not mutate the UI backend or copy a temporary peer session");
+
+            string completion = Slice(
+                gateway,
+                "private void CompleteMultiplayerCommit(",
+                "private void ClearMultiplayerAttempt()");
+            TestAssert.Contains(
+                completion,
+                "if (_multiplayerDecision != WorkloadDecisionKind.Apply)",
+                "MP Save/Fork completion must be distinct from Apply completion");
+            TestAssert.Contains(
+                completion,
+                "WorkloadGateway.RebaseV2PreviewAfterPersistence(",
+                "MP Save/Fork completion must rebase the UI backend from the committed receipt");
+            int completionRebase = completion.IndexOf(
+                "WorkloadGateway.RebaseV2PreviewAfterPersistence(",
+                StringComparison.Ordinal);
+            int completionAdopt = completion.IndexOf(
+                "WorkloadGateway.AdoptV2PreviewSession()",
+                completionRebase,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                completionRebase >= 0 && completionAdopt > completionRebase,
+                "MP Save/Fork must adopt the rebased backend session after final confirmation");
+            TestAssert.Contains(
+                completion,
+                "ClearMultiplayerAttempt();",
+                "the MP attempt must clear only after successful preview adoption");
+            int saveBranchEnd = completion.IndexOf(
+                "return;\n            }\n\n            _multiplayerTerminalHandled = true;",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                saveBranchEnd >= 0,
+                "MP Save/Fork completion must leave the Apply close branch after adoption");
+            string saveBranch = completion.Substring(0, saveBranchEnd);
+            TestAssert.False(
+                saveBranch.IndexOf("EndV2Preview()", StringComparison.Ordinal) >= 0 ||
+                saveBranch.IndexOf("ClearLocalSession()", StringComparison.Ordinal) >= 0,
+                "successful MP Save/Fork must keep the preview open");
+        }
+
+        private static void NullResultSuccessUsesAuthoritativeReceiptRecovery(
+            string gateway,
+            string backend)
+        {
+            string completion = Slice(
+                gateway,
+                "private void CompleteMultiplayerCommit(",
+                "private void ClearMultiplayerAttempt()");
+            int receipt = completion.IndexOf(
+                "status?.Result?.PersistenceReceipt",
+                StringComparison.Ordinal);
+            int rebase = completion.IndexOf(
+                "WorkloadGateway.RebaseV2PreviewAfterPersistence(",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                receipt >= 0 && rebase >= 0,
+                "MP Save/Fork completion must pass the status receipt into the rebase seam");
+            TestAssert.Contains(
+                completion,
+                "_multiplayerDecision",
+                "receipt recovery must use the confirmed Save/Fork decision");
+            TestAssert.Contains(
+                gateway,
+                "modern.RecoverPersistenceReceipt(decisionKind, targetStableId)",
+                "a terminal success without a receipt must ask the authoritative UI backend to recover it");
+            TestAssert.Contains(
+                backend,
+                "pending?.Result",
+                "a locally completed terminal status must preserve its direct commit result when available");
+        }
+
+        private static void ReceiptRecoveryFailureKeepsThePreviewBlocked(
+            string gateway,
+            string backend)
+        {
+            string completion = Slice(
+                gateway,
+                "private void CompleteMultiplayerCommit(",
+                "private void ClearMultiplayerAttempt()");
+            TestAssert.Contains(
+                completion,
+                "_previewRecoveryBlocked = true;",
+                "receipt recovery or rebase failure must retain the recoverable preview block");
+            TestAssert.Contains(
+                completion,
+                "return;",
+                "a failed receipt recovery must stop before preview adoption or clearing");
+
+            string recovery = Slice(
+                backend,
+                "internal WorkloadOperationResult<WorkloadPersistenceReceipt> RecoverPersistenceReceipt(\n            WorkloadSession session",
+                "internal WorkloadOperationResult<WorkloadProjectedState> CaptureLiveBaseline(");
+            TestAssert.Contains(
+                recovery,
+                "BuildPersistenceReceipt(",
+                "receipt recovery must reuse the authoritative receipt builder");
+            TestAssert.Contains(
+                recovery,
+                "baseline.HasPersistenceBaseline",
+                "receipt recovery must fail closed without the old service-owned baseline");
+            TestAssert.Contains(
+                recovery,
+                "store.IsReadOnlyDiagnostic",
+                "receipt recovery must reject non-authoritative persistence metadata");
+            TestAssert.Contains(
+                recovery,
+                "The current V2 persistence revision is not the authoritative post-write revision.",
+                "receipt recovery must reject stale or ambiguous post-write revisions");
+            TestAssert.False(
+                recovery.IndexOf("CaptureLiveBaseline", StringComparison.Ordinal) >= 0 ||
+                recovery.IndexOf("RebasePreviewAfterPersistence", StringComparison.Ordinal) >= 0 ||
+                recovery.IndexOf("RekeyBackendBaseline", StringComparison.Ordinal) >= 0,
+                "receipt recovery must not recapture live state, rebase, or mutate the baseline");
         }
 
         private static WorkloadMultiplayerCommitStatus Status(

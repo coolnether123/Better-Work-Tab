@@ -9,6 +9,20 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             var parent = new WorkloadParentPriorityKey(
                 TestSupport.Pawn("p1"),
                 TestSupport.WorkType("PlantWork"));
+            var workGiver = TestSupport.WorkGiver("PlantCut");
+            var scheduleKey = WorkloadScheduleTargetKey.ForParent(
+                parent.Pawn,
+                parent.WorkType);
+            var sourceSchedule = TestSupport.ScheduleWithValue(2, 1 << 4);
+            var liveSchedule = TestSupport.ScheduleWithValue(1, 1 << 5);
+            var specificKey = WorkloadSpecificJobTargetKey.ForPawn(
+                parent.Pawn,
+                parent.WorkType,
+                workGiver);
+            var orderKey = WorkloadWorkTypeOrderKey.ForPawn(
+                parent.Pawn,
+                parent.WorkType);
+            var order = new WorkloadWorkTypeOrderPayload(new[] { workGiver });
             var sourceState = new WorkloadProjectedState(
                 parentPriorities: new[]
                 {
@@ -21,6 +35,25 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                         parent.WorkType,
                         WorkloadIntentState.Set,
                         3)
+                },
+                scheduleIntents: new[]
+                {
+                    TestSupport.ScheduleIntent(
+                        scheduleKey,
+                        WorkloadIntent<WorkloadSchedulePayload>.CreateSet(sourceSchedule))
+                },
+                specificPriorityIntents: new[]
+                {
+                    TestSupport.SpecificIntent(
+                        specificKey,
+                        WorkloadIntentState.Set,
+                        6)
+                },
+                workTypeOrderIntents: new[]
+                {
+                    TestSupport.OrderIntent(
+                        orderKey,
+                        WorkloadIntent<WorkloadWorkTypeOrderPayload>.CreateSet(order))
                 },
                 representedPawnIds: new[] { parent.Pawn });
             var template = TestSupport.Template(sourceState);
@@ -37,8 +70,31 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                         WorkloadIntentState.Set,
                         2)
                 },
+                scheduleIntents: new[]
+                {
+                    TestSupport.ScheduleIntent(
+                        scheduleKey,
+                        WorkloadIntent<WorkloadSchedulePayload>.CreateSet(liveSchedule))
+                },
+                specificPriorityIntents: new[]
+                {
+                    TestSupport.SpecificIntent(
+                        specificKey,
+                        WorkloadIntentState.Set,
+                        5)
+                },
+                workTypeOrderIntents: new[]
+                {
+                    TestSupport.OrderIntent(
+                        orderKey,
+                        WorkloadIntent<WorkloadWorkTypeOrderPayload>.CreateSet(order))
+                },
                 representedPawnIds: new[] { parent.Pawn });
-            var session = WorkloadSession.Open(template, null, liveState);
+            var session = WorkloadSession.OpenCaptured(
+                template,
+                liveState,
+                WorkloadSession.GetSourceIdentity(template));
+            TestAssert.True(session != null, "the deterministic session must carry an explicit source identity");
             TestAssert.True(
                 !string.IsNullOrWhiteSpace(session.PreviewSessionId),
                 "every preview must carry a unique stable session identity");
@@ -124,6 +180,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
             var updated = edited.Update();
             TestAssert.True(updated.Accepted, "Update plan must be accepted for a semantic diff");
+            TestAssert.False(updated.Session.IsTerminal,
+                "Save planning must not terminalize the active preview session");
             TestAssert.Equal("night-shift", updated.ResultTemplate.StableId,
                 "Update must retain the source stable workload ID");
             TestAssert.True(updated.ResultTemplate.ProjectedState.SemanticallyEquals(edited.ProjectedState),
@@ -137,6 +195,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
             var forked = edited.Fork("day-shift", "Day Shift");
             TestAssert.True(forked.Accepted, "Fork plan must be accepted with a new stable ID");
+            TestAssert.False(forked.Session.IsTerminal,
+                "Save As planning must not terminalize the active preview session");
             TestAssert.Equal("day-shift", forked.ResultTemplate.StableId,
                 "Fork must create the requested stable workload ID");
             TestAssert.True(
@@ -145,6 +205,133 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "Fork must carry selected presentation ownership data into the new workload");
             TestAssert.True(edited.SourceTemplate.ProjectedState.SemanticallyEquals(sourceState),
                 "Fork must preserve the source workload");
+
+            WorkloadSemanticDiff liveDiffBeforeSave = edited.LiveDiff;
+            WorkloadSession saved = edited.RebaseAfterPersistence(
+                new WorkloadPersistenceReceipt(
+                    WorkloadDecisionKind.Update,
+                    edited.SourceTemplate.StableId,
+                    updated.ResultTemplate.StableId,
+                    edited.SourceIdentity,
+                    WorkloadSession.GetSourceIdentity(updated.ResultTemplate),
+                    updated.ResultTemplate,
+                    7,
+                    "before-save",
+                    8,
+                    "after-save",
+                    edited.SourceTemplate.StableId));
+            TestAssert.True(saved != null, "a matching Save receipt must rebase the open preview");
+            TestAssert.False(saved.IsTerminal, "a saved preview must remain nonterminal");
+            TestAssert.True(saved.TemplateDiff.IsEmpty,
+                "Save must reset the template diff against the committed round-tripped state");
+            TestAssert.True(
+                saved.TemplateBaselineState.SemanticallyEquals(updated.ResultTemplate.ProjectedState),
+                "Save must install the committed target as the new template baseline");
+            TestAssert.True(
+                saved.TemplateBaselineState.ScheduleIntents.Count == 1 &&
+                saved.TemplateBaselineState.ScheduleIntents[0].Key.Equals(scheduleKey) &&
+                saved.TemplateBaselineState.ScheduleIntents[0].Intent.HasValue &&
+                saved.TemplateBaselineState.ScheduleIntents[0].Intent.Value.Equals(sourceSchedule),
+                "Save must preserve typed schedule ownership and payloads");
+            TestAssert.True(
+                saved.TemplateBaselineState.SpecificPriorityIntents.Count == 1 &&
+                saved.TemplateBaselineState.SpecificPriorityIntents[0].Key.Equals(specificKey) &&
+                saved.TemplateBaselineState.SpecificPriorityIntents[0].Intent.HasValue &&
+                saved.TemplateBaselineState.SpecificPriorityIntents[0].Intent.Value.Priority == 6,
+                "Save must preserve typed specific-job priorities and target scope");
+            TestAssert.True(
+                saved.TemplateBaselineState.WorkTypeOrderIntents.Count == 1 &&
+                saved.TemplateBaselineState.WorkTypeOrderIntents[0].Key.Equals(orderKey) &&
+                saved.TemplateBaselineState.WorkTypeOrderIntents[0].Intent.HasValue &&
+                saved.TemplateBaselineState.WorkTypeOrderIntents[0].Intent.Value.Equals(order),
+                "Save must preserve typed specific-job order and taxonomy");
+            TestAssert.True(
+                saved.LiveBaselineState.SemanticallyEquals(edited.LiveBaselineState),
+                "Save must preserve the opening live baseline exactly");
+            TestAssert.True(
+                saved.LiveDiff.BeforeFingerprint == liveDiffBeforeSave.BeforeFingerprint &&
+                saved.LiveDiff.AfterFingerprint == liveDiffBeforeSave.AfterFingerprint,
+                "Save must preserve the live-impact diff after the template rebase");
+            TestAssert.Equal(
+                edited.PreviewSessionId,
+                saved.PreviewSessionId,
+                "Save must preserve the active preview identity");
+            TestAssert.True(
+                saved.Apply().AppliedState.SemanticallyEquals(edited.ProjectedState),
+                "Apply after Save must use the current projected state and remain the only live path");
+
+            WorkloadSession savedFork = edited.RebaseAfterPersistence(
+                new WorkloadPersistenceReceipt(
+                    WorkloadDecisionKind.Fork,
+                    edited.SourceTemplate.StableId,
+                    forked.ResultTemplate.StableId,
+                    edited.SourceIdentity,
+                    WorkloadSession.GetSourceIdentity(forked.ResultTemplate),
+                    forked.ResultTemplate,
+                    7,
+                    "before-fork",
+                    8,
+                    "after-fork",
+                    forked.ResultTemplate.StableId));
+            TestAssert.True(savedFork != null, "a matching Save As receipt must rebase the open preview");
+            TestAssert.Equal(
+                forked.ResultTemplate.StableId,
+                savedFork.SourceTemplate.StableId,
+                "Save As must make only the new target identity active");
+            TestAssert.Equal(
+                "night-shift",
+                edited.SourceTemplate.StableId,
+                "Save As planning must leave the source workload identity unchanged");
+            TestAssert.False(savedFork.TemplateDiff.Changes.Count > 0,
+                "Save As must reset the template diff");
+
+            WorkloadSession excludedBeforeSave = edited.ExcludePawn(parent.Pawn);
+            WorkloadTemplate excludedTarget = excludedBeforeSave.TargetTemplate;
+            WorkloadSession excludedAfterSave = excludedBeforeSave.RebaseAfterPersistence(
+                new WorkloadPersistenceReceipt(
+                    WorkloadDecisionKind.Update,
+                    excludedBeforeSave.SourceTemplate.StableId,
+                    excludedTarget.StableId,
+                    excludedBeforeSave.SourceIdentity,
+                    WorkloadSession.GetSourceIdentity(excludedTarget),
+                    excludedTarget,
+                    8,
+                    "before-excluded-save",
+                    9,
+                    "after-excluded-save",
+                    excludedTarget.StableId));
+            TestAssert.NotNull(excludedAfterSave,
+                "Save must rebase a preview that has a session-only exclusion");
+            TestAssert.Equal(1, excludedAfterSave.SessionExcludedPawnIds.Count,
+                "Save must preserve session-only exclusions");
+            TestAssert.True(
+                excludedAfterSave.SessionExcludedPawnIds[0].Equals(parent.Pawn),
+                "Save must preserve the excluded pawn identity");
+            TestAssert.True(excludedAfterSave.TemplateDiff.IsEmpty,
+                "session-only exclusions must not create a persisted template diff after Save");
+
+            WorkloadSession mismatch = edited.RebaseAfterPersistence(
+                new WorkloadPersistenceReceipt(
+                    WorkloadDecisionKind.Update,
+                    edited.SourceTemplate.StableId,
+                    updated.ResultTemplate.StableId,
+                    "wrong-source-identity",
+                    WorkloadSession.GetSourceIdentity(updated.ResultTemplate),
+                    updated.ResultTemplate,
+                    7,
+                    "before-save",
+                    8,
+                    "after-save",
+                    edited.SourceTemplate.StableId));
+            TestAssert.True(mismatch == null,
+                "a receipt with a mismatched source identity must be rejected");
+
+            TestAssert.True(saved.Edit(draft =>
+                draft.SetParentPriorityIntent(
+                    parent,
+                    WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(
+                        new WorkloadSpecificPriorityPayload(5)))).IsDirty,
+                "edits after Save must re-enable Save");
 
             var revertedToStored = session.Edit(draft =>
                 draft.SetParentPriorityIntent(
