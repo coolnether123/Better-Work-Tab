@@ -2,10 +2,15 @@ using System;
 using System.Collections.Generic;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
+using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Mod_Support.Multiplayer;
+using Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
@@ -16,10 +21,10 @@ using Verse.Sound;
 namespace Better_Work_Tab.UI.Workloads
 {
     /// <summary>
-    /// Coordinates the two workload-only inline surfaces that can be rendered
-    /// by the Work tab. This is deliberately not a WindowStack/window owner:
-    /// both surfaces remain part of the one Work-tab window and only one
-    /// workload popover may own input at a time.
+    /// Coordinates the workload footer and the modern preview session that are
+    /// both hosted by the one Work-tab window. This is deliberately not a
+    /// WindowStack/window owner: the footer picker remains the only secondary
+    /// workload surface and a live preview keeps it guarded.
     /// </summary>
     internal static class WorkloadSurfaceCoordinator
     {
@@ -32,18 +37,12 @@ namespace Better_Work_Tab.UI.Workloads
 
         private static SurfaceOwner _owner;
         private static Action _closeFooter;
-        private static Action _closePreview;
         private static Func<bool> _isPreviewActive;
         private static Action<string> _reportPreviewMessage;
 
         internal static void RegisterFooterCloser(Action closer)
         {
             _closeFooter = closer;
-        }
-
-        internal static void RegisterPreviewCloser(Action closer)
-        {
-            _closePreview = closer;
         }
 
         internal static void RegisterPreviewState(
@@ -54,18 +53,12 @@ namespace Better_Work_Tab.UI.Workloads
             _reportPreviewMessage = reportMessage;
         }
 
-        /// <summary>
-        /// The workload footer and modern preview are sibling surfaces in the
-        /// one Work-tab window. A live preview owns the editing surface, so a
-        /// footer click is rejected in-place rather than closing the preview
-        /// or leaving an invisible footer hit region behind it.
-        /// </summary>
         internal static bool TryOpenFooter()
         {
             if (_isPreviewActive?.Invoke() == true)
             {
                 _reportPreviewMessage?.Invoke(
-                    "Finish, Update, Save As, or Cancel the active workload preview before opening the workload list.");
+                    "Finish, Update, Save As, Apply, or Cancel the active workload preview before opening the workload list.");
                 return false;
             }
 
@@ -74,7 +67,6 @@ namespace Better_Work_Tab.UI.Workloads
                 return true;
             }
 
-            _closePreview?.Invoke();
             _owner = SurfaceOwner.Footer;
             return true;
         }
@@ -250,10 +242,44 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal static WorkloadOperationResult<WorkloadDescriptor> CreateWorkload(string label)
         {
-            return Dispatch(
-                legacy => legacy.Create(label),
-                modern => modern.Create(label),
-                NoCurrentGame<WorkloadDescriptor>);
+            if (!TryBind(out LegacyWorkloadBackend legacy, out Workload2Backend modern))
+            {
+                return WorkloadOperationResult<WorkloadDescriptor>.Fail(
+                    WorkloadDiagnosticCode.NoCurrentGame,
+                    "There is no current Better Work Tab game.");
+            }
+
+            return ResolveMode() == WorkloadBackendMode.Legacy
+                ? legacy.Create(label)
+                : CreateModernWorkload(modern, label);
+        }
+
+        private static WorkloadOperationResult<WorkloadDescriptor> CreateModernWorkload(
+            Workload2Backend modern,
+            string label)
+        {
+            if (modern == null)
+            {
+                return WorkloadOperationResult<WorkloadDescriptor>.Fail(
+                    WorkloadDiagnosticCode.NoCurrentGame,
+                    "There is no current Better Work Tab workload backend.");
+            }
+
+            // Keep the picker/create surface on the same capture path as the
+            // explicit V2 capture wrapper. The backend still owns validation
+            // and persistence; this adapter only completes typed UI state
+            // that the normal Work-tab surfaces already expose.
+            string stableId = Guid.NewGuid().ToString("N");
+            WorkloadOperationResult<WorkloadTemplate> captured =
+                CaptureCurrentV2Template(stableId, label);
+            if (!captured.Succeeded)
+            {
+                return WorkloadOperationResult<WorkloadDescriptor>.Fail(
+                    captured.Code,
+                    captured.Message);
+            }
+
+            return modern.SaveTemplate(captured.Value, true);
         }
 
         internal static WorkloadOperationResult DeleteWorkload(string stableId)
@@ -284,11 +310,337 @@ namespace Better_Work_Tab.UI.Workloads
             string stableId,
             string label)
         {
-            return DispatchV2(
-                modern => modern.CaptureCurrentTemplate(stableId, label),
-                NoCurrentGame<WorkloadTemplate>,
-                () => V2Unavailable<WorkloadTemplate>(
-                    "V2 capture is unavailable while legacy workloads are active."));
+            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
+            {
+                return WorkloadOperationResult<WorkloadTemplate>.Fail(
+                    WorkloadDiagnosticCode.NoCurrentGame,
+                    "There is no current Better Work Tab game.");
+            }
+
+            if (ResolveMode() != WorkloadBackendMode.Modern)
+            {
+                return WorkloadOperationResult<WorkloadTemplate>.Fail(
+                    WorkloadDiagnosticCode.UnsupportedOperation,
+                    "V2 capture is unavailable while legacy workloads are active.");
+            }
+
+            WorkloadOperationResult<WorkloadTemplate> captured =
+                modern.CaptureCurrentTemplate(stableId, label);
+            if (!captured.Succeeded)
+            {
+                return captured;
+            }
+
+            return CompleteCapturedV2Template(captured.Value);
+        }
+
+        private static WorkloadOperationResult<WorkloadTemplate> CompleteCapturedV2Template(
+            WorkloadTemplate captured)
+        {
+            if (captured == null || captured.Definition == null)
+            {
+                return WorkloadOperationResult<WorkloadTemplate>.Fail(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The captured workload template is empty.");
+            }
+
+            try
+            {
+                WorkloadOwnershipDimensions ownership =
+                    captured.Definition.OwnershipDimensions;
+                WorkloadDraft draft = new WorkloadDraft(captured.ProjectedState);
+                // A new capture has no prior ownership bit to consult. Read
+                // the canonical schedule service and opt into the dimension
+                // only when at least one real 24-hour schedule exists.
+                bool captureSchedules = true;
+                bool capturedSchedule = false;
+                IReadOnlyList<WorkTypeDef> workTypes =
+                    DefDatabase<WorkTypeDef>.AllDefsListForReading;
+                IReadOnlyList<PawnKey> represented =
+                    captured.ProjectedState.RepresentedPawnIds;
+
+                // The backend capture already supplies parent and manual
+                // values. Complete typed local priorities, whole orders, and
+                // schedules from the same canonical read-only services used
+                // by the normal Work-tab drilldown/editor surfaces.
+                for (int pawnIndex = 0; pawnIndex < represented.Count; pawnIndex++)
+                {
+                    Pawn pawn = ResolvePawnForCapture(represented[pawnIndex]);
+                    if (pawn == null || pawn.workSettings == null)
+                    {
+                        continue;
+                    }
+
+                    for (int workTypeIndex = 0;
+                         workTypes != null && workTypeIndex < workTypes.Count;
+                         workTypeIndex++)
+                    {
+                        WorkTypeDef workType = workTypes[workTypeIndex];
+                        if (workType == null || workType.defName.NullOrEmpty())
+                        {
+                            continue;
+                        }
+
+                        WorkloadParentPriorityKey parentKey =
+                            WorkTabEffectiveStateIds.ForParentPriority(pawn, workType);
+                        int parentFallback =
+                            WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(
+                                pawn,
+                                workType);
+
+                        if (captureSchedules)
+                        {
+                            CaptureScheduleIntent(
+                                draft,
+                                WorkloadScheduleTargetKey.ForParent(
+                                    parentKey.Pawn,
+                                    parentKey.WorkType),
+                                parentFallback,
+                                ref capturedSchedule);
+                        }
+
+                        IReadOnlyList<WorkGiver> workGivers =
+                            WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(
+                                workType,
+                                pawn);
+                        for (int workGiverIndex = 0;
+                             workGivers != null && workGiverIndex < workGivers.Count;
+                             workGiverIndex++)
+                        {
+                            WorkGiverDef workGiver = workGivers[workGiverIndex]?.def;
+                            if (workGiver == null || workGiver.defName.NullOrEmpty())
+                            {
+                                continue;
+                            }
+
+                            if (ownership.Owns(WorkloadStateDimension.SpecificJobOverrides) &&
+                                WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+                                    pawn,
+                                    workGiver,
+                                    out int specificPriority))
+                            {
+                                draft.SetSpecificPriority(
+                                    WorkTabEffectiveStateIds.ForSpecificJobTarget(
+                                        pawn,
+                                        workType,
+                                        workGiver),
+                                    specificPriority);
+                            }
+
+                            if (captureSchedules)
+                            {
+                                int fallback =
+                                    WorkGiverReassignmentManager.GetWorkGiverPriority(
+                                        pawn,
+                                        workGiver,
+                                        parentFallback);
+                                CaptureScheduleIntent(
+                                    draft,
+                                    WorkloadScheduleTargetKey.ForWorkGiver(
+                                        parentKey.Pawn,
+                                        parentKey.WorkType,
+                                        WorkTabEffectiveStateIds.ForWorkGiver(workGiver)),
+                                    fallback,
+                                    ref capturedSchedule);
+                            }
+                        }
+
+                        if (ownership.Owns(WorkloadStateDimension.SpecificJobOrder) &&
+                            WorkGiverReassignmentManager.HasPawnOrdering(pawn, workType))
+                        {
+                            WorkGiverReassignmentManager.PawnWorkGiverOrderSnapshot snapshot =
+                                WorkGiverReassignmentManager.CapturePawnWorkGiverOrderSnapshot(
+                                    pawn,
+                                    workType);
+                            WorkloadWorkTypeOrderPayload payload =
+                                CreateOrderPayload(snapshot.OrderedWorkGiverNames);
+                            if (payload != null && payload.IsValid)
+                            {
+                                draft.SetWorkTypeOrder(
+                                    WorkTabEffectiveStateIds.ForWorkTypeOrder(
+                                        pawn,
+                                        workType),
+                                    payload);
+                            }
+                        }
+                    }
+                }
+
+                // Global/shared state deliberately has no pawn identity. It
+                // must be captured outside the membership loop so stale or
+                // newly-added pawns cannot strip it from the template.
+                for (int workTypeIndex = 0;
+                     workTypes != null && workTypeIndex < workTypes.Count;
+                     workTypeIndex++)
+                {
+                    WorkTypeDef workType = workTypes[workTypeIndex];
+                    if (workType == null || workType.defName.NullOrEmpty())
+                    {
+                        continue;
+                    }
+
+                    IReadOnlyList<WorkGiver> workGivers =
+                        WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+                    for (int workGiverIndex = 0;
+                         workGivers != null && workGiverIndex < workGivers.Count;
+                         workGiverIndex++)
+                    {
+                        WorkGiverDef workGiver = workGivers[workGiverIndex]?.def;
+                        if (workGiver == null || workGiver.defName.NullOrEmpty())
+                        {
+                            continue;
+                        }
+
+                        if (ownership.Owns(WorkloadStateDimension.SpecificJobOverrides))
+                        {
+                            WorkGiverReassignmentManager.GlobalWorkGiverPrioritySnapshot snapshot =
+                                WorkGiverReassignmentManager.CaptureGlobalWorkGiverPrioritySnapshot(
+                                    workGiver.defName);
+                            WorkloadSpecificJobTargetKey key =
+                                WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(
+                                    workType,
+                                    workGiver);
+                            if (snapshot.HasStoredValue)
+                            {
+                                draft.SetSpecificPriority(key, snapshot.Priority);
+                            }
+                            else if (snapshot.IsExplicitlyCleared)
+                            {
+                                draft.ClearSpecificPriority(key);
+                            }
+                        }
+
+                        if (captureSchedules)
+                        {
+                            CaptureScheduleIntent(
+                                draft,
+                                WorkloadScheduleTargetKey.GlobalWorkGiver(
+                                    WorkTabEffectiveStateIds.ForWorkType(workType),
+                                    WorkTabEffectiveStateIds.ForWorkGiver(workGiver)),
+                                WorkGiverReassignmentManager.GetWorkGiverPriority(
+                                    null,
+                                    workGiver,
+                                    WorkPrioritySystem.GetDefaultEnabledPriority()),
+                                ref capturedSchedule);
+                        }
+                    }
+
+                    if (ownership.Owns(WorkloadStateDimension.SpecificJobOrder))
+                    {
+                        WorkGiverReassignmentManager.GlobalWorkTypeOrderSnapshot snapshot =
+                            WorkGiverReassignmentManager.CaptureGlobalWorkTypeOrderSnapshot(
+                                workType.defName);
+                        WorkloadWorkTypeOrderKey key =
+                            WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(workType);
+                        if (snapshot.HasStoredValue)
+                        {
+                            WorkloadWorkTypeOrderPayload payload =
+                                CreateOrderPayload(snapshot.OrderedWorkGiverNames);
+                            if (payload != null && payload.IsValid)
+                            {
+                                draft.SetWorkTypeOrder(key, payload);
+                            }
+                        }
+                        else if (snapshot.IsExplicitlyCleared)
+                        {
+                            draft.ClearWorkTypeOrder(key);
+                        }
+                    }
+                }
+
+                WorkloadOwnershipDimensions completedOwnership = ownership;
+                if (capturedSchedule)
+                {
+                    completedOwnership |= WorkloadOwnershipDimensions.Schedules;
+                }
+
+                WorkloadDefinition completedDefinition =
+                    new WorkloadDefinition(
+                        captured.Definition.StableId,
+                        captured.Definition.Label,
+                        captured.Definition.SchemaVersion,
+                        completedOwnership,
+                        captured.Definition.Scope);
+                return WorkloadOperationResult<WorkloadTemplate>.Ok(
+                    new WorkloadTemplate(completedDefinition, draft.ProjectedState));
+            }
+            catch (Exception exception)
+            {
+                Log.Error("[BWT] Typed workload capture failed.\n" + exception);
+                return WorkloadOperationResult<WorkloadTemplate>.Fail(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The current workload could not be captured with complete typed UI state.");
+            }
+        }
+
+        internal static void CaptureScheduleIntent(
+            WorkloadDraft draft,
+            WorkloadScheduleTargetKey key,
+            int fallbackPriority,
+            ref bool capturedSchedule)
+        {
+            if (draft == null || key == null || !key.IsValid)
+            {
+                return;
+            }
+
+            if (!TimePriorityService.TryCaptureLiveScheduleSnapshot(
+                    key,
+                    fallbackPriority,
+                    out TimePriorityLiveScheduleSnapshot snapshot,
+                    out _))
+            {
+                return;
+            }
+
+            if (!snapshot.HadSchedule || snapshot.Payload == null || !snapshot.Payload.IsValid)
+            {
+                return;
+            }
+
+            draft.SetSchedule(key, snapshot.Payload);
+            capturedSchedule = true;
+        }
+
+        private static WorkloadWorkTypeOrderPayload CreateOrderPayload(
+            IReadOnlyList<string> orderedNames)
+        {
+            if (orderedNames == null || orderedNames.Count == 0)
+            {
+                return null;
+            }
+
+            var keys = new List<WorkGiverKey>(orderedNames.Count);
+            for (int i = 0; i < orderedNames.Count; i++)
+            {
+                if (orderedNames[i].NullOrEmpty())
+                {
+                    return null;
+                }
+
+                keys.Add(new WorkGiverKey(orderedNames[i]));
+            }
+
+            return new WorkloadWorkTypeOrderPayload(keys);
+        }
+
+        private static Pawn ResolvePawnForCapture(PawnKey key)
+        {
+            if (key == null || !int.TryParse(key.Value, out int pawnId) || pawnId <= 0)
+            {
+                return null;
+            }
+
+            IReadOnlyList<Pawn> pawns = PawnsFinder.All_AliveOrDead;
+            for (int i = 0; pawns != null && i < pawns.Count; i++)
+            {
+                if (pawns[i]?.thingIDNumber == pawnId)
+                {
+                    return pawns[i];
+                }
+            }
+
+            return null;
         }
 
         internal static WorkloadOperationResult<WorkloadDescriptor> SaveV2Template(
@@ -396,6 +748,24 @@ namespace Better_Work_Tab.UI.Workloads
                     "V2 preview editing is unavailable while legacy workloads are active."));
         }
 
+        internal static WorkloadOperationResult<WorkloadSession> ExtendV2PreviewBaseline(
+            WorkloadSession candidate,
+            PawnKey pawn)
+        {
+            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.NoCurrentGame,
+                    "There is no current Better Work Tab game.");
+            }
+
+            return ResolveMode() == WorkloadBackendMode.Modern
+                ? modern.ExtendPreviewBaseline(candidate, pawn)
+                : WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.UnsupportedOperation,
+                    "V2 preview baseline extension is unavailable while legacy workloads are active.");
+        }
+
         internal static WorkloadOperationResult<WorkloadSession> RevertV2Preview()
         {
             return DispatchV2(
@@ -459,6 +829,32 @@ namespace Better_Work_Tab.UI.Workloads
                 "V2 fork is unavailable while legacy workloads are active.");
         }
 
+        /// <summary>
+        /// Starts the already-validated multiplayer transaction protocol for a
+        /// modern preview. The UI deliberately calls this seam once per
+        /// lifecycle click instead of calling CommitV2* and interpreting its
+        /// asynchronous failure wrapper as a completed commit.
+        /// </summary>
+        internal static WorkloadMultiplayerCommitStatus BeginV2MultiplayerCommit(
+            WorkloadDecisionKind decisionKind,
+            string forkStableId,
+            string forkLabel,
+            string idempotencyKey = null)
+        {
+            if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
+            {
+                return null;
+            }
+
+            return ResolveMode() == WorkloadBackendMode.Modern
+                ? modern.BeginMultiplayerCommit(
+                    decisionKind,
+                    forkStableId,
+                    forkLabel,
+                    idempotencyKey)
+                : null;
+        }
+
         internal static WorkloadOperationResult EndV2Preview()
         {
             if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
@@ -514,21 +910,37 @@ namespace Better_Work_Tab.UI.Workloads
     /// </summary>
     internal sealed class WorkloadPreviewController
     {
-        private const float PreviewRailWidth = 320f;
-        private const float PreviewRailMinimumGridWidth = 240f;
-        private const float PreviewRailMinimumWidth = 220f;
-        private const float PreviewRailBottomClearance = 52f;
-
         private readonly BwtLiveWorkTabEffectiveStateAdapter _liveAdapter;
         private readonly LiveWorkTabEffectiveStateProvider _liveProvider;
+        private readonly List<QueuedLifecycleAction> _queuedLifecycleActions =
+            new List<QueuedLifecycleAction>();
+        private readonly object _multiplayerStatusGate = new object();
+        private readonly Queue<MultiplayerStatusSnapshot> _multiplayerStatusQueue =
+            new Queue<MultiplayerStatusSnapshot>();
         private WorkloadSession _session;
         private ProjectedWorkTabEffectiveStateProvider _projectedProvider;
         private GameComponent_BWTWorldSettings _boundComponent;
+        private bool _hasMultiplayerAttempt;
+        private string _multiplayerRequestId = string.Empty;
+        private string _multiplayerIdempotencyKey = string.Empty;
+        private string _multiplayerPayloadFingerprint = string.Empty;
+        private WorkloadDecisionKind _multiplayerDecision;
+        private string _multiplayerForkStableId = string.Empty;
+        private string _multiplayerForkLabel = string.Empty;
+        private WorkloadMultiplayerCommitState _multiplayerCommitState =
+            WorkloadMultiplayerCommitState.None;
+        private string _multiplayerCommitMessage = string.Empty;
+        private bool _multiplayerRecoveryBlocked;
+        private bool _multiplayerTerminalHandled;
         private string _inspectionFingerprint = string.Empty;
         private readonly HashSet<WorkloadParentPriorityKey> _changedParentKeys =
             new HashSet<WorkloadParentPriorityKey>();
         private readonly HashSet<WorkloadSpecificJobKey> _changedSpecificJobKeys =
             new HashSet<WorkloadSpecificJobKey>();
+        private readonly HashSet<WorkloadWorkTypeOrderKey> _changedOrderKeys =
+            new HashSet<WorkloadWorkTypeOrderKey>();
+        private readonly HashSet<WorkloadScheduleTargetKey> _changedScheduleKeys =
+            new HashSet<WorkloadScheduleTargetKey>();
         private readonly HashSet<PawnKey> _changedSchedulePawns =
             new HashSet<PawnKey>();
         private readonly HashSet<PawnKey> _changedPawns =
@@ -537,34 +949,62 @@ namespace Better_Work_Tab.UI.Workloads
         private WorkloadSession _membershipSnapshotSession;
         private long _membershipSnapshotProjectionRevision = long.MinValue;
         private long _membershipSnapshotPawnSetRevision = long.MinValue;
+        private long _projectedEditablePawnSetRevision = long.MinValue;
 
-        private enum InlineSurfacePopoverKind
+        private sealed class QueuedLifecycleAction
         {
-            None,
-            Fork,
-            Membership
+            internal QueuedLifecycleAction(
+                Func<bool> action,
+                Action<bool> completed)
+            {
+                Action = action;
+                Completed = completed;
+            }
+
+            internal Func<bool> Action { get; }
+            internal Action<bool> Completed { get; }
         }
 
-        private Rect _surfaceRect;
-        private Rect _applyRect;
-        private Rect _cancelRect;
-        private Rect _updateRect;
-        private Rect _forkRect;
-        private Rect _membershipRect;
-        private Rect _inspectionPopoverRect;
-        private Rect _inlineSurfacePopoverRect;
-        private InlineSurfacePopoverKind _inlineSurfacePopover;
-        private string _inlineSurfaceName = string.Empty;
-        private Vector2 _membershipScroll;
+        /// <summary>
+        /// Multiplayer callbacks may be raised by the transport while the
+        /// Work-tab IMGUI pass is outside its effective-state scope. Copy the
+        /// immutable status fields at the callback boundary and consume them
+        /// from PrepareFrame on the main thread instead of touching session or
+        /// provider state from the callback.
+        /// </summary>
+        private sealed class MultiplayerStatusSnapshot
+        {
+            internal MultiplayerStatusSnapshot(WorkloadMultiplayerCommitStatus status)
+            {
+                RequestId = status?.RequestId ?? string.Empty;
+                State = status?.State ?? WorkloadMultiplayerCommitState.None;
+                Code = status?.Code ?? WorkloadDiagnosticCode.InvalidState;
+                Message = status?.Message ?? string.Empty;
+                Result = status?.Result;
+            }
+
+            internal string RequestId { get; }
+            internal WorkloadMultiplayerCommitState State { get; }
+            internal WorkloadDiagnosticCode Code { get; }
+            internal string Message { get; }
+            internal WorkloadV2CommitResult Result { get; }
+        }
+
         private bool _inspectionActive;
         private string _lastMessage = string.Empty;
-        private int _surfaceReadyFrame;
 
         internal WorkloadPreviewController()
         {
             _liveAdapter = new BwtLiveWorkTabEffectiveStateAdapter();
             _liveProvider = _liveAdapter.CreateProvider("bwt.live.workload-preview");
-            WorkloadSurfaceCoordinator.RegisterPreviewCloser(CloseInlineSurfacePopover);
+            if (Current != null)
+            {
+                Workload2Backend.MultiplayerCommitStatusChanged -=
+                    Current.OnMultiplayerCommitStatusPublished;
+            }
+
+            Workload2Backend.MultiplayerCommitStatusChanged +=
+                OnMultiplayerCommitStatusPublished;
             WorkloadSurfaceCoordinator.RegisterPreviewState(
                 () => IsActive,
                 message => SetMessage(message));
@@ -587,8 +1027,42 @@ namespace Better_Work_Tab.UI.Workloads
             _projectedProvider ?? (IWorkTabEffectiveStateProvider)_liveProvider;
 
         internal bool IsActive => _session != null && _projectedProvider != null;
-        internal bool HasTemplateDiff => IsActive && !_session.TemplateDiff.IsEmpty;
-        internal bool HasLiveImpact => IsActive && !_session.LiveDiff.IsEmpty;
+        private WorkloadSemanticDiff EffectiveTemplateDiff
+        {
+            get
+            {
+                if (!IsActive)
+                {
+                    return null;
+                }
+
+                WorkloadOperationResult<WorkloadSemanticDiff> result =
+                    WorkloadGateway.GetV2PreviewDiff();
+                return result.Succeeded && result.Value != null
+                    ? result.Value
+                    : _session.TemplateDiff;
+            }
+        }
+
+        private WorkloadSemanticDiff EffectiveLiveDiff
+        {
+            get
+            {
+                if (!IsActive)
+                {
+                    return null;
+                }
+
+                WorkloadOperationResult<WorkloadSemanticDiff> result =
+                    WorkloadGateway.GetV2PreviewImpactDiff();
+                return result.Succeeded && result.Value != null
+                    ? result.Value
+                    : _session.LiveDiff;
+            }
+        }
+
+        internal bool HasTemplateDiff => IsActive && !EffectiveTemplateDiff.IsEmpty;
+        internal bool HasLiveImpact => IsActive && !EffectiveLiveDiff.IsEmpty;
         // Kept as the template-dirty alias for existing callers. Update and
         // inspection are deliberately about the stored template, not the
         // current colony baseline.
@@ -596,73 +1070,19 @@ namespace Better_Work_Tab.UI.Workloads
         internal bool IsInspectionActive => IsActive && _inspectionActive && HasTemplateDiff;
         internal string LastMessage => _lastMessage ?? string.Empty;
 
-        /// <summary>
-        /// Returns the Work-tab content rectangle after reserving the workload
-        /// rail. The normal grid is laid out beside the rail, so the preview
-        /// controls never paint over pawn rows or headers.
-        /// </summary>
-        internal Rect GetWorkGridRect(Rect inRect)
-        {
-            float railWidth = GetPreviewRailWidth(inRect);
-            if (railWidth <= 0f)
-            {
-                return inRect;
-            }
-
-            return new Rect(
-                inRect.xMin + railWidth,
-                inRect.yMin,
-                Mathf.Max(1f, inRect.width - railWidth),
-                inRect.height);
-        }
-
-        private static float GetPreviewRailWidth(Rect inRect)
-        {
-            if (Current == null || !Current.IsActive)
-            {
-                return 0f;
-            }
-
-            float available = Mathf.Max(0f, inRect.width);
-            if (available < PreviewRailMinimumGridWidth + PreviewRailMinimumWidth)
-            {
-                return 0f;
-            }
-
-            return Mathf.Min(
-                PreviewRailWidth,
-                Mathf.Max(PreviewRailMinimumWidth, available - PreviewRailMinimumGridWidth));
-        }
-
-        private float GetPreviewPanelWidth(Rect inRect)
-        {
-            return Mathf.Max(1f, GetPreviewRailWidth(inRect) - 12f);
-        }
-
-        private float GetPreviewPanelHeight(float panelWidth)
-        {
-            List<List<PreviewButtonKind>> rows = BuildPreviewButtonRows(
-                Mathf.Max(1f, panelWidth),
-                HasSemanticDiff);
-            return 68f +
-                   (rows.Count * 22f) +
-                   (Mathf.Max(0, rows.Count - 1) * 4f) +
-                   6f;
-        }
-
         // Update/Fork compare against the stored template, while Apply compares
         // against the live colony baseline captured when the preview opened.
         // Keep both counts visible so a workload that is dirty as a template
         // cannot be mistaken for one that will change the colony by the same
         // number of entries.
-        internal int ColonyImpactCount => IsActive ? _session.LiveDiff.Changes.Count : 0;
-        internal int TemplateDirtyCount => IsActive ? _session.TemplateDiff.Changes.Count : 0;
+        internal int ColonyImpactCount => IsActive ? EffectiveLiveDiff.Changes.Count : 0;
+        internal int TemplateDirtyCount => IsActive ? EffectiveTemplateDiff.Changes.Count : 0;
 
         /// <summary>
-        /// The current runtime has writers only for parent priorities and the
-        /// global manual-mode bridge. Keep all other owned dimensions visibly
-        /// unavailable when they contain state (or a rejected clear), rather
-        /// than presenting actions that can only fail after a click.
+        /// Only legacy value-only payloads and explicit unsupported clears are
+        /// blocked here. Typed schedules and allowlisted presentation intents
+        /// are handled by the central runtime writer and must reach the normal
+        /// footer lifecycle actions.
         /// </summary>
         internal bool HasUnsupportedOwnedPresentationState
         {
@@ -673,33 +1093,33 @@ namespace Better_Work_Tab.UI.Workloads
                     return false;
                 }
 
-                WorkloadOwnershipDimensions ownership =
-                    _session.SourceTemplate.Definition.OwnershipDimensions;
-                WorkloadStateDimension[] unsupported =
+                if ((_session.UnsupportedClearDimensions?.Count ?? 0) > 0)
                 {
-                    WorkloadStateDimension.Schedules,
-                    WorkloadStateDimension.SpecificJobOverrides,
-                    WorkloadStateDimension.SpecificJobOrder,
-                    WorkloadStateDimension.PresentationSettings
-                };
-                WorkloadSemanticDiff templateDiff = _session.TemplateDiff;
-                WorkloadSemanticDiff liveDiff = _session.LiveDiff;
-                IReadOnlyList<WorkloadStateDimension> clearDimensions =
-                    _session.UnsupportedClearDimensions;
+                    return true;
+                }
 
-                for (int i = 0; i < unsupported.Length; i++)
+                WorkloadProjectedState[] states =
                 {
-                    WorkloadStateDimension dimension = unsupported[i];
-                    if (!ownership.Owns(dimension))
+                    _session.TemplateBaselineState,
+                    _session.ProjectedState
+                };
+                for (int stateIndex = 0; stateIndex < states.Length; stateIndex++)
+                {
+                    WorkloadProjectedState state = states[stateIndex];
+                    // Legacy value-only payloads are never promoted by the
+                    // resolver.  They must remain fail-closed even if an old
+                    // record omitted the ownership bit; otherwise the typed
+                    // commit path would silently drop them.
+                    if (WorkloadV2OwnershipResolver.HasLegacyPayload(
+                            state,
+                            WorkloadStateDimension.Schedules))
                     {
-                        continue;
+                        return true;
                     }
 
-                    if (ContainsDimension(templateDiff, dimension) ||
-                        ContainsDimension(liveDiff, dimension) ||
-                        ContainsDimension(clearDimensions, dimension) ||
-                        HasStateEntries(_session.TemplateBaselineState, dimension) ||
-                        HasStateEntries(_session.ProjectedState, dimension))
+                    if (WorkloadV2OwnershipResolver.HasLegacyPayload(
+                            state,
+                            WorkloadStateDimension.PresentationSettings))
                     {
                         return true;
                     }
@@ -709,13 +1129,95 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
-        private string UnsupportedPresentationCommitReason =>
-            "This workload contains an owned dimension without a supported runtime writer. " +
-            "Apply, Update, and Save As are disabled so state cannot be silently dropped.";
+        private string UnsupportedPresentationCommitReason
+        {
+            get
+            {
+                string clearMessage = _session?.GetUnsupportedClearMessage() ?? string.Empty;
+                return clearMessage.AnyNonWhitespace()
+                    ? clearMessage
+                      : "This workload contains a legacy or unsupported workload-owned " +
+                      "payload. Apply, Update, and Save As are disabled so state cannot be " +
+                      "silently dropped.";
+            }
+        }
 
-        private bool CanApplyPreview => IsActive && !HasUnsupportedOwnedPresentationState;
-        private bool CanUpdatePreview => IsActive && HasSemanticDiff && !HasUnsupportedOwnedPresentationState;
-        private bool CanForkPreview => IsActive && !HasUnsupportedOwnedPresentationState;
+        internal bool IsMultiplayerCommitInFlight =>
+            IsActive &&
+            (IsMultiplayerRecoveryBlocked ||
+             _multiplayerCommitState == WorkloadMultiplayerCommitState.Pending ||
+             _multiplayerCommitState == WorkloadMultiplayerCommitState.Prepared ||
+             _multiplayerCommitState == WorkloadMultiplayerCommitState.ExecutedAwaitingConfirmation);
+
+        internal bool IsMultiplayerRecoveryBlocked =>
+            IsActive &&
+            (_multiplayerRecoveryBlocked ||
+             _multiplayerCommitState == WorkloadMultiplayerCommitState.RollbackFailed);
+
+        /// <summary>
+        /// This is consumed by the Work-tab input owner. It blocks writes while
+        /// a synchronized transaction or rollback is unresolved, while still
+        /// allowing the existing table scroll path to service inspection.
+        /// </summary>
+        internal bool IsUnsafePreviewInputBlocked => IsMultiplayerCommitInFlight;
+
+        internal bool CanCancelPreview => IsActive && !IsMultiplayerCommitInFlight;
+        internal bool CanApplyPreview =>
+            IsActive && !IsMultiplayerCommitInFlight && !HasUnsupportedOwnedPresentationState;
+        internal bool CanUpdatePreview =>
+            IsActive && !IsMultiplayerCommitInFlight && HasSemanticDiff &&
+            !HasUnsupportedOwnedPresentationState;
+        internal bool CanForkPreview =>
+            IsActive && !IsMultiplayerCommitInFlight && !HasUnsupportedOwnedPresentationState;
+        internal string CommitBlockedMessage => IsMultiplayerCommitInFlight
+            ? MultiplayerStatusExplanation
+            : HasUnsupportedOwnedPresentationState
+                ? UnsupportedPresentationCommitReason
+                : string.Empty;
+
+        internal string MultiplayerStatusExplanation
+        {
+            get
+            {
+                if (IsMultiplayerRecoveryBlocked)
+                {
+                    return "Multiplayer workload recovery is required. " +
+                           "The preview is locked until the retained synchronized rollback lease is explicitly resolved." +
+                           (_multiplayerCommitMessage.AnyNonWhitespace()
+                               ? " " + _multiplayerCommitMessage
+                               : string.Empty);
+                }
+
+                if (IsMultiplayerCommitInFlight)
+                {
+                    return "Waiting for synchronized workload " +
+                           MultiplayerDecisionLabel(_multiplayerDecision) + "." +
+                           (_multiplayerCommitMessage.AnyNonWhitespace()
+                               ? " " + _multiplayerCommitMessage
+                               : string.Empty);
+                }
+
+                return _multiplayerCommitMessage ?? string.Empty;
+            }
+        }
+
+        internal string MultiplayerPreviewLabelSuffix
+        {
+            get
+            {
+                if (IsMultiplayerRecoveryBlocked)
+                {
+                    return " • recovery";
+                }
+
+                if (IsMultiplayerCommitInFlight)
+                {
+                    return " • syncing";
+                }
+
+                return " • preview";
+            }
+        }
 
         private static bool ContainsDimension(
             WorkloadSemanticDiff diff,
@@ -737,26 +1239,6 @@ namespace Better_Work_Tab.UI.Workloads
             return false;
         }
 
-        private static bool ContainsDimension(
-            IReadOnlyList<WorkloadStateDimension> dimensions,
-            WorkloadStateDimension dimension)
-        {
-            if (dimensions == null)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < dimensions.Count; i++)
-            {
-                if (dimensions[i] == dimension)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private static bool HasStateEntries(
             WorkloadProjectedState state,
             WorkloadStateDimension dimension)
@@ -770,14 +1252,269 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 case WorkloadStateDimension.Schedules:
                     return state.Schedules.Count > 0;
-                case WorkloadStateDimension.SpecificJobOverrides:
-                    return state.SpecificJobOverrides.Count > 0;
-                case WorkloadStateDimension.SpecificJobOrder:
-                    return state.SpecificJobOrder.Count > 0;
                 case WorkloadStateDimension.PresentationSettings:
                     return state.PresentationSettings.Count > 0;
                 default:
                     return false;
+            }
+        }
+
+        private static string MultiplayerDecisionLabel(WorkloadDecisionKind decision)
+        {
+            switch (decision)
+            {
+                case WorkloadDecisionKind.Apply:
+                    return "apply";
+                case WorkloadDecisionKind.Update:
+                    return "update";
+                case WorkloadDecisionKind.Fork:
+                    return "Save As";
+                default:
+                    return "operation";
+            }
+        }
+
+        private void OnMultiplayerCommitStatusPublished(
+            WorkloadMultiplayerCommitStatus status)
+        {
+            if (status == null)
+            {
+                return;
+            }
+
+            var snapshot = new MultiplayerStatusSnapshot(status);
+            lock (_multiplayerStatusGate)
+            {
+                // A bounded queue keeps a misbehaving transport from growing
+                // UI-owned memory. The active request is always the newest
+                // status for this controller; stale entries are ignored when
+                // they are drained.
+                while (_multiplayerStatusQueue.Count >= 64)
+                {
+                    _multiplayerStatusQueue.Dequeue();
+                }
+
+                _multiplayerStatusQueue.Enqueue(snapshot);
+            }
+        }
+
+        private void DrainMultiplayerStatusQueue()
+        {
+            List<MultiplayerStatusSnapshot> pending = null;
+            lock (_multiplayerStatusGate)
+            {
+                if (_multiplayerStatusQueue.Count == 0)
+                {
+                    return;
+                }
+
+                pending = new List<MultiplayerStatusSnapshot>(
+                    _multiplayerStatusQueue);
+                _multiplayerStatusQueue.Clear();
+            }
+
+            for (int i = 0; i < pending.Count; i++)
+            {
+                ApplyMultiplayerStatus(pending[i]);
+            }
+        }
+
+        private void PollMultiplayerRollbackState()
+        {
+            if (!IsActive || !_hasMultiplayerAttempt ||
+                _multiplayerRequestId.Length == 0 || !MultiplayerBridge.Active)
+            {
+                return;
+            }
+
+            WorkloadTransactionState state =
+                WorkloadTransactionMultiplayer.Protocol.CurrentState;
+            if (state == null ||
+                !StringComparer.Ordinal.Equals(state.RequestId, _multiplayerRequestId))
+            {
+                return;
+            }
+
+            if (state.RequiresRollback ||
+                state.TerminalState == WorkloadTransactionTerminalState.RollbackFailed)
+            {
+                _multiplayerRecoveryBlocked = true;
+                _multiplayerCommitMessage =
+                    state.TerminalState == WorkloadTransactionTerminalState.RollbackFailed
+                        ? "The synchronized commit retained a rollback lease and requires explicit recovery."
+                        : "The synchronized commit requires rollback acknowledgement.";
+                SetMessage(MultiplayerStatusExplanation);
+            }
+        }
+
+        private void ApplyMultiplayerStatus(MultiplayerStatusSnapshot status)
+        {
+            if (status == null || !_hasMultiplayerAttempt ||
+                _multiplayerRequestId.Length == 0 ||
+                !StringComparer.Ordinal.Equals(status.RequestId, _multiplayerRequestId))
+            {
+                return;
+            }
+
+            if (_multiplayerTerminalHandled)
+            {
+                return;
+            }
+
+            _multiplayerCommitState = status.State;
+            _multiplayerCommitMessage = status.Message ?? string.Empty;
+
+            switch (status.State)
+            {
+                case WorkloadMultiplayerCommitState.Succeeded:
+                    CompleteMultiplayerCommit(status);
+                    return;
+                case WorkloadMultiplayerCommitState.Rejected:
+                case WorkloadMultiplayerCommitState.Aborted:
+                case WorkloadMultiplayerCommitState.TimedOut:
+                case WorkloadMultiplayerCommitState.RolledBack:
+                    string failedDecision = MultiplayerDecisionLabel(_multiplayerDecision);
+                    string failedMessage = _multiplayerCommitMessage;
+                    _multiplayerRecoveryBlocked = false;
+                    PrepareMultiplayerRetry();
+                    SetMessage(
+                        "Multiplayer workload " +
+                        failedDecision +
+                        " was not committed; the preview is still open. " +
+                        (failedMessage.AnyNonWhitespace()
+                            ? failedMessage
+                            : "No live or stored workload state was changed.") +
+                        " Retry is available without changing the draft.");
+                    return;
+                case WorkloadMultiplayerCommitState.RollbackFailed:
+                    _multiplayerRecoveryBlocked = true;
+                    SetMessage(MultiplayerStatusExplanation);
+                    return;
+                case WorkloadMultiplayerCommitState.Failed:
+                    // PollMultiplayerRollbackState upgrades this to a locked
+                    // recovery state when the protocol is still awaiting
+                    // rollback reports. Keep the draft untouched either way.
+                    SetMessage(MultiplayerStatusExplanation);
+                    return;
+                default:
+                    SetMessage(MultiplayerStatusExplanation);
+                    return;
+            }
+        }
+
+        private void CompleteMultiplayerCommit(MultiplayerStatusSnapshot status)
+        {
+            if (_multiplayerTerminalHandled || !IsActive)
+            {
+                return;
+            }
+
+            _multiplayerTerminalHandled = true;
+            WorkloadOperationResult ended = WorkloadGateway.EndV2Preview();
+            if (!ended.Succeeded && ended.Code != WorkloadDiagnosticCode.NotFound)
+            {
+                _multiplayerRecoveryBlocked = true;
+                _multiplayerCommitState = WorkloadMultiplayerCommitState.Failed;
+                _multiplayerCommitMessage =
+                    "The synchronized commit succeeded, but the local preview could not be closed safely.";
+                SetMessage(MultiplayerStatusExplanation);
+                return;
+            }
+
+            string message = status?.Message;
+            ClearLocalSession();
+            SetMessage(
+                (message ?? string.Empty).AnyNonWhitespace()
+                    ? message
+                    : "The synchronized workload operation was confirmed.");
+        }
+
+        private void ClearMultiplayerAttempt()
+        {
+            _hasMultiplayerAttempt = false;
+            _multiplayerRequestId = string.Empty;
+            _multiplayerIdempotencyKey = string.Empty;
+            _multiplayerPayloadFingerprint = string.Empty;
+            _multiplayerDecision = WorkloadDecisionKind.Apply;
+            _multiplayerForkStableId = string.Empty;
+            _multiplayerForkLabel = string.Empty;
+            _multiplayerCommitState = WorkloadMultiplayerCommitState.None;
+            _multiplayerCommitMessage = string.Empty;
+            _multiplayerRecoveryBlocked = false;
+            _multiplayerTerminalHandled = false;
+        }
+
+        private void PrepareMultiplayerRetry()
+        {
+            // A terminal rejection/abort/timeout/rollback is a completed,
+            // coherent operation. Retain its table entry for exact replay,
+            // but let the unchanged draft create a new logical attempt with a
+            // fresh idempotency key. This keeps a late retry from ever
+            // reusing an ambiguous request while leaving the preview open.
+            _hasMultiplayerAttempt = false;
+            _multiplayerRequestId = string.Empty;
+            _multiplayerIdempotencyKey = string.Empty;
+            _multiplayerPayloadFingerprint = string.Empty;
+            _multiplayerDecision = WorkloadDecisionKind.Apply;
+            _multiplayerForkStableId = string.Empty;
+            _multiplayerForkLabel = string.Empty;
+            _multiplayerCommitState = WorkloadMultiplayerCommitState.None;
+            _multiplayerCommitMessage = string.Empty;
+            _multiplayerRecoveryBlocked = false;
+            _multiplayerTerminalHandled = false;
+        }
+
+        private string CurrentMultiplayerPayloadFingerprint()
+        {
+            if (!IsActive)
+            {
+                return string.Empty;
+            }
+
+            WorkloadTemplate template;
+            switch (_multiplayerDecision)
+            {
+                case WorkloadDecisionKind.Apply:
+                    template = _session.BuildApplyTemplate();
+                    break;
+                case WorkloadDecisionKind.Update:
+                    template = _session.TargetTemplate;
+                    break;
+                case WorkloadDecisionKind.Fork:
+                    WorkloadSessionDecision fork = _session.Fork(
+                        _multiplayerForkStableId,
+                        _multiplayerForkLabel);
+                    template = fork?.ResultTemplate;
+                    break;
+                default:
+                    template = null;
+                    break;
+            }
+
+            if (template == null)
+            {
+                return string.Empty;
+            }
+
+            return ((int)_multiplayerDecision).ToString() + "|" +
+                   (_multiplayerForkStableId ?? string.Empty) + "|" +
+                   (_multiplayerForkLabel ?? string.Empty) + "|" +
+                   (template.SemanticFingerprint ?? string.Empty);
+        }
+
+        private void ResetCompletedMultiplayerAttemptIfPayloadChanged()
+        {
+            if (!_hasMultiplayerAttempt || IsMultiplayerCommitInFlight)
+            {
+                return;
+            }
+
+            string current = CurrentMultiplayerPayloadFingerprint();
+            if (!StringComparer.Ordinal.Equals(
+                    current,
+                    _multiplayerPayloadFingerprint))
+            {
+                ClearMultiplayerAttempt();
             }
         }
 
@@ -824,31 +1561,35 @@ namespace Better_Work_Tab.UI.Workloads
                     return string.Empty;
                 }
 
-                WorkloadOwnershipDimensions ownership =
-                    _session.SourceTemplate.Definition.OwnershipDimensions;
                 var blocked = new List<string>();
-                AddUnsupportedDimension(
-                    blocked,
-                    ownership,
-                    WorkloadStateDimension.Schedules,
-                    "schedules");
-                AddUnsupportedDimension(
-                    blocked,
-                    ownership,
-                    WorkloadStateDimension.SpecificJobOverrides,
-                    "specific-job overrides");
-                AddUnsupportedDimension(
-                    blocked,
-                    ownership,
-                    WorkloadStateDimension.SpecificJobOrder,
-                    "specific-job order");
-                AddUnsupportedDimension(
-                    blocked,
-                    ownership,
-                    WorkloadStateDimension.PresentationSettings,
-                    HasUnsupportedOwnedPresentationState
-                        ? "presentation settings (preview-only; commit actions disabled)"
-                        : "presentation settings");
+                if ((_session.UnsupportedClearDimensions?.Count ?? 0) > 0)
+                {
+                    blocked.Add("explicit clears without typed state");
+                }
+
+                WorkloadProjectedState[] states =
+                {
+                    _session.TemplateBaselineState,
+                    _session.ProjectedState
+                };
+                for (int i = 0; i < states.Length; i++)
+                {
+                    if (WorkloadV2OwnershipResolver.HasLegacyPayload(
+                            states[i],
+                            WorkloadStateDimension.Schedules) &&
+                        !blocked.Contains("legacy schedules"))
+                    {
+                        blocked.Add("legacy schedules");
+                    }
+
+                    if (WorkloadV2OwnershipResolver.HasLegacyPayload(
+                            states[i],
+                            WorkloadStateDimension.PresentationSettings) &&
+                        !blocked.Contains("legacy presentation settings"))
+                    {
+                        blocked.Add("legacy presentation settings");
+                    }
+                }
                 return blocked.Count == 0
                     ? string.Empty
                     : "Unsupported dimensions: " + string.Join(", ", blocked.ToArray());
@@ -882,22 +1623,74 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal void PrepareFrame()
         {
+            // Transport callbacks are consumed here, before the provider scope
+            // is entered for this Work-tab pass. Never assume an AsyncLocal
+            // effective-state scope exists on the callback thread.
+            DrainMultiplayerStatusQueue();
+            PollMultiplayerRollbackState();
+
             GameComponent_BWTWorldSettings component =
                 Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             if (!ReferenceEquals(component, _boundComponent))
             {
-                _boundComponent = component;
-                ClearLocalSession();
+                if (IsMultiplayerCommitInFlight)
+                {
+                    _multiplayerRecoveryBlocked = true;
+                    _multiplayerCommitMessage =
+                        "The game context changed while synchronized workload state was in flight.";
+                    SetMessage(MultiplayerStatusExplanation);
+                }
+                else
+                {
+                    _boundComponent = component;
+                    ClearLocalSession();
+                }
             }
 
-            if (WorkloadGateway.CurrentMode != WorkloadBackendMode.Modern)
+            bool workloadsEnabled = BetterWorkTabMod.Settings?.enableWorkloads ?? true;
+            if (!workloadsEnabled)
             {
+                if (IsMultiplayerCommitInFlight)
+                {
+                    SetMessage(MultiplayerStatusExplanation);
+                    return;
+                }
+
                 if (IsActive || WorkloadGateway.IsV2PreviewSessionActive)
                 {
                     WorkloadGateway.CancelV2Preview();
                 }
 
                 ClearLocalSession();
+                _queuedLifecycleActions.Clear();
+                return;
+            }
+
+            if (WorkloadGateway.CurrentMode != WorkloadBackendMode.Modern)
+            {
+                if (IsMultiplayerCommitInFlight)
+                {
+                    SetMessage(MultiplayerStatusExplanation);
+                    return;
+                }
+
+                if (IsActive || WorkloadGateway.IsV2PreviewSessionActive)
+                {
+                    WorkloadGateway.CancelV2Preview();
+                }
+
+                ClearLocalSession();
+                _queuedLifecycleActions.Clear();
+                return;
+            }
+
+            if (IsActive)
+            {
+                long pawnSetRevision = ComputeAvailablePawnSetRevision();
+                if (pawnSetRevision != _projectedEditablePawnSetRevision)
+                {
+                    RebuildProjection(_session.ProjectedState);
+                }
             }
         }
 
@@ -906,20 +1699,91 @@ namespace Better_Work_Tab.UI.Workloads
             return WorkTabEffectiveStateScope.Push(ScopedProvider);
         }
 
-        internal void SynchronizeAfterInput()
+        internal void QueueLifecycleAction(
+            Func<bool> action,
+            Action<bool> completed = null)
         {
-            if (!IsActive)
+            if (action == null)
             {
                 return;
             }
 
-            WorkloadProjectedState projected = _projectedProvider.ProjectedState;
+            _queuedLifecycleActions.Add(new QueuedLifecycleAction(action, completed));
+        }
 
-            WorkloadOwnershipDimensions ownership =
-                _session.SourceTemplate.Definition.OwnershipDimensions;
-            if (_session.ProjectedState.SemanticallyEquals(projected, ownership))
+        internal void FlushQueuedLifecycleActions()
+        {
+            if (_queuedLifecycleActions.Count == 0)
             {
                 return;
+            }
+
+            List<QueuedLifecycleAction> actions =
+                new List<QueuedLifecycleAction>(_queuedLifecycleActions);
+            _queuedLifecycleActions.Clear();
+            for (int i = 0; i < actions.Count; i++)
+            {
+                QueuedLifecycleAction queued = actions[i];
+                bool succeeded = false;
+                try
+                {
+                    succeeded = queued.Action();
+                }
+                catch (Exception exception)
+                {
+                    SetMessage("The workload preview operation failed.");
+                    Log.Error("[BWT] Workload preview lifecycle action failed.\n" + exception);
+                }
+
+                if (succeeded)
+                {
+                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                }
+                else
+                {
+                    string message = LastMessage;
+                    if (!message.AnyNonWhitespace())
+                    {
+                        message = "The workload preview operation could not be completed.";
+                    }
+
+                    Messages.Message(message, MessageTypeDefOf.RejectInput, false);
+                    SoundDefOf.ClickReject.PlayOneShotOnCamera();
+                }
+
+                queued.Completed?.Invoke(succeeded);
+            }
+        }
+
+        internal bool SynchronizeAfterInput()
+        {
+            if (!IsActive)
+            {
+                return true;
+            }
+
+            if (IsUnsafePreviewInputBlocked)
+            {
+                // A third-party input owner may have run after the Work-tab
+                // footer disabled its controls. Restore the detached draft so
+                // no late projected edit can be carried into the transaction.
+                if (!_session.ProjectedState.SemanticallyEquals(
+                        _projectedProvider.ProjectedState,
+                        WorkloadOwnershipDimensions.All))
+                {
+                    RebuildProjection(_session.ProjectedState);
+                }
+
+                return true;
+            }
+
+            WorkloadProjectedState projected = _projectedProvider.ProjectedState;
+
+            if (_session.ProjectedState.SemanticallyEquals(
+                    projected,
+                    WorkloadOwnershipDimensions.All))
+            {
+                return true;
             }
 
             WorkloadOperationResult<WorkloadSession> result =
@@ -928,15 +1792,23 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 SetMessage(result.Message);
                 RebuildProjection(_session.ProjectedState);
-                return;
+                return false;
             }
 
             _session = result.Value;
             RebuildProjection(_session.ProjectedState);
+            ResetCompletedMultiplayerAttemptIfPayloadChanged();
+            return true;
         }
 
         internal bool BeginCurrentPreview()
         {
+            if (IsMultiplayerCommitInFlight)
+            {
+                SetMessage(MultiplayerStatusExplanation);
+                return false;
+            }
+
             if (WorkloadGateway.CurrentMode != WorkloadBackendMode.Modern)
             {
                 SetMessage("Modern workload preview is unavailable in legacy mode.");
@@ -982,13 +1854,19 @@ namespace Better_Work_Tab.UI.Workloads
         /// </summary>
         internal bool CanLeavePreviewForWorkloadOperation(string operation)
         {
+            if (IsMultiplayerCommitInFlight)
+            {
+                SetMessage(MultiplayerStatusExplanation);
+                return false;
+            }
+
             if (!HasStagedWorkloadChanges)
             {
                 return true;
             }
 
             SetMessage(
-                "Finish, Update, Save As, or Cancel the active workload preview " +
+                "Finish, Update, Save As, Apply, or Cancel the active workload preview " +
                 "before " + (operation ?? "changing workloads") + ".");
             return false;
         }
@@ -1009,12 +1887,8 @@ namespace Better_Work_Tab.UI.Workloads
                     return true;
                 }
 
-                if (!CanLeavePreviewForWorkloadOperation("switching workloads"))
-                {
-                    return false;
-                }
-
-                CancelPreview();
+                SetMessage(ActivePreviewSwitchBlockedMessage);
+                return false;
             }
 
             WorkloadOperationResult selected = WorkloadGateway.SelectWorkload(stableId);
@@ -1135,8 +2009,103 @@ namespace Better_Work_Tab.UI.Workloads
             return true;
         }
 
+        private bool BeginMultiplayerPreviewCommit(
+            WorkloadDecisionKind decision,
+            string forkStableId,
+            string forkLabel)
+        {
+            if (!IsActive)
+            {
+                SetMessage("There is no active workload preview.");
+                return false;
+            }
+
+            if (IsMultiplayerCommitInFlight)
+            {
+                SetMessage(MultiplayerStatusExplanation);
+                return false;
+            }
+
+            string payloadFingerprint = CurrentMultiplayerPayloadFingerprint(
+                decision,
+                forkStableId,
+                forkLabel);
+
+            ClearMultiplayerAttempt();
+            _hasMultiplayerAttempt = true;
+            _multiplayerIdempotencyKey = Guid.NewGuid().ToString("N");
+            _multiplayerDecision = decision;
+            _multiplayerForkStableId = forkStableId ?? string.Empty;
+            _multiplayerForkLabel = forkLabel ?? string.Empty;
+            _multiplayerPayloadFingerprint = payloadFingerprint;
+            _multiplayerCommitMessage =
+                "The request was created from one immutable preview snapshot.";
+
+            WorkloadMultiplayerCommitStatus status =
+                WorkloadGateway.BeginV2MultiplayerCommit(
+                    decision,
+                    _multiplayerForkStableId,
+                    _multiplayerForkLabel,
+                    _multiplayerIdempotencyKey);
+            if (status == null)
+            {
+                _multiplayerCommitState = WorkloadMultiplayerCommitState.Rejected;
+                _multiplayerCommitMessage =
+                    "The multiplayer workload transaction could not be created.";
+                SetMessage(MultiplayerStatusExplanation);
+                return false;
+            }
+
+            _multiplayerRequestId = status.RequestId ?? string.Empty;
+            _multiplayerCommitState = status.State;
+            _multiplayerCommitMessage = status.Message ?? string.Empty;
+            bool accepted = status.IsAccepted;
+            if (status.IsTerminal)
+            {
+                // Keep all session/provider transitions on the next
+                // PrepareFrame even if a test transport reports synchronously.
+                OnMultiplayerCommitStatusPublished(status);
+            }
+
+            if (!accepted)
+            {
+                SetMessage(MultiplayerStatusExplanation);
+            }
+
+            return accepted;
+        }
+
+        private string CurrentMultiplayerPayloadFingerprint(
+            WorkloadDecisionKind decision,
+            string forkStableId,
+            string forkLabel)
+        {
+            WorkloadDecisionKind previousDecision = _multiplayerDecision;
+            string previousForkStableId = _multiplayerForkStableId;
+            string previousForkLabel = _multiplayerForkLabel;
+            try
+            {
+                _multiplayerDecision = decision;
+                _multiplayerForkStableId = forkStableId ?? string.Empty;
+                _multiplayerForkLabel = forkLabel ?? string.Empty;
+                return CurrentMultiplayerPayloadFingerprint();
+            }
+            finally
+            {
+                _multiplayerDecision = previousDecision;
+                _multiplayerForkStableId = previousForkStableId;
+                _multiplayerForkLabel = previousForkLabel;
+            }
+        }
+
         internal bool CancelPreview()
         {
+            if (IsMultiplayerCommitInFlight)
+            {
+                SetMessage(MultiplayerStatusExplanation);
+                return false;
+            }
+
             WorkloadOperationResult result = WorkloadGateway.CancelV2Preview();
             ClearLocalSession();
             if (!result.Succeeded && result.Code != WorkloadDiagnosticCode.NotFound)
@@ -1157,13 +2126,32 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
+            if (!SynchronizeAfterInput())
+            {
+                return false;
+            }
+
+            if (!CanApplyPreview)
+            {
+                SetMessage(CommitBlockedMessage.AnyNonWhitespace()
+                    ? CommitBlockedMessage
+                    : UnsupportedPresentationCommitReason);
+                return false;
+            }
+
+            if (MultiplayerBridge.Active)
+            {
+                return BeginMultiplayerPreviewCommit(
+                    WorkloadDecisionKind.Apply,
+                    SourceStableId,
+                    SourceLabel);
+            }
+
             if (!CanApplyPreview)
             {
                 SetMessage(UnsupportedPresentationCommitReason);
                 return false;
             }
-
-            SynchronizeAfterInput();
             WorkloadV2CommitResult result = WorkloadGateway.CommitV2Apply();
             if (!result.Succeeded)
             {
@@ -1178,7 +2166,40 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal bool UpdatePreview()
         {
-            if (!IsActive || !HasSemanticDiff)
+            if (!IsActive)
+            {
+                SetMessage("There is no active workload preview.");
+                return false;
+            }
+
+            if (!SynchronizeAfterInput())
+            {
+                return false;
+            }
+
+            if (!HasSemanticDiff)
+            {
+                SetMessage("Update is available only when the semantic diff is non-empty.");
+                return false;
+            }
+
+            if (!CanUpdatePreview)
+            {
+                SetMessage(CommitBlockedMessage.AnyNonWhitespace()
+                    ? CommitBlockedMessage
+                    : UnsupportedPresentationCommitReason);
+                return false;
+            }
+
+            if (MultiplayerBridge.Active)
+            {
+                return BeginMultiplayerPreviewCommit(
+                    WorkloadDecisionKind.Update,
+                    SourceStableId,
+                    SourceLabel);
+            }
+
+            if (!HasSemanticDiff)
             {
                 SetMessage("Update is available only when the semantic diff is non-empty.");
                 return false;
@@ -1187,12 +2208,6 @@ namespace Better_Work_Tab.UI.Workloads
             if (!CanUpdatePreview)
             {
                 SetMessage(UnsupportedPresentationCommitReason);
-                return false;
-            }
-
-            SynchronizeAfterInput();
-            if (!IsActive || !HasSemanticDiff)
-            {
                 return false;
             }
 
@@ -1216,13 +2231,32 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
+            if (!SynchronizeAfterInput())
+            {
+                return false;
+            }
+
+            if (!CanForkPreview)
+            {
+                SetMessage(CommitBlockedMessage.AnyNonWhitespace()
+                    ? CommitBlockedMessage
+                    : UnsupportedPresentationCommitReason);
+                return false;
+            }
+
+            if (MultiplayerBridge.Active)
+            {
+                return BeginMultiplayerPreviewCommit(
+                    WorkloadDecisionKind.Fork,
+                    Guid.NewGuid().ToString("N"),
+                    label);
+            }
+
             if (!CanForkPreview)
             {
                 SetMessage(UnsupportedPresentationCommitReason);
                 return false;
             }
-
-            SynchronizeAfterInput();
             string forkId = Guid.NewGuid().ToString("N");
             WorkloadV2CommitResult result = WorkloadGateway.CommitV2Fork(forkId, label);
             if (!result.Succeeded)
@@ -1240,495 +2274,87 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal void ResetForWindowClose()
         {
+            if (IsMultiplayerCommitInFlight)
+            {
+                SetMessage(MultiplayerStatusExplanation);
+                return;
+            }
+
             if (IsActive || WorkloadGateway.IsV2PreviewSessionActive)
             {
                 WorkloadGateway.CancelV2Preview();
             }
 
             ClearLocalSession();
-            _surfaceRect = Rect.zero;
-            _applyRect = Rect.zero;
-            _cancelRect = Rect.zero;
-            _updateRect = Rect.zero;
-            _forkRect = Rect.zero;
-            _membershipRect = Rect.zero;
-            _inspectionPopoverRect = Rect.zero;
-            _inlineSurfacePopoverRect = Rect.zero;
-            _inlineSurfacePopover = InlineSurfacePopoverKind.None;
-            _inlineSurfaceName = string.Empty;
-            _membershipScroll = Vector2.zero;
             _inspectionActive = false;
+            _queuedLifecycleActions.Clear();
         }
 
-        internal bool ShouldRouteInspectionWheel(Event evt)
+        internal string ActivePreviewSwitchBlockedMessage
+        {
+            get
+            {
+                if (IsMultiplayerCommitInFlight)
+                {
+                    return MultiplayerStatusExplanation;
+                }
+
+                if (_multiplayerCommitMessage.AnyNonWhitespace() &&
+                    _hasMultiplayerAttempt)
+                {
+                    return _multiplayerCommitMessage + " " +
+                           "Finish, Update, Save As, Apply, or Cancel the active preview " +
+                           "before switching workloads.";
+                }
+
+                return "Finish the active workload preview with Apply, Save As, or Cancel before " +
+                       "switching workloads. Update is available when the workload has changes.";
+            }
+        }
+
+        internal bool ShouldRouteInspectionWheel(Event evt, Rect updateRect)
+        {
+            return ShouldRouteInspectionWheel(evt, updateRect, Rect.zero);
+        }
+
+        internal bool ShouldRouteInspectionWheel(
+            Event evt,
+            Rect updateRect,
+            Rect applyRect)
         {
             if (evt == null || evt.type != EventType.ScrollWheel || !HasSemanticDiff)
             {
                 return false;
             }
 
-            bool overInspectionSurface = _updateRect.Contains(evt.mousePosition) ||
-                                          _inspectionPopoverRect.Contains(evt.mousePosition);
-            if (overInspectionSurface)
+            bool overInspection =
+                (updateRect.width > 0f && updateRect.Contains(evt.mousePosition)) ||
+                (applyRect.width > 0f && applyRect.Contains(evt.mousePosition));
+            if (overInspection)
             {
                 _inspectionActive = true;
             }
 
-            return overInspectionSurface;
+            return overInspection;
         }
 
-        internal bool TryHandleSurfaceInput(Event evt)
+        internal void UpdateFooterInspectionHover(Rect updateRect)
         {
-            if (evt == null || !IsActive ||
-                (evt.alt && evt.button == 0))
-            {
-                return false;
-            }
-
-            bool mouseEvent = evt.type == EventType.MouseDown ||
-                              evt.type == EventType.MouseUp ||
-                              evt.type == EventType.ScrollWheel;
-            bool inlineEditorKeyboard = _inlineSurfacePopover == InlineSurfacePopoverKind.Fork &&
-                                        (evt.type == EventType.KeyDown ||
-                                         evt.type == EventType.KeyUp ||
-                                         evt.type == EventType.ValidateCommand) &&
-                                        GUI.GetNameOfFocusedControl() == "BWT.WorkloadInlineEditor";
-            if (!mouseEvent && !inlineEditorKeyboard)
-            {
-                return false;
-            }
-
-            if (inlineEditorKeyboard)
-            {
-                return true;
-            }
-
-            bool overInlinePopover = _inlineSurfacePopoverRect.Contains(evt.mousePosition);
-            if (overInlinePopover)
-            {
-                // Keep the event available to TextField, ButtonText, and the
-                // membership scroll view drawn later in this same Work-tab
-                // pass. Returning true is enough to keep the priority router
-                // from seeing it.
-                return true;
-            }
-
-            bool overSurface = _surfaceRect.Contains(evt.mousePosition);
-            bool overPopover = _inspectionPopoverRect.Contains(evt.mousePosition);
-            if (!overSurface && !overPopover)
-            {
-                return false;
-            }
-
-            if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-            {
-                CloseInlineSurfacePopover();
-            }
-
-            if (evt.type == EventType.ScrollWheel)
-            {
-                return false;
-            }
-
-            if (evt.type == EventType.MouseDown && evt.button == 0)
-            {
-                if (_applyRect.Contains(evt.mousePosition))
-                {
-                    if (CanApplyPreview)
-                    {
-                        HandleSurfaceAction(ApplyPreview);
-                    }
-                }
-                else if (_cancelRect.Contains(evt.mousePosition))
-                {
-                    HandleSurfaceAction(CancelPreview);
-                }
-                else if (_updateRect.Contains(evt.mousePosition) && CanUpdatePreview)
-                {
-                    HandleSurfaceAction(UpdatePreview);
-                }
-                else if (_forkRect.Contains(evt.mousePosition) && CanForkPreview)
-                {
-                    OpenForkEditor();
-                }
-                else if (_membershipRect.Contains(evt.mousePosition))
-                {
-                    OpenMembershipPopover();
-                }
-            }
-
-            // Prevent a surface or inspection popover click from falling
-            // through to the priority-cell router underneath it.
-            evt.Use();
-            return true;
+            UpdateFooterInspectionHover(updateRect, Rect.zero);
         }
 
-        private enum PreviewButtonKind
+        internal void UpdateFooterInspectionHover(Rect updateRect, Rect applyRect)
         {
-            Apply,
-            Cancel,
-            Update,
-            SaveAs,
-            Members
-        }
-
-        private static float PreferredPreviewButtonWidth(PreviewButtonKind kind)
-        {
-            switch (kind)
+            if (!IsActive || !HasSemanticDiff)
             {
-                case PreviewButtonKind.Apply:
-                    return 54f;
-                case PreviewButtonKind.Cancel:
-                    return 58f;
-                case PreviewButtonKind.Update:
-                    return 94f;
-                case PreviewButtonKind.SaveAs:
-                    return 88f;
-                case PreviewButtonKind.Members:
-                    return 86f;
-                default:
-                    return 70f;
-            }
-        }
-
-        private static List<List<PreviewButtonKind>> BuildPreviewButtonRows(
-            float availableWidth,
-            bool includeUpdate)
-        {
-            const float gap = 4f;
-            var actions = new List<PreviewButtonKind>
-            {
-                PreviewButtonKind.Apply,
-                PreviewButtonKind.Cancel
-            };
-            if (includeUpdate)
-            {
-                actions.Add(PreviewButtonKind.Update);
-            }
-
-            actions.Add(PreviewButtonKind.SaveAs);
-            actions.Add(PreviewButtonKind.Members);
-
-            var rows = new List<List<PreviewButtonKind>>();
-            var row = new List<PreviewButtonKind>();
-            float rowWidth = 0f;
-            for (int i = 0; i < actions.Count; i++)
-            {
-                PreviewButtonKind action = actions[i];
-                float preferred = PreferredPreviewButtonWidth(action);
-                float required = row.Count == 0 ? preferred : gap + preferred;
-                if (row.Count > 0 && rowWidth + required > availableWidth)
-                {
-                    rows.Add(row);
-                    row = new List<PreviewButtonKind>();
-                    rowWidth = 0f;
-                }
-
-                row.Add(action);
-                rowWidth += row.Count == 1 ? preferred : gap + preferred;
-            }
-
-            if (row.Count > 0)
-            {
-                rows.Add(row);
-            }
-
-            return rows;
-        }
-
-        private void LayoutPreviewButtonRows(
-            Rect panel,
-            IReadOnlyList<List<PreviewButtonKind>> rows)
-        {
-            const float horizontalPadding = 6f;
-            const float gap = 4f;
-            const float buttonHeight = 22f;
-            const float rowGap = 4f;
-            float availableWidth = Mathf.Max(1f, panel.width - (horizontalPadding * 2f));
-            float y = panel.yMin + 68f;
-
-            for (int rowIndex = 0; rowIndex < rows.Count; rowIndex++)
-            {
-                List<PreviewButtonKind> row = rows[rowIndex];
-                float preferredWidth = 0f;
-                for (int i = 0; i < row.Count; i++)
-                {
-                    preferredWidth += PreferredPreviewButtonWidth(row[i]);
-                }
-
-                preferredWidth += Mathf.Max(0, row.Count - 1) * gap;
-                float shrink = preferredWidth > availableWidth
-                    ? availableWidth / Mathf.Max(preferredWidth, 1f)
-                    : 1f;
-                float x = panel.xMin + horizontalPadding;
-                for (int i = 0; i < row.Count; i++)
-                {
-                    float width = PreferredPreviewButtonWidth(row[i]) * shrink;
-                    if (i == row.Count - 1)
-                    {
-                        width = Mathf.Max(1f, (panel.xMax - horizontalPadding) - x);
-                    }
-
-                    Rect rect = new Rect(x, y, Mathf.Max(1f, width), buttonHeight);
-                    SetPreviewButtonRect(row[i], rect);
-                    x = rect.xMax + gap;
-                }
-
-                y += buttonHeight + rowGap;
-            }
-        }
-
-        private void SetPreviewButtonRect(PreviewButtonKind kind, Rect rect)
-        {
-            switch (kind)
-            {
-                case PreviewButtonKind.Apply:
-                    _applyRect = rect;
-                    break;
-                case PreviewButtonKind.Cancel:
-                    _cancelRect = rect;
-                    break;
-                case PreviewButtonKind.Update:
-                    _updateRect = rect;
-                    break;
-                case PreviewButtonKind.SaveAs:
-                    _forkRect = rect;
-                    break;
-                case PreviewButtonKind.Members:
-                    _membershipRect = rect;
-                    break;
-            }
-        }
-
-        internal void DrawSurface(Rect inRect)
-        {
-            if (!IsActive)
-            {
-                if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-                {
-                    CloseInlineSurfacePopover();
-                }
-
-                _surfaceRect = Rect.zero;
-                _applyRect = Rect.zero;
-                _cancelRect = Rect.zero;
-                _updateRect = Rect.zero;
-                _forkRect = Rect.zero;
-                _membershipRect = Rect.zero;
-                _inspectionPopoverRect = Rect.zero;
-                _inlineSurfacePopoverRect = Rect.zero;
                 _inspectionActive = false;
                 return;
             }
 
-            if (_surfaceReadyFrame > Time.frameCount)
-            {
-                ClearSurfaceRects();
-                return;
-            }
-
-            float railWidth = GetPreviewRailWidth(inRect);
-            float panelWidth = GetPreviewPanelWidth(inRect);
-            if (railWidth <= 0f || panelWidth < 180f)
-            {
-                if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-                {
-                    CloseInlineSurfacePopover();
-                }
-
-                ClearSurfaceRects();
-                return;
-            }
-
-            List<List<PreviewButtonKind>> buttonRows = BuildPreviewButtonRows(
-                panelWidth,
-                HasSemanticDiff);
-            float panelHeight = GetPreviewPanelHeight(panelWidth);
-            if (inRect.height < panelHeight + PreviewRailBottomClearance + 12f)
-            {
-                if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-                {
-                    CloseInlineSurfacePopover();
-                }
-
-                ClearSurfaceRects();
-                return;
-            }
-
-            Rect panel = new Rect(
-                inRect.xMin + 6f,
-                inRect.yMax - panelHeight - PreviewRailBottomClearance,
-                panelWidth,
-                panelHeight);
-
-            Rect popover = _inspectionActive && HasSemanticDiff
-                ? new Rect(
-                    panel.xMin,
-                    Mathf.Max(inRect.yMin + 4f, panel.yMin - 126f),
-                    Mathf.Min(panel.width, 460f),
-                    120f)
-                : Rect.zero;
-
-            _surfaceRect = panel;
-            _applyRect = Rect.zero;
-            _cancelRect = Rect.zero;
-            _updateRect = Rect.zero;
-            _forkRect = Rect.zero;
-            _membershipRect = Rect.zero;
-            LayoutPreviewButtonRows(panel, buttonRows);
-            _inspectionPopoverRect = popover;
-            UpdateInspectionPointer(panel, _updateRect, popover);
-            if (_inspectionActive && HasSemanticDiff)
-            {
-                _inspectionPopoverRect = new Rect(
-                    panel.xMin,
-                    Mathf.Max(inRect.yMin + 4f, panel.yMin - 126f),
-                    Mathf.Min(panel.width, 460f),
-                    120f);
-            }
-
-            if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-            {
-                _inspectionActive = false;
-                _inspectionPopoverRect = Rect.zero;
-                _inlineSurfacePopoverRect = BuildInlineSurfacePopoverRect(
-                    inRect,
-                    panel,
-                    _inlineSurfacePopover == InlineSurfacePopoverKind.Membership
-                        ? 250f
-                        : 124f);
-            }
-            else
-            {
-                _inlineSurfacePopoverRect = Rect.zero;
-            }
-
-            Color oldGuiColor = GUI.color;
-            GameFont oldFont = Text.Font;
-            TextAnchor oldAnchor = Text.Anchor;
-            try
-            {
-                Widgets.DrawBoxSolidWithOutline(
-                    panel,
-                    new Color(0.055f, 0.07f, 0.08f, 0.96f),
-                    new Color(0.38f, 0.52f, 0.55f, 0.65f));
-
-                Text.Font = GameFont.Tiny;
-                Text.Anchor = TextAnchor.UpperLeft;
-                GUI.color = new Color(1f, 1f, 1f, 0.95f);
-                Widgets.Label(
-                    new Rect(panel.xMin + 7f, panel.yMin + 4f, panel.width - 14f, 16f),
-                    "Workload preview: " + SourceLabel);
-                GUI.color = new Color(0.78f, 0.86f, 0.87f, 0.9f);
-                Widgets.Label(
-                    new Rect(panel.xMin + 7f, panel.yMin + 20f, panel.width - 14f, 14f),
-                    "" + DataAuthorityLabel + " | " +
-                    "colony changes " + ColonyImpactCount +
-                    " | workload changes " + TemplateDirtyCount +
-                    " | included " + IncludedCount +
-                    " | unchanged/outside " + UnchangedOutsideScopeCount);
-                Widgets.Label(
-                    new Rect(panel.xMin + 7f, panel.yMin + 34f, panel.width - 14f, 14f),
-                    "new/unrepresented " + UnrepresentedNewCount +
-                    " | excluded " + ExplicitlyExcludedCount +
-                    " | stale/missing " + StaleMissingCount);
-
-                if (ValidationLabel.AnyNonWhitespace())
-                {
-                    GUI.color = new Color(1f, 0.82f, 0.55f, 0.9f);
-                    Widgets.Label(
-                        new Rect(panel.xMin + 7f, panel.yMin + 48f, panel.width - 14f, 14f),
-                        ValidationLabel);
-                }
-                else if (UnsupportedDimensionsLabel.AnyNonWhitespace())
-                {
-                    GUI.color = new Color(0.84f, 0.82f, 0.68f, 0.9f);
-                    Widgets.Label(
-                        new Rect(panel.xMin + 7f, panel.yMin + 48f, panel.width - 14f, 14f),
-                        UnsupportedDimensionsLabel);
-                }
-                else if (LastMessage.AnyNonWhitespace())
-                {
-                    GUI.color = new Color(0.95f, 0.82f, 0.58f, 0.92f);
-                    Widgets.Label(
-                        new Rect(panel.xMin + 7f, panel.yMin + 48f, panel.width - 14f, 14f),
-                        LastMessage.Truncate(Mathf.Max(1f, panel.width - 14f)));
-                }
-                else
-                {
-                    GUI.color = new Color(0.7f, 0.78f, 0.78f, 0.82f);
-                    Widgets.Label(
-                        new Rect(panel.xMin + 7f, panel.yMin + 48f, panel.width - 14f, 14f),
-                        SettingsIntegrationStatus);
-                }
-
-                DrawPreviewButton(
-                    _applyRect,
-                    "Apply",
-                    () => ApplyPreview(),
-                    CanApplyPreview,
-                    UnsupportedPresentationCommitReason);
-                DrawPreviewButton(_cancelRect, "Cancel", () => CancelPreview());
-                if (HasSemanticDiff)
-                {
-                    DrawPreviewButton(
-                        _updateRect,
-                        "Update",
-                        () => UpdatePreview(),
-                        CanUpdatePreview,
-                        UnsupportedPresentationCommitReason);
-                    TooltipHandler.TipRegion(
-                        _updateRect,
-                        HasUnsupportedOwnedPresentationState
-                            ? UnsupportedPresentationCommitReason
-                            : "Update Workload applies this semantic diff and replaces the same template. " +
-                              "Hover to inspect changed pawn/worktype cells. Scroll here to move the Work tab.");
-                }
-
-                DrawPreviewButton(
-                    _forkRect,
-                    "Save As",
-                    () =>
-                    {
-                        OpenForkEditor();
-                        return true;
-                    },
-                    CanForkPreview,
-                    UnsupportedPresentationCommitReason);
-                DrawPreviewButton(
-                    _membershipRect,
-                    "Members",
-                    () =>
-                    {
-                        OpenMembershipPopover();
-                        return true;
-                    });
-                TooltipHandler.TipRegion(
-                    _membershipRect,
-                    "Include or exclude current pawns for this preview session. " +
-                    "Unrepresented pawns are never applied unless explicitly included.");
-
-                if (_inspectionActive && HasSemanticDiff)
-                {
-                    DrawInspectionPopover(_inspectionPopoverRect);
-                }
-
-                if (_inlineSurfacePopover != InlineSurfacePopoverKind.None)
-                {
-                    DrawInlineSurfacePopover(_inlineSurfacePopoverRect);
-                }
-
-                if (LastMessage.AnyNonWhitespace())
-                {
-                    TooltipHandler.TipRegion(panel, LastMessage);
-                }
-            }
-            finally
-            {
-                GUI.color = oldGuiColor;
-                Text.Font = oldFont;
-                Text.Anchor = oldAnchor;
-            }
+            Vector2 pointer = Event.current?.mousePosition ?? Vector2.zero;
+            _inspectionActive =
+                (updateRect.width > 0f && updateRect.Contains(pointer)) ||
+                (applyRect.width > 0f && applyRect.Contains(pointer));
         }
 
         internal bool IsInspectionRowAffected(Pawn pawn)
@@ -1763,18 +2389,149 @@ namespace Better_Work_Tab.UI.Workloads
                 return true;
             }
 
+            if (_changedScheduleKeys.Contains(
+                    WorkTabEffectiveStateIds.ForSchedule(pawn, workType)) ||
+                (workGiver != null && _changedScheduleKeys.Contains(
+                    WorkTabEffectiveStateIds.ForSchedule(pawn, workType, workGiver))))
+            {
+                return true;
+            }
+
+            if (_changedOrderKeys.Contains(
+                    WorkTabEffectiveStateIds.ForWorkTypeOrder(pawn, workType)) ||
+                _changedOrderKeys.Contains(
+                    WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(workType)))
+            {
+                return true;
+            }
+
             if (workGiver == null)
             {
                 return false;
             }
 
             return _changedSpecificJobKeys.Contains(
-                WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver));
+                       WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver)) ||
+                   _changedSpecificJobKeys.Contains(
+                       new WorkloadSpecificJobKey(
+                           WorkloadTargetScope.GlobalShared,
+                           null,
+                           WorkTabEffectiveStateIds.ForWorkType(workType),
+                           WorkTabEffectiveStateIds.ForWorkGiver(workGiver)));
         }
 
-        internal IReadOnlyList<WorkloadMembershipRecord> GetMembershipRecords()
+        /// <summary>
+        /// Applies a typed preview intent from a context-menu callback. These
+        /// callbacks run outside the Work-tab provider scope, so they must
+        /// cross the session gateway directly instead of using a scoped
+        /// runtime editor that would otherwise fall through to live state.
+        /// </summary>
+        internal bool SetSpecificJobPreviewIntent(
+            WorkloadSpecificJobTargetKey key,
+            WorkloadIntent<WorkloadSpecificPriorityPayload> intent)
         {
-            return GetMembershipSnapshot().Records;
+            if (IsUnsafePreviewInputBlocked)
+            {
+                SetMessage(MultiplayerStatusExplanation);
+                return false;
+            }
+
+            if (!IsActive || key == null || !key.IsValid)
+            {
+                SetMessage("The specific-job preview target is no longer available.");
+                return false;
+            }
+
+            if (!_session.SourceTemplate.Definition.OwnershipDimensions.Owns(
+                    WorkloadStateDimension.SpecificJobOverrides))
+            {
+                SetMessage("The active workload does not own specific-job priorities.");
+                return false;
+            }
+
+            return EditPreviewDraft(
+                draft => draft.SetSpecificPriorityIntent(key, intent),
+                "The specific-job preview could not be changed.");
+        }
+
+        internal bool SetWorkTypeOrderPreviewIntent(
+            WorkloadWorkTypeOrderKey key,
+            WorkloadIntent<WorkloadWorkTypeOrderPayload> intent)
+        {
+            if (IsUnsafePreviewInputBlocked)
+            {
+                SetMessage(MultiplayerStatusExplanation);
+                return false;
+            }
+
+            if (!IsActive || key == null || !key.IsValid)
+            {
+                SetMessage("The WorkGiver order preview target is no longer available.");
+                return false;
+            }
+
+            if (!_session.SourceTemplate.Definition.OwnershipDimensions.Owns(
+                    WorkloadStateDimension.SpecificJobOrder))
+            {
+                SetMessage("The active workload does not own WorkGiver ordering.");
+                return false;
+            }
+
+            return EditPreviewDraft(
+                draft => draft.SetWorkTypeOrderIntent(key, intent),
+                "The WorkGiver order preview could not be changed.");
+        }
+
+        internal bool SetSchedulePreviewIntent(
+            WorkloadScheduleTargetKey key,
+            WorkloadIntent<WorkloadSchedulePayload> intent)
+        {
+            if (IsUnsafePreviewInputBlocked)
+            {
+                SetMessage(MultiplayerStatusExplanation);
+                return false;
+            }
+
+            if (!IsActive || key == null || !key.IsValid)
+            {
+                SetMessage("The schedule preview target is no longer available.");
+                return false;
+            }
+
+            if (!_session.SourceTemplate.Definition.OwnershipDimensions.Owns(
+                    WorkloadStateDimension.Schedules))
+            {
+                SetMessage("The active workload does not own schedules.");
+                return false;
+            }
+
+            return EditPreviewDraft(
+                draft => draft.SetScheduleIntent(key, intent),
+                "The schedule preview could not be changed.");
+        }
+
+        private bool EditPreviewDraft(
+            Action<WorkloadDraft> edit,
+            string failureMessage)
+        {
+            if (IsUnsafePreviewInputBlocked)
+            {
+                SetMessage(MultiplayerStatusExplanation);
+                return false;
+            }
+
+            WorkloadOperationResult<WorkloadSession> result =
+                WorkloadGateway.EditV2Preview(edit);
+            if (!result.Succeeded || result.Value == null)
+            {
+                SetMessage(string.IsNullOrEmpty(result.Message) ? failureMessage : result.Message);
+                return false;
+            }
+
+            _session = result.Value;
+            RebuildProjection(_session.ProjectedState);
+            ResetCompletedMultiplayerAttemptIfPayloadChanged();
+            return true;
         }
 
         internal WorkloadMembershipSnapshot GetMembershipSnapshot()
@@ -1810,13 +2567,19 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal bool ToggleMembership(PawnKey pawnKey)
         {
+            if (IsUnsafePreviewInputBlocked)
+            {
+                SetMessage(MultiplayerStatusExplanation);
+                return false;
+            }
+
             if (!IsActive || pawnKey == null || !pawnKey.IsValid)
             {
                 SetMessage("This pawn cannot be changed in the current preview.");
                 return false;
             }
 
-            WorkloadMembershipRecord record = FindMembershipRecord(pawnKey);
+            WorkloadMembershipRecord record = GetMembershipSnapshot().Find(pawnKey);
             if (record == null || !record.IsAvailable)
             {
                 SetMessage("This pawn is stale or missing and cannot be included.");
@@ -1832,55 +2595,226 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (_session.ProjectedState.IsExcluded(pawnKey))
             {
-                if (!SetSessionMembership(pawnKey, true))
+                if (!SetSessionMembership(pawnKey, include: true))
                 {
                     return false;
                 }
 
-                SetMessage("Pawn included for this preview session.");
+                SetMessage("Pawn included for this application.");
                 return true;
             }
 
             if (record.Classification == WorkloadMembershipClassification.UnrepresentedNew)
             {
-                if (scope.Mode != WorkloadScopeMode.CurrentMapFreeColonists)
-                {
-                    SetMessage("This saved workload scope cannot include a new pawn.");
-                    return false;
-                }
-
                 if (!AddCurrentLiveBaseline(pawnKey))
                 {
                     return false;
                 }
 
-                SetMessage("Pawn included with its current live values for this preview.");
+                SetMessage("Pawn included with its current live values for this application.");
                 return true;
             }
 
-            if (record.Classification == WorkloadMembershipClassification.Included)
+            if (record.Classification == WorkloadMembershipClassification.Included &&
+                record.IsRepresented)
             {
-                if (!SetSessionMembership(pawnKey, false))
+                if (!SetSessionMembership(pawnKey, include: false))
                 {
                     return false;
                 }
 
-                SetMessage("Pawn excluded from this preview session; its live values remain unchanged.");
+                SetMessage("Pawn excluded from this application; its live values remain unchanged.");
                 return true;
             }
 
-            SetMessage("This pawn is outside the workload scope and was left unchanged.");
+            SetMessage("This pawn is outside the saved workload scope and was left unchanged.");
             return false;
+        }
+
+        private bool SetSessionMembership(PawnKey pawnKey, bool include)
+        {
+            WorkloadSession changed = include
+                ? _session.IncludePawn(pawnKey)
+                : _session.ExcludePawn(pawnKey);
+            WorkloadOperationResult<WorkloadSession> result =
+                WorkloadGateway.SetV2PreviewState(changed.ProjectedState);
+            if (!result.Succeeded)
+            {
+                SetMessage(result.Message);
+                return false;
+            }
+
+            _session = result.Value;
+            RebuildProjection(_session.ProjectedState);
+            ResetCompletedMultiplayerAttemptIfPayloadChanged();
+            return true;
+        }
+
+        private bool AddCurrentLiveBaseline(PawnKey pawnKey)
+        {
+            Pawn pawn = ResolvePawn(pawnKey);
+            if (pawn == null)
+            {
+                SetMessage("The current pawn could not be resolved.");
+                return false;
+            }
+
+            WorkloadOwnershipDimensions ownership =
+                _session.SourceTemplate.Definition.OwnershipDimensions;
+
+            var draft = new WorkloadDraft(_session.ProjectedState);
+            IReadOnlyList<WorkTypeDef> workTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+            bool wroteValue = false;
+            bool capturedSchedule = false;
+            for (int i = 0; i < workTypes.Count; i++)
+            {
+                WorkTypeDef workType = workTypes[i];
+                if (workType == null || pawn.workSettings == null || !pawn.workSettings.EverWork)
+                {
+                    continue;
+                }
+
+                WorkloadParentPriorityKey key =
+                    WorkTabEffectiveStateIds.ForParentPriority(pawn, workType);
+                int parentFallback =
+                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+                if (ownership.Owns(WorkloadStateDimension.ParentPriorities))
+                {
+                    draft.SetParentPriority(
+                        key,
+                        _liveProvider.GetParentPriority(
+                            key,
+                            parentFallback));
+                    wroteValue = true;
+                }
+
+                if (ownership.Owns(WorkloadStateDimension.Schedules))
+                {
+                    WorkloadGateway.CaptureScheduleIntent(
+                        draft,
+                        WorkloadScheduleTargetKey.ForParent(
+                            key.Pawn,
+                            key.WorkType),
+                        parentFallback,
+                        ref capturedSchedule);
+                    wroteValue |= capturedSchedule;
+                }
+
+                if (ownership.Owns(WorkloadStateDimension.ManualModes))
+                {
+                    draft.SetManualMode(
+                        key,
+                        _liveProvider.IsManualMode(
+                            key,
+                            Find.PlaySettings?.useWorkPriorities ?? true));
+                    wroteValue = true;
+                }
+
+                if (!ownership.Owns(WorkloadStateDimension.SpecificJobOverrides) &&
+                    !ownership.Owns(WorkloadStateDimension.SpecificJobOrder))
+                {
+                    continue;
+                }
+
+                IReadOnlyList<WorkGiver> workGivers =
+                    WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(
+                        workType,
+                        pawn);
+                for (int workGiverIndex = 0;
+                     workGiverIndex < workGivers.Count;
+                     workGiverIndex++)
+                {
+                    WorkGiverDef workGiver = workGivers[workGiverIndex]?.def;
+                    if (workGiver == null || workGiver.defName.NullOrEmpty())
+                    {
+                        continue;
+                    }
+
+                    WorkloadSpecificJobKey specificKey =
+                        WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver);
+                    int inheritedPriority =
+                        WorkGiverReassignmentManager.GetWorkGiverPriority(
+                            pawn,
+                            workGiver,
+                            parentFallback);
+                    if (ownership.Owns(WorkloadStateDimension.SpecificJobOverrides))
+                    {
+                        WorkloadScalarValue specificPriority =
+                            _liveProvider.GetSpecificJobOverride(
+                                specificKey,
+                                WorkloadScalarValue.FromInteger(inheritedPriority));
+                        draft.SetSpecificJobOverride(specificKey, specificPriority);
+                        wroteValue = true;
+                    }
+
+                    if (ownership.Owns(WorkloadStateDimension.Schedules))
+                    {
+                        bool scheduleBefore = capturedSchedule;
+                        WorkloadGateway.CaptureScheduleIntent(
+                            draft,
+                            WorkloadScheduleTargetKey.ForWorkGiver(
+                                key.Pawn,
+                                key.WorkType,
+                                WorkTabEffectiveStateIds.ForWorkGiver(workGiver)),
+                            inheritedPriority,
+                            ref capturedSchedule);
+                        wroteValue |= capturedSchedule || scheduleBefore;
+                    }
+
+                    if (ownership.Owns(WorkloadStateDimension.SpecificJobOrder) &&
+                        _liveProvider.TryGetSpecificJobOrder(specificKey, out int order))
+                    {
+                        draft.SetSpecificJobOrder(specificKey, order);
+                        wroteValue = true;
+                    }
+                }
+            }
+
+            if (!wroteValue)
+            {
+                SetMessage("This workload has no supported current-pawn dimension to include.");
+                return false;
+            }
+
+            WorkloadSession candidate = _session.EditState(draft.ProjectedState);
+            WorkloadOperationResult<WorkloadSession> result =
+                WorkloadGateway.ExtendV2PreviewBaseline(candidate, pawnKey);
+            if (!result.Succeeded)
+            {
+                SetMessage(result.Message);
+                return false;
+            }
+
+            _session = result.Value;
+            RebuildProjection(_session.ProjectedState);
+            return true;
+        }
+
+        private static string FormatUnsupportedInclusionDimensions(
+            WorkloadOwnershipDimensions dimensions)
+        {
+            var values = new List<string>();
+            if ((dimensions & WorkloadOwnershipDimensions.Schedules) != 0)
+            {
+                values.Add("schedules");
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.PresentationSettings) != 0)
+            {
+                values.Add("presentation settings");
+            }
+
+            return values.Count == 0
+                ? "unsupported state"
+                : string.Join(", ", values.ToArray());
         }
 
         private void OpenSession(WorkloadSession session)
         {
             WorkloadSurfaceCoordinator.OpenPreview();
+            ClearMultiplayerAttempt();
             _session = session;
             _boundComponent = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            // Give the next Work-tab pass a chance to lay out the grid beside
-            // the rail before the rail itself is painted.
-            _surfaceReadyFrame = Time.frameCount + 1;
             RebuildProjection(_session.ProjectedState);
             SetMessage("Preview open; live work priorities are unchanged until Apply.");
         }
@@ -1891,6 +2825,7 @@ namespace Better_Work_Tab.UI.Workloads
             if (_session == null)
             {
                 _projectedProvider = null;
+                _projectedEditablePawnSetRevision = long.MinValue;
                 ClearInspectionIndex();
                 return;
             }
@@ -1903,6 +2838,7 @@ namespace Better_Work_Tab.UI.Workloads
                 "bwt.preview",
                 _session.SourceTemplate.Definition.Scope,
                 BuildEditablePawnIds());
+            _projectedEditablePawnSetRevision = ComputeAvailablePawnSetRevision();
             ClearInspectionIndex();
         }
 
@@ -1912,20 +2848,10 @@ namespace Better_Work_Tab.UI.Workloads
             InvalidateMembershipSnapshot();
             _session = null;
             _projectedProvider = null;
+            _projectedEditablePawnSetRevision = long.MinValue;
             _inspectionActive = false;
-            _surfaceRect = Rect.zero;
-            _applyRect = Rect.zero;
-            _cancelRect = Rect.zero;
-            _updateRect = Rect.zero;
-            _forkRect = Rect.zero;
-            _membershipRect = Rect.zero;
-            _inspectionPopoverRect = Rect.zero;
-            _inlineSurfacePopoverRect = Rect.zero;
-            _inlineSurfacePopover = InlineSurfacePopoverKind.None;
-            _inlineSurfaceName = string.Empty;
-            _membershipScroll = Vector2.zero;
             ClearInspectionIndex();
-            _surfaceReadyFrame = 0;
+            ClearMultiplayerAttempt();
         }
 
         private void SetMessage(string message)
@@ -1949,7 +2875,8 @@ namespace Better_Work_Tab.UI.Workloads
         private IReadOnlyList<PawnKey> BuildEditablePawnIds()
         {
             var editable = new List<PawnKey>();
-            IReadOnlyList<WorkloadMembershipRecord> records = GetMembershipRecords();
+            IReadOnlyList<WorkloadMembershipRecord> records =
+                GetMembershipSnapshot().Records;
             for (int i = 0; i < records.Count; i++)
             {
                 WorkloadMembershipRecord record = records[i];
@@ -1964,141 +2891,6 @@ namespace Better_Work_Tab.UI.Workloads
             return editable.AsReadOnly();
         }
 
-        private WorkloadMembershipRecord FindMembershipRecord(PawnKey pawnKey)
-        {
-            return GetMembershipSnapshot().Find(pawnKey);
-        }
-
-        private bool SetSessionMembership(PawnKey pawnKey, bool include)
-        {
-            WorkloadSession changed = include
-                ? _session.IncludePawn(pawnKey)
-                : _session.ExcludePawn(pawnKey);
-            WorkloadOperationResult<WorkloadSession> result =
-                WorkloadGateway.SetV2PreviewState(changed.ProjectedState);
-            if (!result.Succeeded)
-            {
-                SetMessage(result.Message);
-                return false;
-            }
-
-            _session = result.Value;
-            RebuildProjection(_session.ProjectedState);
-            return true;
-        }
-
-        private bool AddCurrentLiveBaseline(PawnKey pawnKey)
-        {
-            Pawn pawn = ResolvePawn(pawnKey);
-            if (pawn == null)
-            {
-                SetMessage("The current pawn could not be resolved.");
-                return false;
-            }
-
-            WorkloadOwnershipDimensions ownership =
-                _session.SourceTemplate.Definition.OwnershipDimensions;
-            // Including a new pawn is a complete projection operation. Do not
-            // seed only the dimensions that happen to have a reader today and
-            // then present a partial workload as if it were safe to commit.
-            // The current runtime has live writers only for these two
-            // dimensions; all other owned dimensions fail closed with a
-            // visible explanation instead of being silently dropped.
-            WorkloadOwnershipDimensions unsupported =
-                WorkloadOwnershipDimensions.Schedules |
-                WorkloadOwnershipDimensions.SpecificJobOverrides |
-                WorkloadOwnershipDimensions.SpecificJobOrder |
-                WorkloadOwnershipDimensions.PresentationSettings;
-            if ((ownership & unsupported) != WorkloadOwnershipDimensions.None)
-            {
-                SetMessage(
-                    "This pawn cannot be included safely: the workload owns " +
-                    FormatUnsupportedInclusionDimensions(ownership & unsupported) +
-                    ", but no complete live writer exists for that dimension. " +
-                    "The preview was left unchanged.");
-                return false;
-            }
-
-            var draft = new WorkloadDraft(_session.ProjectedState);
-            IReadOnlyList<WorkTypeDef> workTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
-            bool wroteValue = false;
-            for (int i = 0; i < workTypes.Count; i++)
-            {
-                WorkTypeDef workType = workTypes[i];
-                if (workType == null || pawn.workSettings == null || !pawn.workSettings.EverWork)
-                {
-                    continue;
-                }
-
-                WorkloadParentPriorityKey key =
-                    WorkTabEffectiveStateIds.ForParentPriority(pawn, workType);
-                if (ownership.Owns(WorkloadStateDimension.ParentPriorities))
-                {
-                    draft.SetParentPriority(
-                        key,
-                        _liveProvider.GetParentPriority(
-                            key,
-                            WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType)));
-                    wroteValue = true;
-                }
-
-                if (ownership.Owns(WorkloadStateDimension.ManualModes))
-                {
-                    draft.SetManualMode(
-                        key,
-                        _liveProvider.IsManualMode(
-                            key,
-                            Find.PlaySettings?.useWorkPriorities ?? true));
-                    wroteValue = true;
-                }
-            }
-
-            if (!wroteValue)
-            {
-                SetMessage("This workload has no supported current-pawn dimension to include.");
-                return false;
-            }
-
-            WorkloadOperationResult<WorkloadSession> result =
-                WorkloadGateway.SetV2PreviewState(draft.ProjectedState);
-            if (!result.Succeeded)
-            {
-                SetMessage(result.Message);
-                return false;
-            }
-
-            _session = result.Value;
-            RebuildProjection(_session.ProjectedState);
-            return true;
-        }
-
-        private static string FormatUnsupportedInclusionDimensions(
-            WorkloadOwnershipDimensions dimensions)
-        {
-            var values = new List<string>();
-            if ((dimensions & WorkloadOwnershipDimensions.Schedules) != 0)
-            {
-                values.Add("schedules");
-            }
-
-            if ((dimensions & WorkloadOwnershipDimensions.SpecificJobOverrides) != 0)
-            {
-                values.Add("specific-job overrides");
-            }
-
-            if ((dimensions & WorkloadOwnershipDimensions.SpecificJobOrder) != 0)
-            {
-                values.Add("specific-job order");
-            }
-
-            if ((dimensions & WorkloadOwnershipDimensions.PresentationSettings) != 0)
-            {
-                values.Add("presentation settings");
-            }
-
-            return values.Count == 0 ? "unsupported state" : string.Join(", ", values.ToArray());
-        }
-
         private void EnsureInspectionIndex()
         {
             if (!IsActive)
@@ -2110,7 +2902,7 @@ namespace Better_Work_Tab.UI.Workloads
             // Update inspection is intentionally the template diff. Apply's
             // colony impact is exposed separately by LiveDiff and must not
             // make the Update button claim it will rewrite the template.
-            WorkloadSemanticDiff diff = _session.TemplateDiff;
+            WorkloadSemanticDiff diff = EffectiveTemplateDiff;
             string fingerprint = diff.BeforeFingerprint + ":" + diff.AfterFingerprint;
             if (StringComparer.Ordinal.Equals(_inspectionFingerprint, fingerprint))
             {
@@ -2120,13 +2912,22 @@ namespace Better_Work_Tab.UI.Workloads
             _inspectionFingerprint = fingerprint;
             _changedParentKeys.Clear();
             _changedSpecificJobKeys.Clear();
+            _changedOrderKeys.Clear();
+            _changedScheduleKeys.Clear();
             _changedSchedulePawns.Clear();
             _changedPawns.Clear();
             for (int i = 0; i < diff.Changes.Count; i++)
             {
                 WorkloadChange change = diff.Changes[i];
                 if (change == null ||
-                    !TryDecodeChangeKey(change.Dimension, change.CanonicalKey, out PawnKey pawn, out WorkTypeKey workType, out WorkGiverKey workGiver))
+                    !TryDecodeChangeKey(
+                        change.Dimension,
+                        change.CanonicalKey,
+                        out PawnKey pawn,
+                        out WorkTypeKey workType,
+                        out WorkGiverKey workGiver,
+                        out WorkloadTargetScope scope,
+                        out WorkloadScheduleTargetKind scheduleKind))
                 {
                     continue;
                 }
@@ -2150,13 +2951,54 @@ namespace Better_Work_Tab.UI.Workloads
                         {
                             _changedSchedulePawns.Add(pawn);
                         }
+                        if (workType != null)
+                        {
+                            WorkloadScheduleTargetKey scheduleKey =
+                                scope == WorkloadTargetScope.GlobalShared
+                                    ? WorkloadScheduleTargetKey.GlobalWorkGiver(
+                                        workType,
+                                        workGiver)
+                                    : scheduleKind == WorkloadScheduleTargetKind.ParentWorkType
+                                        ? WorkloadScheduleTargetKey.ForParent(pawn, workType)
+                                        : WorkloadScheduleTargetKey.ForWorkGiver(
+                                            pawn,
+                                            workType,
+                                            workGiver);
+                            if (scheduleKey.IsValid)
+                            {
+                                _changedScheduleKeys.Add(scheduleKey);
+                            }
+                        }
                         break;
                     case WorkloadStateDimension.SpecificJobOverrides:
-                    case WorkloadStateDimension.SpecificJobOrder:
                         if (pawn != null && workType != null && workGiver != null)
                         {
                             _changedSpecificJobKeys.Add(
-                                new WorkloadSpecificJobKey(pawn, workType, workGiver));
+                                new WorkloadSpecificJobKey(
+                                    scope,
+                                    pawn,
+                                    workType,
+                                    workGiver));
+                        }
+                        else if (scope == WorkloadTargetScope.GlobalShared &&
+                                 workType != null && workGiver != null)
+                        {
+                            _changedSpecificJobKeys.Add(
+                                new WorkloadSpecificJobKey(
+                                    WorkloadTargetScope.GlobalShared,
+                                    null,
+                                    workType,
+                                    workGiver));
+                        }
+                        break;
+                    case WorkloadStateDimension.SpecificJobOrder:
+                        if (workType != null)
+                        {
+                            _changedOrderKeys.Add(
+                                new WorkloadWorkTypeOrderKey(
+                                    scope,
+                                    pawn,
+                                    workType));
                         }
                         break;
                     case WorkloadStateDimension.Membership:
@@ -2172,399 +3014,10 @@ namespace Better_Work_Tab.UI.Workloads
             _inspectionFingerprint = string.Empty;
             _changedParentKeys.Clear();
             _changedSpecificJobKeys.Clear();
+            _changedOrderKeys.Clear();
+            _changedScheduleKeys.Clear();
             _changedSchedulePawns.Clear();
             _changedPawns.Clear();
-        }
-
-        private void UpdateInspectionPointer(Rect panel, Rect updateRect, Rect popover)
-        {
-            if (!HasSemanticDiff)
-            {
-                _inspectionActive = false;
-                return;
-            }
-
-            Vector2 pointer = Event.current?.mousePosition ?? Vector2.zero;
-            bool overUpdate = updateRect.width > 0f && updateRect.Contains(pointer);
-            bool overSurface = panel.Contains(pointer);
-            bool overPopover = popover.width > 0f && popover.Contains(pointer);
-            if (overUpdate)
-            {
-                _inspectionActive = true;
-            }
-            else if (!overSurface && !overPopover)
-            {
-                _inspectionActive = false;
-            }
-        }
-
-        private void DrawInspectionPopover(Rect rect)
-        {
-            if (rect.width <= 0f || rect.height <= 0f)
-            {
-                return;
-            }
-
-            Widgets.DrawBoxSolidWithOutline(
-                rect,
-                new Color(0.055f, 0.07f, 0.08f, 0.97f),
-                new Color(0.42f, 0.58f, 0.6f, 0.7f));
-            Text.Font = GameFont.Tiny;
-            Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = new Color(0.9f, 0.96f, 0.96f, 0.96f);
-            Widgets.Label(
-                new Rect(rect.xMin + 7f, rect.yMin + 5f, rect.width - 14f, 16f),
-                "Update inspection: changed cells use stable pawn/worktype IDs");
-            GUI.color = new Color(0.74f, 0.83f, 0.84f, 0.9f);
-            int shown = 0;
-            IReadOnlyList<WorkloadChange> changes = _session.TemplateDiff.Changes;
-            for (int i = 0; i < changes.Count && shown < 4; i++)
-            {
-                WorkloadChange change = changes[i];
-                string line = "- " + ChangeDimensionLabel(change.Dimension) +
-                              " - " + Trim(change.CanonicalKey, 34);
-                Widgets.Label(
-                    new Rect(rect.xMin + 8f, rect.yMin + 22f + shown * 15f, rect.width - 16f, 15f),
-                    line);
-                shown++;
-            }
-
-            GUI.color = new Color(0.82f, 0.88f, 0.88f, 0.92f);
-            Widgets.Label(
-                new Rect(rect.xMin + 8f, rect.yMax - 21f, rect.width - 16f, 16f),
-                "Scroll wheel over this panel to move the Work tab.");
-            TooltipHandler.TipRegion(
-                rect,
-                "Inspection remains active over the panel. Scrolling moves the Work tab and never edits a priority cell.");
-        }
-
-        private static Rect BuildInlineSurfacePopoverRect(
-            Rect inRect,
-            Rect panel,
-            float desiredHeight)
-        {
-            float width = Mathf.Min(panel.width, 360f);
-            float height = Mathf.Min(
-                desiredHeight,
-                Mathf.Max(90f, inRect.height - 8f));
-            float x = Mathf.Clamp(
-                panel.xMin,
-                inRect.xMin + 4f,
-                Mathf.Max(inRect.xMin + 4f, inRect.xMax - width - 4f));
-            float y = panel.yMin - height - 5f;
-            if (y < inRect.yMin + 4f)
-            {
-                y = panel.yMax + 5f;
-            }
-
-            y = Mathf.Clamp(
-                y,
-                inRect.yMin + 4f,
-                Mathf.Max(inRect.yMin + 4f, inRect.yMax - height - 4f));
-            return new Rect(x, y, width, height);
-        }
-
-        private void DrawInlineSurfacePopover(Rect rect)
-        {
-            if (rect.width <= 0f || rect.height <= 0f)
-            {
-                return;
-            }
-
-            Widgets.DrawBoxSolidWithOutline(
-                rect,
-                new Color(0.055f, 0.07f, 0.08f, 0.98f),
-                new Color(0.42f, 0.58f, 0.6f, 0.75f));
-            Text.Font = GameFont.Small;
-            Text.Anchor = TextAnchor.UpperLeft;
-            GUI.color = new Color(0.92f, 0.97f, 0.97f, 0.98f);
-
-            if (_inlineSurfacePopover == InlineSurfacePopoverKind.Fork)
-            {
-                DrawInlineForkPopover(rect);
-            }
-            else
-            {
-                DrawInlineMembershipPopover(rect);
-            }
-        }
-
-        private void DrawInlineForkPopover(Rect rect)
-        {
-            Widgets.Label(
-                new Rect(rect.xMin + 8f, rect.yMin + 6f, rect.width - 16f, 20f),
-                "Save workload as");
-            Rect field = new Rect(
-                rect.xMin + 8f,
-                rect.yMin + 31f,
-                rect.width - 16f,
-                26f);
-            GUI.SetNextControlName("BWT.WorkloadInlineEditor");
-            _inlineSurfaceName = Widgets.TextField(field, _inlineSurfaceName, 64);
-
-            float buttonWidth = (rect.width - 20f) * 0.5f;
-            Rect save = new Rect(rect.xMin + 8f, rect.yMax - 30f, buttonWidth, 24f);
-            Rect cancel = new Rect(save.xMax + 4f, save.yMin, buttonWidth, 24f);
-            if (Widgets.ButtonText(save, "Save As"))
-            {
-                CommitInlineFork();
-            }
-
-            if (Widgets.ButtonText(cancel, "Cancel"))
-            {
-                CloseInlineSurfacePopover();
-            }
-
-            Event evt = Event.current;
-            if (evt != null &&
-                evt.type == EventType.KeyDown &&
-                GUI.GetNameOfFocusedControl() == "BWT.WorkloadInlineEditor")
-            {
-                if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
-                {
-                    CommitInlineFork();
-                    evt.Use();
-                }
-                else if (evt.keyCode == KeyCode.Escape)
-                {
-                    CloseInlineSurfacePopover();
-                    evt.Use();
-                }
-            }
-        }
-
-        private void DrawInlineMembershipPopover(Rect rect)
-        {
-            Widgets.Label(
-                new Rect(rect.xMin + 8f, rect.yMin + 6f, rect.width - 16f, 20f),
-                "Workload membership (preview)");
-            GUI.color = new Color(0.76f, 0.84f, 0.85f, 0.95f);
-            Widgets.Label(
-                new Rect(rect.xMin + 8f, rect.yMin + 27f, rect.width - 16f, 18f),
-                "Choose which available pawns this session affects.");
-            GUI.color = Color.white;
-
-            IReadOnlyList<WorkloadMembershipRecord> records = GetMembershipRecords();
-            Rect listRect = new Rect(
-                rect.xMin + 6f,
-                rect.yMin + 48f,
-                rect.width - 12f,
-                Mathf.Max(28f, rect.height - 54f));
-            float viewWidth = Mathf.Max(1f, listRect.width - 16f);
-            float viewHeight = Mathf.Max(listRect.height, records.Count * 24f);
-            Widgets.BeginScrollView(
-                listRect,
-                ref _membershipScroll,
-                new Rect(0f, 0f, viewWidth, viewHeight));
-
-            int rowIndex = 0;
-            WorkloadScope scope = _session.SourceTemplate.Definition.Scope ?? WorkloadScope.Empty;
-            for (int i = 0; i < records.Count; i++)
-            {
-                WorkloadMembershipRecord record = records[i];
-                if (record == null)
-                {
-                    continue;
-                }
-
-                Pawn pawn = ResolvePawn(record.PawnId);
-                string label = pawn?.LabelShortCap ?? record.PawnId.Value;
-                bool savedExcluded = scope.IsExplicitlyExcluded(record.PawnId);
-                bool outsideScope = record.Classification ==
-                    WorkloadMembershipClassification.UnchangedOutsideScope;
-                bool actionable = record.IsAvailable && !savedExcluded && !outsideScope;
-                string rowLabel;
-                if (savedExcluded)
-                {
-                    rowLabel = label + " (saved scope: excluded)";
-                }
-                else if (outsideScope)
-                {
-                    rowLabel = label + " (outside saved scope)";
-                }
-                else
-                {
-                    bool include = _session.ProjectedState.IsExcluded(record.PawnId) ||
-                                   record.Classification == WorkloadMembershipClassification.UnrepresentedNew;
-                    rowLabel = (include ? "Include " : "Exclude ") +
-                               label + " (" + MembershipLabel(record.Classification) + ")";
-                }
-
-                Rect row = new Rect(
-                    0f,
-                    rowIndex * 24f,
-                    viewWidth,
-                    22f);
-                if (actionable)
-                {
-                    if (Widgets.ButtonText(row, rowLabel))
-                    {
-                        if (!ToggleMembership(record.PawnId))
-                        {
-                            Messages.Message(LastMessage, MessageTypeDefOf.RejectInput, false);
-                        }
-                    }
-                }
-                else
-                {
-                    GUI.color = new Color(0.62f, 0.68f, 0.69f, 0.9f);
-                    Widgets.Label(row, rowLabel);
-                    GUI.color = Color.white;
-                }
-
-                rowIndex++;
-            }
-
-            if (rowIndex == 0)
-            {
-                GUI.color = new Color(0.72f, 0.79f, 0.8f, 0.9f);
-                Widgets.Label(new Rect(8f, 8f, viewWidth - 16f, 20f), "No current pawns are available.");
-                GUI.color = Color.white;
-            }
-
-            Widgets.EndScrollView();
-            TooltipHandler.TipRegion(
-                rect,
-                "Membership changes remain session-local until Apply, Update, or Save As is confirmed.");
-        }
-
-        private void DrawPreviewButton(
-            Rect rect,
-            string label,
-            Func<bool> action,
-            bool enabled = true,
-            string disabledTooltip = null)
-        {
-            if (rect.width <= 0f)
-            {
-                return;
-            }
-
-            if (!enabled)
-            {
-                Widgets.ButtonText(rect, label, active: false);
-                if (disabledTooltip.AnyNonWhitespace())
-                {
-                    TooltipHandler.TipRegion(rect, disabledTooltip);
-                }
-
-                return;
-            }
-
-            if (Widgets.ButtonText(rect, label, active: true))
-            {
-                if (action != null && !action())
-                {
-                    SoundDefOf.ClickReject.PlayOneShotOnCamera();
-                    Messages.Message(LastMessage, MessageTypeDefOf.RejectInput, false);
-                }
-                else
-                {
-                    SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                }
-            }
-        }
-
-        private void HandleSurfaceAction(Func<bool> action)
-        {
-            if (action == null || action())
-            {
-                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
-                return;
-            }
-
-            SoundDefOf.ClickReject.PlayOneShotOnCamera();
-            Messages.Message(LastMessage, MessageTypeDefOf.RejectInput, false);
-        }
-
-        private void OpenForkEditor()
-        {
-            if (!IsActive)
-            {
-                return;
-            }
-
-            WorkloadSurfaceCoordinator.OpenPreview();
-            _inspectionActive = false;
-            _inlineSurfacePopover = InlineSurfacePopoverKind.Fork;
-            _inlineSurfaceName = SourceLabel + " copy";
-        }
-
-        private void OpenMembershipPopover()
-        {
-            if (!IsActive)
-            {
-                return;
-            }
-
-            WorkloadSurfaceCoordinator.OpenPreview();
-            _inspectionActive = false;
-            _inlineSurfacePopover = InlineSurfacePopoverKind.Membership;
-            _membershipScroll = Vector2.zero;
-        }
-
-        private void CloseInlineSurfacePopover()
-        {
-            _inlineSurfacePopover = InlineSurfacePopoverKind.None;
-            _inlineSurfaceName = string.Empty;
-            _inlineSurfacePopoverRect = Rect.zero;
-            _membershipScroll = Vector2.zero;
-            // Closing Fork/Members only closes that inline child surface. The
-            // preview rail still owns the Work-tab editing surface until the
-            // session itself is applied, canceled, updated, forked, or torn
-            // down with the window.
-        }
-
-        private void ClearSurfaceRects()
-        {
-            _surfaceRect = Rect.zero;
-            _applyRect = Rect.zero;
-            _cancelRect = Rect.zero;
-            _updateRect = Rect.zero;
-            _forkRect = Rect.zero;
-            _membershipRect = Rect.zero;
-            _inspectionPopoverRect = Rect.zero;
-            _inlineSurfacePopoverRect = Rect.zero;
-            _inspectionActive = false;
-        }
-
-        private void CommitInlineFork()
-        {
-            string label = (_inlineSurfaceName ?? string.Empty).Trim();
-            if (label.Length == 0)
-            {
-                SetMessage("A workload name is required.");
-                Messages.Message(LastMessage, MessageTypeDefOf.RejectInput, false);
-                return;
-            }
-
-            if (!ForkPreview(label))
-            {
-                Messages.Message(LastMessage, MessageTypeDefOf.RejectInput, false);
-                return;
-            }
-
-            CloseInlineSurfacePopover();
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-        }
-
-        private static string MembershipLabel(WorkloadMembershipClassification classification)
-        {
-            switch (classification)
-            {
-                case WorkloadMembershipClassification.Included:
-                    return "included";
-                case WorkloadMembershipClassification.UnchangedOutsideScope:
-                    return "outside scope";
-                case WorkloadMembershipClassification.UnrepresentedNew:
-                    return "new/unrepresented";
-                case WorkloadMembershipClassification.ExplicitlyExcluded:
-                    return "excluded";
-                case WorkloadMembershipClassification.StaleMissing:
-                    return "stale/missing";
-                default:
-                    return classification.ToString();
-            }
         }
 
         private IReadOnlyList<PawnScopeCandidate> BuildAvailableCandidates()
@@ -2595,6 +3048,30 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             return candidates;
+        }
+
+        private static Pawn ResolvePawn(PawnKey key)
+        {
+            if (key == null || !int.TryParse(key.Value, out int thingId))
+            {
+                return null;
+            }
+
+            IReadOnlyList<Pawn> pawns = PawnsFinder.All_AliveOrDead;
+            if (pawns == null)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < pawns.Count; i++)
+            {
+                if (pawns[i] != null && pawns[i].thingIDNumber == thingId)
+                {
+                    return pawns[i];
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -2638,59 +3115,45 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
-        private static Pawn ResolvePawn(PawnKey key)
-        {
-            if (key == null || !int.TryParse(key.Value, out int thingId))
-            {
-                return null;
-            }
-
-            IReadOnlyList<Pawn> pawns = PawnsFinder.All_AliveOrDead;
-            if (pawns == null)
-            {
-                return null;
-            }
-
-            for (int i = 0; i < pawns.Count; i++)
-            {
-                if (pawns[i] != null && pawns[i].thingIDNumber == thingId)
-                {
-                    return pawns[i];
-                }
-            }
-
-            return null;
-        }
-
         private static bool TryDecodeChangeKey(
             WorkloadStateDimension dimension,
             string canonicalKey,
             out PawnKey pawn,
             out WorkTypeKey workType,
-            out WorkGiverKey workGiver)
+            out WorkGiverKey workGiver,
+            out WorkloadTargetScope scope,
+            out WorkloadScheduleTargetKind scheduleKind)
         {
             pawn = null;
             workType = null;
             workGiver = null;
+            scope = WorkloadTargetScope.PawnLocal;
+            scheduleKind = WorkloadScheduleTargetKind.ParentWorkType;
+
+            bool typed = canonicalKey != null &&
+                canonicalKey.StartsWith("intent:", StringComparison.Ordinal);
+            string key = typed
+                ? canonicalKey.Substring("intent:".Length)
+                : canonicalKey;
 
             // Membership changes use an I:/E: marker followed by one encoded
             // pawn ID. They are row-level keys, not the length-prefixed pawn /
             // WorkType[/WorkGiver] tuples used by cell dimensions.
             if (dimension == WorkloadStateDimension.Membership)
             {
-                if (string.IsNullOrEmpty(canonicalKey) || canonicalKey.Length < 3 ||
-                    (canonicalKey[0] != 'I' && canonicalKey[0] != 'E') ||
-                    canonicalKey[1] != ':')
+                if (string.IsNullOrEmpty(key) || key.Length < 3 ||
+                    (key[0] != 'I' && key[0] != 'E') ||
+                    key[1] != ':')
                 {
                     return false;
                 }
 
                 int membershipCursor = 2;
                 if (!TryReadCanonicalString(
-                        canonicalKey,
+                        key,
                         ref membershipCursor,
                         out string membershipPawn) ||
-                    membershipCursor != canonicalKey.Length)
+                    membershipCursor != key.Length)
                 {
                     return false;
                 }
@@ -2699,28 +3162,109 @@ namespace Better_Work_Tab.UI.Workloads
                 return pawn.IsValid;
             }
 
+            if (dimension == WorkloadStateDimension.PresentationSettings)
+            {
+                // Presentation settings are not individual grid cells. Still
+                // decode their typed shape so the inspection index can safely
+                // ignore them instead of misclassifying the setting key as a
+                // pawn ID.
+                int presentationCursor = 0;
+                return TryReadCanonicalString(
+                           key,
+                           ref presentationCursor,
+                           out string unusedSetting) &&
+                       presentationCursor == key.Length;
+            }
+
+            if (typed &&
+                (dimension == WorkloadStateDimension.Schedules ||
+                 dimension == WorkloadStateDimension.SpecificJobOverrides ||
+                 dimension == WorkloadStateDimension.SpecificJobOrder))
+            {
+                int typedCursor = 0;
+                if (!TryReadIntegerToken(key, ref typedCursor, out int scopeValue) ||
+                    (scopeValue != (int)WorkloadTargetScope.PawnLocal &&
+                     scopeValue != (int)WorkloadTargetScope.GlobalShared))
+                {
+                    return false;
+                }
+
+                scope = (WorkloadTargetScope)scopeValue;
+                if (dimension == WorkloadStateDimension.Schedules)
+                {
+                    if (!TryReadIntegerToken(key, ref typedCursor, out int kindValue) ||
+                        (kindValue != (int)WorkloadScheduleTargetKind.ParentWorkType &&
+                         kindValue != (int)WorkloadScheduleTargetKind.WorkGiver))
+                    {
+                        return false;
+                    }
+
+                    scheduleKind = (WorkloadScheduleTargetKind)kindValue;
+                }
+
+                if (!TryReadCanonicalString(key, ref typedCursor, out string typedPawnValue) ||
+                    !TryReadCanonicalString(key, ref typedCursor, out string typedWorkTypeValue))
+                {
+                    return false;
+                }
+
+                pawn = scope == WorkloadTargetScope.GlobalShared
+                    ? null
+                    : new PawnKey(typedPawnValue);
+                workType = new WorkTypeKey(typedWorkTypeValue);
+
+                if (dimension == WorkloadStateDimension.SpecificJobOrder)
+                {
+                    return workType.IsValid &&
+                           typedCursor == key.Length &&
+                           (scope == WorkloadTargetScope.GlobalShared || pawn.IsValid);
+                }
+
+                if (!TryReadCanonicalString(key, ref typedCursor, out string typedWorkGiverValue))
+                {
+                    return false;
+                }
+
+                workGiver = new WorkGiverKey(typedWorkGiverValue);
+                return workType.IsValid &&
+                       workGiver.IsValid &&
+                       typedCursor == key.Length &&
+                       (scope == WorkloadTargetScope.GlobalShared || pawn.IsValid);
+            }
+
             int cursor = 0;
-            if (!TryReadCanonicalString(canonicalKey, ref cursor, out string pawnValue))
+            if (!TryReadCanonicalString(key, ref cursor, out string pawnValue))
             {
                 return false;
             }
 
-            pawn = new PawnKey(pawnValue);
             if (dimension == WorkloadStateDimension.Schedules)
             {
+                pawn = new PawnKey(pawnValue);
                 return pawn.IsValid;
             }
 
-            if (dimension == WorkloadStateDimension.PresentationSettings)
+            if (!TryReadCanonicalString(key, ref cursor, out string workTypeValue))
             {
                 return false;
             }
 
-            if (!TryReadCanonicalString(canonicalKey, ref cursor, out string workTypeValue))
+            // Legacy global specific-job keys are Pair(WorkType, WorkGiver),
+            // while local keys are Triple(Pawn, WorkType, WorkGiver). The
+            // second token is already the global WorkGiver; do not consume a
+            // nonexistent third token before deciding which shape we have.
+            if ((dimension == WorkloadStateDimension.SpecificJobOverrides ||
+                 dimension == WorkloadStateDimension.SpecificJobOrder) &&
+                cursor == key.Length)
             {
-                return false;
+                scope = WorkloadTargetScope.GlobalShared;
+                workType = new WorkTypeKey(pawnValue);
+                workGiver = new WorkGiverKey(workTypeValue);
+                pawn = null;
+                return workType.IsValid && workGiver.IsValid;
             }
 
+            pawn = new PawnKey(pawnValue);
             workType = new WorkTypeKey(workTypeValue);
             if (dimension != WorkloadStateDimension.SpecificJobOverrides &&
                 dimension != WorkloadStateDimension.SpecificJobOrder)
@@ -2728,13 +3272,35 @@ namespace Better_Work_Tab.UI.Workloads
                 return pawn.IsValid && workType.IsValid;
             }
 
-            if (!TryReadCanonicalString(canonicalKey, ref cursor, out string workGiverValue))
+            if (!TryReadCanonicalString(key, ref cursor, out string workGiverValue))
             {
                 return false;
             }
 
             workGiver = new WorkGiverKey(workGiverValue);
-            return pawn.IsValid && workType.IsValid && workGiver.IsValid;
+            return pawn.IsValid && workType.IsValid && workGiver.IsValid && cursor == key.Length;
+        }
+
+        private static bool TryReadIntegerToken(
+            string value,
+            ref int cursor,
+            out int result)
+        {
+            result = 0;
+            if (string.IsNullOrEmpty(value) || cursor < 0 || cursor >= value.Length)
+            {
+                return false;
+            }
+
+            int separator = value.IndexOf(':', cursor);
+            if (separator <= cursor ||
+                !int.TryParse(value.Substring(cursor, separator - cursor), out result))
+            {
+                return false;
+            }
+
+            cursor = separator + 1;
+            return true;
         }
 
         private static bool TryReadCanonicalString(
@@ -2765,27 +3331,6 @@ namespace Better_Work_Tab.UI.Workloads
             return true;
         }
 
-        private static string ChangeDimensionLabel(WorkloadStateDimension dimension)
-        {
-            switch (dimension)
-            {
-                case WorkloadStateDimension.ParentPriorities:
-                    return "parent priority";
-                case WorkloadStateDimension.ManualModes:
-                    return "manual mode";
-                case WorkloadStateDimension.Schedules:
-                    return "schedule";
-                case WorkloadStateDimension.SpecificJobOverrides:
-                    return "specific-job override";
-                case WorkloadStateDimension.SpecificJobOrder:
-                    return "specific-job order";
-                case WorkloadStateDimension.PresentationSettings:
-                    return "presentation setting";
-                default:
-                    return dimension.ToString();
-            }
-        }
-
         private static void AddUnsupportedDimension(
             List<string> values,
             WorkloadOwnershipDimensions ownership,
@@ -2805,6 +3350,5 @@ namespace Better_Work_Tab.UI.Workloads
                 ? safe
                 : safe.Substring(0, Math.Max(0, maxLength - 1)) + "...";
         }
-
     }
 }

@@ -279,7 +279,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     "columns.showMovedColorTint",
                     BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true))
                     ? HeaderUtility.Colors.MovedMarkerColor
-                    : BetterWorkTabMod.Settings.angledHeaderColor;
+                    : BWTWorkTabEffectiveSettings.GetColor(
+                        "headers.angledColor",
+                        BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
                 float visibleAlpha = flipAlpha * labelAlpha;
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * visibleAlpha);
 
@@ -397,7 +399,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     "columns.showMovedColorTint",
                     BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true))
                     ? HeaderUtility.Colors.MovedMarkerColor
-                    : BetterWorkTabMod.Settings.angledHeaderColor;
+                    : BWTWorkTabEffectiveSettings.GetColor(
+                        "headers.angledColor",
+                        BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * alpha);
 
                 if (isCJKVertical)
