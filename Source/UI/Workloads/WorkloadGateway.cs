@@ -1403,26 +1403,6 @@ namespace Better_Work_Tab.UI.Workloads
             return false;
         }
 
-        private static bool HasStateEntries(
-            WorkloadProjectedState state,
-            WorkloadStateDimension dimension)
-        {
-            if (state == null)
-            {
-                return false;
-            }
-
-            switch (dimension)
-            {
-                case WorkloadStateDimension.Schedules:
-                    return state.Schedules.Count > 0;
-                case WorkloadStateDimension.PresentationSettings:
-                    return state.PresentationSettings.Count > 0;
-                default:
-                    return false;
-            }
-        }
-
         private static string MultiplayerDecisionLabel(WorkloadDecisionKind decision)
         {
             switch (decision)
@@ -2569,11 +2549,24 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal bool ShouldRouteInspectionWheel(Event evt, Rect updateRect)
         {
-            return ShouldRouteInspectionWheel(evt, updateRect, Rect.zero);
+            return ShouldRouteInspectionWheel(evt, Rect.zero, updateRect, Rect.zero);
         }
 
         internal bool ShouldRouteInspectionWheel(
             Event evt,
+            Rect updateRect,
+            Rect applyRect)
+        {
+            return ShouldRouteInspectionWheel(
+                evt,
+                Rect.zero,
+                updateRect,
+                applyRect);
+        }
+
+        internal bool ShouldRouteInspectionWheel(
+            Event evt,
+            Rect saveAsRect,
             Rect updateRect,
             Rect applyRect)
         {
@@ -2583,9 +2576,11 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             bool overApply = applyRect.width > 0f && applyRect.Contains(evt.mousePosition);
+            bool overSaveAs = saveAsRect.width > 0f && saveAsRect.Contains(evt.mousePosition);
             bool overUpdate = updateRect.width > 0f && updateRect.Contains(evt.mousePosition);
             bool overInspection =
                 (overApply && HasLiveImpact) ||
+                (overSaveAs && HasTemplateDiff) ||
                 (overUpdate && HasTemplateDiff);
             if (overInspection)
             {
@@ -2600,10 +2595,18 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal void UpdateFooterInspectionHover(Rect updateRect)
         {
-            UpdateFooterInspectionHover(updateRect, Rect.zero);
+            UpdateFooterInspectionHover(Rect.zero, updateRect, Rect.zero);
         }
 
         internal void UpdateFooterInspectionHover(Rect updateRect, Rect applyRect)
+        {
+            UpdateFooterInspectionHover(Rect.zero, updateRect, applyRect);
+        }
+
+        internal void UpdateFooterInspectionHover(
+            Rect saveAsRect,
+            Rect updateRect,
+            Rect applyRect)
         {
             if (!IsActive)
             {
@@ -2614,11 +2617,17 @@ namespace Better_Work_Tab.UI.Workloads
 
             Vector2 pointer = Event.current?.mousePosition ?? Vector2.zero;
             bool overApply = applyRect.width > 0f && applyRect.Contains(pointer);
+            bool overSaveAs = saveAsRect.width > 0f && saveAsRect.Contains(pointer);
             bool overUpdate = updateRect.width > 0f && updateRect.Contains(pointer);
             if (overApply && HasLiveImpact)
             {
                 _inspectionActive = true;
                 _inspectionContext = WorkloadInspectionContext.Live;
+            }
+            else if (overSaveAs && HasTemplateDiff)
+            {
+                _inspectionActive = true;
+                _inspectionContext = WorkloadInspectionContext.Template;
             }
             else if (overUpdate && HasTemplateDiff)
             {
@@ -2644,6 +2653,20 @@ namespace Better_Work_Tab.UI.Workloads
             EnsureInspectionIndex();
             return pawn != null && pawn.thingIDNumber > 0 &&
                 _changedSchedulePawnIds.Contains(pawn.thingIDNumber);
+        }
+
+        internal bool HasInspectionRowLevelChanges
+        {
+            get
+            {
+                if (!IsInspectionActive)
+                {
+                    return false;
+                }
+
+                EnsureInspectionIndex();
+                return _changedSchedulePawnIds.Count > 0;
+            }
         }
 
         internal WorkloadInspectionCellKind GetInspectionCellKind(
@@ -2739,15 +2762,6 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             return WorkloadInspectionCellKind.None;
-        }
-
-        internal bool IsInspectionCellAffected(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiver)
-        {
-            return GetInspectionCellKind(pawn, workType, workGiver) !=
-                WorkloadInspectionCellKind.None;
         }
 
         /// <summary>

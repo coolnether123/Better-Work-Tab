@@ -29,7 +29,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             NarrowFooterGeometryIsBounded(header);
             DeletedFeedbackCopyIsAbsent(english, settings);
             FooterActionsAcceptTypedState(gateway, session);
-            InspectionUsesRevisionCachesAndContext(gateway, renderer);
+            InspectionUsesRevisionCachesAndContext(header, gateway, renderer);
             DynamicOwnershipReachesCommitPayload(backend, session);
             IncludeUsesTheAuthoritativeBaselineAndApplyPath(gateway, backend);
             LegacyPayloadsRemainFailClosed(gateway, backend, session);
@@ -41,6 +41,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         }
 
         private static void InspectionUsesRevisionCachesAndContext(
+            string header,
             string gateway,
             string renderer)
         {
@@ -70,6 +71,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "Save/Update hover must select the template inspection context");
             TestAssert.Contains(
                 gateway,
+                "overSaveAs && HasTemplateDiff",
+                "Save As hover and scroll must select the template inspection context");
+            TestAssert.Contains(
+                gateway,
+                "internal bool HasInspectionRowLevelChanges",
+                "legacy schedule-only inspection must expose the cached row-level change index");
+            TestAssert.Contains(
+                gateway,
+                "return _changedSchedulePawnIds.Count > 0",
+                "row-level inspection must reuse the cached schedule pawn index");
+            TestAssert.Contains(
+                gateway,
                 "separate row indicator path",
                 "membership changes must remain outside the priority-cell overlay index");
 
@@ -90,14 +103,23 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "no-cell and membership-only inspections must avoid the draw walk");
             TestAssert.Contains(
                 drawPath,
+                "preview.HasInspectionRowLevelChanges",
+                "legacy schedule-only inspection must use a row-level fast path");
+            TestAssert.Contains(
+                drawPath,
+                "preview.IsInspectionRowLevelChanged(descriptor.Pawn)",
+                "legacy schedule-only inspection must draw only affected visible rows");
+            TestAssert.Contains(
+                drawPath,
                 "WorkGridInteractionGeometry.GetAnimatedBodyContentRect",
                 "inspection must recalculate animated body geometry each draw");
             TestAssert.False(
                 drawPath.IndexOf("TryGetWorkGiverForColumn", StringComparison.Ordinal) >= 0,
                 "sub-work semantic resolution must not occur inside the row/cell hot loop");
-            TestAssert.False(
-                drawPath.IndexOf("DrawHighlight(\n                        rowRect", StringComparison.Ordinal) >= 0,
-                "unrelated rows must not receive a blanket inspection dim pass");
+            TestAssert.Contains(
+                header,
+                "rects.HasWorkloadSaveAs ? rects.WorkloadSaveAs : Rect.zero",
+                "Save As inspection routing must use its clipped visible hit rectangle");
 
             TestAssert.Contains(
                 renderer,

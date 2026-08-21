@@ -799,6 +799,7 @@ namespace Better_Work_Tab.UI
             if (_workloadFooterPopover == WorkloadFooterPopoverKind.None)
             {
                 WorkloadPreviewController.Current?.UpdateFooterInspectionHover(
+                    rects.HasWorkloadSaveAs ? rects.WorkloadSaveAs : Rect.zero,
                     rects.HasWorkloadUpdate ? rects.WorkloadUpdate : Rect.zero,
                     rects.HasWorkloadPreview ? rects.WorkloadApply : Rect.zero);
             }
@@ -862,6 +863,7 @@ namespace Better_Work_Tab.UI
             if (evt.type == EventType.ScrollWheel &&
                 preview?.ShouldRouteInspectionWheel(
                     evt,
+                    rects.HasWorkloadSaveAs ? rects.WorkloadSaveAs : Rect.zero,
                     rects.HasWorkloadUpdate ? rects.WorkloadUpdate : Rect.zero,
                     rects.HasWorkloadPreview ? rects.WorkloadApply : Rect.zero) == true)
             {
@@ -1050,7 +1052,10 @@ namespace Better_Work_Tab.UI
                             BeginWorkloadPreviewSaveAsEditor,
                             notifyPawnTables: false),
                         interactive && preview.CanForkPreview,
-                        preview.CommitBlockedMessage);
+                        preview.CommitBlockedMessage.AnyNonWhitespace()
+                            ? preview.CommitBlockedMessage
+                            : "Save As creates a new workload definition without changing the colony. " +
+                              "Hover to inspect the template changes. Scroll here to move the Work tab.");
                 }
                 if (rects.HasWorkloadUpdate)
                 {
