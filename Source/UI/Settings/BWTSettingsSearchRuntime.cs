@@ -201,10 +201,10 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             string first = string.IsNullOrEmpty(notice.FirstLabel)
-                ? "an Advanced setting"
+                ? "BWT_Settings_Search_AdvancedSetting".Translate()
                 : notice.FirstLabel;
             string suffix = notice.MatchCount > 1
-                ? " (" + notice.MatchCount + " matches)"
+                ? "BWT_Settings_Search_MatchCount".Translate(notice.MatchCount)
                 : string.Empty;
             string label = string.Format(
                 BWTSettingsTranslation.AdvancedSearchNotice,
@@ -216,9 +216,8 @@ namespace Better_Work_Tab.UI.Settings
                 Mathf.Min(AdvancedNoticeHeight, rect.height));
             bool clicked = Widgets.ButtonText(buttonRect, label);
             string tooltip = string.IsNullOrEmpty(notice.Context)
-                ? "This result is hidden in Simple view. Switch to Advanced to reveal it."
-                : "Advanced setting context: " + notice.Context +
-                ". Switch to Advanced to reveal it.";
+                ? "BWT_Settings_Search_HiddenInSimple".Translate()
+                : "BWT_Settings_Search_AdvancedContext".Translate(notice.Context);
             TooltipHandler.TipRegion(buttonRect, tooltip);
             return clicked;
         }
@@ -256,14 +255,14 @@ namespace Better_Work_Tab.UI.Settings
                 rect.height);
             Widgets.Label(labelRect, label ?? string.Empty);
             string status = ActiveAliasCount == 0 && PendingAliasCount == 0
-                ? "None"
-                : ActiveAliasCount + " active, " + PendingAliasCount + " pending";
+                ? "BWT_Settings_Search_None".Translate()
+                : "BWT_Settings_Search_AliasStatus".Translate(ActiveAliasCount, PendingAliasCount);
             TextAnchor oldAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleRight;
             Widgets.Label(valueRect, status);
             Text.Anchor = oldAnchor;
 
-            bool clicked = !disabled && Widgets.ButtonText(buttonRect, "Reset");
+            bool clicked = !disabled && Widgets.ButtonText(buttonRect, "BWT_Settings_Search_Reset".Translate());
             if (clicked)
             {
                 Reset();
@@ -271,9 +270,9 @@ namespace Better_Work_Tab.UI.Settings
 
             if (!string.IsNullOrEmpty(tooltip))
             {
-                TooltipHandler.TipRegion(rect, tooltip +
-                    " Three deliberate corrections are required before a local alias is used. " +
-                    "No query text leaves this computer.");
+                TooltipHandler.TipRegion(
+                    rect,
+                    tooltip + " " + "BWT_Settings_Search_AliasPrivacy".Translate());
             }
 
             GUI.color = oldColor;

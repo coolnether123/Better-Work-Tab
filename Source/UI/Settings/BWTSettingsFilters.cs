@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Spine.UI.SettingsFramework;
+using Verse;
 using static Better_Work_Tab.UI.Settings.SettingIDs;
 
 namespace Better_Work_Tab.UI.Settings
@@ -60,85 +61,85 @@ namespace Better_Work_Tab.UI.Settings
                 BuildVersionFilter("version.1.1", "BWT v1.1", IsV11Setting),
                 BuildVersionFilter("version.1.0.5", "BWT v1.0.5", IsV105Setting),
                 BuildVersionFilter("version.1.0", "BWT v1.0", IsV10Setting),
-                BuildSystemFilter("system.subwork", "Sub-work Jobs", FeaturesSubWorkJobs),
-                BuildSystemFilter("system.headers", "Headers", HeadersHeader),
-                BuildSystemFilter("system.dividers", "Dividers", FeaturesDividers),
-                BuildSystemFilter("system.dragdrop", "Drag & Drop", FeaturesDragdrop),
-                BuildSystemFilter("system.priorities", "Priorities", PriorityHeader),
-                BuildSystemFilter("system.timePriority", "Time Priority Schedule", UiTimePrioritySchedules),
-                BuildSystemFilter("system.fluffyStyle", "Fluffy-style Work Tab", CompatFluffyWorkTabHeader),
-                BuildSystemFilter("system.workloads", "Workloads", FeaturesWorkloads),
-                BuildSystemFilter("system.rules", "Rulesets", FeaturesAutoassign),
-                BuildSystemFilter("system.highlights", "Highlights", FeaturesHighlights),
-                BuildSystemFilter("system.ui", "UI Display", FeaturesUiElements),
-                BuildSystemFilter("system.clicks", "Clicks & Shortcuts", FeaturesClicks),
+                BuildSystemFilter("system.subwork", "BWT_Settings_Filter_SpecificJobs".Translate(), FeaturesSubWorkJobs),
+                BuildSystemFilter("system.headers", "BWT_Settings_Filter_Headers".Translate(), HeadersHeader),
+                BuildSystemFilter("system.dividers", "BWT_Settings_Filter_Dividers".Translate(), FeaturesDividers),
+                BuildSystemFilter("system.dragdrop", "BWT_Settings_Filter_DragDrop".Translate(), FeaturesDragdrop),
+                BuildSystemFilter("system.priorities", "BWT_Settings_Filter_Priorities".Translate(), PriorityHeader),
+                BuildSystemFilter("system.timePriority", "BWT_Settings_Filter_HourlyPriorities".Translate(), UiTimePrioritySchedules),
+                BuildSystemFilter("system.fluffyStyle", "BWT_Settings_Filter_FluffyStyle".Translate(), CompatFluffyWorkTabHeader),
+                BuildSystemFilter("system.workloads", "BWT_Settings_Filter_Workloads".Translate(), FeaturesWorkloads),
+                BuildSystemFilter("system.rules", "BWT_Settings_Filter_RuleBuilder".Translate(), FeaturesAutoassign),
+                BuildSystemFilter("system.highlights", "BWT_Settings_Filter_Highlights".Translate(), FeaturesHighlights),
+                BuildSystemFilter("system.ui", "BWT_Settings_Filter_Display".Translate(), FeaturesUiElements),
+                BuildSystemFilter("system.clicks", "BWT_Settings_Filter_Controls".Translate(), FeaturesClicks),
                 new SettingsFilterDefinition
                 {
                     Id = "worktab.style",
-                    Label = "Work Tab-style",
+                    Label = "BWT_Settings_Filter_WorkTabStyle".Translate(),
                     Category = PresetsCategory,
-                    CategoryLabel = "Presets",
-                    Tooltip = "Settings that map to common expanded Work tab behavior: compact headers, priorities, sub-work priorities, dividers, dragging, skill overlays, workload presets, and time planning.",
+                    CategoryLabel = "BWT_Settings_Filter_Presets".Translate(),
+                    Tooltip = "BWT_Settings_Filter_WorkTabStyleTooltip".Translate(),
                     Predicate = (def, _) => IsWorkTabStyleSetting(def),
                     IncludeChildrenOfMatches = false
                 },
                 new SettingsFilterDefinition
                 {
                     Id = "vanilla.plus",
-                    Label = "Vanilla+",
+                    Label = "BWT_Settings_Filter_VanillaPlus".Translate(),
                     Category = PresetsCategory,
-                    CategoryLabel = "Presets",
-                    Tooltip = "Low-disruption settings that keep the Work tab close to vanilla while adding polish: headers, drag/reorder, highlights, overlays, counts, priority display, and layout spacing.",
+                    CategoryLabel = "BWT_Settings_Filter_Presets".Translate(),
+                    Tooltip = "BWT_Settings_Filter_VanillaPlusTooltip".Translate(),
                     Predicate = (def, _) => IsVanillaPlusSetting(def),
                     IncludeChildrenOfMatches = false
                 },
                 new SettingsFilterDefinition
                 {
                     Id = "state.enabled",
-                    Label = "Enabled Settings",
+                    Label = "BWT_Settings_Filter_Enabled".Translate(),
                     Category = StatesCategory,
-                    CategoryLabel = "States",
-                    Tooltip = "Only boolean settings that are currently enabled.",
+                    CategoryLabel = "BWT_Settings_Filter_States".Translate(),
+                    Tooltip = "BWT_Settings_Filter_EnabledTooltip".Translate(),
                     Predicate = (def, settings) => TryReadBool(def, settings, out bool value) && value,
                     IncludeChildrenOfMatches = false
                 },
                 new SettingsFilterDefinition
                 {
                     Id = "state.disabled",
-                    Label = "Disabled Settings",
+                    Label = "BWT_Settings_Filter_Disabled".Translate(),
                     Category = StatesCategory,
-                    CategoryLabel = "States",
-                    Tooltip = "Only boolean settings that are currently disabled.",
+                    CategoryLabel = "BWT_Settings_Filter_States".Translate(),
+                    Tooltip = "BWT_Settings_Filter_DisabledTooltip".Translate(),
                     Predicate = (def, settings) => TryReadBool(def, settings, out bool value) && !value,
                     IncludeChildrenOfMatches = false
                 },
                 new SettingsFilterDefinition
                 {
                     Id = "state.changed",
-                    Label = "Changed From Default",
+                    Label = "BWT_Settings_Filter_Changed".Translate(),
                     Category = StatesCategory,
-                    CategoryLabel = "States",
-                    Tooltip = "Only settings whose current value differs from the registered default.",
+                    CategoryLabel = "BWT_Settings_Filter_States".Translate(),
+                    Tooltip = "BWT_Settings_Filter_ChangedTooltip".Translate(),
                     Predicate = IsChangedFromDefault,
                     IncludeChildrenOfMatches = false
                 },
                 new SettingsFilterDefinition
                 {
                     Id = "state.notViewed",
-                    Label = "Not Yet Viewed",
+                    Label = "BWT_Settings_Filter_NotViewed".Translate(),
                     Category = StatesCategory,
-                    CategoryLabel = "States",
-                    Tooltip = "Settings whose tooltip has not been opened yet.",
+                    CategoryLabel = "BWT_Settings_Filter_States".Translate(),
+                    Tooltip = "BWT_Settings_Filter_NotViewedTooltip".Translate(),
                     Predicate = IsNotYetViewed,
                     IncludeChildrenOfMatches = false
                 },
                 new SettingsFilterDefinition
                 {
                     Id = "system.animations",
-                    Label = "Animations",
+                    Label = "BWT_Settings_Filter_Animations".Translate(),
                     Category = SystemsCategory,
-                    CategoryLabel = "Systems",
-                    Tooltip = "Animation and cursor movement settings.",
+                    CategoryLabel = "BWT_Settings_Filter_Systems".Translate(),
+                    Tooltip = "BWT_Settings_Filter_AnimationsTooltip".Translate(),
                     Predicate = (def, _) => ContainsAny(def, "animation", "animate", "cursor"),
                     IncludeChildrenOfMatches = true
                 }
@@ -152,8 +153,8 @@ namespace Better_Work_Tab.UI.Settings
                 Id = id,
                 Label = label,
                 Category = SystemsCategory,
-                CategoryLabel = "Systems",
-                Tooltip = $"Show settings under {label}.",
+                CategoryLabel = "BWT_Settings_Filter_Systems".Translate(),
+                Tooltip = "BWT_Settings_Filter_SystemTooltip".Translate(label),
                 Predicate = (def, _) => string.Equals(def.Id, rootId, StringComparison.OrdinalIgnoreCase),
                 IncludeChildrenOfMatches = true
             };
@@ -169,8 +170,8 @@ namespace Better_Work_Tab.UI.Settings
                 Id = id,
                 Label = label,
                 Category = VersionsCategory,
-                CategoryLabel = "Versions",
-                Tooltip = "Show settings added or materially changed in this BWT version.",
+                CategoryLabel = "BWT_Settings_Filter_Versions".Translate(),
+                Tooltip = "BWT_Settings_Filter_VersionTooltip".Translate(),
                 Predicate = (def, _) => predicate(def),
                 IncludeChildrenOfMatches = true
             };

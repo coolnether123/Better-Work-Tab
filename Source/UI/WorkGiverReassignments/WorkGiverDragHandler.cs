@@ -98,7 +98,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                         {
                             WorkTabEffectiveStateRuntime.ReportBlocked(
                                 WorkTabEffectiveStateDimension.SpecificJobOrder,
-                                "Cross-work-type work-giver moves are owned by the live layout service.");
+                                "BWT_Workload_MoveSpecificJobUnavailable".Translate());
                         }
                         else
                         {
@@ -163,7 +163,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     RestoreOriginalOrder(workGivers);
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.SpecificJobOrder,
-                        "Specific-job ordering requires a valid work-type key and, for local order, a valid pawn.");
+                        "BWT_Workload_SpecificJobOrderTargetMissing".Translate());
                     return;
                 }
 
@@ -176,7 +176,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                         RestoreOriginalOrder(workGivers);
                         WorkTabEffectiveStateRuntime.ReportBlocked(
                             WorkTabEffectiveStateDimension.SpecificJobOrder,
-                            "The current work-giver list does not have unique stable keys.");
+                            "BWT_Workload_SpecificJobOrderInvalid".Translate());
                         return;
                     }
                 }
@@ -186,7 +186,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     RestoreOriginalOrder(workGivers);
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.SpecificJobOrder,
-                        "The dragged work-giver list changed before its stable key could be projected.");
+                        "BWT_Workload_SpecificJobOrderChanged".Translate());
                     return;
                 }
 
@@ -196,7 +196,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     RestoreOriginalOrder(workGivers);
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.SpecificJobOrder,
-                        "The active preview provider does not own specific-job ordering.");
+                        "BWT_Workload_SpecificJobOrderUnavailable".Translate());
                     return;
                 }
 
@@ -209,7 +209,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                         RestoreOriginalOrder(workGivers);
                         WorkTabEffectiveStateRuntime.ReportBlocked(
                             WorkTabEffectiveStateDimension.SpecificJobOrder,
-                            "The dragged work-giver list does not have unique stable keys.");
+                            "BWT_Workload_SpecificJobOrderInvalid".Translate());
                         return;
                     }
                 }

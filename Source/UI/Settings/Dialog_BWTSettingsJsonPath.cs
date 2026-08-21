@@ -41,14 +41,14 @@ namespace Better_Work_Tab.UI.Settings
             Text.Font = GameFont.Small;
 
             Rect labelRect = new Rect(0f, 46f, inRect.width, 24f);
-            Widgets.Label(labelRect, "JSON file path");
+            Widgets.Label(labelRect, "BWT_Settings_Json_FilePath".Translate());
 
             Rect pathRect = new Rect(0f, 72f, inRect.width, 32f);
             _path = Widgets.TextField(pathRect, _path ?? string.Empty);
 
             Rect hintRect = new Rect(0f, 108f, inRect.width, 28f);
             GUI.color = Color.gray;
-            Widgets.Label(hintRect, "Default folder: " + GenFilePaths.ConfigFolderPath);
+            Widgets.Label(hintRect, "BWT_Settings_Json_DefaultFolder".Translate(GenFilePaths.ConfigFolderPath));
             GUI.color = Color.white;
 
             float buttonWidth = 140f;
@@ -56,12 +56,12 @@ namespace Better_Work_Tab.UI.Settings
             Rect acceptRect = new Rect(inRect.width - buttonWidth, inRect.height - 38f, buttonWidth, 35f);
             Rect openFolderRect = new Rect(cancelRect.xMax + 8f, inRect.height - 38f, buttonWidth, 35f);
 
-            if (Widgets.ButtonText(cancelRect, "Cancel"))
+            if (Widgets.ButtonText(cancelRect, "Cancel".Translate()))
             {
                 Close();
             }
 
-            if (Widgets.ButtonText(openFolderRect, "Open Folder"))
+            if (Widgets.ButtonText(openFolderRect, "BWT_Settings_Json_OpenFolder".Translate()))
             {
                 Application.OpenURL(GenFilePaths.ConfigFolderPath);
             }
@@ -71,7 +71,7 @@ namespace Better_Work_Tab.UI.Settings
                 string resolved = ResolvePath(_path);
                 if (string.IsNullOrWhiteSpace(resolved))
                 {
-                    Messages.Message("Enter a valid JSON file path.", MessageTypeDefOf.RejectInput, false);
+                    Messages.Message("BWT_Settings_Json_InvalidPath".Translate(), MessageTypeDefOf.RejectInput, false);
                     return;
                 }
 

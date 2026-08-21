@@ -4,9 +4,9 @@
   <author>Coolnether123</author>
   <url>https://github.com/coolnether123/Better-Work-Tab</url>
   <targetVersion>0.19.2009</targetVersion>
-  <description><![CDATA[Better Work Tab v1.1 overhauls RimWorld's Work tab with drag-and-drop ordering, skill overlays, automation rules, extended priorities up to 99, workloads, dividers, and visual customization.
+  <description><![CDATA[Better Work Tab v1.1 adds drag-and-drop ordering, skill overlays, automation rules, extended priorities up to 99, workloads, dividers, and visual customization to RimWorld's Work tab.
 
-Features are toggleable in settings.
+You can toggle features in settings.
 
 Version support:
 - 0.19 -> v1.1 - Multiplayer does not work

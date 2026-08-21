@@ -1084,7 +1084,7 @@ namespace Better_Work_Tab.UI.Settings
                 _lastObservedLegacyMode = previousLegacy;
                 _lastObservedLegacyModeValid = true;
                 Messages.Message(
-                    "Workload mode cannot be changed while a workload preview is active. Close the preview first.",
+                    "BWT_Settings_WorkloadMode_PreviewBlocked".Translate(),
                     MessageTypeDefOf.RejectInput,
                     false);
                 return;
@@ -1110,7 +1110,7 @@ namespace Better_Work_Tab.UI.Settings
             _lastObservedLegacyModeValid = true;
             Messages.Message(
                 string.IsNullOrEmpty(result.Message)
-                    ? "The workload mode could not be changed safely."
+                    ? "BWT_Settings_WorkloadMode_ChangeFailed".Translate().ToString()
                     : result.Message,
                 MessageTypeDefOf.RejectInput,
                 false);

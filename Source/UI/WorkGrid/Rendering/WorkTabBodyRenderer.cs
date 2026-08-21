@@ -355,28 +355,27 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 case WorkloadMembershipClassification.Included:
                     accent = new Color(0.30f, 0.74f, 0.66f, 0.88f);
-                    tooltip = "Workload preview: represented and included.";
+                    tooltip = "BWT_Workload_PawnIncludedTooltip".Translate();
                     break;
                 case WorkloadMembershipClassification.UnrepresentedNew:
                     accent = new Color(0.95f, 0.72f, 0.28f, 0.92f);
                     fill = new Color(0.95f, 0.72f, 0.28f, 0.055f);
-                    tooltip = "Workload preview: new or unrepresented pawn. " +
-                              "Right-click the pawn row to include it in this application.";
+                    tooltip = "BWT_Workload_PawnNewTooltip".Translate();
                     break;
                 case WorkloadMembershipClassification.UnchangedOutsideScope:
                     accent = new Color(0.55f, 0.58f, 0.60f, 0.78f);
                     fill = new Color(0f, 0f, 0f, 0.09f);
-                    tooltip = "Workload preview: outside this workload's scope; unchanged by Apply.";
+                    tooltip = "BWT_Workload_PawnOutsideTooltip".Translate();
                     break;
                 case WorkloadMembershipClassification.ExplicitlyExcluded:
                     accent = new Color(0.82f, 0.36f, 0.36f, 0.92f);
                     fill = new Color(0.70f, 0.16f, 0.16f, 0.07f);
-                    tooltip = "Workload preview: excluded for this application; live values remain unchanged.";
+                    tooltip = "BWT_Workload_PawnExcludedTooltip".Translate();
                     break;
                 case WorkloadMembershipClassification.StaleMissing:
                     accent = new Color(0.68f, 0.38f, 0.38f, 0.82f);
                     fill = new Color(0f, 0f, 0f, 0.08f);
-                    tooltip = "Workload preview: represented by the workload but not currently available.";
+                    tooltip = "BWT_Workload_PawnMissingTooltip".Translate();
                     break;
                 default:
                     return;
@@ -1361,7 +1360,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Text.Anchor = TextAnchor.MiddleCenter;
             Widgets.Label(arrowRect, arrowChar);
             Text.Anchor = originalAnchor;
-            TooltipHandler.TipRegion(arrowRect, divider.IsCollapsed ? "Expand section" : "Collapse section");
+            TooltipHandler.TipRegion(
+                arrowRect,
+                divider.IsCollapsed
+                    ? "BWT_Divider_ExpandSection".Translate()
+                    : "BWT_Divider_CollapseSection".Translate());
         }
 
         private static void ToggleDividerCollapsed(PawnDivider divider)
@@ -1431,7 +1434,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     {
                         WorkTabEffectiveStateRuntime.ReportBlocked(
                             WorkTabEffectiveStateDimension.SpecificJobOverride,
-                            "Sleek owns this mixed cell and has no preview editor bridge.");
+                            "BWT_Workload_SleekCellUnavailable".Translate());
                         continue;
                     }
 

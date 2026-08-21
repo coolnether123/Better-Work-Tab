@@ -2,7 +2,7 @@
 
 # Better Work Tab 2.0
 
-Better Work Tab expands RimWorld's Work tab with faster setup, finer job control, reusable rules, and flexible layouts.
+Better Work Tab adds drag-and-drop ordering, specific-job controls, reusable rules, time-based priorities, and layout options to RimWorld's Work tab.
 
 ## Transpiler architecture
 
@@ -17,19 +17,19 @@ is no longer used by BWT.
 
 ## What 2.0 adds
 
-- **Guided tutorial** — choose a focused “What’s new in 2.0” course or the complete Better Work Tab walkthrough. Lessons point to the relevant controls and guide the required actions.
-- **Rule Builder 2.0** — create card-based rulesets from work targets, conditions, priority actions, and map checks; preview matches before applying. The classic rule builder remains available.
-- **Specific-job drilldown** — open a Work type into its individual jobs, set shared or pawn-specific priorities, rename jobs, reorder them, and move them between Work columns.
-- **Two specific-job layouts** — use a clean focused full-tab view or Fluffy-inspired right-expanding columns.
-- **Time-priority schedules** — Ctrl-click a priority cell to plan different priorities across all 24 hours, including individual specific jobs. Schedules support copy and paste.
-- **Priority ranges** — keep vanilla priorities, let BWT choose automatically, delegate to a compatible provider, or let BWT manage priorities up to 99.
-- **Fluffy Work Tab coexistence** — choose which mod owns the Work tab. When BWT owns it, compatible Fluffy columns and familiar top controls can remain available.
+- **Guided tutorial**: Choose the focused "What's new in 2.0" course or the complete Better Work Tab walkthrough. Lessons point to the relevant controls and actions.
+- **Rule Builder 2.0**: Create card-based rulesets with work targets, conditions, priority actions, and map checks. Preview matches before applying. The classic rule builder remains available.
+- **Specific-job view**: Open a Work type to manage its individual jobs. Set shared or pawn-specific priorities, rename and reorder jobs, and move them between Work columns.
+- **Two specific-job layouts**: Use a focused full-tab view or Fluffy-inspired right-expanding columns.
+- **Time-priority schedules**: Ctrl-click a priority cell to set priorities for all 24 hours, including individual specific jobs. Schedules support copy and paste.
+- **Priority ranges**: Keep vanilla priorities, let BWT choose automatically, delegate to a compatible provider, or let BWT manage priorities up to 99.
+- **Fluffy Work Tab coexistence**: Choose which mod owns the Work tab. When BWT owns it, compatible Fluffy columns and top controls remain available.
 
-Every major 2.0 system is independently toggleable in Mod Settings.
+You can toggle each major 2.0 system independently in Mod Settings.
 
 ## Work-tab essentials
 
-- Drag pawn rows and Work columns to reorder them; layouts persist.
+- Drag pawn rows and Work columns to reorder them. The layout is saved.
 - Hold Shift for color-coded skill levels and best-pawn indicators.
 - Save and restore whole-colony priority layouts as workloads.
 - Organize pawns with named, colored, collapsible dividers.
@@ -43,14 +43,14 @@ Every major 2.0 system is independently toggleable in Mod Settings.
 
 BWT handles new 2.0 installs and upgrades from the public 1.0.5 release differently:
 
-- New 2.0 installs start with specific-job drilldown, Rule Builder 2.0, time-priority schedules, and the guided tutorial enabled.
-- Upgrades keep the new 2.0 features disabled initially. The upgrade prompt can enable them through a tutorial course, or the familiar 1.x interface can remain in place while features are enabled later from settings.
+- New 2.0 installs start with the specific-job view, Rule Builder 2.0, time-priority schedules, and the guided tutorial enabled.
+- Upgrades keep the new 2.0 features disabled initially. The upgrade prompt can enable them through a tutorial course. You can also keep the 1.x interface and enable features later in settings.
 
-Saved 1.x preferences and rulesets are preserved. BWT applies the settings update once; importing settings later does not repeat the upgrade process. Back up important saves before changing the mod list.
+Saved 1.x preferences and rulesets are preserved. BWT applies the settings update once. Importing settings later does not repeat it. Back up important saves before changing the mod list.
 
 ## Specific jobs and Fluffy-style coverage
 
-Better Work Tab owns its specific-job priorities, ordering, schedules, and two presentation styles. Fluffy Work Tab is optional.
+Better Work Tab owns its specific-job priorities, ordering, schedules, and two layouts. Fluffy Work Tab is optional.
 
 | Capability | Better Work Tab 2.0 behavior |
 | --- | --- |
@@ -60,7 +60,7 @@ Better Work Tab owns its specific-job priorities, ordering, schedules, and two p
 | Priorities by hour | BWT 24-hour planner for Work types and specific jobs |
 | More priority levels | Configurable BWT range up to 99 |
 | Scroll priority editing | Optional for Work, specific-job, and scheduled priority cells |
-| Compact top controls | Uses installed Fluffy icons; optional BWT text substitutes work standalone |
+| Compact top controls | Uses installed Fluffy icons. Optional BWT text substitutes work without Fluffy. |
 | Mood, current job, favorite, and detailed-copy columns | Supplied by an installed compatible Fluffy Work Tab |
 
 Shift-click remains reserved for BWT's grouped column dragging, so it does not duplicate Fluffy's whole-row and whole-column shortcut exactly.
@@ -68,22 +68,22 @@ Shift-click remains reserved for BWT's grouped column dragging, so it does not d
 ## Compatibility
 
 - Requires [Harmony](https://steamcommunity.com/sharedfiles/filedetails/?id=2009463077).
-- Supports RimWorld 0.13 through 1.6; multiplayer support is limited to the versions identified in `About/About.xml`.
+- Supports RimWorld 0.13 through 1.6. Multiplayer support is limited to the versions identified in `About/About.xml`.
 - Compatible with all DLC and designed for modded Work types.
 - Supports [FSF] Complex Jobs ordering and Vanilla Skills Expanded passion conditions.
 - Fluffy Work Tab and maintained forks can coexist, with one mod selected as the Work-tab owner.
 - CompactWorkTab overlaps the same UI and should not be enabled together.
-- Other Work-tab overhauls may conflict; test before adding one to an existing save.
+- Other Work-tab overhauls may conflict. Test before adding one to an existing save.
 
 ## Performance
 
-The optimized Work-grid renderer uses caching, viewport culling, and targeted invalidation for large colonies. A vanilla-compatible renderer remains available as a fallback in advanced settings.
+The optimized Work-grid renderer uses caching, viewport culling, and targeted invalidation for large colonies. A vanilla-compatible renderer remains available in advanced settings.
 
 ## Credits
 
 - Colour picker by Karel Kroeze (MIT License)
-- Fluffy's Work Tab by Fluffy — UI inspiration and compatibility reference (MIT software/documentation); BWT does not bundle Fluffy's CC BY-SA art or sounds
-- Harmony team — patch framework
+- Fluffy's Work Tab by Fluffy: UI inspiration and compatibility reference. Its software and documentation are MIT licensed. BWT does not bundle its CC BY-SA art or sounds.
+- Harmony team: Patch framework
 - Full notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 
 ## Support

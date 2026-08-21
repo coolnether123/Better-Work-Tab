@@ -941,7 +941,7 @@ namespace Better_Work_Tab.PawnOrganizer
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.SpecificJobOrder,
-                    "Specific-job ordering is not projected in this workload preview; live reassignment order is not used.");
+                    "BWT_Workload_SpecificJobOrderUnavailable".Translate());
             }
             if (showSubWork)
             {

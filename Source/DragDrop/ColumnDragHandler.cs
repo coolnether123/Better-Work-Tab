@@ -626,7 +626,7 @@ namespace Better_Work_Tab.DragDrop
                 {
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.SpecificJobOrder,
-                        "Global sub-work layout ordering cannot be represented by a pawn-scoped preview key.");
+                        "BWT_Workload_SharedSpecificJobOrderUnavailable".Translate());
                     return;
                 }
 
@@ -706,7 +706,7 @@ namespace Better_Work_Tab.DragDrop
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.SpecificJobOrder,
-                    "Cross-work-type specific-job moves are owned by the live layout service.");
+                    "BWT_Workload_MoveSpecificJobUnavailable".Translate());
                 return true;
             }
 
