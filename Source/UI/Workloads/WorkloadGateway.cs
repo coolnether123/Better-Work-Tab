@@ -735,7 +735,9 @@ namespace Better_Work_Tab.UI.Workloads
         }
 
         internal static WorkloadOperationResult<WorkloadSession> RebaseV2PreviewAfterPersistence(
-            WorkloadPersistenceReceipt receipt)
+            WorkloadPersistenceReceipt receipt,
+            WorkloadDecisionKind decisionKind = WorkloadDecisionKind.Apply,
+            string targetStableId = null)
         {
             if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
             {
@@ -746,6 +748,27 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 return V2Unavailable<WorkloadSession>(
                     "V2 preview rebasing is unavailable while legacy workloads are active.");
+            }
+
+            if (receipt == null &&
+                decisionKind != WorkloadDecisionKind.Update &&
+                decisionKind != WorkloadDecisionKind.Fork)
+            {
+                return modern.RebasePreviewAfterPersistence(null);
+            }
+
+            if (receipt == null)
+            {
+                WorkloadOperationResult<WorkloadPersistenceReceipt> recovered =
+                    modern.RecoverPersistenceReceipt(decisionKind, targetStableId);
+                if (!recovered.Succeeded || recovered.Value == null)
+                {
+                    return WorkloadOperationResult<WorkloadSession>.Fail(
+                        recovered.Code,
+                        recovered.Message);
+                }
+
+                receipt = recovered.Value;
             }
 
             return modern.RebasePreviewAfterPersistence(receipt);
@@ -1564,16 +1587,18 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (_multiplayerDecision != WorkloadDecisionKind.Apply)
             {
+                string expectedStableId = _multiplayerDecision == WorkloadDecisionKind.Fork
+                    ? _multiplayerForkStableId
+                    : SourceStableId;
                 WorkloadOperationResult<WorkloadSession> rebased =
                     WorkloadGateway.RebaseV2PreviewAfterPersistence(
-                        status?.Result?.PersistenceReceipt);
+                        status?.Result?.PersistenceReceipt,
+                        _multiplayerDecision,
+                        expectedStableId);
                 WorkloadOperationResult<WorkloadSession> adopted =
                     rebased.Succeeded
                         ? WorkloadGateway.AdoptV2PreviewSession()
                         : rebased;
-                string expectedStableId = _multiplayerDecision == WorkloadDecisionKind.Fork
-                    ? _multiplayerForkStableId
-                    : SourceStableId;
                 if (!adopted.Succeeded || adopted.Value == null ||
                     !StringComparer.Ordinal.Equals(
                         adopted.Value.SourceTemplate.StableId,
