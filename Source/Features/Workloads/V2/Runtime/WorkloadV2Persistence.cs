@@ -57,6 +57,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         public const string SchemaVersion = "workloadsV2SchemaVersion";
         public const string CurrentWorkloadId = "currentWorkloadV2Id";
         public const string Records = "workloadV2Records";
+        public const string PersistenceRevision = "workloadsV2PersistenceRevision";
+        public const string PersistenceFingerprint = "workloadsV2PersistenceFingerprint";
     }
 
     public sealed class WorkloadV2PersistenceEnvelope : IExposable
@@ -64,6 +66,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         // A deserialized envelope must prove its schema. New runtime stores use
         // CreateEmpty(), which stamps the current version explicitly.
         public int SchemaVersion;
+        public int PersistenceRevision;
+        public string PersistenceFingerprint = string.Empty;
         public string CurrentWorkloadId = string.Empty;
         public List<WorkloadV2PersistenceRecord> Records = new List<WorkloadV2PersistenceRecord>();
 
@@ -86,6 +90,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             var result = new WorkloadV2PersistenceEnvelope
             {
                 SchemaVersion = WorkloadSchema.CurrentVersion,
+                PersistenceRevision = 0,
                 SchemaState = WorkloadV2SchemaState.Current
             };
             result.RefreshDiagnostics();
@@ -147,6 +152,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2PersistenceKeys.SchemaVersion,
                 0);
             Scribe_Values.Look(
+                ref PersistenceRevision,
+                WorkloadV2PersistenceKeys.PersistenceRevision,
+                0);
+            Scribe_Values.Look(
+                ref PersistenceFingerprint,
+                WorkloadV2PersistenceKeys.PersistenceFingerprint,
+                string.Empty);
+            Scribe_Values.Look(
                 ref CurrentWorkloadId,
                 WorkloadV2PersistenceKeys.CurrentWorkloadId,
                 string.Empty);
@@ -176,6 +189,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             Records ??= new List<WorkloadV2PersistenceRecord>();
             CurrentWorkloadId ??= string.Empty;
 
+            string migrationError;
+            if (!WorkloadV2Migration.TryMigrateEnvelope(this, out migrationError))
+            {
+                MarkReadOnly(
+                    WorkloadDiagnosticCode.ReadOnlyDiagnostic,
+                    migrationError);
+                return;
+            }
+
             RefreshDiagnostics();
             if (IsReadOnlyDiagnostic) return;
 
@@ -184,6 +206,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 Records[i]?.NormalizeStableState();
             }
+
+            RefreshPersistenceMetadata(false);
         }
 
         /// <summary>
@@ -197,6 +221,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             DiagnosticCode = WorkloadDiagnosticCode.None;
             Diagnostic = string.Empty;
             SchemaState = WorkloadV2SchemaPolicy.Classify(SchemaVersion);
+
+            if (PersistenceRevision < 0)
+            {
+                MarkReadOnly(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The saved Workloads V2 persistence revision is invalid.");
+                return;
+            }
 
             if (SchemaState == WorkloadV2SchemaState.Missing && !HasPersistedDocument)
             {
@@ -285,6 +317,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         return;
                 }
 
+                // NoOpinion is dictionary absence. Normalize this typed
+                // boundary before duplicate validation so stale serialized
+                // NoOpinion nodes cannot make a valid target dirty or collide
+                // with its real Set/Clear record.
+                record.NormalizeStableState();
+
                 int knownOwnershipBits = (int)WorkloadOwnershipDimensions.All;
                 if ((record.OwnershipDimensions & ~knownOwnershipBits) != 0)
                 {
@@ -349,6 +387,41 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     return;
                 }
 
+                if (HasDuplicateKeys(
+                        record.ParentPriorityIntents,
+                        value => PairKey(value?.PawnId, value?.WorkTypeDefName),
+                        "typed parent-priority intent records",
+                        out duplicateMessage) ||
+                    HasDuplicateKeys(
+                        record.ManualModeIntents,
+                        value => PairKey(value?.PawnId, value?.WorkTypeDefName),
+                        "typed manual-mode intent records",
+                        out duplicateMessage) ||
+                    HasDuplicateKeys(
+                        record.ScheduleIntents,
+                        value => ScheduleIntentKey(value),
+                        "typed schedule intent records",
+                        out duplicateMessage) ||
+                    HasDuplicateKeys(
+                        record.SpecificPriorityIntents,
+                        value => SpecificPriorityIntentKey(value),
+                        "typed specific-priority intent records",
+                        out duplicateMessage) ||
+                    HasDuplicateKeys(
+                        record.WorkTypeOrderIntents,
+                        value => WorkTypeOrderIntentKey(value),
+                        "typed WorkType order intent records",
+                        out duplicateMessage) ||
+                    HasDuplicateKeys(
+                        record.PresentationSettingIntents,
+                        value => value?.Key,
+                        "typed presentation-setting intent records",
+                        out duplicateMessage))
+                {
+                    MarkReadOnly(WorkloadDiagnosticCode.InvalidState, duplicateMessage);
+                    return;
+                }
+
                 WorkloadOperationResult<WorkloadTemplate> recordValidation =
                     WorkloadV2RecordConverter.TryToTemplate(record);
                 if (!recordValidation.Succeeded)
@@ -359,6 +432,17 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     MarkReadOnly(
                         diagnosticCode,
                         "A saved Workloads V2 record is not safe to rewrite: " + recordValidation.Message);
+                    return;
+                }
+
+                if (record.LegacyScheduleRequiresReview || record.LegacyOrderRequiresReview)
+                {
+                    SchemaState = WorkloadV2SchemaState.Opaque;
+                    MarkReadOnly(
+                        WorkloadDiagnosticCode.ReadOnlyDiagnostic,
+                        string.IsNullOrWhiteSpace(record.MigrationDiagnostic)
+                            ? "The workload contains legacy schedule or order data that cannot be losslessly represented by the typed schema."
+                            : record.MigrationDiagnostic);
                     return;
                 }
             }
@@ -419,6 +503,89 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
         }
 
+        /// <summary>
+        /// Monotonic persistence metadata for same-ID Update/Fork callers.
+        /// The fingerprint covers workload content, not the revision fields.
+        /// </summary>
+        public string ComputeContentFingerprint()
+        {
+            var builder = new System.Text.StringBuilder();
+            builder.Append(WorkloadCanonical.Integer(SchemaVersion));
+            builder.Append(WorkloadCanonical.Encode(CurrentWorkloadId));
+            var records = new List<WorkloadV2PersistenceRecord>(Records ?? new List<WorkloadV2PersistenceRecord>());
+            records.Sort(CompareRecords);
+            for (int i = 0; i < records.Count; i++)
+            {
+                builder.Append(WorkloadV2PersistenceCanonical.ForRecord(records[i]));
+            }
+
+            return WorkloadCanonical.Fingerprint(builder.ToString());
+        }
+
+        public bool HasCasMetadata =>
+            PersistenceRevision > 0 &&
+            !string.IsNullOrWhiteSpace(PersistenceFingerprint);
+
+        public bool TryValidateCompareAndSwap(
+            int expectedRevision,
+            string expectedFingerprint,
+            out string error)
+        {
+            error = string.Empty;
+            if (expectedRevision < 0)
+            {
+                error = "The expected workload persistence revision is invalid.";
+                return false;
+            }
+
+            string actualFingerprint = ComputeContentFingerprint();
+            if (expectedRevision != PersistenceRevision)
+            {
+                error = "The workload persistence revision changed while the preview was open.";
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(expectedFingerprint) &&
+                !StringComparer.Ordinal.Equals(expectedFingerprint, actualFingerprint))
+            {
+                error = "The workload persistence fingerprint changed while the preview was open.";
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool TryCommitRevision(
+            int expectedRevision,
+            string expectedFingerprint,
+            out string error)
+        {
+            if (!TryValidateCompareAndSwap(expectedRevision, expectedFingerprint, out error))
+            {
+                return false;
+            }
+
+            if (expectedRevision == int.MaxValue)
+            {
+                error = "The workload persistence revision cannot advance further.";
+                return false;
+            }
+
+            PersistenceRevision = expectedRevision + 1;
+            PersistenceFingerprint = ComputeContentFingerprint();
+            return true;
+        }
+
+        public void RefreshPersistenceMetadata(bool initializeMissingRevision)
+        {
+            if (initializeMissingRevision && PersistenceRevision <= 0 && HasPendingData)
+            {
+                PersistenceRevision = 1;
+            }
+
+            PersistenceFingerprint = ComputeContentFingerprint();
+        }
+
         private void MarkReadOnly(WorkloadDiagnosticCode code, string message)
         {
             IsReadOnlyDiagnostic = true;
@@ -469,6 +636,30 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return EncodeKey(first) + EncodeKey(second) + EncodeKey(third);
         }
 
+        private static string ScheduleIntentKey(WorkloadV2ScheduleIntentRecord value)
+        {
+            return (value?.Scope ?? 0) + "\u001f"
+                + (value?.TargetKind ?? 0) + "\u001f"
+                + (value?.PawnId ?? string.Empty) + "\u001f"
+                + (value?.WorkTypeDefName ?? string.Empty) + "\u001f"
+                + (value?.WorkGiverDefName ?? string.Empty);
+        }
+
+        private static string SpecificPriorityIntentKey(WorkloadV2SpecificPriorityIntentRecord value)
+        {
+            return (value?.Scope ?? 0) + "\u001f"
+                + (value?.PawnId ?? string.Empty) + "\u001f"
+                + (value?.WorkTypeDefName ?? string.Empty) + "\u001f"
+                + (value?.WorkGiverDefName ?? string.Empty);
+        }
+
+        private static string WorkTypeOrderIntentKey(WorkloadV2WorkTypeOrderIntentRecord value)
+        {
+            return (value?.Scope ?? 0) + "\u001f"
+                + (value?.PawnId ?? string.Empty) + "\u001f"
+                + (value?.WorkTypeDefName ?? string.Empty);
+        }
+
         private static string EncodeKey(string value)
         {
             string safe = value ?? string.Empty;
@@ -516,6 +707,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2PersistenceKeys.SchemaVersion,
                 WorkloadV2PersistenceKeys.CurrentWorkloadId,
                 WorkloadV2PersistenceKeys.Records,
+                WorkloadV2PersistenceKeys.PersistenceRevision,
+                WorkloadV2PersistenceKeys.PersistenceFingerprint,
                 "stableId",
                 "label",
                 "schemaVersion",
@@ -529,6 +722,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 "specificJobOverrides",
                 "specificJobOrder",
                 "presentationSettings",
+                "parentPriorityIntents",
+                "manualModeIntents",
+                "scheduleIntents",
+                "specificPriorityIntents",
+                "workTypeOrderIntents",
+                "presentationSettingIntents",
+                "legacyScheduleRequiresReview",
+                "legacyOrderRequiresReview",
+                "migrationDiagnostic",
                 "pawnId",
                 "workTypeDefName",
                 "priority",
@@ -539,6 +741,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 "key",
                 "value",
                 "kind",
+                "intentState",
+                "scope",
+                "targetKind",
+                "priorities",
+                "pinnedHourMask",
+                "orderedWorkGiverDefNames",
+                "isComplete",
+                "ownership",
                 "booleanValue",
                 "integerValue",
                 "stringValue",
@@ -618,6 +828,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         public List<WorkloadV2SpecificJobOverrideRecord> SpecificJobOverrides = new List<WorkloadV2SpecificJobOverrideRecord>();
         public List<WorkloadV2SpecificJobOrderRecord> SpecificJobOrder = new List<WorkloadV2SpecificJobOrderRecord>();
         public List<WorkloadV2PresentationSettingRecord> PresentationSettings = new List<WorkloadV2PresentationSettingRecord>();
+        public List<WorkloadV2ParentPriorityIntentRecord> ParentPriorityIntents = new List<WorkloadV2ParentPriorityIntentRecord>();
+        public List<WorkloadV2ManualModeIntentRecord> ManualModeIntents = new List<WorkloadV2ManualModeIntentRecord>();
+        public List<WorkloadV2ScheduleIntentRecord> ScheduleIntents = new List<WorkloadV2ScheduleIntentRecord>();
+        public List<WorkloadV2SpecificPriorityIntentRecord> SpecificPriorityIntents = new List<WorkloadV2SpecificPriorityIntentRecord>();
+        public List<WorkloadV2WorkTypeOrderIntentRecord> WorkTypeOrderIntents = new List<WorkloadV2WorkTypeOrderIntentRecord>();
+        public List<WorkloadV2PresentationSettingIntentRecord> PresentationSettingIntents = new List<WorkloadV2PresentationSettingIntentRecord>();
+        public bool LegacyScheduleRequiresReview;
+        public bool LegacyOrderRequiresReview;
+        public string MigrationDiagnostic = string.Empty;
 
         public void ExposeData()
         {
@@ -634,6 +853,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             Scribe_Collections.Look(ref SpecificJobOverrides, "specificJobOverrides", LookMode.Deep);
             Scribe_Collections.Look(ref SpecificJobOrder, "specificJobOrder", LookMode.Deep);
             Scribe_Collections.Look(ref PresentationSettings, "presentationSettings", LookMode.Deep);
+            Scribe_Collections.Look(ref ParentPriorityIntents, "parentPriorityIntents", LookMode.Deep);
+            Scribe_Collections.Look(ref ManualModeIntents, "manualModeIntents", LookMode.Deep);
+            Scribe_Collections.Look(ref ScheduleIntents, "scheduleIntents", LookMode.Deep);
+            Scribe_Collections.Look(ref SpecificPriorityIntents, "specificPriorityIntents", LookMode.Deep);
+            Scribe_Collections.Look(ref WorkTypeOrderIntents, "workTypeOrderIntents", LookMode.Deep);
+            Scribe_Collections.Look(ref PresentationSettingIntents, "presentationSettingIntents", LookMode.Deep);
+            Scribe_Values.Look(ref LegacyScheduleRequiresReview, "legacyScheduleRequiresReview", false);
+            Scribe_Values.Look(ref LegacyOrderRequiresReview, "legacyOrderRequiresReview", false);
+            Scribe_Values.Look(ref MigrationDiagnostic, "migrationDiagnostic", string.Empty);
 
             if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.PostLoadInit)
             {
@@ -651,6 +879,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             SpecificJobOverrides ??= new List<WorkloadV2SpecificJobOverrideRecord>();
             SpecificJobOrder ??= new List<WorkloadV2SpecificJobOrderRecord>();
             PresentationSettings ??= new List<WorkloadV2PresentationSettingRecord>();
+            ParentPriorityIntents ??= new List<WorkloadV2ParentPriorityIntentRecord>();
+            ManualModeIntents ??= new List<WorkloadV2ManualModeIntentRecord>();
+            ScheduleIntents ??= new List<WorkloadV2ScheduleIntentRecord>();
+            SpecificPriorityIntents ??= new List<WorkloadV2SpecificPriorityIntentRecord>();
+            WorkTypeOrderIntents ??= new List<WorkloadV2WorkTypeOrderIntentRecord>();
+            PresentationSettingIntents ??= new List<WorkloadV2PresentationSettingIntentRecord>();
+            MigrationDiagnostic ??= string.Empty;
         }
 
         public void NormalizeStableState()
@@ -672,6 +907,30 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             SpecificJobOverrides.Sort(CompareSpecificJobOverrides);
             SpecificJobOrder.Sort(CompareSpecificJobOrders);
             PresentationSettings.Sort(ComparePresentationSettings);
+            ParentPriorityIntents.Sort(CompareParentPriorityIntents);
+            ManualModeIntents.Sort(CompareManualModeIntents);
+            ScheduleIntents.Sort(CompareScheduleIntents);
+            SpecificPriorityIntents.Sort(CompareSpecificPriorityIntents);
+            WorkTypeOrderIntents.Sort(CompareWorkTypeOrderIntents);
+            PresentationSettingIntents.Sort(ComparePresentationSettingIntents);
+
+            for (int i = SpecificPriorityIntents.Count - 1; i >= 0; i--)
+            {
+                WorkloadV2SpecificPriorityIntentRecord value = SpecificPriorityIntents[i];
+                if (value != null && value.IntentState == (int)WorkloadIntentState.NoOpinion)
+                {
+                    SpecificPriorityIntents.RemoveAt(i);
+                }
+            }
+
+            for (int i = WorkTypeOrderIntents.Count - 1; i >= 0; i--)
+            {
+                WorkloadV2WorkTypeOrderIntentRecord value = WorkTypeOrderIntents[i];
+                if (value != null && value.IntentState == (int)WorkloadIntentState.NoOpinion)
+                {
+                    WorkTypeOrderIntents.RemoveAt(i);
+                }
+            }
         }
 
         private static void NormalizeStrings(List<string> values)
@@ -717,6 +976,58 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return StringComparer.Ordinal.Compare(left?.Key ?? string.Empty, right?.Key ?? string.Empty);
         }
 
+        private static int CompareParentPriorityIntents(
+            WorkloadV2ParentPriorityIntentRecord left,
+            WorkloadV2ParentPriorityIntentRecord right)
+        {
+            return StringComparer.Ordinal.Compare(
+                ParentKey(left?.PawnId, left?.WorkTypeDefName),
+                ParentKey(right?.PawnId, right?.WorkTypeDefName));
+        }
+
+        private static int CompareManualModeIntents(
+            WorkloadV2ManualModeIntentRecord left,
+            WorkloadV2ManualModeIntentRecord right)
+        {
+            return StringComparer.Ordinal.Compare(
+                ParentKey(left?.PawnId, left?.WorkTypeDefName),
+                ParentKey(right?.PawnId, right?.WorkTypeDefName));
+        }
+
+        private static int CompareScheduleIntents(
+            WorkloadV2ScheduleIntentRecord left,
+            WorkloadV2ScheduleIntentRecord right)
+        {
+            return StringComparer.Ordinal.Compare(
+                ScheduleKey(left),
+                ScheduleKey(right));
+        }
+
+        private static int CompareSpecificPriorityIntents(
+            WorkloadV2SpecificPriorityIntentRecord left,
+            WorkloadV2SpecificPriorityIntentRecord right)
+        {
+            return StringComparer.Ordinal.Compare(
+                SpecificPriorityKey(left),
+                SpecificPriorityKey(right));
+        }
+
+        private static int CompareWorkTypeOrderIntents(
+            WorkloadV2WorkTypeOrderIntentRecord left,
+            WorkloadV2WorkTypeOrderIntentRecord right)
+        {
+            return StringComparer.Ordinal.Compare(
+                WorkTypeOrderKey(left),
+                WorkTypeOrderKey(right));
+        }
+
+        private static int ComparePresentationSettingIntents(
+            WorkloadV2PresentationSettingIntentRecord left,
+            WorkloadV2PresentationSettingIntentRecord right)
+        {
+            return StringComparer.Ordinal.Compare(left?.Key ?? string.Empty, right?.Key ?? string.Empty);
+        }
+
         private static string ParentKey(string pawnId, string workTypeDefName)
         {
             return (pawnId ?? string.Empty) + "\u001f" + (workTypeDefName ?? string.Empty);
@@ -734,6 +1045,30 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return (value?.PawnId ?? string.Empty) + "\u001f"
                 + (value?.WorkTypeDefName ?? string.Empty) + "\u001f"
                 + (value?.WorkGiverDefName ?? string.Empty);
+        }
+
+        private static string ScheduleKey(WorkloadV2ScheduleIntentRecord value)
+        {
+            return (value?.Scope ?? 0) + "\u001f"
+                + (value?.TargetKind ?? 0) + "\u001f"
+                + (value?.PawnId ?? string.Empty) + "\u001f"
+                + (value?.WorkTypeDefName ?? string.Empty) + "\u001f"
+                + (value?.WorkGiverDefName ?? string.Empty);
+        }
+
+        private static string SpecificPriorityKey(WorkloadV2SpecificPriorityIntentRecord value)
+        {
+            return (value?.Scope ?? 0) + "\u001f"
+                + (value?.PawnId ?? string.Empty) + "\u001f"
+                + (value?.WorkTypeDefName ?? string.Empty) + "\u001f"
+                + (value?.WorkGiverDefName ?? string.Empty);
+        }
+
+        private static string WorkTypeOrderKey(WorkloadV2WorkTypeOrderIntentRecord value)
+        {
+            return (value?.Scope ?? 0) + "\u001f"
+                + (value?.PawnId ?? string.Empty) + "\u001f"
+                + (value?.WorkTypeDefName ?? string.Empty);
         }
     }
 
@@ -823,6 +1158,127 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         }
     }
 
+    public sealed class WorkloadV2ParentPriorityIntentRecord : IExposable
+    {
+        public string PawnId = string.Empty;
+        public string WorkTypeDefName = string.Empty;
+        public int IntentState;
+        public int Priority;
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref PawnId, "pawnId", string.Empty);
+            Scribe_Values.Look(ref WorkTypeDefName, "workTypeDefName", string.Empty);
+            Scribe_Values.Look(ref IntentState, "intentState", (int)WorkloadIntentState.NoOpinion);
+            Scribe_Values.Look(ref Priority, "priority", 0);
+        }
+    }
+
+    public sealed class WorkloadV2ManualModeIntentRecord : IExposable
+    {
+        public string PawnId = string.Empty;
+        public string WorkTypeDefName = string.Empty;
+        public int IntentState;
+        public bool Manual;
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref PawnId, "pawnId", string.Empty);
+            Scribe_Values.Look(ref WorkTypeDefName, "workTypeDefName", string.Empty);
+            Scribe_Values.Look(ref IntentState, "intentState", (int)WorkloadIntentState.NoOpinion);
+            Scribe_Values.Look(ref Manual, "manual", false);
+        }
+    }
+
+    public sealed class WorkloadV2ScheduleIntentRecord : IExposable
+    {
+        public int Scope;
+        public string PawnId = string.Empty;
+        public int TargetKind;
+        public string WorkTypeDefName = string.Empty;
+        public string WorkGiverDefName = string.Empty;
+        public int IntentState;
+        public List<int> Priorities = new List<int>();
+        public int PinnedHourMask;
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref Scope, "scope", (int)WorkloadTargetScope.PawnLocal);
+            Scribe_Values.Look(ref PawnId, "pawnId", string.Empty);
+            Scribe_Values.Look(ref TargetKind, "targetKind", (int)WorkloadScheduleTargetKind.ParentWorkType);
+            Scribe_Values.Look(ref WorkTypeDefName, "workTypeDefName", string.Empty);
+            Scribe_Values.Look(ref WorkGiverDefName, "workGiverDefName", string.Empty);
+            Scribe_Values.Look(ref IntentState, "intentState", (int)WorkloadIntentState.NoOpinion);
+            Scribe_Collections.Look(ref Priorities, "priorities", LookMode.Value);
+            Scribe_Values.Look(ref PinnedHourMask, "pinnedHourMask", 0);
+            if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                Priorities ??= new List<int>();
+            }
+        }
+    }
+
+    public sealed class WorkloadV2SpecificPriorityIntentRecord : IExposable
+    {
+        public int Scope;
+        public string PawnId = string.Empty;
+        public string WorkTypeDefName = string.Empty;
+        public string WorkGiverDefName = string.Empty;
+        public int IntentState;
+        public int Priority;
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref Scope, "scope", (int)WorkloadTargetScope.PawnLocal);
+            Scribe_Values.Look(ref PawnId, "pawnId", string.Empty);
+            Scribe_Values.Look(ref WorkTypeDefName, "workTypeDefName", string.Empty);
+            Scribe_Values.Look(ref WorkGiverDefName, "workGiverDefName", string.Empty);
+            Scribe_Values.Look(ref IntentState, "intentState", (int)WorkloadIntentState.NoOpinion);
+            Scribe_Values.Look(ref Priority, "priority", 0);
+        }
+    }
+
+    public sealed class WorkloadV2WorkTypeOrderIntentRecord : IExposable
+    {
+        public int Scope;
+        public string PawnId = string.Empty;
+        public string WorkTypeDefName = string.Empty;
+        public int IntentState;
+        public List<string> OrderedWorkGiverDefNames = new List<string>();
+        public bool IsComplete;
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref Scope, "scope", (int)WorkloadTargetScope.PawnLocal);
+            Scribe_Values.Look(ref PawnId, "pawnId", string.Empty);
+            Scribe_Values.Look(ref WorkTypeDefName, "workTypeDefName", string.Empty);
+            Scribe_Values.Look(ref IntentState, "intentState", (int)WorkloadIntentState.NoOpinion);
+            Scribe_Collections.Look(ref OrderedWorkGiverDefNames, "orderedWorkGiverDefNames", LookMode.Value);
+            Scribe_Values.Look(ref IsComplete, "isComplete", false);
+            if (Scribe.mode == LoadSaveMode.LoadingVars || Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                OrderedWorkGiverDefNames ??= new List<string>();
+            }
+        }
+    }
+
+    public sealed class WorkloadV2PresentationSettingIntentRecord : IExposable
+    {
+        public string Key = string.Empty;
+        public int IntentState;
+        public int Ownership;
+        public WorkloadV2ScalarRecord Value = new WorkloadV2ScalarRecord();
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref Key, "key", string.Empty);
+            Scribe_Values.Look(ref IntentState, "intentState", (int)WorkloadIntentState.NoOpinion);
+            Scribe_Values.Look(ref Ownership, "ownership", (int)WorkloadSettingOwnership.WorkloadOwned);
+            Scribe_Deep.Look(ref Value, "value");
+            if (Scribe.mode == LoadSaveMode.PostLoadInit) Value ??= new WorkloadV2ScalarRecord();
+        }
+    }
+
     public sealed class WorkloadV2ScalarRecord : IExposable
     {
         public int Kind;
@@ -836,6 +1292,574 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             Scribe_Values.Look(ref BooleanValue, "booleanValue", false);
             Scribe_Values.Look(ref IntegerValue, "integerValue", 0);
             Scribe_Values.Look(ref StringValue, "stringValue", string.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Loss-aware migration from the original positive-value V2 document.
+    /// Version 1 had no explicit clear records and its schedule/order payloads
+    /// were not lossless. Those values are retained and marked read-only
+    /// instead of being guessed into the typed schema.
+    /// </summary>
+    internal static class WorkloadV2Migration
+    {
+        internal static bool TryMigrateEnvelope(
+            WorkloadV2PersistenceEnvelope envelope,
+            out string error)
+        {
+            error = string.Empty;
+            if (envelope == null) return true;
+
+            bool migrateEnvelope = envelope.SchemaVersion == WorkloadSchema.LegacyVersion;
+            if (envelope.SchemaVersion == 0 && envelope.HasPersistedDocument)
+            {
+                error = "The saved Workloads V2 document has no schema version and cannot be migrated safely.";
+                return false;
+            }
+
+            if (!migrateEnvelope && envelope.SchemaVersion != WorkloadSchema.CurrentVersion)
+            {
+                return true;
+            }
+
+            List<WorkloadV2PersistenceRecord> records =
+                envelope.Records ?? new List<WorkloadV2PersistenceRecord>();
+            for (int i = 0; i < records.Count; i++)
+            {
+                WorkloadV2PersistenceRecord record = records[i];
+                if (record == null)
+                {
+                    error = "The saved Workloads V2 document contains a missing record.";
+                    return false;
+                }
+
+                if (record.SchemaVersion == 0)
+                {
+                    error = "A saved Workloads V2 record has no schema version and cannot be migrated safely.";
+                    return false;
+                }
+
+                if (record.SchemaVersion < WorkloadSchema.LegacyVersion ||
+                    record.SchemaVersion > WorkloadSchema.CurrentVersion)
+                {
+                    return true;
+                }
+
+                if (record.SchemaVersion == WorkloadSchema.LegacyVersion &&
+                    !ValidateLegacyRecord(record, out error))
+                {
+                    return false;
+                }
+            }
+
+            // All records have passed validation, so the in-memory migration
+            // cannot leave a partially converted envelope.
+            for (int i = 0; i < records.Count; i++)
+            {
+                if (records[i].SchemaVersion == WorkloadSchema.LegacyVersion)
+                {
+                    MigrateLegacyRecord(records[i]);
+                }
+            }
+
+            if (migrateEnvelope) envelope.SchemaVersion = WorkloadSchema.CurrentVersion;
+            envelope.Records = records;
+            return true;
+        }
+
+        internal static bool TryMigrateRecord(
+            WorkloadV2PersistenceRecord record,
+            out string error)
+        {
+            error = string.Empty;
+            if (record == null) return false;
+            if (record.SchemaVersion == WorkloadSchema.LegacyVersion)
+            {
+                if (!ValidateLegacyRecord(record, out error)) return false;
+                MigrateLegacyRecord(record);
+            }
+
+            return true;
+        }
+
+        private static bool ValidateLegacyRecord(
+            WorkloadV2PersistenceRecord record,
+            out string error)
+        {
+            error = string.Empty;
+            record.EnsureCollections();
+            if (string.IsNullOrWhiteSpace(record.StableId))
+            {
+                error = "A legacy Workloads V2 record has no stable ID.";
+                return false;
+            }
+
+            for (int i = 0; i < record.ParentPriorities.Count; i++)
+            {
+                WorkloadV2ParentPriorityRecord value = record.ParentPriorities[i];
+                if (value == null || string.IsNullOrWhiteSpace(value.PawnId) ||
+                    string.IsNullOrWhiteSpace(value.WorkTypeDefName))
+                {
+                    error = "A legacy parent-priority record has an incomplete identity.";
+                    return false;
+                }
+            }
+
+            for (int i = 0; i < record.ManualModes.Count; i++)
+            {
+                WorkloadV2ManualModeRecord value = record.ManualModes[i];
+                if (value == null || string.IsNullOrWhiteSpace(value.PawnId) ||
+                    string.IsNullOrWhiteSpace(value.WorkTypeDefName))
+                {
+                    error = "A legacy manual-mode record has an incomplete identity.";
+                    return false;
+                }
+            }
+
+            for (int i = 0; i < record.Schedules.Count; i++)
+            {
+                WorkloadV2ScheduleRecord value = record.Schedules[i];
+                if (value == null || string.IsNullOrWhiteSpace(value.PawnId) || value.Schedule < 0)
+                {
+                    error = "A legacy schedule record has an incomplete identity or invalid key.";
+                    return false;
+                }
+            }
+
+            for (int i = 0; i < record.SpecificJobOverrides.Count; i++)
+            {
+                WorkloadV2SpecificJobOverrideRecord value = record.SpecificJobOverrides[i];
+                if (value == null || string.IsNullOrWhiteSpace(value.PawnId) ||
+                    string.IsNullOrWhiteSpace(value.WorkTypeDefName) ||
+                    string.IsNullOrWhiteSpace(value.WorkGiverDefName))
+                {
+                    error = "A legacy specific-job override has an incomplete identity.";
+                    return false;
+                }
+
+                if (value.Value == null ||
+                    value.Value.Kind != (int)WorkloadScalarKind.Integer)
+                {
+                    error = "A legacy specific-job override does not contain a recoverable integer priority.";
+                    return false;
+                }
+            }
+
+            for (int i = 0; i < record.SpecificJobOrder.Count; i++)
+            {
+                WorkloadV2SpecificJobOrderRecord value = record.SpecificJobOrder[i];
+                if (value == null || string.IsNullOrWhiteSpace(value.PawnId) ||
+                    string.IsNullOrWhiteSpace(value.WorkTypeDefName) ||
+                    string.IsNullOrWhiteSpace(value.WorkGiverDefName) || value.Order < 0)
+                {
+                    error = "A legacy specific-job order record has an incomplete identity or invalid rank.";
+                    return false;
+                }
+            }
+
+            for (int i = 0; i < record.PresentationSettings.Count; i++)
+            {
+                WorkloadV2PresentationSettingRecord value = record.PresentationSettings[i];
+                if (value == null || string.IsNullOrWhiteSpace(value.Key))
+                {
+                    error = "A legacy presentation setting has no key.";
+                    return false;
+                }
+
+                if (!ValidateLegacyScalar(value.Value, out error)) return false;
+            }
+
+            return true;
+        }
+
+        private static bool ValidateLegacyScalar(
+            WorkloadV2ScalarRecord value,
+            out string error)
+        {
+            error = string.Empty;
+            if (value == null || !Enum.IsDefined(typeof(WorkloadScalarKind), value.Kind))
+            {
+                error = "A legacy presentation setting contains an unknown scalar kind.";
+                return false;
+            }
+
+            if (value.Kind == (int)WorkloadScalarKind.String && value.StringValue == null)
+            {
+                error = "A legacy presentation setting contains a missing string scalar.";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static void MigrateLegacyRecord(WorkloadV2PersistenceRecord record)
+        {
+            record.EnsureCollections();
+            string legacyOrderError = string.Empty;
+            List<WorkloadV2WorkTypeOrderIntentRecord> migratedOrderIntents;
+            bool legacyOrderSafe = TryBuildLegacySpecificJobOrderIntents(
+                record,
+                out migratedOrderIntents,
+                out legacyOrderError);
+
+            for (int i = 0; i < record.ParentPriorities.Count; i++)
+            {
+                WorkloadV2ParentPriorityRecord value = record.ParentPriorities[i];
+                record.ParentPriorityIntents.Add(new WorkloadV2ParentPriorityIntentRecord
+                {
+                    PawnId = value.PawnId,
+                    WorkTypeDefName = value.WorkTypeDefName,
+                    IntentState = (int)WorkloadIntentState.Set,
+                    Priority = value.Priority
+                });
+            }
+
+            for (int i = 0; i < record.ManualModes.Count; i++)
+            {
+                WorkloadV2ManualModeRecord value = record.ManualModes[i];
+                record.ManualModeIntents.Add(new WorkloadV2ManualModeIntentRecord
+                {
+                    PawnId = value.PawnId,
+                    WorkTypeDefName = value.WorkTypeDefName,
+                    IntentState = (int)WorkloadIntentState.Set,
+                    Manual = value.Manual
+                });
+            }
+
+            for (int i = 0; i < record.SpecificJobOverrides.Count; i++)
+            {
+                WorkloadV2SpecificJobOverrideRecord value = record.SpecificJobOverrides[i];
+                record.SpecificPriorityIntents.Add(new WorkloadV2SpecificPriorityIntentRecord
+                {
+                    Scope = (int)WorkloadTargetScope.PawnLocal,
+                    PawnId = value.PawnId,
+                    WorkTypeDefName = value.WorkTypeDefName,
+                    WorkGiverDefName = value.WorkGiverDefName,
+                    IntentState = (int)WorkloadIntentState.Set,
+                    Priority = value.Value?.IntegerValue ?? 0
+                });
+            }
+
+            for (int i = 0; i < record.PresentationSettings.Count; i++)
+            {
+                WorkloadV2PresentationSettingRecord value = record.PresentationSettings[i];
+                record.PresentationSettingIntents.Add(new WorkloadV2PresentationSettingIntentRecord
+                {
+                    Key = value.Key,
+                    IntentState = (int)WorkloadIntentState.Set,
+                    Ownership = (int)WorkloadSettingOwnership.WorkloadOwned,
+                    Value = value.Value ?? new WorkloadV2ScalarRecord()
+                });
+            }
+
+            if (record.Schedules.Count > 0)
+            {
+                record.LegacyScheduleRequiresReview = true;
+            }
+
+            if (record.SpecificJobOrder.Count > 0 && legacyOrderSafe)
+            {
+                record.WorkTypeOrderIntents.AddRange(migratedOrderIntents);
+            }
+            else if (record.SpecificJobOrder.Count > 0)
+            {
+                record.LegacyOrderRequiresReview = true;
+            }
+
+            if (record.LegacyScheduleRequiresReview || record.LegacyOrderRequiresReview)
+            {
+                var reasons = new List<string>();
+                if (record.LegacyScheduleRequiresReview)
+                {
+                    reasons.Add("legacy schedule records lack 24-hour linked/pinned state");
+                }
+                if (record.LegacyOrderRequiresReview)
+                {
+                    reasons.Add(
+                        "legacy order records are not proven complete WorkType permutations" +
+                        (string.IsNullOrWhiteSpace(legacyOrderError)
+                            ? string.Empty
+                            : ": " + legacyOrderError));
+                }
+
+                record.MigrationDiagnostic =
+                    "The workload was migrated to the typed schema but remains read-only until " +
+                    string.Join(" and ", reasons.ToArray()) + ".";
+            }
+
+            record.SchemaVersion = WorkloadSchema.CurrentVersion;
+        }
+
+        private static bool TryBuildLegacySpecificJobOrderIntents(
+            WorkloadV2PersistenceRecord record,
+            out List<WorkloadV2WorkTypeOrderIntentRecord> converted,
+            out string error)
+        {
+            converted = new List<WorkloadV2WorkTypeOrderIntentRecord>();
+            error = string.Empty;
+            if (record == null || record.SpecificJobOrder == null || record.SpecificJobOrder.Count == 0)
+            {
+                return true;
+            }
+
+            var groups = new Dictionary<string, List<WorkloadV2SpecificJobOrderRecord>>(StringComparer.Ordinal);
+            for (int i = 0; i < record.SpecificJobOrder.Count; i++)
+            {
+                WorkloadV2SpecificJobOrderRecord value = record.SpecificJobOrder[i];
+                string key = LegacyParentKey(value?.PawnId, value?.WorkTypeDefName);
+                if (!groups.TryGetValue(key, out List<WorkloadV2SpecificJobOrderRecord> group))
+                {
+                    group = new List<WorkloadV2SpecificJobOrderRecord>();
+                    groups.Add(key, group);
+                }
+
+                group.Add(value);
+            }
+
+            var existingTypedTargets = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < record.WorkTypeOrderIntents.Count; i++)
+            {
+                WorkloadV2WorkTypeOrderIntentRecord value = record.WorkTypeOrderIntents[i];
+                if (value == null)
+                {
+                    error = "an existing typed WorkType order record is missing";
+                    return false;
+                }
+
+                string key = ((int)WorkloadTargetScope.PawnLocal) + "\u001f" +
+                    LegacyParentKey(value.PawnId, value.WorkTypeDefName);
+                if (!existingTypedTargets.Add(key))
+                {
+                    error = "an existing typed WorkType order target is duplicated";
+                    return false;
+                }
+            }
+
+            var groupKeys = new List<string>(groups.Keys);
+            groupKeys.Sort(StringComparer.Ordinal);
+            for (int groupIndex = 0; groupIndex < groupKeys.Count; groupIndex++)
+            {
+                string groupKey = groupKeys[groupIndex];
+                List<WorkloadV2SpecificJobOrderRecord> group = groups[groupKey];
+                group.Sort((left, right) =>
+                {
+                    int order = (left?.Order ?? -1).CompareTo(right?.Order ?? -1);
+                    return order != 0
+                        ? order
+                        : StringComparer.Ordinal.Compare(
+                            left?.WorkGiverDefName ?? string.Empty,
+                            right?.WorkGiverDefName ?? string.Empty);
+                });
+
+                var workGiverNames = new HashSet<string>(StringComparer.Ordinal);
+                var orderedNames = new List<string>(group.Count);
+                for (int orderIndex = 0; orderIndex < group.Count; orderIndex++)
+                {
+                    WorkloadV2SpecificJobOrderRecord value = group[orderIndex];
+                    if (value == null || string.IsNullOrWhiteSpace(value.PawnId) ||
+                        string.IsNullOrWhiteSpace(value.WorkTypeDefName) ||
+                        string.IsNullOrWhiteSpace(value.WorkGiverDefName) || value.Order < 0)
+                    {
+                        error = "an order group contains an incomplete identity";
+                        return false;
+                    }
+
+                    if (value.Order != orderIndex)
+                    {
+                        error = "order ranks must be a unique zero-based sequence";
+                        return false;
+                    }
+
+                    if (!workGiverNames.Add(value.WorkGiverDefName))
+                    {
+                        error = "an order group contains a duplicate WorkGiver identity";
+                        return false;
+                    }
+
+                    orderedNames.Add(value.WorkGiverDefName);
+                }
+
+                string typedKey = ((int)WorkloadTargetScope.PawnLocal) + "\u001f" + groupKey;
+                if (existingTypedTargets.Contains(typedKey))
+                {
+                    error = "legacy order overlaps an existing typed WorkType order target";
+                    return false;
+                }
+
+                converted.Add(new WorkloadV2WorkTypeOrderIntentRecord
+                {
+                    Scope = (int)WorkloadTargetScope.PawnLocal,
+                    PawnId = group[0].PawnId,
+                    WorkTypeDefName = group[0].WorkTypeDefName,
+                    IntentState = (int)WorkloadIntentState.Set,
+                    IsComplete = true,
+                    OrderedWorkGiverDefNames = orderedNames
+                });
+            }
+
+            return true;
+        }
+
+        private static string LegacyParentKey(string pawnId, string workTypeDefName)
+        {
+            return (pawnId ?? string.Empty) + "\u001f" + (workTypeDefName ?? string.Empty);
+        }
+    }
+
+    internal static class WorkloadV2PersistenceCanonical
+    {
+        internal static string ForRecord(WorkloadV2PersistenceRecord record)
+        {
+            if (record == null) return "<null>";
+            record.NormalizeStableState();
+            var builder = new System.Text.StringBuilder();
+            builder.Append(WorkloadCanonical.Encode(record.StableId));
+            builder.Append(WorkloadCanonical.Encode(record.Label));
+            builder.Append(record.SchemaVersion).Append(':');
+            builder.Append(record.OwnershipDimensions).Append(':').Append(record.ScopeMode).Append(':');
+            AppendStrings(builder, record.ExplicitPawnIds);
+            AppendStrings(builder, record.ExcludedPawnIds);
+            for (int i = 0; i < record.ParentPriorities.Count; i++)
+            {
+                WorkloadV2ParentPriorityRecord value = record.ParentPriorities[i];
+                builder.Append("p|").Append(WorkloadCanonical.Encode(value?.PawnId))
+                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName)).Append(value?.Priority ?? 0).Append(';');
+            }
+            for (int i = 0; i < record.ManualModes.Count; i++)
+            {
+                WorkloadV2ManualModeRecord value = record.ManualModes[i];
+                builder.Append("m|").Append(WorkloadCanonical.Encode(value?.PawnId))
+                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
+                    .Append(value?.Manual == true ? '1' : '0').Append(';');
+            }
+            for (int i = 0; i < record.Schedules.Count; i++)
+            {
+                WorkloadV2ScheduleRecord value = record.Schedules[i];
+                builder.Append("s|").Append(WorkloadCanonical.Encode(value?.PawnId))
+                    .Append(value?.Schedule ?? -1).Append(';');
+            }
+            for (int i = 0; i < record.SpecificJobOverrides.Count; i++)
+            {
+                WorkloadV2SpecificJobOverrideRecord value = record.SpecificJobOverrides[i];
+                builder.Append("o|").Append(WorkloadCanonical.Encode(value?.PawnId))
+                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
+                    .Append(WorkloadCanonical.Encode(value?.WorkGiverDefName))
+                    .Append(ScalarCanonical(value?.Value)).Append(';');
+            }
+            for (int i = 0; i < record.SpecificJobOrder.Count; i++)
+            {
+                WorkloadV2SpecificJobOrderRecord value = record.SpecificJobOrder[i];
+                builder.Append("r|").Append(WorkloadCanonical.Encode(value?.PawnId))
+                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
+                    .Append(WorkloadCanonical.Encode(value?.WorkGiverDefName))
+                    .Append(value?.Order ?? -1).Append(';');
+            }
+            for (int i = 0; i < record.PresentationSettings.Count; i++)
+            {
+                WorkloadV2PresentationSettingRecord value = record.PresentationSettings[i];
+                builder.Append("t|").Append(WorkloadCanonical.Encode(value?.Key))
+                    .Append(ScalarCanonical(value?.Value)).Append(';');
+            }
+            for (int i = 0; i < record.ParentPriorityIntents.Count; i++)
+            {
+                WorkloadV2ParentPriorityIntentRecord value = record.ParentPriorityIntents[i];
+                builder.Append("pi|").Append(WorkloadCanonical.Encode(value?.PawnId))
+                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
+                    .Append(value?.IntentState ?? 0).Append(':').Append(value?.Priority ?? 0).Append(';');
+            }
+            for (int i = 0; i < record.ManualModeIntents.Count; i++)
+            {
+                WorkloadV2ManualModeIntentRecord value = record.ManualModeIntents[i];
+                builder.Append("mi|").Append(WorkloadCanonical.Encode(value?.PawnId))
+                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
+                    .Append(value?.IntentState ?? 0).Append(':')
+                    .Append(value?.Manual == true ? '1' : '0').Append(';');
+            }
+            for (int i = 0; i < record.ScheduleIntents.Count; i++)
+            {
+                WorkloadV2ScheduleIntentRecord value = record.ScheduleIntents[i];
+                builder.Append("si|").Append(ScheduleIntentCanonical(value)).Append(';');
+            }
+            for (int i = 0; i < record.SpecificPriorityIntents.Count; i++)
+            {
+                WorkloadV2SpecificPriorityIntentRecord value = record.SpecificPriorityIntents[i];
+                builder.Append("oi|").Append(SpecificPriorityIntentCanonical(value)).Append(';');
+            }
+            for (int i = 0; i < record.WorkTypeOrderIntents.Count; i++)
+            {
+                WorkloadV2WorkTypeOrderIntentRecord value = record.WorkTypeOrderIntents[i];
+                builder.Append("ri|").Append(WorkTypeOrderIntentCanonical(value)).Append(';');
+            }
+            for (int i = 0; i < record.PresentationSettingIntents.Count; i++)
+            {
+                WorkloadV2PresentationSettingIntentRecord value = record.PresentationSettingIntents[i];
+                builder.Append("ti|").Append(WorkloadCanonical.Encode(value?.Key))
+                    .Append(value?.IntentState ?? 0).Append(':').Append(value?.Ownership ?? 0)
+                    .Append(':').Append(ScalarCanonical(value?.Value)).Append(';');
+            }
+            builder.Append(record.LegacyScheduleRequiresReview ? "legacy-schedule;" : string.Empty);
+            builder.Append(record.LegacyOrderRequiresReview ? "legacy-order;" : string.Empty);
+            builder.Append(WorkloadCanonical.Encode(record.MigrationDiagnostic));
+            return builder.ToString();
+        }
+
+        private static void AppendStrings(System.Text.StringBuilder builder, List<string> values)
+        {
+            if (values == null) return;
+            for (int i = 0; i < values.Count; i++)
+            {
+                builder.Append(WorkloadCanonical.Encode(values[i])).Append(';');
+            }
+        }
+
+        private static string ScheduleIntentCanonical(WorkloadV2ScheduleIntentRecord value)
+        {
+            var builder = new System.Text.StringBuilder();
+            builder.Append(value?.Scope ?? 0).Append(':').Append(value?.TargetKind ?? 0)
+                .Append(':').Append(WorkloadCanonical.Encode(value?.PawnId))
+                .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
+                .Append(WorkloadCanonical.Encode(value?.WorkGiverDefName))
+                .Append(':').Append(value?.IntentState ?? 0)
+                .Append(':').Append(value?.PinnedHourMask ?? 0).Append(':');
+            AppendInts(builder, value?.Priorities);
+            return builder.ToString();
+        }
+
+        private static string SpecificPriorityIntentCanonical(WorkloadV2SpecificPriorityIntentRecord value)
+        {
+            return (value?.Scope ?? 0) + ":" + WorkloadCanonical.Encode(value?.PawnId) +
+                WorkloadCanonical.Encode(value?.WorkTypeDefName) +
+                WorkloadCanonical.Encode(value?.WorkGiverDefName) + ":" +
+                (value?.IntentState ?? 0) + ":" + (value?.Priority ?? 0);
+        }
+
+        private static string WorkTypeOrderIntentCanonical(WorkloadV2WorkTypeOrderIntentRecord value)
+        {
+            var builder = new System.Text.StringBuilder();
+            builder.Append(value?.Scope ?? 0).Append(':')
+                .Append(WorkloadCanonical.Encode(value?.PawnId))
+                .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
+                .Append(':').Append(value?.IntentState ?? 0)
+                .Append(':').Append(value?.IsComplete == true ? '1' : '0').Append(':');
+            AppendStrings(builder, value?.OrderedWorkGiverDefNames);
+            return builder.ToString();
+        }
+
+        private static void AppendInts(System.Text.StringBuilder builder, List<int> values)
+        {
+            if (values == null) return;
+            for (int i = 0; i < values.Count; i++) builder.Append(values[i]).Append(';');
+        }
+
+        private static string ScalarCanonical(WorkloadV2ScalarRecord value)
+        {
+            if (value == null) return "<null>";
+            var builder = new System.Text.StringBuilder();
+            builder.Append(value.Kind).Append(':')
+                .Append(value.BooleanValue ? '1' : '0').Append(':')
+                .Append(value.IntegerValue).Append(':')
+                .Append(WorkloadCanonical.Encode(value.StringValue));
+            return builder.ToString();
         }
     }
 }

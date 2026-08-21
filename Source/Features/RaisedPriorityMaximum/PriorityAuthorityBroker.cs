@@ -19,6 +19,35 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         public static PriorityAuthorityOwner CurrentAuthority =>
             PriorityAuthorityTransitionService.CurrentAuthority;
 
+        /// <summary>
+        /// Returns the current resolver snapshot for read-only consumers. Unlike
+        /// <see cref="CurrentAuthority"/>, this seam cannot apply a transition or handoff.
+        /// </summary>
+        internal static PriorityAuthoritySnapshot GetObservationalSnapshot()
+        {
+            return PriorityAuthorityTransitionService.GetObservationalSnapshot();
+        }
+
+        /// <summary>
+        /// Gets the authority revision used by projection/cache readers. Revision observation is
+        /// deliberately separate from the normal transition-owning authority getter.
+        /// </summary>
+        internal static long GetObservationalAuthorityRevision()
+        {
+            return PriorityAuthorityTransitionService.GetObservationalRevision();
+        }
+
+        /// <summary>
+        /// Reads an effective priority without allowing a preview fallback to initiate authority
+        /// migration. Normal gameplay callers continue to use <see cref="GetEffectivePriority"/>.
+        /// </summary>
+        internal static int GetObservationalEffectivePriority(Pawn pawn, WorkTypeDef workType)
+        {
+            return PriorityAuthorityTransitionService.GetObservationalEffectivePriority(
+                pawn,
+                workType);
+        }
+
 #if DEBUG
         public static PriorityAuthorityDiagnosticsSnapshot Diagnostics =>
             PriorityAuthorityDiagnostics.Snapshot;

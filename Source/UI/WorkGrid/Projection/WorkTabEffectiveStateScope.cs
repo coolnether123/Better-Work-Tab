@@ -89,6 +89,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 {
                     RestoreNearestLiveParent();
                 }
+
+                // A scoped provider may have been replaced or cancelled
+                // between Layout and Repaint. Drop the pass token immediately
+                // so no snapshot or native input path can retain the old
+                // projected provider identity.
+                if ((Provider != null && Provider.IsPreview) || FollowsPreviewController)
+                {
+                    WorkTabEffectiveStateRuntime.ClearPreviewCacheResidue();
+                }
+                WorkTabEffectiveStateRuntime.InvalidateRenderPass();
             }
 
             private void RestoreNearestLiveParent()

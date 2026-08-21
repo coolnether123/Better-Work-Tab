@@ -5,7 +5,6 @@ using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Tutorial;
-using Better_Work_Tab.Features.Feedback;
 using Better_Work_Tab.Features.Migration;
 using RimWorld;
 using System;
@@ -426,21 +425,6 @@ namespace Better_Work_Tab
         // features remain disabled, so the offer is actually seen rather than
         // closed over. Once it has been made, the tour is free to finish.
         internal bool tutorialDiscoveryOfferAcknowledged;
-        internal List<BWTTutorialLessonFeedback> tutorialLessonFeedback = new List<BWTTutorialLessonFeedback>();
-        internal string tutorialOverallFeedback = string.Empty;
-
-        // Work-tab time behind the beta feedback nudge. Persisted so the prompt
-        // reflects real use rather than restarting with every session.
-        public float betaFeedbackWorkTabSeconds;
-        public bool betaFeedbackPromptAnswered;
-
-        // The 2.0 beta feedback portal's own answers. Kept apart from the
-        // tutorial's per-lesson responses: the tutorial is one of the things
-        // being reviewed, not the frame around the review.
-        internal List<BWTFeatureRating> betaFeatureRatings = new List<BWTFeatureRating>();
-        internal List<BWTProblemReport> betaProblemReports = new List<BWTProblemReport>();
-        internal string betaOverallFeedback = string.Empty;
-        internal string betaTesterHandle = string.Empty;
         public bool useRuleBuilder2 = DefaultSettings.useRuleBuilder2;
         public bool ruleBuilder2ShowWorkTabHighlights = DefaultSettings.ruleBuilder2ShowWorkTabHighlights;
         public bool ruleBuilder2EnableAnimations = DefaultSettings.ruleBuilder2EnableAnimations;
@@ -1001,15 +985,6 @@ namespace Better_Work_Tab
             Scribe_Collections.Look(ref skippedTutorialLessonIds, "skippedTutorialLessonIds", LookMode.Value);
             Scribe_Collections.Look(ref tutorialLessonIdsAlreadyUsed, "tutorialLessonIdsAlreadyUsed", LookMode.Value);
             Scribe_Values.Look(ref tutorialDiscoveryOfferAcknowledged, "tutorialDiscoveryOfferAcknowledged", false);
-            Scribe_Collections.Look(ref tutorialLessonFeedback, "tutorialLessonFeedback", LookMode.Deep);
-            Scribe_Values.Look(ref tutorialOverallFeedback, "tutorialOverallFeedback", string.Empty);
-
-            Scribe_Values.Look(ref betaFeedbackWorkTabSeconds, "betaFeedbackWorkTabSeconds", 0f);
-            Scribe_Values.Look(ref betaFeedbackPromptAnswered, "betaFeedbackPromptAnswered", false);
-            Scribe_Collections.Look(ref betaFeatureRatings, "betaFeatureRatings", LookMode.Deep);
-            Scribe_Collections.Look(ref betaProblemReports, "betaProblemReports", LookMode.Deep);
-            Scribe_Values.Look(ref betaOverallFeedback, "betaOverallFeedback", string.Empty);
-            Scribe_Values.Look(ref betaTesterHandle, "betaTesterHandle", string.Empty);
             if (completedTutorialLessonIds == null)
             {
                 completedTutorialLessonIds = new List<string>();
@@ -1119,14 +1094,6 @@ namespace Better_Work_Tab
                 "skippedTutorialLessonIds",
                 "tutorialLessonIdsAlreadyUsed",
                 "tutorialDiscoveryOfferAcknowledged",
-                "tutorialLessonFeedback",
-                "tutorialOverallFeedback",
-                "betaFeedbackWorkTabSeconds",
-                "betaFeedbackPromptAnswered",
-                "betaFeatureRatings",
-                "betaProblemReports",
-                "betaOverallFeedback",
-                "betaTesterHandle",
                 "defaultAutoAssignRuleset",
                 "currentRulesetName",
                 "currentRuleBuilder2RulesetStableId",

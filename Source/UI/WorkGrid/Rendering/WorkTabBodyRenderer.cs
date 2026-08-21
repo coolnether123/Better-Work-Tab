@@ -318,7 +318,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 case WorkloadMembershipClassification.UnrepresentedNew:
                     accent = new Color(0.95f, 0.72f, 0.28f, 0.92f);
                     fill = new Color(0.95f, 0.72f, 0.28f, 0.055f);
-                    tooltip = "Workload preview: new or unrepresented pawn. Include it from Members to stage it.";
+                    tooltip = "Workload preview: new or unrepresented pawn. " +
+                              "Right-click the pawn row to include it in this application.";
                     break;
                 case WorkloadMembershipClassification.UnchangedOutsideScope:
                     accent = new Color(0.55f, 0.58f, 0.60f, 0.78f);

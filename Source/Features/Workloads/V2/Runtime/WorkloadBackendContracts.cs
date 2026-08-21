@@ -2,6 +2,62 @@ using System;
 
 namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 {
+    public enum WorkloadMultiplayerCommitState
+    {
+        None = 0,
+        Pending = 1,
+        Prepared = 2,
+        ExecutedAwaitingConfirmation = 3,
+        Succeeded = 4,
+        Rejected = 5,
+        Aborted = 6,
+        TimedOut = 7,
+        Failed = 8,
+        RolledBack = 9,
+        RollbackFailed = 10
+    }
+
+    public sealed class WorkloadMultiplayerCommitStatus
+    {
+        internal WorkloadMultiplayerCommitStatus(
+            string requestId,
+            WorkloadMultiplayerCommitState state,
+            WorkloadDiagnosticCode code,
+            string message,
+            WorkloadV2CommitResult result = null)
+        {
+            RequestId = requestId ?? string.Empty;
+            State = state;
+            Code = code;
+            Message = message ?? string.Empty;
+            Result = result;
+        }
+
+        public string RequestId { get; private set; }
+        public WorkloadMultiplayerCommitState State { get; private set; }
+        public WorkloadDiagnosticCode Code { get; private set; }
+        public string Message { get; private set; }
+        public WorkloadV2CommitResult Result { get; private set; }
+        public bool IsTerminal =>
+            State == WorkloadMultiplayerCommitState.Succeeded ||
+            State == WorkloadMultiplayerCommitState.Rejected ||
+            State == WorkloadMultiplayerCommitState.Aborted ||
+            State == WorkloadMultiplayerCommitState.TimedOut ||
+            State == WorkloadMultiplayerCommitState.Failed ||
+            State == WorkloadMultiplayerCommitState.RolledBack ||
+            State == WorkloadMultiplayerCommitState.RollbackFailed;
+
+        /// <summary>
+        /// True when the lifecycle action was accepted locally, including a
+        /// terminal success that will be completed by the next UI frame.
+        /// </summary>
+        public bool IsAccepted =>
+            State == WorkloadMultiplayerCommitState.Pending ||
+            State == WorkloadMultiplayerCommitState.Prepared ||
+            State == WorkloadMultiplayerCommitState.ExecutedAwaitingConfirmation ||
+            State == WorkloadMultiplayerCommitState.Succeeded;
+    }
+
     public enum WorkloadBackendMode
     {
         Legacy = 0,
@@ -28,7 +84,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         ExternalPriorityAuthority = 14,
         BlockedModeTransition = 15,
         UnsupportedOperation = 16,
-        NotFound = 17
+        NotFound = 17,
+        PersistenceConflict = 18,
+        BaselineChanged = 19,
+        InvalidPermutation = 20,
+        InvalidOwnership = 21,
+        UnsupportedLegacyState = 22,
+        MutationCapabilityRejected = 23,
+        RollbackRequired = 24,
+        RollbackFailed = 25
     }
 
     public sealed class WorkloadOperationResult
@@ -86,6 +150,45 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         {
             return new WorkloadOperationResult<T>(false, code, message, default(T));
         }
+    }
+
+    /// <summary>
+    /// Structured result of the backend prepare/execute/rollback lifecycle.
+    /// It is intentionally independent of the wire protocol so a later
+    /// MultiplayerBridge worker can map it to acknowledgements without
+    /// recreating workload transaction logic.
+    /// </summary>
+    internal enum WorkloadBackendTransactionPhase
+    {
+        None = 0,
+        Prepared = 1,
+        Executed = 2,
+        RolledBack = 3,
+        RollbackFailed = 4
+    }
+
+    internal sealed class WorkloadBackendTransactionResult
+    {
+        internal WorkloadBackendTransactionResult(
+            WorkloadBackendTransactionPhase phase,
+            bool succeeded,
+            WorkloadDiagnosticCode code,
+            string message,
+            WorkloadV2CommitResult commitResult = null)
+        {
+            Phase = phase;
+            Succeeded = succeeded;
+            Code = code;
+            Message = message ?? string.Empty;
+            CommitResult = commitResult;
+        }
+
+        internal WorkloadBackendTransactionPhase Phase { get; private set; }
+        internal bool Succeeded { get; private set; }
+        internal WorkloadDiagnosticCode Code { get; private set; }
+        internal string Message { get; private set; }
+        internal WorkloadV2CommitResult CommitResult { get; private set; }
+        internal bool RequiresRecovery => Phase == WorkloadBackendTransactionPhase.RollbackFailed;
     }
 
     public sealed class WorkloadDescriptor

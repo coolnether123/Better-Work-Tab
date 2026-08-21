@@ -1,0 +1,6 @@
+bin/
+obj/
+test-output/
+test-obj/
+mp-test-output/
+mp-test-obj/

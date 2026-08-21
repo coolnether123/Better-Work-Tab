@@ -6,6 +6,7 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.RuleBuilderV2;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -132,6 +133,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 BetterWorkTabLocalState.IsHeaderDragging)
             {
                 return false;
+            }
+
+            if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder,
+                    "Undo and redo of the live WorkGiver layout are unavailable while a workload order preview is active.");
+                evt.Use();
+                return true;
             }
 
             bool redo = evt.keyCode == KeyCode.Y || (evt.keyCode == KeyCode.Z && evt.shift);

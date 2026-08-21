@@ -316,7 +316,9 @@ namespace Better_Work_Tab.UI.Headers
             /// User-configurable underline color for angled headers.
             /// </summary>
             public static Color HeaderUnderlineColor =>
-                BetterWorkTabMod.Settings?.headerUnderlineColor ?? DefaultSettings.Color_HeaderUnderline;
+                BWTWorkTabEffectiveSettings.GetColor(
+                    SettingIDs.HeadersUnderlineColor,
+                    BetterWorkTabMod.Settings?.headerUnderlineColor ?? DefaultSettings.Color_HeaderUnderline);
 
             /// <summary>
             /// User-configurable stem color for vanilla-style headers. The default preserves RimWorld's grey.
@@ -326,13 +328,15 @@ namespace Better_Work_Tab.UI.Headers
                 get
                 {
                     var settings = BetterWorkTabMod.Settings;
-                    if (settings == null ||
-                        Approximately(settings.headerUnderlineColor, DefaultSettings.Color_HeaderUnderline))
+                    Color underlineColor = BWTWorkTabEffectiveSettings.GetColor(
+                        SettingIDs.HeadersUnderlineColor,
+                        settings?.headerUnderlineColor ?? DefaultSettings.Color_HeaderUnderline);
+                    if (Approximately(underlineColor, DefaultSettings.Color_HeaderUnderline))
                     {
                         return DefaultVanillaStemColor;
                     }
 
-                    return settings.headerUnderlineColor;
+                    return underlineColor;
                 }
             }
 

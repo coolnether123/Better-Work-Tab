@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{F9D8D911-4A32-4F84-9B2C-0C6D4F7D8B11}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>BetterWorkTab.WorkloadsV2.Deterministic</RootNamespace>
+    <AssemblyName>BetterWorkTab.WorkloadsV2.Deterministic</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <LangVersion>latest</LangVersion>
+    <Prefer32Bit>false</Prefer32Bit>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+    <WarningLevel>4</WarningLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <DefineConstants>TRACE;WORKLOADS_V2_DETERMINISTIC_TESTS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Security" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- This project links only pure model/projection/protocol contracts. It
+         is deliberately outside Source and is never included by the shipping
+         Better Work Tab project or package manifests. -->
+    <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadCanonical.cs" Link="Production\WorkloadCanonical.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadKeys.cs" Link="Production\WorkloadKeys.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadDefinition.cs" Link="Production\WorkloadDefinition.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadScope.cs" Link="Production\WorkloadScope.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadMembership.cs" Link="Production\WorkloadMembership.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadState.cs" Link="Production\WorkloadState.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadDiff.cs" Link="Production\WorkloadDiff.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadValidation.cs" Link="Production\WorkloadValidation.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadSession.cs" Link="Production\WorkloadSession.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadBackendContracts.cs" Link="Production\WorkloadBackendContracts.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadV2Persistence.cs" Link="Production\WorkloadV2Persistence.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadV2RecordConverter.cs" Link="Production\WorkloadV2RecordConverter.cs" />
+    <Compile Include="..\..\Source\Features\TimePriority\TimePriorityMutationAuthorization.cs" Link="Production\TimePriorityMutationAuthorization.cs" />
+    <Compile Include="..\..\Source\UI\WorkGrid\Projection\WorkTabEffectiveStateContracts.cs" Link="Production\WorkTabEffectiveStateContracts.cs" />
+    <Compile Include="..\..\Source\UI\WorkGrid\Projection\WorkTabEffectiveStateRevisionContract.cs" Link="Production\WorkTabEffectiveStateRevisionContract.cs" />
+    <Compile Include="..\..\Source\UI\WorkGrid\Projection\LiveWorkTabEffectiveStateProvider.cs" Link="Production\LiveWorkTabEffectiveStateProvider.cs" />
+    <Compile Include="..\..\Source\UI\WorkGrid\Projection\ProjectedWorkTabEffectiveStateProvider.cs" Link="Production\ProjectedWorkTabEffectiveStateProvider.cs" />
+    <!-- The synchronized transaction protocol is linked directly. Multiplayer
+         API types are supplied only by the test stub below. -->
+    <Compile Include="..\..\Source\Mod Support\Multiplayer\MultiplayerBridge.cs" Link="Production\MultiplayerBridge.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Stubs\VerseScribeStubs.cs" />
+    <Compile Include="Stubs\MultiplayerApiStubs.cs" />
+    <Compile Include="TestAssert.cs" />
+    <Compile Include="TestSupport.cs" />
+    <Compile Include="RuntimeContractStubs.cs" />
+    <Compile Include="ProjectionRuntimeTestStub.cs" />
+    <Compile Include="ScheduleTests.cs" />
+    <Compile Include="ProjectionAndSettingsTests.cs" />
+    <Compile Include="SpecificJobTests.cs" />
+    <Compile Include="SessionTests.cs" />
+    <Compile Include="PersistenceTests.cs" />
+    <Compile Include="ReassignmentCleanupTests.cs" />
+    <Compile Include="MpProtocolTests.cs" />
+    <Compile Include="GatewayMultiplayerTests.cs" />
+    <Compile Include="GatewayLifecycleTests.cs" />
+    <Compile Include="BackendTransactionTests.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

@@ -131,7 +131,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
 
         internal static bool Execute(in SetWorkGiverPriorityCommand command)
         {
-            bool accepted = command.PawnId >= 0 && command.WorkGiver != null &&
+            bool accepted = (command.PawnId >= 0 || command.PawnId == -1) &&
+                            command.WorkGiver != null &&
                             WorkGridCommandMath.IsValidPriority(
                                 command.Priority,
                                 WorkPrioritySystem.GetRequestableMaxPriority());
@@ -148,12 +149,25 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                     WorkTypeDef targetWorkType =
                         WorkGiverReassignmentManager.GetTargetWorkType(command.WorkGiver) ??
                         command.WorkGiver.workType;
-                    accepted = WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(
-                        command.PawnId,
-                        targetWorkType,
-                        command.WorkGiver,
-                        command.Priority,
-                        out WorkTabEffectiveStateMutationResult result);
+                    WorkTabEffectiveStateMutationResult result;
+                    if (command.PawnId == -1)
+                    {
+                        accepted = WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(
+                            WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(
+                                targetWorkType,
+                                command.WorkGiver),
+                            command.Priority,
+                            out result);
+                    }
+                    else
+                    {
+                        accepted = WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(
+                            command.PawnId,
+                            targetWorkType,
+                            command.WorkGiver,
+                            command.Priority,
+                            out result);
+                    }
                     Observe(
                         command.Kind,
                         accepted,
@@ -179,15 +193,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                     WorkTabEffectiveStateDimension.Schedule,
                     ExternalPriorityAuthorityReason);
                 Observe(command.Kind, false, ExternalPriorityAuthorityReason);
-                return false;
-            }
-
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
-            {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    "The live hourly schedule editor has no safe projection adapter.");
-                Observe(command.Kind, false, "preview schedule editing is blocked");
                 return false;
             }
 

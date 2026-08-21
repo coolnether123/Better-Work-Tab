@@ -109,6 +109,107 @@ namespace Better_Work_Tab.Features.Workloads.V2
         public WorkloadScalarValue Value { get; private set; }
     }
 
+    /// <summary>
+    /// Typed contract entries. Legacy value-only entries above remain the
+    /// compatibility surface used by the existing preview/backend. These
+    /// entries carry the new intent and target semantics without making an
+    /// older caller interpret Clear as a live Set.
+    /// </summary>
+    public sealed class WorkloadParentPriorityIntentEntry
+    {
+        public WorkloadParentPriorityIntentEntry(
+            WorkloadParentPriorityKey key,
+            WorkloadIntent<WorkloadSpecificPriorityPayload> intent)
+        {
+            Key = key ?? new WorkloadParentPriorityKey(null, null);
+            Intent = intent;
+        }
+
+        public WorkloadParentPriorityKey Key { get; private set; }
+        public WorkloadIntent<WorkloadSpecificPriorityPayload> Intent { get; private set; }
+    }
+
+    public sealed class WorkloadManualModeIntentEntry
+    {
+        public WorkloadManualModeIntentEntry(
+            WorkloadParentPriorityKey key,
+            WorkloadIntent<bool> intent)
+        {
+            Key = key ?? new WorkloadParentPriorityKey(null, null);
+            Intent = intent;
+        }
+
+        public WorkloadParentPriorityKey Key { get; private set; }
+        public WorkloadIntent<bool> Intent { get; private set; }
+    }
+
+    public sealed class WorkloadScheduleIntentEntry
+    {
+        public WorkloadScheduleIntentEntry(
+            WorkloadScheduleTargetKey key,
+            WorkloadIntent<WorkloadSchedulePayload> intent)
+        {
+            Key = key ?? new WorkloadScheduleTargetKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                WorkloadScheduleTargetKind.ParentWorkType,
+                null);
+            Intent = intent;
+        }
+
+        public WorkloadScheduleTargetKey Key { get; private set; }
+        public WorkloadIntent<WorkloadSchedulePayload> Intent { get; private set; }
+    }
+
+    public sealed class WorkloadSpecificPriorityIntentEntry
+    {
+        public WorkloadSpecificPriorityIntentEntry(
+            WorkloadSpecificJobTargetKey key,
+            WorkloadIntent<WorkloadSpecificPriorityPayload> intent)
+        {
+            Key = key ?? new WorkloadSpecificJobTargetKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                null,
+                null);
+            Intent = intent;
+        }
+
+        public WorkloadSpecificJobTargetKey Key { get; private set; }
+        public WorkloadIntent<WorkloadSpecificPriorityPayload> Intent { get; private set; }
+    }
+
+    public sealed class WorkloadWorkTypeOrderIntentEntry
+    {
+        public WorkloadWorkTypeOrderIntentEntry(
+            WorkloadWorkTypeOrderKey key,
+            WorkloadIntent<WorkloadWorkTypeOrderPayload> intent)
+        {
+            Key = key ?? new WorkloadWorkTypeOrderKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                null);
+            Intent = intent;
+        }
+
+        public WorkloadWorkTypeOrderKey Key { get; private set; }
+        public WorkloadIntent<WorkloadWorkTypeOrderPayload> Intent { get; private set; }
+    }
+
+    public sealed class WorkloadPresentationSettingIntentEntry
+    {
+        public WorkloadPresentationSettingIntentEntry(
+            string key,
+            WorkloadIntent<WorkloadSettingValue> intent)
+        {
+            Key = key ?? string.Empty;
+            Intent = intent;
+        }
+
+        public string Key { get; private set; }
+        public WorkloadIntent<WorkloadSettingValue> Intent { get; private set; }
+    }
+
     internal sealed class WorkloadPawnStateSnapshot
     {
         public WorkloadPawnStateSnapshot(
@@ -118,7 +219,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
             IEnumerable<WorkloadSpecificJobOverrideEntry> specificJobOverrides,
             IEnumerable<WorkloadSpecificJobOrderEntry> specificJobOrder,
             IEnumerable<WorkloadPresentationSettingEntry> presentationSettings,
-            bool represented)
+            bool represented,
+            IEnumerable<WorkloadParentPriorityIntentEntry> parentPriorityIntents = null,
+            IEnumerable<WorkloadManualModeIntentEntry> manualModeIntents = null,
+            IEnumerable<WorkloadScheduleIntentEntry> scheduleIntents = null,
+            IEnumerable<WorkloadSpecificPriorityIntentEntry> specificPriorityIntents = null,
+            IEnumerable<WorkloadWorkTypeOrderIntentEntry> workTypeOrderIntents = null,
+            IEnumerable<WorkloadPresentationSettingIntentEntry> presentationSettingIntents = null)
         {
             ParentPriorities = new List<WorkloadParentPriorityEntry>(parentPriorities ?? new WorkloadParentPriorityEntry[0]).AsReadOnly();
             ManualModes = new List<WorkloadManualModeEntry>(manualModes ?? new WorkloadManualModeEntry[0]).AsReadOnly();
@@ -126,6 +233,12 @@ namespace Better_Work_Tab.Features.Workloads.V2
             SpecificJobOverrides = new List<WorkloadSpecificJobOverrideEntry>(specificJobOverrides ?? new WorkloadSpecificJobOverrideEntry[0]).AsReadOnly();
             SpecificJobOrder = new List<WorkloadSpecificJobOrderEntry>(specificJobOrder ?? new WorkloadSpecificJobOrderEntry[0]).AsReadOnly();
             PresentationSettings = new List<WorkloadPresentationSettingEntry>(presentationSettings ?? new WorkloadPresentationSettingEntry[0]).AsReadOnly();
+            ParentPriorityIntents = new List<WorkloadParentPriorityIntentEntry>(parentPriorityIntents ?? new WorkloadParentPriorityIntentEntry[0]).AsReadOnly();
+            ManualModeIntents = new List<WorkloadManualModeIntentEntry>(manualModeIntents ?? new WorkloadManualModeIntentEntry[0]).AsReadOnly();
+            ScheduleIntents = new List<WorkloadScheduleIntentEntry>(scheduleIntents ?? new WorkloadScheduleIntentEntry[0]).AsReadOnly();
+            SpecificPriorityIntents = new List<WorkloadSpecificPriorityIntentEntry>(specificPriorityIntents ?? new WorkloadSpecificPriorityIntentEntry[0]).AsReadOnly();
+            WorkTypeOrderIntents = new List<WorkloadWorkTypeOrderIntentEntry>(workTypeOrderIntents ?? new WorkloadWorkTypeOrderIntentEntry[0]).AsReadOnly();
+            PresentationSettingIntents = new List<WorkloadPresentationSettingIntentEntry>(presentationSettingIntents ?? new WorkloadPresentationSettingIntentEntry[0]).AsReadOnly();
             Represented = represented;
         }
 
@@ -135,6 +248,12 @@ namespace Better_Work_Tab.Features.Workloads.V2
         public IReadOnlyList<WorkloadSpecificJobOverrideEntry> SpecificJobOverrides { get; private set; }
         public IReadOnlyList<WorkloadSpecificJobOrderEntry> SpecificJobOrder { get; private set; }
         public IReadOnlyList<WorkloadPresentationSettingEntry> PresentationSettings { get; private set; }
+        public IReadOnlyList<WorkloadParentPriorityIntentEntry> ParentPriorityIntents { get; private set; }
+        public IReadOnlyList<WorkloadManualModeIntentEntry> ManualModeIntents { get; private set; }
+        public IReadOnlyList<WorkloadScheduleIntentEntry> ScheduleIntents { get; private set; }
+        public IReadOnlyList<WorkloadSpecificPriorityIntentEntry> SpecificPriorityIntents { get; private set; }
+        public IReadOnlyList<WorkloadWorkTypeOrderIntentEntry> WorkTypeOrderIntents { get; private set; }
+        public IReadOnlyList<WorkloadPresentationSettingIntentEntry> PresentationSettingIntents { get; private set; }
         public bool Represented { get; private set; }
     }
 
@@ -146,6 +265,14 @@ namespace Better_Work_Tab.Features.Workloads.V2
         private readonly ReadOnlyCollection<WorkloadSpecificJobOverrideEntry> _specificJobOverrides;
         private readonly ReadOnlyCollection<WorkloadSpecificJobOrderEntry> _specificJobOrder;
         private readonly ReadOnlyCollection<WorkloadPresentationSettingEntry> _presentationSettings;
+        private readonly ReadOnlyCollection<WorkloadParentPriorityIntentEntry> _parentPriorityIntents;
+        private readonly ReadOnlyCollection<WorkloadManualModeIntentEntry> _manualModeIntents;
+        private readonly ReadOnlyCollection<WorkloadScheduleIntentEntry> _scheduleIntents;
+        private readonly ReadOnlyCollection<WorkloadSpecificPriorityIntentEntry> _specificPriorityIntents;
+        private readonly ReadOnlyCollection<WorkloadWorkTypeOrderIntentEntry> _workTypeOrderIntents;
+        private readonly ReadOnlyCollection<WorkloadPresentationSettingIntentEntry> _presentationSettingIntents;
+        private readonly bool _hasAmbiguousSpecificPriorityIntents;
+        private readonly bool _hasAmbiguousWorkTypeOrderIntents;
         private readonly ReadOnlyCollection<PawnKey> _representedPawnIds;
         private readonly ReadOnlyCollection<PawnKey> _excludedPawnIds;
         private readonly Dictionary<PawnKey, WorkloadPawnStateSnapshot> _excludedStagedStates;
@@ -158,7 +285,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
             IEnumerable<WorkloadSpecificJobOrderEntry> specificJobOrder = null,
             IEnumerable<WorkloadPresentationSettingEntry> presentationSettings = null,
             IEnumerable<PawnKey> representedPawnIds = null,
-            IEnumerable<PawnKey> excludedPawnIds = null)
+            IEnumerable<PawnKey> excludedPawnIds = null,
+            IEnumerable<WorkloadParentPriorityIntentEntry> parentPriorityIntents = null,
+            IEnumerable<WorkloadManualModeIntentEntry> manualModeIntents = null,
+            IEnumerable<WorkloadScheduleIntentEntry> scheduleIntents = null,
+            IEnumerable<WorkloadSpecificPriorityIntentEntry> specificPriorityIntents = null,
+            IEnumerable<WorkloadWorkTypeOrderIntentEntry> workTypeOrderIntents = null,
+            IEnumerable<WorkloadPresentationSettingIntentEntry> presentationSettingIntents = null)
             : this(
                 parentPriorities,
                 manualModes,
@@ -168,7 +301,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 presentationSettings,
                 representedPawnIds,
                 excludedPawnIds,
-                null)
+                null,
+                parentPriorityIntents,
+                manualModeIntents,
+                scheduleIntents,
+                specificPriorityIntents,
+                workTypeOrderIntents,
+                presentationSettingIntents)
         {
         }
 
@@ -181,14 +320,47 @@ namespace Better_Work_Tab.Features.Workloads.V2
             IEnumerable<WorkloadPresentationSettingEntry> presentationSettings,
             IEnumerable<PawnKey> representedPawnIds,
             IEnumerable<PawnKey> excludedPawnIds,
-            IDictionary<PawnKey, WorkloadPawnStateSnapshot> stagedStates)
+            IDictionary<PawnKey, WorkloadPawnStateSnapshot> stagedStates,
+            IEnumerable<WorkloadParentPriorityIntentEntry> parentPriorityIntents,
+            IEnumerable<WorkloadManualModeIntentEntry> manualModeIntents,
+            IEnumerable<WorkloadScheduleIntentEntry> scheduleIntents,
+            IEnumerable<WorkloadSpecificPriorityIntentEntry> specificPriorityIntents,
+            IEnumerable<WorkloadWorkTypeOrderIntentEntry> workTypeOrderIntents,
+            IEnumerable<WorkloadPresentationSettingIntentEntry> presentationSettingIntents)
         {
             ReadOnlyCollection<WorkloadParentPriorityEntry> rawParentPriorities = NormalizeParentPriorities(parentPriorities);
             ReadOnlyCollection<WorkloadManualModeEntry> rawManualModes = NormalizeManualModes(manualModes);
             ReadOnlyCollection<WorkloadScheduleEntry> rawSchedules = NormalizeSchedules(schedules);
             ReadOnlyCollection<WorkloadSpecificJobOverrideEntry> rawSpecificJobOverrides = NormalizeSpecificJobOverrides(specificJobOverrides);
             ReadOnlyCollection<WorkloadSpecificJobOrderEntry> rawSpecificJobOrder = NormalizeSpecificJobOrder(specificJobOrder);
-            ReadOnlyCollection<WorkloadPresentationSettingEntry> rawPresentationSettings = NormalizePresentationSettings(presentationSettings);
+            ReadOnlyCollection<WorkloadPresentationSettingEntry> legacyPresentationSettings = NormalizePresentationSettings(presentationSettings);
+            ReadOnlyCollection<WorkloadParentPriorityIntentEntry> rawParentPriorityIntents =
+                NormalizeParentPriorityIntents(parentPriorityIntents, rawParentPriorities);
+            ReadOnlyCollection<WorkloadManualModeIntentEntry> rawManualModeIntents =
+                NormalizeManualModeIntents(manualModeIntents, rawManualModes);
+            ReadOnlyCollection<WorkloadScheduleIntentEntry> rawScheduleIntents =
+                NormalizeScheduleIntents(scheduleIntents);
+            bool hasAmbiguousSpecificPriorityIntents;
+            ReadOnlyCollection<WorkloadSpecificPriorityIntentEntry> rawSpecificPriorityIntents =
+                NormalizeSpecificPriorityIntents(
+                    specificPriorityIntents,
+                    out hasAmbiguousSpecificPriorityIntents);
+            bool hasAmbiguousWorkTypeOrderIntents;
+            ReadOnlyCollection<WorkloadWorkTypeOrderIntentEntry> rawWorkTypeOrderIntents =
+                NormalizeWorkTypeOrderIntents(
+                    workTypeOrderIntents,
+                    out hasAmbiguousWorkTypeOrderIntents);
+            _hasAmbiguousSpecificPriorityIntents = hasAmbiguousSpecificPriorityIntents;
+            _hasAmbiguousWorkTypeOrderIntents = hasAmbiguousWorkTypeOrderIntents;
+            ReadOnlyCollection<WorkloadPresentationSettingIntentEntry> rawPresentationSettingIntents =
+                NormalizePresentationSettingIntents(
+                    presentationSettingIntents,
+                    legacyPresentationSettings);
+            ReadOnlyCollection<WorkloadPresentationSettingEntry> rawPresentationSettings =
+                SynchronizePresentationSettings(
+                    legacyPresentationSettings,
+                    rawPresentationSettingIntents,
+                    presentationSettingIntents != null);
 
             _excludedPawnIds = NormalizePawnIds(excludedPawnIds);
             _excludedStagedStates = new Dictionary<PawnKey, WorkloadPawnStateSnapshot>();
@@ -210,7 +382,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
                         rawSpecificJobOverrides,
                         rawSpecificJobOrder,
                         rawPresentationSettings,
-                        representedPawnIds);
+                        representedPawnIds,
+                        rawParentPriorityIntents,
+                        rawManualModeIntents,
+                        rawScheduleIntents,
+                        rawSpecificPriorityIntents,
+                        rawWorkTypeOrderIntents,
+                        rawPresentationSettingIntents);
                 }
             }
 
@@ -220,6 +398,12 @@ namespace Better_Work_Tab.Features.Workloads.V2
             _specificJobOverrides = RemoveExcluded(rawSpecificJobOverrides, _excludedPawnIds);
             _specificJobOrder = RemoveExcluded(rawSpecificJobOrder, _excludedPawnIds);
             _presentationSettings = rawPresentationSettings;
+            _parentPriorityIntents = RemoveExcluded(rawParentPriorityIntents, _excludedPawnIds);
+            _manualModeIntents = RemoveExcluded(rawManualModeIntents, _excludedPawnIds);
+            _scheduleIntents = RemoveExcluded(rawScheduleIntents, _excludedPawnIds);
+            _specificPriorityIntents = RemoveExcluded(rawSpecificPriorityIntents, _excludedPawnIds);
+            _workTypeOrderIntents = RemoveExcluded(rawWorkTypeOrderIntents, _excludedPawnIds);
+            _presentationSettingIntents = rawPresentationSettingIntents;
             _representedPawnIds = BuildRepresentedPawnIds(
                 _parentPriorities,
                 _manualModes,
@@ -228,7 +412,12 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 _specificJobOrder,
                 representedPawnIds,
                 _excludedPawnIds,
-                _excludedStagedStates);
+                _excludedStagedStates,
+                _parentPriorityIntents,
+                _manualModeIntents,
+                _scheduleIntents,
+                _specificPriorityIntents,
+                _workTypeOrderIntents);
         }
 
         public static WorkloadProjectedState Empty
@@ -242,6 +431,14 @@ namespace Better_Work_Tab.Features.Workloads.V2
         public IReadOnlyList<WorkloadSpecificJobOverrideEntry> SpecificJobOverrides => _specificJobOverrides;
         public IReadOnlyList<WorkloadSpecificJobOrderEntry> SpecificJobOrder => _specificJobOrder;
         public IReadOnlyList<WorkloadPresentationSettingEntry> PresentationSettings => _presentationSettings;
+        public IReadOnlyList<WorkloadParentPriorityIntentEntry> ParentPriorityIntents => _parentPriorityIntents;
+        public IReadOnlyList<WorkloadManualModeIntentEntry> ManualModeIntents => _manualModeIntents;
+        public IReadOnlyList<WorkloadScheduleIntentEntry> ScheduleIntents => _scheduleIntents;
+        public IReadOnlyList<WorkloadSpecificPriorityIntentEntry> SpecificPriorityIntents => _specificPriorityIntents;
+        public IReadOnlyList<WorkloadWorkTypeOrderIntentEntry> WorkTypeOrderIntents => _workTypeOrderIntents;
+        public IReadOnlyList<WorkloadPresentationSettingIntentEntry> PresentationSettingIntents => _presentationSettingIntents;
+        public bool HasAmbiguousSpecificPriorityIntents => _hasAmbiguousSpecificPriorityIntents;
+        public bool HasAmbiguousWorkTypeOrderIntents => _hasAmbiguousWorkTypeOrderIntents;
         public IReadOnlyList<PawnKey> RepresentedPawnIds => _representedPawnIds;
         public IReadOnlyList<PawnKey> ExcludedPawnIds => _excludedPawnIds;
 
@@ -278,7 +475,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
             IDictionary<string, WorkloadScalarValue> presentationSettings,
             IEnumerable<PawnKey> representedPawnIds = null,
             IEnumerable<PawnKey> excludedPawnIds = null,
-            IDictionary<PawnKey, WorkloadPawnStateSnapshot> stagedStates = null)
+            IDictionary<PawnKey, WorkloadPawnStateSnapshot> stagedStates = null,
+            IEnumerable<WorkloadParentPriorityIntentEntry> parentPriorityIntents = null,
+            IEnumerable<WorkloadManualModeIntentEntry> manualModeIntents = null,
+            IEnumerable<WorkloadScheduleIntentEntry> scheduleIntents = null,
+            IEnumerable<WorkloadSpecificPriorityIntentEntry> specificPriorityIntents = null,
+            IEnumerable<WorkloadWorkTypeOrderIntentEntry> workTypeOrderIntents = null,
+            IEnumerable<WorkloadPresentationSettingIntentEntry> presentationSettingIntents = null)
         {
             var priorities = new List<WorkloadParentPriorityEntry>();
             if (parentPriorities != null)
@@ -343,7 +546,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 presentation,
                 representedPawnIds,
                 excludedPawnIds,
-                stagedStates);
+                stagedStates,
+                parentPriorityIntents,
+                manualModeIntents,
+                scheduleIntents,
+                specificPriorityIntents,
+                workTypeOrderIntents,
+                presentationSettingIntents);
         }
 
         /// <summary>
@@ -443,7 +652,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 presentation,
                 represented,
                 excluded,
-                staged);
+                staged,
+                _parentPriorityIntents,
+                _manualModeIntents,
+                _scheduleIntents,
+                _specificPriorityIntents,
+                _workTypeOrderIntents,
+                _presentationSettingIntents);
         }
 
         internal WorkloadProjectedState ExcludePawn(PawnKey pawn)
@@ -463,7 +678,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 _presentationSettings,
                 _representedPawnIds,
                 excluded,
-                staged);
+                staged,
+                _parentPriorityIntents,
+                _manualModeIntents,
+                _scheduleIntents,
+                _specificPriorityIntents,
+                _workTypeOrderIntents,
+                _presentationSettingIntents);
         }
 
         internal WorkloadProjectedState IncludePawn(PawnKey pawn)
@@ -489,6 +710,18 @@ namespace Better_Work_Tab.Features.Workloads.V2
             order.AddRange(staged.SpecificJobOrder);
             var presentation = new List<WorkloadPresentationSettingEntry>(_presentationSettings);
             presentation.AddRange(staged.PresentationSettings);
+            var parentPriorityIntents = new List<WorkloadParentPriorityIntentEntry>(_parentPriorityIntents);
+            parentPriorityIntents.AddRange(staged.ParentPriorityIntents);
+            var manualModeIntents = new List<WorkloadManualModeIntentEntry>(_manualModeIntents);
+            manualModeIntents.AddRange(staged.ManualModeIntents);
+            var scheduleIntents = new List<WorkloadScheduleIntentEntry>(_scheduleIntents);
+            scheduleIntents.AddRange(staged.ScheduleIntents);
+            var specificPriorityIntents = new List<WorkloadSpecificPriorityIntentEntry>(_specificPriorityIntents);
+            specificPriorityIntents.AddRange(staged.SpecificPriorityIntents);
+            var workTypeOrderIntents = new List<WorkloadWorkTypeOrderIntentEntry>(_workTypeOrderIntents);
+            workTypeOrderIntents.AddRange(staged.WorkTypeOrderIntents);
+            var presentationSettingIntents = new List<WorkloadPresentationSettingIntentEntry>(_presentationSettingIntents);
+            presentationSettingIntents.AddRange(staged.PresentationSettingIntents);
 
             Dictionary<PawnKey, WorkloadPawnStateSnapshot> stagedStates = CopyExcludedStagedStates();
             stagedStates.Remove(safePawn);
@@ -501,7 +734,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 presentation,
                 represented,
                 excluded,
-                stagedStates);
+                stagedStates,
+                parentPriorityIntents,
+                manualModeIntents,
+                scheduleIntents,
+                specificPriorityIntents,
+                workTypeOrderIntents,
+                presentationSettingIntents);
         }
 
         internal bool IsExcluded(PawnKey pawn)
@@ -545,6 +784,32 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 if (Equals(_specificJobOrder[i].Key.Pawn, pawn)) order.Add(_specificJobOrder[i]);
             }
 
+            var parentPriorityIntents = new List<WorkloadParentPriorityIntentEntry>();
+            for (int i = 0; i < _parentPriorityIntents.Count; i++)
+            {
+                if (Equals(_parentPriorityIntents[i].Key.Pawn, pawn)) parentPriorityIntents.Add(_parentPriorityIntents[i]);
+            }
+            var manualModeIntents = new List<WorkloadManualModeIntentEntry>();
+            for (int i = 0; i < _manualModeIntents.Count; i++)
+            {
+                if (Equals(_manualModeIntents[i].Key.Pawn, pawn)) manualModeIntents.Add(_manualModeIntents[i]);
+            }
+            var scheduleIntents = new List<WorkloadScheduleIntentEntry>();
+            for (int i = 0; i < _scheduleIntents.Count; i++)
+            {
+                if (Equals(_scheduleIntents[i].Key.Pawn, pawn)) scheduleIntents.Add(_scheduleIntents[i]);
+            }
+            var specificPriorityIntents = new List<WorkloadSpecificPriorityIntentEntry>();
+            for (int i = 0; i < _specificPriorityIntents.Count; i++)
+            {
+                if (Equals(_specificPriorityIntents[i].Key.Pawn, pawn)) specificPriorityIntents.Add(_specificPriorityIntents[i]);
+            }
+            var workTypeOrderIntents = new List<WorkloadWorkTypeOrderIntentEntry>();
+            for (int i = 0; i < _workTypeOrderIntents.Count; i++)
+            {
+                if (Equals(_workTypeOrderIntents[i].Key.Pawn, pawn)) workTypeOrderIntents.Add(_workTypeOrderIntents[i]);
+            }
+
             return new WorkloadPawnStateSnapshot(
                 priorities,
                 manual,
@@ -552,7 +817,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 overrides,
                 order,
                 new WorkloadPresentationSettingEntry[0],
-                Contains(_representedPawnIds, pawn));
+                Contains(_representedPawnIds, pawn),
+                parentPriorityIntents,
+                manualModeIntents,
+                scheduleIntents,
+                specificPriorityIntents,
+                workTypeOrderIntents,
+                new WorkloadPresentationSettingIntentEntry[0]);
         }
 
         private static ReadOnlyCollection<WorkloadParentPriorityEntry> NormalizeParentPriorities(
@@ -719,6 +990,292 @@ namespace Better_Work_Tab.Features.Workloads.V2
             return result.AsReadOnly();
         }
 
+        private static ReadOnlyCollection<WorkloadParentPriorityIntentEntry> NormalizeParentPriorityIntents(
+            IEnumerable<WorkloadParentPriorityIntentEntry> source,
+            IReadOnlyList<WorkloadParentPriorityEntry> legacy)
+        {
+            var values = new Dictionary<WorkloadParentPriorityKey, WorkloadIntent<WorkloadSpecificPriorityPayload>>();
+            if (source != null)
+            {
+                foreach (WorkloadParentPriorityIntentEntry entry in source)
+                {
+                    if (entry == null) continue;
+                    WorkloadIntent<WorkloadSpecificPriorityPayload> existing;
+                    if (!values.TryGetValue(entry.Key, out existing) ||
+                        StringComparer.Ordinal.Compare(entry.Intent.CanonicalForm, existing.CanonicalForm) < 0)
+                    {
+                        values[entry.Key] = entry.Intent;
+                    }
+                }
+            }
+            else if (legacy != null)
+            {
+                for (int i = 0; i < legacy.Count; i++)
+                {
+                    WorkloadParentPriorityEntry entry = legacy[i];
+                    if (entry == null) continue;
+                    values[entry.Key] = WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(
+                        new WorkloadSpecificPriorityPayload(entry.Priority));
+                }
+            }
+
+            var result = new List<WorkloadParentPriorityIntentEntry>();
+            foreach (KeyValuePair<WorkloadParentPriorityKey, WorkloadIntent<WorkloadSpecificPriorityPayload>> item in values)
+            {
+                result.Add(new WorkloadParentPriorityIntentEntry(item.Key, item.Value));
+            }
+
+            result.Sort((left, right) => left.Key.CompareTo(right.Key));
+            return result.AsReadOnly();
+        }
+
+        private static ReadOnlyCollection<WorkloadManualModeIntentEntry> NormalizeManualModeIntents(
+            IEnumerable<WorkloadManualModeIntentEntry> source,
+            IReadOnlyList<WorkloadManualModeEntry> legacy)
+        {
+            var values = new Dictionary<WorkloadParentPriorityKey, WorkloadIntent<bool>>();
+            if (source != null)
+            {
+                foreach (WorkloadManualModeIntentEntry entry in source)
+                {
+                    if (entry == null) continue;
+                    WorkloadIntent<bool> existing;
+                    if (!values.TryGetValue(entry.Key, out existing) ||
+                        StringComparer.Ordinal.Compare(entry.Intent.CanonicalForm, existing.CanonicalForm) < 0)
+                    {
+                        values[entry.Key] = entry.Intent;
+                    }
+                }
+            }
+            else if (legacy != null)
+            {
+                for (int i = 0; i < legacy.Count; i++)
+                {
+                    WorkloadManualModeEntry entry = legacy[i];
+                    if (entry == null) continue;
+                    values[entry.Key] = WorkloadIntent<bool>.CreateSet(entry.Manual);
+                }
+            }
+
+            var result = new List<WorkloadManualModeIntentEntry>();
+            foreach (KeyValuePair<WorkloadParentPriorityKey, WorkloadIntent<bool>> item in values)
+            {
+                result.Add(new WorkloadManualModeIntentEntry(item.Key, item.Value));
+            }
+
+            result.Sort((left, right) => left.Key.CompareTo(right.Key));
+            return result.AsReadOnly();
+        }
+
+        private static ReadOnlyCollection<WorkloadScheduleIntentEntry> NormalizeScheduleIntents(
+            IEnumerable<WorkloadScheduleIntentEntry> source)
+        {
+            var values = new Dictionary<WorkloadScheduleTargetKey, WorkloadIntent<WorkloadSchedulePayload>>();
+            if (source != null)
+            {
+                foreach (WorkloadScheduleIntentEntry entry in source)
+                {
+                    if (entry == null) continue;
+                    WorkloadIntent<WorkloadSchedulePayload> existing;
+                    if (!values.TryGetValue(entry.Key, out existing) ||
+                        StringComparer.Ordinal.Compare(entry.Intent.CanonicalForm, existing.CanonicalForm) < 0)
+                    {
+                        values[entry.Key] = entry.Intent;
+                    }
+                }
+            }
+
+            var result = new List<WorkloadScheduleIntentEntry>();
+            foreach (KeyValuePair<WorkloadScheduleTargetKey, WorkloadIntent<WorkloadSchedulePayload>> item in values)
+            {
+                result.Add(new WorkloadScheduleIntentEntry(item.Key, item.Value));
+            }
+
+            result.Sort((left, right) => left.Key.CompareTo(right.Key));
+            return result.AsReadOnly();
+        }
+
+        private static ReadOnlyCollection<WorkloadSpecificPriorityIntentEntry> NormalizeSpecificPriorityIntents(
+            IEnumerable<WorkloadSpecificPriorityIntentEntry> source,
+            out bool hasDuplicates)
+        {
+            hasDuplicates = false;
+            var values = new Dictionary<WorkloadSpecificJobTargetKey, WorkloadIntent<WorkloadSpecificPriorityPayload>>();
+            var ambiguousKeys = new HashSet<WorkloadSpecificJobTargetKey>();
+            if (source != null)
+            {
+                foreach (WorkloadSpecificPriorityIntentEntry entry in source)
+                {
+                    if (entry == null) continue;
+                    // NoOpinion is the typed spelling of dictionary absence.
+                    // It must not become a persisted/diff-visible record.
+                    if (entry.Intent.IsNoOpinion) continue;
+                    if (ambiguousKeys.Contains(entry.Key)) continue;
+                    if (values.ContainsKey(entry.Key))
+                    {
+                        // An ambiguous target is removed completely. This is
+                        // deliberately not "first wins" or lexical selection:
+                        // callers that bypass record validation must still not
+                        // apply a Set over a Clear (or vice versa).
+                        values.Remove(entry.Key);
+                        ambiguousKeys.Add(entry.Key);
+                        hasDuplicates = true;
+                        continue;
+                    }
+
+                    values[entry.Key] = entry.Intent;
+                }
+            }
+
+            var result = new List<WorkloadSpecificPriorityIntentEntry>();
+            foreach (KeyValuePair<WorkloadSpecificJobTargetKey, WorkloadIntent<WorkloadSpecificPriorityPayload>> item in values)
+            {
+                result.Add(new WorkloadSpecificPriorityIntentEntry(item.Key, item.Value));
+            }
+
+            result.Sort((left, right) => left.Key.CompareTo(right.Key));
+            return result.AsReadOnly();
+        }
+
+        private static ReadOnlyCollection<WorkloadWorkTypeOrderIntentEntry> NormalizeWorkTypeOrderIntents(
+            IEnumerable<WorkloadWorkTypeOrderIntentEntry> source,
+            out bool hasDuplicates)
+        {
+            hasDuplicates = false;
+            var values = new Dictionary<WorkloadWorkTypeOrderKey, WorkloadIntent<WorkloadWorkTypeOrderPayload>>();
+            var ambiguousKeys = new HashSet<WorkloadWorkTypeOrderKey>();
+            if (source != null)
+            {
+                foreach (WorkloadWorkTypeOrderIntentEntry entry in source)
+                {
+                    if (entry == null) continue;
+                    if (entry.Intent.IsNoOpinion) continue;
+                    if (ambiguousKeys.Contains(entry.Key)) continue;
+                    if (values.ContainsKey(entry.Key))
+                    {
+                        values.Remove(entry.Key);
+                        ambiguousKeys.Add(entry.Key);
+                        hasDuplicates = true;
+                        continue;
+                    }
+
+                    values[entry.Key] = entry.Intent;
+                }
+            }
+
+            var result = new List<WorkloadWorkTypeOrderIntentEntry>();
+            foreach (KeyValuePair<WorkloadWorkTypeOrderKey, WorkloadIntent<WorkloadWorkTypeOrderPayload>> item in values)
+            {
+                result.Add(new WorkloadWorkTypeOrderIntentEntry(item.Key, item.Value));
+            }
+
+            result.Sort((left, right) => left.Key.CompareTo(right.Key));
+            return result.AsReadOnly();
+        }
+
+        private static ReadOnlyCollection<WorkloadPresentationSettingIntentEntry> NormalizePresentationSettingIntents(
+            IEnumerable<WorkloadPresentationSettingIntentEntry> source,
+            IReadOnlyList<WorkloadPresentationSettingEntry> legacy)
+        {
+            var values = new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(StringComparer.Ordinal);
+            if (source != null)
+            {
+                foreach (WorkloadPresentationSettingIntentEntry entry in source)
+                {
+                    if (entry == null || string.IsNullOrWhiteSpace(entry.Key)) continue;
+                    // Typed presentation intents are an ordered edit stream at
+                    // this boundary. The last explicit operation wins; a
+                    // NoOpinion operation is normalized to absence instead of
+                    // becoming a persisted zero-value record.
+                    if (entry.Intent.IsNoOpinion)
+                    {
+                        values.Remove(entry.Key);
+                    }
+                    else
+                    {
+                        values[entry.Key] = entry.Intent;
+                    }
+                }
+            }
+            else if (legacy != null)
+            {
+                for (int i = 0; i < legacy.Count; i++)
+                {
+                    WorkloadPresentationSettingEntry entry = legacy[i];
+                    if (entry == null) continue;
+                    values[entry.Key] = WorkloadIntent<WorkloadSettingValue>.CreateSet(
+                        WorkloadSettingValue.WorkloadOwned(entry.Value));
+                }
+            }
+
+            var result = new List<WorkloadPresentationSettingIntentEntry>();
+            foreach (KeyValuePair<string, WorkloadIntent<WorkloadSettingValue>> item in values)
+            {
+                result.Add(new WorkloadPresentationSettingIntentEntry(item.Key, item.Value));
+            }
+
+            result.Sort((left, right) => StringComparer.Ordinal.Compare(left.Key, right.Key));
+            return result.AsReadOnly();
+        }
+
+        private static ReadOnlyCollection<WorkloadPresentationSettingEntry> SynchronizePresentationSettings(
+            IReadOnlyList<WorkloadPresentationSettingEntry> legacy,
+            IReadOnlyList<WorkloadPresentationSettingIntentEntry> intents,
+            bool typedSourceProvided)
+        {
+            var values = new Dictionary<string, WorkloadScalarValue>(StringComparer.Ordinal);
+
+            // Legacy-only records are promoted to typed intents by the caller.
+            // Once a typed source is present, it is the canonical ownership
+            // source and the legacy list is rebuilt from it, eliminating the
+            // possibility of typed-only and scalar-only values disagreeing.
+            if (!typedSourceProvided && legacy != null)
+            {
+                for (int i = 0; i < legacy.Count; i++)
+                {
+                    WorkloadPresentationSettingEntry entry = legacy[i];
+                    if (entry != null && !string.IsNullOrWhiteSpace(entry.Key))
+                    {
+                        values[entry.Key] = entry.Value;
+                    }
+                }
+            }
+
+            if (intents != null)
+            {
+                for (int i = 0; i < intents.Count; i++)
+                {
+                    WorkloadPresentationSettingIntentEntry entry = intents[i];
+                    if (entry == null || string.IsNullOrWhiteSpace(entry.Key))
+                    {
+                        continue;
+                    }
+
+                    if (entry.Intent.State == WorkloadIntentState.Set &&
+                        entry.Intent.HasValue &&
+                        entry.Intent.Value.Ownership == WorkloadSettingOwnership.WorkloadOwned)
+                    {
+                        values[entry.Key] = entry.Intent.Value.Scalar;
+                    }
+                    else
+                    {
+                        // Clear and Global are explicit non-owned states. They
+                        // must not leave a stale scalar compatibility value.
+                        values.Remove(entry.Key);
+                    }
+                }
+            }
+
+            var result = new List<WorkloadPresentationSettingEntry>();
+            foreach (KeyValuePair<string, WorkloadScalarValue> item in values)
+            {
+                result.Add(new WorkloadPresentationSettingEntry(item.Key, item.Value));
+            }
+
+            result.Sort((left, right) => StringComparer.Ordinal.Compare(left.Key, right.Key));
+            return result.AsReadOnly();
+        }
+
         private static ReadOnlyCollection<PawnKey> NormalizePawnIds(IEnumerable<PawnKey> source)
         {
             var unique = new Dictionary<PawnKey, PawnKey>();
@@ -801,6 +1358,71 @@ namespace Better_Work_Tab.Features.Workloads.V2
             return result.AsReadOnly();
         }
 
+        private static ReadOnlyCollection<WorkloadParentPriorityIntentEntry> RemoveExcluded(
+            IReadOnlyList<WorkloadParentPriorityIntentEntry> source,
+            IReadOnlyList<PawnKey> excluded)
+        {
+            var result = new List<WorkloadParentPriorityIntentEntry>();
+            for (int i = 0; i < source.Count; i++)
+            {
+                if (!Contains(excluded, source[i].Key.Pawn)) result.Add(source[i]);
+            }
+
+            return result.AsReadOnly();
+        }
+
+        private static ReadOnlyCollection<WorkloadManualModeIntentEntry> RemoveExcluded(
+            IReadOnlyList<WorkloadManualModeIntentEntry> source,
+            IReadOnlyList<PawnKey> excluded)
+        {
+            var result = new List<WorkloadManualModeIntentEntry>();
+            for (int i = 0; i < source.Count; i++)
+            {
+                if (!Contains(excluded, source[i].Key.Pawn)) result.Add(source[i]);
+            }
+
+            return result.AsReadOnly();
+        }
+
+        private static ReadOnlyCollection<WorkloadScheduleIntentEntry> RemoveExcluded(
+            IReadOnlyList<WorkloadScheduleIntentEntry> source,
+            IReadOnlyList<PawnKey> excluded)
+        {
+            var result = new List<WorkloadScheduleIntentEntry>();
+            for (int i = 0; i < source.Count; i++)
+            {
+                if (!Contains(excluded, source[i].Key.Pawn)) result.Add(source[i]);
+            }
+
+            return result.AsReadOnly();
+        }
+
+        private static ReadOnlyCollection<WorkloadSpecificPriorityIntentEntry> RemoveExcluded(
+            IReadOnlyList<WorkloadSpecificPriorityIntentEntry> source,
+            IReadOnlyList<PawnKey> excluded)
+        {
+            var result = new List<WorkloadSpecificPriorityIntentEntry>();
+            for (int i = 0; i < source.Count; i++)
+            {
+                if (!Contains(excluded, source[i].Key.Pawn)) result.Add(source[i]);
+            }
+
+            return result.AsReadOnly();
+        }
+
+        private static ReadOnlyCollection<WorkloadWorkTypeOrderIntentEntry> RemoveExcluded(
+            IReadOnlyList<WorkloadWorkTypeOrderIntentEntry> source,
+            IReadOnlyList<PawnKey> excluded)
+        {
+            var result = new List<WorkloadWorkTypeOrderIntentEntry>();
+            for (int i = 0; i < source.Count; i++)
+            {
+                if (!Contains(excluded, source[i].Key.Pawn)) result.Add(source[i]);
+            }
+
+            return result.AsReadOnly();
+        }
+
         private static WorkloadPawnStateSnapshot CaptureSnapshot(
             PawnKey pawn,
             IReadOnlyList<WorkloadParentPriorityEntry> parentPriorities,
@@ -809,7 +1431,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
             IReadOnlyList<WorkloadSpecificJobOverrideEntry> specificJobOverrides,
             IReadOnlyList<WorkloadSpecificJobOrderEntry> specificJobOrder,
             IReadOnlyList<WorkloadPresentationSettingEntry> presentationSettings,
-            IEnumerable<PawnKey> representedPawnIds)
+            IEnumerable<PawnKey> representedPawnIds,
+            IReadOnlyList<WorkloadParentPriorityIntentEntry> parentPriorityIntents,
+            IReadOnlyList<WorkloadManualModeIntentEntry> manualModeIntents,
+            IReadOnlyList<WorkloadScheduleIntentEntry> scheduleIntents,
+            IReadOnlyList<WorkloadSpecificPriorityIntentEntry> specificPriorityIntents,
+            IReadOnlyList<WorkloadWorkTypeOrderIntentEntry> workTypeOrderIntents,
+            IReadOnlyList<WorkloadPresentationSettingIntentEntry> presentationSettingIntents)
         {
             var priorities = new List<WorkloadParentPriorityEntry>();
             for (int i = 0; i < parentPriorities.Count; i++)
@@ -837,6 +1465,32 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 if (Equals(specificJobOrder[i].Key.Pawn, pawn)) order.Add(specificJobOrder[i]);
             }
 
+            var parentPriorityIntentList = new List<WorkloadParentPriorityIntentEntry>();
+            for (int i = 0; i < parentPriorityIntents.Count; i++)
+            {
+                if (Equals(parentPriorityIntents[i].Key.Pawn, pawn)) parentPriorityIntentList.Add(parentPriorityIntents[i]);
+            }
+            var manualModeIntentList = new List<WorkloadManualModeIntentEntry>();
+            for (int i = 0; i < manualModeIntents.Count; i++)
+            {
+                if (Equals(manualModeIntents[i].Key.Pawn, pawn)) manualModeIntentList.Add(manualModeIntents[i]);
+            }
+            var scheduleIntentList = new List<WorkloadScheduleIntentEntry>();
+            for (int i = 0; i < scheduleIntents.Count; i++)
+            {
+                if (Equals(scheduleIntents[i].Key.Pawn, pawn)) scheduleIntentList.Add(scheduleIntents[i]);
+            }
+            var specificPriorityIntentList = new List<WorkloadSpecificPriorityIntentEntry>();
+            for (int i = 0; i < specificPriorityIntents.Count; i++)
+            {
+                if (Equals(specificPriorityIntents[i].Key.Pawn, pawn)) specificPriorityIntentList.Add(specificPriorityIntents[i]);
+            }
+            var workTypeOrderIntentList = new List<WorkloadWorkTypeOrderIntentEntry>();
+            for (int i = 0; i < workTypeOrderIntents.Count; i++)
+            {
+                if (Equals(workTypeOrderIntents[i].Key.Pawn, pawn)) workTypeOrderIntentList.Add(workTypeOrderIntents[i]);
+            }
+
             return new WorkloadPawnStateSnapshot(
                 priorities,
                 manual,
@@ -844,7 +1498,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 overrides,
                 order,
                 new WorkloadPresentationSettingEntry[0],
-                Contains(representedPawnIds, pawn));
+                Contains(representedPawnIds, pawn),
+                parentPriorityIntentList,
+                manualModeIntentList,
+                scheduleIntentList,
+                specificPriorityIntentList,
+                workTypeOrderIntentList,
+                new WorkloadPresentationSettingIntentEntry[0]);
         }
 
         private static bool Contains<T>(IEnumerable<T> values, T value)
@@ -866,7 +1526,12 @@ namespace Better_Work_Tab.Features.Workloads.V2
             IReadOnlyList<WorkloadSpecificJobOrderEntry> specificJobOrder,
             IEnumerable<PawnKey> representedPawnIds,
             IReadOnlyList<PawnKey> excludedPawnIds,
-            IDictionary<PawnKey, WorkloadPawnStateSnapshot> stagedStates)
+            IDictionary<PawnKey, WorkloadPawnStateSnapshot> stagedStates,
+            IReadOnlyList<WorkloadParentPriorityIntentEntry> parentPriorityIntents,
+            IReadOnlyList<WorkloadManualModeIntentEntry> manualModeIntents,
+            IReadOnlyList<WorkloadScheduleIntentEntry> scheduleIntents,
+            IReadOnlyList<WorkloadSpecificPriorityIntentEntry> specificPriorityIntents,
+            IReadOnlyList<WorkloadWorkTypeOrderIntentEntry> workTypeOrderIntents)
         {
             var unique = new Dictionary<PawnKey, PawnKey>();
             if (representedPawnIds != null)
@@ -880,8 +1545,41 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < parentPriorities.Count; i++) unique[parentPriorities[i].Key.Pawn] = parentPriorities[i].Key.Pawn;
             for (int i = 0; i < manualModes.Count; i++) unique[manualModes[i].Key.Pawn] = manualModes[i].Key.Pawn;
             for (int i = 0; i < schedules.Count; i++) unique[schedules[i].Pawn] = schedules[i].Pawn;
-            for (int i = 0; i < specificJobOverrides.Count; i++) unique[specificJobOverrides[i].Key.Pawn] = specificJobOverrides[i].Key.Pawn;
-            for (int i = 0; i < specificJobOrder.Count; i++) unique[specificJobOrder[i].Key.Pawn] = specificJobOrder[i].Key.Pawn;
+            for (int i = 0; i < specificJobOverrides.Count; i++)
+            {
+                if (specificJobOverrides[i].Key.Pawn.IsValid)
+                    unique[specificJobOverrides[i].Key.Pawn] = specificJobOverrides[i].Key.Pawn;
+            }
+            for (int i = 0; i < specificJobOrder.Count; i++)
+            {
+                if (specificJobOrder[i].Key.Pawn.IsValid)
+                    unique[specificJobOrder[i].Key.Pawn] = specificJobOrder[i].Key.Pawn;
+            }
+            for (int i = 0; i < parentPriorityIntents.Count; i++)
+            {
+                if (parentPriorityIntents[i].Key.Pawn.IsValid)
+                    unique[parentPriorityIntents[i].Key.Pawn] = parentPriorityIntents[i].Key.Pawn;
+            }
+            for (int i = 0; i < manualModeIntents.Count; i++)
+            {
+                if (manualModeIntents[i].Key.Pawn.IsValid)
+                    unique[manualModeIntents[i].Key.Pawn] = manualModeIntents[i].Key.Pawn;
+            }
+            for (int i = 0; i < scheduleIntents.Count; i++)
+            {
+                if (scheduleIntents[i].Key.Pawn.IsValid)
+                    unique[scheduleIntents[i].Key.Pawn] = scheduleIntents[i].Key.Pawn;
+            }
+            for (int i = 0; i < specificPriorityIntents.Count; i++)
+            {
+                if (specificPriorityIntents[i].Key.Pawn.IsValid)
+                    unique[specificPriorityIntents[i].Key.Pawn] = specificPriorityIntents[i].Key.Pawn;
+            }
+            for (int i = 0; i < workTypeOrderIntents.Count; i++)
+            {
+                if (workTypeOrderIntents[i].Key.Pawn.IsValid)
+                    unique[workTypeOrderIntents[i].Key.Pawn] = workTypeOrderIntents[i].Key.Pawn;
+            }
 
             if (stagedStates != null)
             {
@@ -917,10 +1615,52 @@ namespace Better_Work_Tab.Features.Workloads.V2
         private readonly HashSet<WorkloadSpecificJobKey> _removedSpecificJobOrder = new HashSet<WorkloadSpecificJobKey>();
         private readonly Dictionary<string, WorkloadScalarValue> _presentationSettingOverlay = new Dictionary<string, WorkloadScalarValue>(StringComparer.Ordinal);
         private readonly HashSet<string> _removedPresentationSettings = new HashSet<string>(StringComparer.Ordinal);
+        private readonly Dictionary<WorkloadParentPriorityKey, WorkloadIntent<WorkloadSpecificPriorityPayload>> _parentPriorityIntentOverlay =
+            new Dictionary<WorkloadParentPriorityKey, WorkloadIntent<WorkloadSpecificPriorityPayload>>();
+        private readonly Dictionary<WorkloadParentPriorityKey, WorkloadIntent<bool>> _manualModeIntentOverlay =
+            new Dictionary<WorkloadParentPriorityKey, WorkloadIntent<bool>>();
+        private readonly Dictionary<WorkloadScheduleTargetKey, WorkloadIntent<WorkloadSchedulePayload>> _scheduleIntentOverlay =
+            new Dictionary<WorkloadScheduleTargetKey, WorkloadIntent<WorkloadSchedulePayload>>();
+        private readonly Dictionary<WorkloadSpecificJobTargetKey, WorkloadIntent<WorkloadSpecificPriorityPayload>> _specificPriorityIntentOverlay =
+            new Dictionary<WorkloadSpecificJobTargetKey, WorkloadIntent<WorkloadSpecificPriorityPayload>>();
+        private readonly Dictionary<WorkloadWorkTypeOrderKey, WorkloadIntent<WorkloadWorkTypeOrderPayload>> _workTypeOrderIntentOverlay =
+            new Dictionary<WorkloadWorkTypeOrderKey, WorkloadIntent<WorkloadWorkTypeOrderPayload>>();
+        private readonly Dictionary<string, WorkloadIntent<WorkloadSettingValue>> _presentationSettingIntentOverlay =
+            new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(StringComparer.Ordinal);
 
         public WorkloadDraft(WorkloadProjectedState baseState)
         {
             _baseState = baseState ?? WorkloadProjectedState.Empty;
+            for (int i = 0; i < _baseState.ParentPriorityIntents.Count; i++)
+            {
+                WorkloadParentPriorityIntentEntry entry = _baseState.ParentPriorityIntents[i];
+                _parentPriorityIntentOverlay[entry.Key] = entry.Intent;
+            }
+            for (int i = 0; i < _baseState.ManualModeIntents.Count; i++)
+            {
+                WorkloadManualModeIntentEntry entry = _baseState.ManualModeIntents[i];
+                _manualModeIntentOverlay[entry.Key] = entry.Intent;
+            }
+            for (int i = 0; i < _baseState.ScheduleIntents.Count; i++)
+            {
+                WorkloadScheduleIntentEntry entry = _baseState.ScheduleIntents[i];
+                _scheduleIntentOverlay[entry.Key] = entry.Intent;
+            }
+            for (int i = 0; i < _baseState.SpecificPriorityIntents.Count; i++)
+            {
+                WorkloadSpecificPriorityIntentEntry entry = _baseState.SpecificPriorityIntents[i];
+                _specificPriorityIntentOverlay[entry.Key] = entry.Intent;
+            }
+            for (int i = 0; i < _baseState.WorkTypeOrderIntents.Count; i++)
+            {
+                WorkloadWorkTypeOrderIntentEntry entry = _baseState.WorkTypeOrderIntents[i];
+                _workTypeOrderIntentOverlay[entry.Key] = entry.Intent;
+            }
+            for (int i = 0; i < _baseState.PresentationSettingIntents.Count; i++)
+            {
+                WorkloadPresentationSettingIntentEntry entry = _baseState.PresentationSettingIntents[i];
+                _presentationSettingIntentOverlay[entry.Key] = entry.Intent;
+            }
         }
 
         public WorkloadProjectedState BaseState => _baseState;
@@ -937,6 +1677,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadParentPriorityKey safeKey = key ?? new WorkloadParentPriorityKey(null, null);
             _removedParentPriorities.Remove(safeKey);
             _parentPriorityOverlay[safeKey] = priority;
+            _parentPriorityIntentOverlay[safeKey] = WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(
+                new WorkloadSpecificPriorityPayload(priority));
             return this;
         }
 
@@ -950,6 +1692,40 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadParentPriorityKey safeKey = key ?? new WorkloadParentPriorityKey(null, null);
             _parentPriorityOverlay.Remove(safeKey);
             _removedParentPriorities.Add(safeKey);
+            _parentPriorityIntentOverlay[safeKey] = WorkloadIntent<WorkloadSpecificPriorityPayload>.Clear;
+            return this;
+        }
+
+        public WorkloadDraft SetParentPriorityIntent(
+            WorkloadParentPriorityKey key,
+            WorkloadIntent<WorkloadSpecificPriorityPayload> intent)
+        {
+            WorkloadParentPriorityKey safeKey = key ?? new WorkloadParentPriorityKey(null, null);
+            WorkloadIntent<WorkloadSpecificPriorityPayload> safeIntent = intent;
+            _parentPriorityIntentOverlay[safeKey] = safeIntent;
+            if (safeIntent.State == WorkloadIntentState.Set && safeIntent.HasValue)
+            {
+                _removedParentPriorities.Remove(safeKey);
+                _parentPriorityOverlay[safeKey] = safeIntent.Value.Priority;
+            }
+            else if (safeIntent.State == WorkloadIntentState.Clear)
+            {
+                _parentPriorityOverlay.Remove(safeKey);
+                _removedParentPriorities.Add(safeKey);
+            }
+            else
+            {
+                _parentPriorityOverlay.Remove(safeKey);
+                _removedParentPriorities.Remove(safeKey);
+            }
+
+            return this;
+        }
+
+        public WorkloadDraft SetParentPriorityNoOpinion(WorkloadParentPriorityKey key)
+        {
+            WorkloadParentPriorityKey safeKey = key ?? new WorkloadParentPriorityKey(null, null);
+            _parentPriorityIntentOverlay.Remove(safeKey);
             return this;
         }
 
@@ -963,6 +1739,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadParentPriorityKey safeKey = key ?? new WorkloadParentPriorityKey(null, null);
             _removedManualModes.Remove(safeKey);
             _manualModeOverlay[safeKey] = manual;
+            _manualModeIntentOverlay[safeKey] = WorkloadIntent<bool>.CreateSet(manual);
             return this;
         }
 
@@ -976,6 +1753,40 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadParentPriorityKey safeKey = key ?? new WorkloadParentPriorityKey(null, null);
             _manualModeOverlay.Remove(safeKey);
             _removedManualModes.Add(safeKey);
+            _manualModeIntentOverlay[safeKey] = WorkloadIntent<bool>.Clear;
+            return this;
+        }
+
+        public WorkloadDraft SetManualModeIntent(
+            WorkloadParentPriorityKey key,
+            WorkloadIntent<bool> intent)
+        {
+            WorkloadParentPriorityKey safeKey = key ?? new WorkloadParentPriorityKey(null, null);
+            WorkloadIntent<bool> safeIntent = intent;
+            _manualModeIntentOverlay[safeKey] = safeIntent;
+            if (safeIntent.State == WorkloadIntentState.Set && safeIntent.HasValue)
+            {
+                _removedManualModes.Remove(safeKey);
+                _manualModeOverlay[safeKey] = safeIntent.Value;
+            }
+            else if (safeIntent.State == WorkloadIntentState.Clear)
+            {
+                _manualModeOverlay.Remove(safeKey);
+                _removedManualModes.Add(safeKey);
+            }
+            else
+            {
+                _manualModeOverlay.Remove(safeKey);
+                _removedManualModes.Remove(safeKey);
+            }
+
+            return this;
+        }
+
+        public WorkloadDraft SetManualModeNoOpinion(WorkloadParentPriorityKey key)
+        {
+            WorkloadParentPriorityKey safeKey = key ?? new WorkloadParentPriorityKey(null, null);
+            _manualModeIntentOverlay.Remove(safeKey);
             return this;
         }
 
@@ -995,6 +1806,48 @@ namespace Better_Work_Tab.Features.Workloads.V2
             return this;
         }
 
+        public WorkloadDraft SetSchedule(
+            WorkloadScheduleTargetKey key,
+            WorkloadSchedulePayload payload)
+        {
+            WorkloadScheduleTargetKey safeKey = key ?? new WorkloadScheduleTargetKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                WorkloadScheduleTargetKind.ParentWorkType,
+                null);
+            _scheduleIntentOverlay[safeKey] = WorkloadIntent<WorkloadSchedulePayload>.CreateSet(payload);
+            return this;
+        }
+
+        public WorkloadDraft SetScheduleIntent(
+            WorkloadScheduleTargetKey key,
+            WorkloadIntent<WorkloadSchedulePayload> intent)
+        {
+            WorkloadScheduleTargetKey safeKey = key ?? new WorkloadScheduleTargetKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                WorkloadScheduleTargetKind.ParentWorkType,
+                null);
+            _scheduleIntentOverlay[safeKey] = intent;
+            return this;
+        }
+
+        public WorkloadDraft ClearSchedule(WorkloadScheduleTargetKey key)
+        {
+            return SetScheduleIntent(key, WorkloadIntent<WorkloadSchedulePayload>.Clear);
+        }
+
+        public WorkloadDraft SetScheduleNoOpinion(WorkloadScheduleTargetKey key)
+        {
+            WorkloadScheduleTargetKey safeKey = key ?? new WorkloadScheduleTargetKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                WorkloadScheduleTargetKind.ParentWorkType,
+                null);
+            _scheduleIntentOverlay.Remove(safeKey);
+            return this;
+        }
+
         public WorkloadDraft SetSpecificJobOverride(
             WorkloadSpecificJobKey key,
             WorkloadScalarValue value)
@@ -1002,6 +1855,9 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadSpecificJobKey safeKey = key ?? new WorkloadSpecificJobKey(null, null, null);
             _removedSpecificJobOverrides.Remove(safeKey);
             _specificJobOverrideOverlay[safeKey] = value;
+            _specificPriorityIntentOverlay[safeKey.ToTargetKey()] =
+                WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(
+                    new WorkloadSpecificPriorityPayload(value.IntegerValue));
             return this;
         }
 
@@ -1019,6 +1875,47 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadSpecificJobKey safeKey = key ?? new WorkloadSpecificJobKey(null, null, null);
             _specificJobOverrideOverlay.Remove(safeKey);
             _removedSpecificJobOverrides.Add(safeKey);
+            _specificPriorityIntentOverlay[safeKey.ToTargetKey()] =
+                WorkloadIntent<WorkloadSpecificPriorityPayload>.Clear;
+            return this;
+        }
+
+        public WorkloadDraft SetSpecificPriority(
+            WorkloadSpecificJobTargetKey key,
+            int priority)
+        {
+            return SetSpecificPriorityIntent(
+                key,
+                WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(
+                    new WorkloadSpecificPriorityPayload(priority)));
+        }
+
+        public WorkloadDraft SetSpecificPriorityIntent(
+            WorkloadSpecificJobTargetKey key,
+            WorkloadIntent<WorkloadSpecificPriorityPayload> intent)
+        {
+            WorkloadSpecificJobTargetKey safeKey = key ?? new WorkloadSpecificJobTargetKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                null,
+                null);
+            _specificPriorityIntentOverlay[safeKey] = intent;
+            return this;
+        }
+
+        public WorkloadDraft ClearSpecificPriority(WorkloadSpecificJobTargetKey key)
+        {
+            return SetSpecificPriorityIntent(key, WorkloadIntent<WorkloadSpecificPriorityPayload>.Clear);
+        }
+
+        public WorkloadDraft SetSpecificPriorityNoOpinion(WorkloadSpecificJobTargetKey key)
+        {
+            WorkloadSpecificJobTargetKey safeKey = key ?? new WorkloadSpecificJobTargetKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                null,
+                null);
+            _specificPriorityIntentOverlay.Remove(safeKey);
             return this;
         }
 
@@ -1047,12 +1944,48 @@ namespace Better_Work_Tab.Features.Workloads.V2
             return this;
         }
 
+        public WorkloadDraft SetWorkTypeOrder(
+            WorkloadWorkTypeOrderKey key,
+            WorkloadWorkTypeOrderPayload payload)
+        {
+            return SetWorkTypeOrderIntent(
+                key,
+                WorkloadIntent<WorkloadWorkTypeOrderPayload>.CreateSet(payload));
+        }
+
+        public WorkloadDraft SetWorkTypeOrderIntent(
+            WorkloadWorkTypeOrderKey key,
+            WorkloadIntent<WorkloadWorkTypeOrderPayload> intent)
+        {
+            WorkloadWorkTypeOrderKey safeKey = key ?? new WorkloadWorkTypeOrderKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                null);
+            _workTypeOrderIntentOverlay[safeKey] = intent;
+            return this;
+        }
+
+        public WorkloadDraft ClearWorkTypeOrder(WorkloadWorkTypeOrderKey key)
+        {
+            return SetWorkTypeOrderIntent(key, WorkloadIntent<WorkloadWorkTypeOrderPayload>.Clear);
+        }
+
+        public WorkloadDraft SetWorkTypeOrderNoOpinion(WorkloadWorkTypeOrderKey key)
+        {
+            WorkloadWorkTypeOrderKey safeKey = key ?? new WorkloadWorkTypeOrderKey(
+                WorkloadTargetScope.PawnLocal,
+                null,
+                null);
+            _workTypeOrderIntentOverlay.Remove(safeKey);
+            return this;
+        }
+
         public WorkloadDraft SetPresentationSetting(string key, WorkloadScalarValue value)
         {
-            string safeKey = key ?? string.Empty;
-            _removedPresentationSettings.Remove(safeKey);
-            _presentationSettingOverlay[safeKey] = value;
-            return this;
+            return SetPresentationSettingIntent(
+                key,
+                WorkloadIntent<WorkloadSettingValue>.CreateSet(
+                    WorkloadSettingValue.WorkloadOwned(value)));
         }
 
         public WorkloadDraft RemovePresentationSetting(string key)
@@ -1060,6 +1993,61 @@ namespace Better_Work_Tab.Features.Workloads.V2
             string safeKey = key ?? string.Empty;
             _presentationSettingOverlay.Remove(safeKey);
             _removedPresentationSettings.Add(safeKey);
+            _presentationSettingIntentOverlay[safeKey] =
+                WorkloadIntent<WorkloadSettingValue>.Clear;
+            return this;
+        }
+
+        public WorkloadDraft SetPresentationSettingIntent(
+            string key,
+            WorkloadIntent<WorkloadSettingValue> intent)
+        {
+            string safeKey = key ?? string.Empty;
+            if (intent.IsNoOpinion)
+            {
+                return ReleasePresentationSetting(safeKey);
+            }
+
+            _presentationSettingIntentOverlay[safeKey] = intent;
+            if (intent.State == WorkloadIntentState.Set &&
+                intent.HasValue &&
+                intent.Value.Ownership == WorkloadSettingOwnership.WorkloadOwned)
+            {
+                _removedPresentationSettings.Remove(safeKey);
+                _presentationSettingOverlay[safeKey] = intent.Value.Scalar;
+            }
+            else
+            {
+                // Clear and Global are not represented by the legacy scalar
+                // compatibility list. Keep the typed intent authoritative.
+                _presentationSettingOverlay.Remove(safeKey);
+                _removedPresentationSettings.Add(safeKey);
+            }
+
+            return this;
+        }
+
+        public WorkloadDraft ClearPresentationSetting(string key)
+        {
+            return SetPresentationSettingIntent(key, WorkloadIntent<WorkloadSettingValue>.Clear);
+        }
+
+        public WorkloadDraft SetPresentationSettingNoOpinion(string key)
+        {
+            return ReleasePresentationSetting(key);
+        }
+
+        /// <summary>
+        /// Removes a setting from the workload's owned state. This is distinct
+        /// from Clear: release restores the lower global settings layer, while
+        /// Clear remains an explicit workload tombstone for commit semantics.
+        /// </summary>
+        public WorkloadDraft ReleasePresentationSetting(string key)
+        {
+            string safeKey = key ?? string.Empty;
+            _presentationSettingOverlay.Remove(safeKey);
+            _removedPresentationSettings.Add(safeKey);
+            _presentationSettingIntentOverlay.Remove(safeKey);
             return this;
         }
 
@@ -1119,6 +2107,42 @@ namespace Better_Work_Tab.Features.Workloads.V2
             foreach (string key in _removedPresentationSettings) presentation.Remove(key);
             foreach (KeyValuePair<string, WorkloadScalarValue> item in _presentationSettingOverlay) presentation[item.Key] = item.Value;
 
+            var parentPriorityIntents = new List<WorkloadParentPriorityIntentEntry>();
+            foreach (KeyValuePair<WorkloadParentPriorityKey, WorkloadIntent<WorkloadSpecificPriorityPayload>> item in _parentPriorityIntentOverlay)
+            {
+                parentPriorityIntents.Add(new WorkloadParentPriorityIntentEntry(item.Key, item.Value));
+            }
+
+            var manualModeIntents = new List<WorkloadManualModeIntentEntry>();
+            foreach (KeyValuePair<WorkloadParentPriorityKey, WorkloadIntent<bool>> item in _manualModeIntentOverlay)
+            {
+                manualModeIntents.Add(new WorkloadManualModeIntentEntry(item.Key, item.Value));
+            }
+
+            var scheduleIntents = new List<WorkloadScheduleIntentEntry>();
+            foreach (KeyValuePair<WorkloadScheduleTargetKey, WorkloadIntent<WorkloadSchedulePayload>> item in _scheduleIntentOverlay)
+            {
+                scheduleIntents.Add(new WorkloadScheduleIntentEntry(item.Key, item.Value));
+            }
+
+            var specificPriorityIntents = new List<WorkloadSpecificPriorityIntentEntry>();
+            foreach (KeyValuePair<WorkloadSpecificJobTargetKey, WorkloadIntent<WorkloadSpecificPriorityPayload>> item in _specificPriorityIntentOverlay)
+            {
+                specificPriorityIntents.Add(new WorkloadSpecificPriorityIntentEntry(item.Key, item.Value));
+            }
+
+            var workTypeOrderIntents = new List<WorkloadWorkTypeOrderIntentEntry>();
+            foreach (KeyValuePair<WorkloadWorkTypeOrderKey, WorkloadIntent<WorkloadWorkTypeOrderPayload>> item in _workTypeOrderIntentOverlay)
+            {
+                workTypeOrderIntents.Add(new WorkloadWorkTypeOrderIntentEntry(item.Key, item.Value));
+            }
+
+            var presentationSettingIntents = new List<WorkloadPresentationSettingIntentEntry>();
+            foreach (KeyValuePair<string, WorkloadIntent<WorkloadSettingValue>> item in _presentationSettingIntentOverlay)
+            {
+                presentationSettingIntents.Add(new WorkloadPresentationSettingIntentEntry(item.Key, item.Value));
+            }
+
             return WorkloadProjectedState.FromMaps(
                 priorities,
                 manual,
@@ -1128,7 +2152,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 presentation,
                 _baseState.RepresentedPawnIds,
                 _baseState.ExcludedPawnIds,
-                _baseState.CopyExcludedStagedStates());
+                _baseState.CopyExcludedStagedStates(),
+                parentPriorityIntents,
+                manualModeIntents,
+                scheduleIntents,
+                specificPriorityIntents,
+                workTypeOrderIntents,
+                presentationSettingIntents);
         }
     }
 
@@ -1233,6 +2263,109 @@ namespace Better_Work_Tab.Features.Workloads.V2
                         .Append(';');
                 }
                 builder.Append(']');
+            }
+
+            // Typed contract sections are additive to the legacy sections so
+            // old readers remain source-compatible while fingerprints retain
+            // intent, scope, complete schedule payloads, and setting ownership.
+            if ((dimensions & WorkloadOwnershipDimensions.ParentPriorities) != 0)
+            {
+                builder.Append("PI[");
+                for (int i = 0; i < safeState.ParentPriorityIntents.Count; i++)
+                {
+                    WorkloadParentPriorityIntentEntry entry = safeState.ParentPriorityIntents[i];
+                    builder.Append(WorkloadCanonical.Encode(entry.Key.CanonicalKey))
+                        .Append('=')
+                        .Append(WorkloadCanonical.Encode(entry.Intent.CanonicalForm))
+                        .Append(';');
+                }
+                builder.Append(']');
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.ManualModes) != 0)
+            {
+                builder.Append("MI[");
+                for (int i = 0; i < safeState.ManualModeIntents.Count; i++)
+                {
+                    WorkloadManualModeIntentEntry entry = safeState.ManualModeIntents[i];
+                    builder.Append(WorkloadCanonical.Encode(entry.Key.CanonicalKey))
+                        .Append('=')
+                        .Append(WorkloadCanonical.Encode(entry.Intent.CanonicalForm))
+                        .Append(';');
+                }
+                builder.Append(']');
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.Schedules) != 0)
+            {
+                builder.Append("SI[");
+                for (int i = 0; i < safeState.ScheduleIntents.Count; i++)
+                {
+                    WorkloadScheduleIntentEntry entry = safeState.ScheduleIntents[i];
+                    builder.Append(WorkloadCanonical.Encode(entry.Key.CanonicalKey))
+                        .Append('=')
+                        .Append(WorkloadCanonical.Encode(entry.Intent.CanonicalForm))
+                        .Append(';');
+                }
+                builder.Append(']');
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.SpecificJobOverrides) != 0)
+            {
+                builder.Append("OI[");
+                for (int i = 0; i < safeState.SpecificPriorityIntents.Count; i++)
+                {
+                    WorkloadSpecificPriorityIntentEntry entry = safeState.SpecificPriorityIntents[i];
+                    builder.Append(WorkloadCanonical.Encode(entry.Key.CanonicalKey))
+                        .Append('=')
+                        .Append(WorkloadCanonical.Encode(entry.Intent.CanonicalForm))
+                        .Append(';');
+                }
+                builder.Append(']');
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.SpecificJobOrder) != 0)
+            {
+                builder.Append("RI[");
+                for (int i = 0; i < safeState.WorkTypeOrderIntents.Count; i++)
+                {
+                    WorkloadWorkTypeOrderIntentEntry entry = safeState.WorkTypeOrderIntents[i];
+                    builder.Append(WorkloadCanonical.Encode(entry.Key.CanonicalKey))
+                        .Append('=')
+                        .Append(WorkloadCanonical.Encode(entry.Intent.CanonicalForm))
+                        .Append(';');
+                }
+                builder.Append(']');
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.PresentationSettings) != 0)
+            {
+                builder.Append("TI[");
+                for (int i = 0; i < safeState.PresentationSettingIntents.Count; i++)
+                {
+                    WorkloadPresentationSettingIntentEntry entry = safeState.PresentationSettingIntents[i];
+                    builder.Append(WorkloadCanonical.Encode(entry.Key))
+                        .Append('=')
+                        .Append(WorkloadCanonical.Encode(entry.Intent.CanonicalForm))
+                        .Append(';');
+                }
+                builder.Append(']');
+            }
+
+            // Preserve an invalid/ambiguous construction in the semantic
+            // identity as well as in validation. This prevents a caller that
+            // ignores the structured validator from treating a discarded
+            // duplicate target as an unchanged clean state.
+            if ((dimensions & WorkloadOwnershipDimensions.SpecificJobOverrides) != 0 &&
+                safeState.HasAmbiguousSpecificPriorityIntents)
+            {
+                builder.Append("INVALID_DUPLICATE_SPECIFIC_PRIORITY;");
+            }
+
+            if ((dimensions & WorkloadOwnershipDimensions.SpecificJobOrder) != 0 &&
+                safeState.HasAmbiguousWorkTypeOrderIntents)
+            {
+                builder.Append("INVALID_DUPLICATE_WORKTYPE_ORDER;");
             }
 
             return builder.ToString();

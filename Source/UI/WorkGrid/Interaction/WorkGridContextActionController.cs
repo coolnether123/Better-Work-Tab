@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.PawnOrganizer;
@@ -9,11 +10,14 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.Workloads;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
 using RimWorld;
 using Spine.UI.ColourPicker;
 using UnityEngine;
 using Verse;
+using Verse.Sound;
 
 namespace Better_Work_Tab.UI.WorkGrid.Interaction
 {
@@ -145,6 +149,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 }));
             }
 
+            AddWorkloadPreviewMembershipOption(options, pawn);
+
             // Multiplayer follow mode: Copy this pawn row
             if (LayoutSharingManager.IsFollowing)
             {
@@ -154,6 +160,89 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
+        }
+
+        private void AddWorkloadPreviewMembershipOption(
+            List<FloatMenuOption> options,
+            Pawn pawn)
+        {
+            WorkloadPreviewController preview = WorkloadPreviewController.Current;
+            if (preview?.IsActive != true)
+            {
+                return;
+            }
+
+            PawnKey pawnKey = WorkTabEffectiveStateIds.ForPawn(pawn);
+            WorkloadMembershipRecord record = pawnKey.IsValid
+                ? preview.GetMembershipSnapshot().Find(pawnKey)
+                : null;
+            WorkloadScope scope = preview.Session?.SourceTemplate?.Definition?.Scope ??
+                                  WorkloadScope.Empty;
+
+            if (pawnKey.IsValid && scope.IsExplicitlyExcluded(pawnKey))
+            {
+                options.Add(new FloatMenuOption(
+                    "Membership unavailable: excluded by saved workload scope",
+                    null));
+                return;
+            }
+
+            if (!pawnKey.IsValid || record == null || !record.IsAvailable)
+            {
+                options.Add(new FloatMenuOption(
+                    "Membership unavailable: pawn is stale or missing",
+                    null));
+                return;
+            }
+
+            if (preview.Session.ProjectedState.IsExcluded(pawnKey) ||
+                record.Classification == WorkloadMembershipClassification.UnrepresentedNew)
+            {
+                options.Add(new FloatMenuOption(
+                    "Include in this application",
+                    () => TogglePreviewMembership(preview, pawnKey)));
+                return;
+            }
+
+            if (record.Classification == WorkloadMembershipClassification.Included &&
+                record.IsRepresented)
+            {
+                options.Add(new FloatMenuOption(
+                    "Exclude from this application",
+                    () => TogglePreviewMembership(preview, pawnKey)));
+                return;
+            }
+
+            if (record.Classification == WorkloadMembershipClassification.UnchangedOutsideScope)
+            {
+                options.Add(new FloatMenuOption(
+                    "Membership unavailable: outside saved workload scope",
+                    null));
+                return;
+            }
+
+            options.Add(new FloatMenuOption(
+                "Membership unavailable for this pawn",
+                null));
+        }
+
+        private void TogglePreviewMembership(
+            WorkloadPreviewController preview,
+            PawnKey pawnKey)
+        {
+            if (preview.ToggleMembership(pawnKey))
+            {
+                SoundDefOf.Tick_Low.PlayOneShotOnCamera();
+                _markWindowDirty();
+                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
+                return;
+            }
+
+            SoundDefOf.ClickReject.PlayOneShotOnCamera();
+            Messages.Message(
+                preview.LastMessage,
+                MessageTypeDefOf.RejectInput,
+                false);
         }
 
         private void ShowDividerContextMenu(PawnDivider divider)

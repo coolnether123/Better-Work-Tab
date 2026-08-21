@@ -29,6 +29,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     "The workload record has no stable ID.");
             }
 
+            string migrationError;
+            if (!WorkloadV2Migration.TryMigrateRecord(record, out migrationError))
+            {
+                return WorkloadOperationResult<WorkloadTemplate>.Fail(
+                    WorkloadDiagnosticCode.ReadOnlyDiagnostic,
+                    migrationError);
+            }
+
             WorkloadV2SchemaState schemaState =
                 WorkloadV2SchemaPolicy.Classify(record.SchemaVersion);
             switch (schemaState)
@@ -59,6 +67,24 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             record.EnsureCollections();
+            record.NormalizeStableState();
+
+            string duplicateSpecificTargetError;
+            if (HasDuplicateTypedSpecificTargets(record, out duplicateSpecificTargetError))
+            {
+                return WorkloadOperationResult<WorkloadTemplate>.Fail(
+                    WorkloadDiagnosticCode.InvalidState,
+                    duplicateSpecificTargetError);
+            }
+
+            if (record.LegacyScheduleRequiresReview || record.LegacyOrderRequiresReview)
+            {
+                return WorkloadOperationResult<WorkloadTemplate>.Fail(
+                    WorkloadDiagnosticCode.ReadOnlyDiagnostic,
+                    string.IsNullOrWhiteSpace(record.MigrationDiagnostic)
+                        ? "The workload contains legacy schedule or order data that cannot be losslessly converted."
+                        : record.MigrationDiagnostic);
+            }
 
             int knownOwnershipBits = (int)WorkloadOwnershipDimensions.All;
             if ((record.OwnershipDimensions & ~knownOwnershipBits) != 0)
@@ -171,6 +197,115 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 presentation.Add(new WorkloadPresentationSettingEntry(value.Key, scalar));
             }
 
+            var parentPriorityIntents = new List<WorkloadParentPriorityIntentEntry>();
+            for (int i = 0; i < record.ParentPriorityIntents.Count; i++)
+            {
+                WorkloadV2ParentPriorityIntentRecord value = record.ParentPriorityIntents[i];
+                if (value == null || !HasIdentity(value.PawnId, value.WorkTypeDefName))
+                {
+                    return InvalidState("A typed parent-priority intent has a missing identity.");
+                }
+
+                if (!TryReadPriorityIntent(
+                    value.IntentState,
+                    value.Priority,
+                    out WorkloadIntent<WorkloadSpecificPriorityPayload> intent,
+                    out string intentError))
+                {
+                    return InvalidState(intentError);
+                }
+
+                parentPriorityIntents.Add(new WorkloadParentPriorityIntentEntry(
+                    new WorkloadParentPriorityKey(new PawnKey(value.PawnId), new WorkTypeKey(value.WorkTypeDefName)),
+                    intent));
+            }
+
+            var manualModeIntents = new List<WorkloadManualModeIntentEntry>();
+            for (int i = 0; i < record.ManualModeIntents.Count; i++)
+            {
+                WorkloadV2ManualModeIntentRecord value = record.ManualModeIntents[i];
+                if (value == null || !HasIdentity(value.PawnId, value.WorkTypeDefName))
+                {
+                    return InvalidState("A typed manual-mode intent has a missing identity.");
+                }
+
+                if (!TryReadManualIntent(
+                    value.IntentState,
+                    value.Manual,
+                    out WorkloadIntent<bool> intent,
+                    out string intentError))
+                {
+                    return InvalidState(intentError);
+                }
+
+                manualModeIntents.Add(new WorkloadManualModeIntentEntry(
+                    new WorkloadParentPriorityKey(new PawnKey(value.PawnId), new WorkTypeKey(value.WorkTypeDefName)),
+                    intent));
+            }
+
+            var scheduleIntents = new List<WorkloadScheduleIntentEntry>();
+            for (int i = 0; i < record.ScheduleIntents.Count; i++)
+            {
+                WorkloadV2ScheduleIntentRecord value = record.ScheduleIntents[i];
+                if (!TryReadScheduleIntent(value, out WorkloadScheduleIntentEntry intent, out string intentError))
+                {
+                    return InvalidState(intentError);
+                }
+
+                scheduleIntents.Add(intent);
+            }
+
+            var specificPriorityIntents = new List<WorkloadSpecificPriorityIntentEntry>();
+            for (int i = 0; i < record.SpecificPriorityIntents.Count; i++)
+            {
+                WorkloadV2SpecificPriorityIntentRecord value = record.SpecificPriorityIntents[i];
+                if (!TryReadSpecificPriorityIntent(
+                    value,
+                    out WorkloadSpecificPriorityIntentEntry intent,
+                    out string intentError))
+                {
+                    return InvalidState(intentError);
+                }
+
+                if (!intent.Intent.IsNoOpinion)
+                {
+                    specificPriorityIntents.Add(intent);
+                }
+            }
+
+            var workTypeOrderIntents = new List<WorkloadWorkTypeOrderIntentEntry>();
+            for (int i = 0; i < record.WorkTypeOrderIntents.Count; i++)
+            {
+                WorkloadV2WorkTypeOrderIntentRecord value = record.WorkTypeOrderIntents[i];
+                if (!TryReadWorkTypeOrderIntent(
+                    value,
+                    out WorkloadWorkTypeOrderIntentEntry intent,
+                    out string intentError))
+                {
+                    return InvalidState(intentError);
+                }
+
+                if (!intent.Intent.IsNoOpinion)
+                {
+                    workTypeOrderIntents.Add(intent);
+                }
+            }
+
+            var presentationSettingIntents = new List<WorkloadPresentationSettingIntentEntry>();
+            for (int i = 0; i < record.PresentationSettingIntents.Count; i++)
+            {
+                WorkloadV2PresentationSettingIntentRecord value = record.PresentationSettingIntents[i];
+                if (!TryReadPresentationSettingIntent(
+                    value,
+                    out WorkloadPresentationSettingIntentEntry intent,
+                    out string intentError))
+                {
+                    return InvalidState(intentError);
+                }
+
+                presentationSettingIntents.Add(intent);
+            }
+
             var definition = new WorkloadDefinition(
                 record.StableId,
                 record.Label ?? string.Empty,
@@ -183,7 +318,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 schedules,
                 overrides,
                 order,
-                presentation);
+                presentation,
+                parentPriorityIntents: parentPriorityIntents,
+                manualModeIntents: manualModeIntents,
+                scheduleIntents: scheduleIntents,
+                specificPriorityIntents: specificPriorityIntents,
+                workTypeOrderIntents: workTypeOrderIntents,
+                presentationSettingIntents: presentationSettingIntents);
             var template = new WorkloadTemplate(definition, state);
             WorkloadValidationResult validation = WorkloadValidator.Validate(template);
             if (validation.HasErrors)
@@ -295,8 +436,450 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 });
             }
 
+            for (int i = 0; i < state.ParentPriorityIntents.Count; i++)
+            {
+                WorkloadParentPriorityIntentEntry value = state.ParentPriorityIntents[i];
+                record.ParentPriorityIntents.Add(new WorkloadV2ParentPriorityIntentRecord
+                {
+                    PawnId = value.Key.Pawn.Value,
+                    WorkTypeDefName = value.Key.WorkType.Value,
+                    IntentState = (int)value.Intent.State,
+                    Priority = value.Intent.HasValue ? value.Intent.Value.Priority : 0
+                });
+            }
+
+            for (int i = 0; i < state.ManualModeIntents.Count; i++)
+            {
+                WorkloadManualModeIntentEntry value = state.ManualModeIntents[i];
+                record.ManualModeIntents.Add(new WorkloadV2ManualModeIntentRecord
+                {
+                    PawnId = value.Key.Pawn.Value,
+                    WorkTypeDefName = value.Key.WorkType.Value,
+                    IntentState = (int)value.Intent.State,
+                    Manual = value.Intent.HasValue && value.Intent.Value
+                });
+            }
+
+            for (int i = 0; i < state.ScheduleIntents.Count; i++)
+            {
+                WorkloadScheduleIntentEntry value = state.ScheduleIntents[i];
+                var scheduleRecord = new WorkloadV2ScheduleIntentRecord
+                {
+                    Scope = (int)value.Key.Scope,
+                    PawnId = value.Key.Pawn.Value,
+                    TargetKind = (int)value.Key.TargetKind,
+                    WorkTypeDefName = value.Key.WorkType.Value,
+                    WorkGiverDefName = value.Key.WorkGiver.Value,
+                    IntentState = (int)value.Intent.State,
+                    PinnedHourMask = value.Intent.HasValue ? value.Intent.Value.PinnedHourMask : 0
+                };
+                if (value.Intent.HasValue)
+                {
+                    scheduleRecord.Priorities.AddRange(value.Intent.Value.Priorities);
+                }
+                record.ScheduleIntents.Add(scheduleRecord);
+            }
+
+            for (int i = 0; i < state.SpecificPriorityIntents.Count; i++)
+            {
+                WorkloadSpecificPriorityIntentEntry value = state.SpecificPriorityIntents[i];
+                record.SpecificPriorityIntents.Add(new WorkloadV2SpecificPriorityIntentRecord
+                {
+                    Scope = (int)value.Key.Scope,
+                    PawnId = value.Key.Pawn.Value,
+                    WorkTypeDefName = value.Key.WorkType.Value,
+                    WorkGiverDefName = value.Key.WorkGiver.Value,
+                    IntentState = (int)value.Intent.State,
+                    Priority = value.Intent.HasValue ? value.Intent.Value.Priority : 0
+                });
+            }
+
+            for (int i = 0; i < state.WorkTypeOrderIntents.Count; i++)
+            {
+                WorkloadWorkTypeOrderIntentEntry value = state.WorkTypeOrderIntents[i];
+                var orderRecord = new WorkloadV2WorkTypeOrderIntentRecord
+                {
+                    Scope = (int)value.Key.Scope,
+                    PawnId = value.Key.Pawn.Value,
+                    WorkTypeDefName = value.Key.WorkType.Value,
+                    IntentState = (int)value.Intent.State,
+                    IsComplete = value.Intent.HasValue && value.Intent.Value.IsComplete
+                };
+                if (value.Intent.HasValue)
+                {
+                    for (int orderIndex = 0;
+                         orderIndex < value.Intent.Value.OrderedWorkGivers.Count;
+                         orderIndex++)
+                    {
+                        orderRecord.OrderedWorkGiverDefNames.Add(
+                            value.Intent.Value.OrderedWorkGivers[orderIndex].Value);
+                    }
+                }
+                record.WorkTypeOrderIntents.Add(orderRecord);
+            }
+
+            for (int i = 0; i < state.PresentationSettingIntents.Count; i++)
+            {
+                WorkloadPresentationSettingIntentEntry value = state.PresentationSettingIntents[i];
+                record.PresentationSettingIntents.Add(new WorkloadV2PresentationSettingIntentRecord
+                {
+                    Key = value.Key,
+                    IntentState = (int)value.Intent.State,
+                    Ownership = value.Intent.HasValue
+                        ? (int)value.Intent.Value.Ownership
+                        : (int)WorkloadSettingOwnership.WorkloadOwned,
+                    Value = value.Intent.HasValue
+                        ? ToScalarRecord(value.Intent.Value.Scalar)
+                        : new WorkloadV2ScalarRecord()
+                });
+            }
+
             record.NormalizeStableState();
             return WorkloadOperationResult<WorkloadV2PersistenceRecord>.Ok(record);
+        }
+
+        private static bool TryReadPriorityIntent(
+            int stateValue,
+            int priority,
+            out WorkloadIntent<WorkloadSpecificPriorityPayload> intent,
+            out string error)
+        {
+            intent = WorkloadIntent<WorkloadSpecificPriorityPayload>.NoOpinion;
+            if (!TryReadIntentState(stateValue, out WorkloadIntentState state, out error)) return false;
+            switch (state)
+            {
+                case WorkloadIntentState.NoOpinion:
+                    intent = WorkloadIntent<WorkloadSpecificPriorityPayload>.NoOpinion;
+                    return true;
+                case WorkloadIntentState.Clear:
+                    intent = WorkloadIntent<WorkloadSpecificPriorityPayload>.Clear;
+                    return true;
+                case WorkloadIntentState.Set:
+                    var payload = new WorkloadSpecificPriorityPayload(priority);
+                    if (!payload.IsValid)
+                    {
+                        error = "A typed priority intent has an invalid priority.";
+                        return false;
+                    }
+
+                    intent = WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(payload);
+                    return true;
+                default:
+                    error = "A typed priority intent uses an unknown state.";
+                    return false;
+            }
+        }
+
+        private static bool TryReadManualIntent(
+            int stateValue,
+            bool manual,
+            out WorkloadIntent<bool> intent,
+            out string error)
+        {
+            intent = WorkloadIntent<bool>.NoOpinion;
+            if (!TryReadIntentState(stateValue, out WorkloadIntentState state, out error)) return false;
+            switch (state)
+            {
+                case WorkloadIntentState.NoOpinion:
+                    intent = WorkloadIntent<bool>.NoOpinion;
+                    return true;
+                case WorkloadIntentState.Clear:
+                    intent = WorkloadIntent<bool>.Clear;
+                    return true;
+                case WorkloadIntentState.Set:
+                    intent = WorkloadIntent<bool>.CreateSet(manual);
+                    return true;
+                default:
+                    error = "A typed manual-mode intent uses an unknown state.";
+                    return false;
+            }
+        }
+
+        private static bool TryReadScheduleIntent(
+            WorkloadV2ScheduleIntentRecord record,
+            out WorkloadScheduleIntentEntry entry,
+            out string error)
+        {
+            entry = null;
+            error = string.Empty;
+            if (record == null)
+            {
+                error = "A typed schedule intent is missing.";
+                return false;
+            }
+
+            if (!TryReadTargetScope(record.Scope, record.PawnId, out WorkloadTargetScope scope, out error) ||
+                !TryReadScheduleKind(record.TargetKind, out WorkloadScheduleTargetKind targetKind, out error) ||
+                string.IsNullOrWhiteSpace(record.WorkTypeDefName))
+            {
+                if (string.IsNullOrEmpty(error)) error = "A typed schedule intent has an incomplete target identity.";
+                return false;
+            }
+
+            WorkGiverKey workGiver = new WorkGiverKey(record.WorkGiverDefName);
+            if (targetKind == WorkloadScheduleTargetKind.WorkGiver && !workGiver.IsValid)
+            {
+                error = "A WorkGiver schedule intent has no WorkGiver identity.";
+                return false;
+            }
+            if (targetKind == WorkloadScheduleTargetKind.ParentWorkType && workGiver.IsValid)
+            {
+                error = "A parent schedule intent cannot carry a WorkGiver identity.";
+                return false;
+            }
+
+            var key = new WorkloadScheduleTargetKey(
+                scope,
+                new PawnKey(record.PawnId),
+                targetKind,
+                new WorkTypeKey(record.WorkTypeDefName),
+                workGiver);
+            if (!key.IsValid)
+            {
+                error = "A typed schedule intent has an invalid target scope or kind.";
+                return false;
+            }
+
+            if (!TryReadIntentState(record.IntentState, out WorkloadIntentState state, out error)) return false;
+            WorkloadIntent<WorkloadSchedulePayload> intent;
+            switch (state)
+            {
+                case WorkloadIntentState.NoOpinion:
+                    intent = WorkloadIntent<WorkloadSchedulePayload>.NoOpinion;
+                    break;
+                case WorkloadIntentState.Clear:
+                    intent = WorkloadIntent<WorkloadSchedulePayload>.Clear;
+                    break;
+                case WorkloadIntentState.Set:
+                    var payload = new WorkloadSchedulePayload(record.Priorities, record.PinnedHourMask);
+                    if (!payload.IsValid)
+                    {
+                        error = "A typed schedule intent must contain exactly 24 valid priorities and a valid pinned-hour mask.";
+                        return false;
+                    }
+
+                    intent = WorkloadIntent<WorkloadSchedulePayload>.CreateSet(payload);
+                    break;
+                default:
+                    error = "A typed schedule intent uses an unknown state.";
+                    return false;
+            }
+
+            entry = new WorkloadScheduleIntentEntry(key, intent);
+            return true;
+        }
+
+        private static bool TryReadSpecificPriorityIntent(
+            WorkloadV2SpecificPriorityIntentRecord record,
+            out WorkloadSpecificPriorityIntentEntry entry,
+            out string error)
+        {
+            entry = null;
+            error = string.Empty;
+            if (record == null || string.IsNullOrWhiteSpace(record.WorkTypeDefName) ||
+                string.IsNullOrWhiteSpace(record.WorkGiverDefName))
+            {
+                error = "A typed specific-priority intent has an incomplete identity.";
+                return false;
+            }
+
+            if (!TryReadTargetScope(record.Scope, record.PawnId, out WorkloadTargetScope scope, out error)) return false;
+            var key = new WorkloadSpecificJobTargetKey(
+                scope,
+                new PawnKey(record.PawnId),
+                new WorkTypeKey(record.WorkTypeDefName),
+                new WorkGiverKey(record.WorkGiverDefName));
+            if (!key.IsValid)
+            {
+                error = "A typed specific-priority intent has an invalid target scope.";
+                return false;
+            }
+
+            if (!TryReadPriorityIntent(
+                record.IntentState,
+                record.Priority,
+                out WorkloadIntent<WorkloadSpecificPriorityPayload> intent,
+                out error))
+            {
+                return false;
+            }
+
+            entry = new WorkloadSpecificPriorityIntentEntry(key, intent);
+            return true;
+        }
+
+        private static bool TryReadWorkTypeOrderIntent(
+            WorkloadV2WorkTypeOrderIntentRecord record,
+            out WorkloadWorkTypeOrderIntentEntry entry,
+            out string error)
+        {
+            entry = null;
+            error = string.Empty;
+            if (record == null || string.IsNullOrWhiteSpace(record.WorkTypeDefName))
+            {
+                error = "A typed WorkType order intent has an incomplete identity.";
+                return false;
+            }
+
+            if (!TryReadTargetScope(record.Scope, record.PawnId, out WorkloadTargetScope scope, out error)) return false;
+            var key = new WorkloadWorkTypeOrderKey(
+                scope,
+                new PawnKey(record.PawnId),
+                new WorkTypeKey(record.WorkTypeDefName));
+            if (!key.IsValid)
+            {
+                error = "A typed WorkType order intent has an invalid target scope.";
+                return false;
+            }
+
+            if (!TryReadIntentState(record.IntentState, out WorkloadIntentState state, out error)) return false;
+            WorkloadIntent<WorkloadWorkTypeOrderPayload> intent;
+            switch (state)
+            {
+                case WorkloadIntentState.NoOpinion:
+                    intent = WorkloadIntent<WorkloadWorkTypeOrderPayload>.NoOpinion;
+                    break;
+                case WorkloadIntentState.Clear:
+                    intent = WorkloadIntent<WorkloadWorkTypeOrderPayload>.Clear;
+                    break;
+                case WorkloadIntentState.Set:
+                    var workGivers = new List<WorkGiverKey>();
+                    for (int i = 0; i < (record.OrderedWorkGiverDefNames ?? new List<string>()).Count; i++)
+                    {
+                        string name = record.OrderedWorkGiverDefNames[i];
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            error = "A typed WorkType order intent contains an empty WorkGiver identity.";
+                            return false;
+                        }
+                        workGivers.Add(new WorkGiverKey(name));
+                    }
+
+                    var payload = new WorkloadWorkTypeOrderPayload(workGivers, record.IsComplete);
+                    if (!payload.IsValid)
+                    {
+                        error = "A typed WorkType order intent must contain a complete unique permutation.";
+                        return false;
+                    }
+
+                    intent = WorkloadIntent<WorkloadWorkTypeOrderPayload>.CreateSet(payload);
+                    break;
+                default:
+                    error = "A typed WorkType order intent uses an unknown state.";
+                    return false;
+            }
+
+            entry = new WorkloadWorkTypeOrderIntentEntry(key, intent);
+            return true;
+        }
+
+        private static bool TryReadPresentationSettingIntent(
+            WorkloadV2PresentationSettingIntentRecord record,
+            out WorkloadPresentationSettingIntentEntry entry,
+            out string error)
+        {
+            entry = null;
+            error = string.Empty;
+            if (record == null || string.IsNullOrWhiteSpace(record.Key))
+            {
+                error = "A typed presentation-setting intent has no key.";
+                return false;
+            }
+
+            if (!Enum.IsDefined(typeof(WorkloadSettingOwnership), record.Ownership))
+            {
+                error = "A typed presentation-setting intent has unknown ownership.";
+                return false;
+            }
+
+            if (!TryReadIntentState(record.IntentState, out WorkloadIntentState state, out error)) return false;
+            WorkloadIntent<WorkloadSettingValue> intent;
+            switch (state)
+            {
+                case WorkloadIntentState.NoOpinion:
+                    intent = WorkloadIntent<WorkloadSettingValue>.NoOpinion;
+                    break;
+                case WorkloadIntentState.Clear:
+                    intent = WorkloadIntent<WorkloadSettingValue>.Clear;
+                    break;
+                case WorkloadIntentState.Set:
+                    if (!TryReadScalar(record.Value, out WorkloadScalarValue scalar, out error)) return false;
+                    intent = WorkloadIntent<WorkloadSettingValue>.CreateSet(
+                        new WorkloadSettingValue(
+                            scalar,
+                            (WorkloadSettingOwnership)record.Ownership));
+                    break;
+                default:
+                    error = "A typed presentation-setting intent uses an unknown state.";
+                    return false;
+            }
+
+            entry = new WorkloadPresentationSettingIntentEntry(record.Key, intent);
+            return true;
+        }
+
+        private static bool TryReadIntentState(
+            int value,
+            out WorkloadIntentState state,
+            out string error)
+        {
+            state = WorkloadIntentState.NoOpinion;
+            error = string.Empty;
+            if (!Enum.IsDefined(typeof(WorkloadIntentState), value))
+            {
+                error = "A workload intent uses an unknown state.";
+                return false;
+            }
+
+            state = (WorkloadIntentState)value;
+            return true;
+        }
+
+        private static bool TryReadTargetScope(
+            int value,
+            string pawnId,
+            out WorkloadTargetScope scope,
+            out string error)
+        {
+            scope = WorkloadTargetScope.PawnLocal;
+            error = string.Empty;
+            if (!Enum.IsDefined(typeof(WorkloadTargetScope), value))
+            {
+                error = "A workload target uses an unknown scope.";
+                return false;
+            }
+
+            scope = (WorkloadTargetScope)value;
+            if (scope == WorkloadTargetScope.PawnLocal && string.IsNullOrWhiteSpace(pawnId))
+            {
+                error = "A pawn-local workload target has no pawn identity.";
+                return false;
+            }
+
+            if (scope == WorkloadTargetScope.GlobalShared && !string.IsNullOrWhiteSpace(pawnId))
+            {
+                error = "A global/shared workload target must not carry a pawn identity.";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool TryReadScheduleKind(
+            int value,
+            out WorkloadScheduleTargetKind kind,
+            out string error)
+        {
+            kind = WorkloadScheduleTargetKind.ParentWorkType;
+            error = string.Empty;
+            if (!Enum.IsDefined(typeof(WorkloadScheduleTargetKind), value))
+            {
+                error = "A schedule target uses an unknown target kind.";
+                return false;
+            }
+
+            kind = (WorkloadScheduleTargetKind)value;
+            return true;
         }
 
         private static bool TryReadScope(
@@ -405,6 +988,70 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             return result;
+        }
+
+        private static bool HasDuplicateTypedSpecificTargets(
+            WorkloadV2PersistenceRecord record,
+            out string error)
+        {
+            error = string.Empty;
+            var priorityKeys = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < record.SpecificPriorityIntents.Count; i++)
+            {
+                WorkloadV2SpecificPriorityIntentRecord value = record.SpecificPriorityIntents[i];
+                if (value == null)
+                {
+                    error = "The workload record contains a missing typed specific-priority intent.";
+                    return true;
+                }
+
+                string key = SpecificPriorityKey(value.Scope, value.PawnId, value.WorkTypeDefName, value.WorkGiverDefName);
+                if (!priorityKeys.Add(key))
+                {
+                    error = "The workload record contains duplicate typed specific-priority target '" + key + "'.";
+                    return true;
+                }
+            }
+
+            var orderKeys = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < record.WorkTypeOrderIntents.Count; i++)
+            {
+                WorkloadV2WorkTypeOrderIntentRecord value = record.WorkTypeOrderIntents[i];
+                if (value == null)
+                {
+                    error = "The workload record contains a missing typed WorkType-order intent.";
+                    return true;
+                }
+
+                string key = WorkTypeOrderKey(value.Scope, value.PawnId, value.WorkTypeDefName);
+                if (!orderKeys.Add(key))
+                {
+                    error = "The workload record contains duplicate typed WorkType-order target '" + key + "'.";
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string SpecificPriorityKey(
+            int scope,
+            string pawnId,
+            string workTypeDefName,
+            string workGiverDefName)
+        {
+            return scope + "\u001f" + (pawnId ?? string.Empty) + "\u001f" +
+                (workTypeDefName ?? string.Empty) + "\u001f" +
+                (workGiverDefName ?? string.Empty);
+        }
+
+        private static string WorkTypeOrderKey(
+            int scope,
+            string pawnId,
+            string workTypeDefName)
+        {
+            return scope + "\u001f" + (pawnId ?? string.Empty) + "\u001f" +
+                (workTypeDefName ?? string.Empty);
         }
 
         private static bool HasIdentity(string pawnId, string workTypeDefName)

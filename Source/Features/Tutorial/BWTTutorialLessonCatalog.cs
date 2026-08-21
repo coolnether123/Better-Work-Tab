@@ -38,7 +38,6 @@ namespace Better_Work_Tab.Features.Tutorial
             string[] categories,
             BWTTutorialCourseMembership courses,
             Func<bool> isAvailable,
-            string feedbackLabelKey,
             TutorialHubAnchor anchor,
             string localizationStem,
             BWTTutorialLessonRoute route = BWTTutorialLessonRoute.WorkTab,
@@ -49,7 +48,6 @@ namespace Better_Work_Tab.Features.Tutorial
             Categories = categories;
             Courses = courses;
             IsAvailable = isAvailable;
-            FeedbackLabelKey = feedbackLabelKey;
             Anchor = anchor;
             LocalizationStem = localizationStem;
             Route = route;
@@ -61,7 +59,6 @@ namespace Better_Work_Tab.Features.Tutorial
         internal IReadOnlyList<string> Categories { get; }
         internal BWTTutorialCourseMembership Courses { get; }
         internal Func<bool> IsAvailable { get; }
-        internal string FeedbackLabelKey { get; }
         internal TutorialHubAnchor Anchor { get; }
         internal string LocalizationStem { get; }
         internal BWTTutorialLessonRoute Route { get; }
@@ -176,7 +173,6 @@ namespace Better_Work_Tab.Features.Tutorial
                     Split("Compatibility|Specific jobs"),
                     Both,
                     () => FluffyWorkTabGateway.IsPresent,
-                    "BWT_Tutorial_FluffyCoexistence_Feedback",
                     TutorialHubAnchor.WorkHeader,
                     "FluffyCoexistence",
                     BWTTutorialLessonRoute.FluffyCoexistence)
@@ -214,7 +210,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 Split(categories),
                 courses,
                 isAvailable ?? (() => true),
-                "BWT_Tutorial_" + stem + "_Feedback",
                 anchor,
                 stem,
                 route,

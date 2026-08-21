@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Workloads;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -156,12 +158,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
                 Pawn pawn = _window.Pawn;
-                if (pawn == null || pawn.thingIDNumber <= 0 || _workType == null)
+                if ((pawn != null && pawn.thingIDNumber <= 0) || _workType == null)
                 {
                     RestoreOriginalOrder(workGivers);
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.SpecificJobOrder,
-                        "Specific-job ordering requires a valid pawn and work-type key; global layout ordering is not projected.");
+                        "Specific-job ordering requires a valid work-type key and, for local order, a valid pawn.");
                     return;
                 }
 
@@ -212,21 +214,30 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     }
                 }
 
-                // The draft stores an explicit position for every visible
-                // work-giver. This preserves the complete order and avoids
-                // relying on a live manager mutation as a side effect.
+                var orderKeys = new List<WorkGiverKey>(reordered.Count);
                 for (int i = 0; i < reordered.Count; i++)
                 {
-                    if (!WorkTabEffectiveStateRuntime.TrySetSpecificJobOrder(
-                            pawn,
-                            _workType,
-                            reordered[i].def,
-                            i,
-                            out _))
-                    {
-                        RestoreOriginalOrder(workGivers);
-                        return;
-                    }
+                    orderKeys.Add(new WorkGiverKey(reordered[i].def.defName));
+                }
+
+                WorkloadWorkTypeOrderKey orderKey = pawn == null
+                    ? WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(_workType)
+                    : WorkTabEffectiveStateIds.ForWorkTypeOrder(pawn, _workType);
+                WorkloadWorkTypeOrderPayload payload =
+                    new WorkloadWorkTypeOrderPayload(orderKeys);
+                if (!payload.IsValid ||
+                    !WorkTabEffectiveStateRuntime.TrySetWorkTypeOrder(
+                        orderKey,
+                        payload,
+                        out _))
+                {
+                    RestoreOriginalOrder(workGivers);
+                    return;
+                }
+
+                if (WorkloadPreviewController.Current != null)
+                {
+                    WorkloadPreviewController.Current.SynchronizeAfterInput();
                 }
 
                 workGivers.Clear();

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using Better_Work_Tab.Features.Workloads.V2;
 using Verse;
 
 namespace Better_Work_Tab.Features.WorkGiverReassignments
@@ -12,6 +14,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     {
         public Dictionary<string, string> WorkGiverToWorkTypeMap = new Dictionary<string, string>(StringComparer.Ordinal);
         public Dictionary<string, List<string>> WorkTypeWorkGiverOrder = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        // Global priority/order clears are explicit state.  They are kept
+        // separate from the legacy -1 priority bucket and from taxonomy so a
+        // caller can distinguish "no stored opinion" from "clear this exact
+        // global override/order" without inspecting the backing collections.
+        internal HashSet<string> GlobalWorkGiverPriorityClears = new HashSet<string>(StringComparer.Ordinal);
+        internal HashSet<string> GlobalWorkTypeOrderClears = new HashSet<string>(StringComparer.Ordinal);
         public Dictionary<string, List<string>> PlayerMovedWorkGiversByWorkType = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         public Dictionary<int, Dictionary<string, int>> PawnWorkGiverPriorityOverrides = new Dictionary<int, Dictionary<string, int>>();
         public Dictionary<int, Dictionary<string, List<string>>> PawnWorkGiverOrdering = new Dictionary<int, Dictionary<string, List<string>>>();
@@ -21,6 +29,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             return HasEntries(WorkGiverToWorkTypeMap) ||
                    HasEntries(WorkTypeWorkGiverOrder) ||
+                   HasValues(GlobalWorkGiverPriorityClears) ||
+                   HasValues(GlobalWorkTypeOrderClears) ||
                    HasEntries(PlayerMovedWorkGiversByWorkType) ||
                    HasNestedEntries(PawnWorkGiverPriorityOverrides) ||
                    HasNestedEntries(PawnWorkGiverOrdering);
@@ -36,6 +46,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 WorkTypeWorkGiverOrder = WorkTypeWorkGiverOrder.ToDictionary(
                     kv => kv.Key,
                     kv => kv.Value != null ? new List<string>(kv.Value) : new List<string>(),
+                    StringComparer.Ordinal),
+                GlobalWorkGiverPriorityClears = new HashSet<string>(
+                    GlobalWorkGiverPriorityClears ?? new HashSet<string>(),
+                    StringComparer.Ordinal),
+                GlobalWorkTypeOrderClears = new HashSet<string>(
+                    GlobalWorkTypeOrderClears ?? new HashSet<string>(),
                     StringComparer.Ordinal),
                 PlayerMovedWorkGiversByWorkType = PlayerMovedWorkGiversByWorkType.ToDictionary(
                     kv => kv.Key,
@@ -58,11 +74,107 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             };
         }
 
+        /// <summary>
+        /// Replaces only this object's persisted state from an immutable
+        /// transaction snapshot.  The owner remains the live game component;
+        /// callers choose the new monotonic revision explicitly.
+        /// </summary>
+        internal void CopyFrom(WorkGiverReassignmentData snapshot, int newSyncVersion)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            WorkGiverReassignmentData copy = snapshot.Clone();
+            WorkGiverToWorkTypeMap = copy.WorkGiverToWorkTypeMap;
+            WorkTypeWorkGiverOrder = copy.WorkTypeWorkGiverOrder;
+            GlobalWorkGiverPriorityClears = copy.GlobalWorkGiverPriorityClears;
+            GlobalWorkTypeOrderClears = copy.GlobalWorkTypeOrderClears;
+            PlayerMovedWorkGiversByWorkType = copy.PlayerMovedWorkGiversByWorkType;
+            PawnWorkGiverPriorityOverrides = copy.PawnWorkGiverPriorityOverrides;
+            PawnWorkGiverOrdering = copy.PawnWorkGiverOrdering;
+            SyncVersion = newSyncVersion;
+        }
+
+        /// <summary>
+        /// Stable comparison value for a transaction rollback lease.  It
+        /// includes all BWT-owned collections, including explicit clear
+        /// tombstones, but deliberately excludes the mutable revision number.
+        /// </summary>
+        internal string ComputeStateFingerprint()
+        {
+            EnsureCollections();
+            var builder = new StringBuilder();
+            foreach (var entry in WorkGiverToWorkTypeMap.OrderBy(value => value.Key, StringComparer.Ordinal))
+            {
+                builder.Append("map:").Append(WorkloadCanonical.Pair(entry.Key, entry.Value)).Append('\n');
+            }
+
+            foreach (var entry in WorkTypeWorkGiverOrder.OrderBy(value => value.Key, StringComparer.Ordinal))
+            {
+                builder.Append("global-order:").Append(WorkloadCanonical.Encode(entry.Key));
+                AppendNames(builder, entry.Value);
+            }
+
+            foreach (string name in GlobalWorkTypeOrderClears.OrderBy(value => value, StringComparer.Ordinal))
+            {
+                builder.Append("global-order-clear:").Append(WorkloadCanonical.Encode(name)).Append('\n');
+            }
+
+            foreach (string name in GlobalWorkGiverPriorityClears.OrderBy(value => value, StringComparer.Ordinal))
+            {
+                builder.Append("global-priority-clear:").Append(WorkloadCanonical.Encode(name)).Append('\n');
+            }
+
+            foreach (var entry in PlayerMovedWorkGiversByWorkType.OrderBy(value => value.Key, StringComparer.Ordinal))
+            {
+                builder.Append("moved:").Append(WorkloadCanonical.Encode(entry.Key));
+                AppendNames(builder, entry.Value);
+            }
+
+            foreach (var pawn in PawnWorkGiverPriorityOverrides.OrderBy(value => value.Key))
+            {
+                builder.Append("priority-pawn:").Append(pawn.Key).Append(':');
+                foreach (var entry in (pawn.Value ?? new Dictionary<string, int>()).OrderBy(value => value.Key, StringComparer.Ordinal))
+                {
+                    builder.Append(WorkloadCanonical.Pair(entry.Key, WorkloadCanonical.Integer(entry.Value))).Append(';');
+                }
+
+                builder.Append('\n');
+            }
+
+            foreach (var pawn in PawnWorkGiverOrdering.OrderBy(value => value.Key))
+            {
+                builder.Append("order-pawn:").Append(pawn.Key).Append(':');
+                foreach (var entry in (pawn.Value ?? new Dictionary<string, List<string>>()).OrderBy(value => value.Key, StringComparer.Ordinal))
+                {
+                    builder.Append(WorkloadCanonical.Encode(entry.Key));
+                    AppendNames(builder, entry.Value);
+                }
+            }
+
+            return WorkloadCanonical.Fingerprint(builder.ToString());
+        }
+
+        private static void AppendNames(StringBuilder builder, IEnumerable<string> names)
+        {
+            builder.Append('[');
+            foreach (string name in names ?? Enumerable.Empty<string>())
+            {
+                builder.Append(WorkloadCanonical.Encode(name));
+            }
+
+            builder.Append("]\n");
+        }
+
         public void Clear()
         {
             EnsureCollections();
             WorkGiverToWorkTypeMap.Clear();
             WorkTypeWorkGiverOrder.Clear();
+            GlobalWorkGiverPriorityClears.Clear();
+            GlobalWorkTypeOrderClears.Clear();
             PlayerMovedWorkGiversByWorkType.Clear();
             PawnWorkGiverPriorityOverrides.Clear();
             PawnWorkGiverOrdering.Clear();
@@ -73,6 +185,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             WorkGiverToWorkTypeMap ??= new Dictionary<string, string>(StringComparer.Ordinal);
             WorkTypeWorkGiverOrder ??= new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            GlobalWorkGiverPriorityClears ??= new HashSet<string>(StringComparer.Ordinal);
+            GlobalWorkTypeOrderClears ??= new HashSet<string>(StringComparer.Ordinal);
             PlayerMovedWorkGiversByWorkType ??= new Dictionary<string, List<string>>(StringComparer.Ordinal);
             PawnWorkGiverPriorityOverrides ??= new Dictionary<int, Dictionary<string, int>>();
             PawnWorkGiverOrdering ??= new Dictionary<int, Dictionary<string, List<string>>>();
@@ -102,6 +216,48 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     r => r.WorkTypeDefName,
                     r => r.OrderedWorkGivers ?? new List<string>(),
                     StringComparer.Ordinal) ?? new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            }
+
+            List<string> globalPriorityClearRecords = null;
+            if (Scribe.mode == LoadSaveMode.Saving && GlobalWorkGiverPriorityClears != null)
+            {
+                globalPriorityClearRecords = GlobalWorkGiverPriorityClears
+                    .Where(name => !name.NullOrEmpty())
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .ToList();
+            }
+
+            Scribe_Collections.Look(
+                ref globalPriorityClearRecords,
+                "globalWorkGiverPriorityClears",
+                LookMode.Value);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                GlobalWorkGiverPriorityClears = new HashSet<string>(
+                    globalPriorityClearRecords?.Where(name => !name.NullOrEmpty()) ?? Enumerable.Empty<string>(),
+                    StringComparer.Ordinal);
+            }
+
+            List<string> globalOrderClearRecords = null;
+            if (Scribe.mode == LoadSaveMode.Saving && GlobalWorkTypeOrderClears != null)
+            {
+                globalOrderClearRecords = GlobalWorkTypeOrderClears
+                    .Where(name => !name.NullOrEmpty())
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .ToList();
+            }
+
+            Scribe_Collections.Look(
+                ref globalOrderClearRecords,
+                "globalWorkTypeOrderClears",
+                LookMode.Value);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                GlobalWorkTypeOrderClears = new HashSet<string>(
+                    globalOrderClearRecords?.Where(name => !name.NullOrEmpty()) ?? Enumerable.Empty<string>(),
+                    StringComparer.Ordinal);
             }
 
             List<WorkTypeOrderRecord> movedWorkGiverRecords = null;
@@ -173,6 +329,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static bool HasEntries<TKey, TValue>(Dictionary<TKey, TValue> dictionary)
         {
             return dictionary != null && dictionary.Count > 0;
+        }
+
+        private static bool HasValues(HashSet<string> values)
+        {
+            return values != null && values.Count > 0;
         }
 
         private static bool HasNestedEntries<TKey, TNestedKey, TNestedValue>(
