@@ -17,6 +17,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string root = FindRepositoryRoot();
             string header = Read(root, "Source", "UI", "HeaderButtons.cs");
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
+            string renderer = Read(root, "Source", "UI", "WorkGrid", "Rendering", "WorkTabBodyRenderer.cs");
             string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
             string session = Read(root, "Source", "Features", "Workloads", "V2", "WorkloadSession.cs");
             string english = Read(root, "Languages", "English", "Keyed", "English.xml");
@@ -28,9 +29,79 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             NarrowFooterGeometryIsBounded(header);
             DeletedFeedbackCopyIsAbsent(english, settings);
             FooterActionsAcceptTypedState(gateway, session);
+            InspectionUsesRevisionCachesAndContext(gateway, renderer);
             DynamicOwnershipReachesCommitPayload(backend, session);
             IncludeUsesTheAuthoritativeBaselineAndApplyPath(gateway, backend);
             LegacyPayloadsRemainFailClosed(gateway, backend, session);
+        }
+
+        private static void InspectionUsesRevisionCachesAndContext(
+            string gateway,
+            string renderer)
+        {
+            TestAssert.Contains(
+                gateway,
+                "private void EnsureSemanticDiffCache()",
+                "inspection must have an explicit semantic-diff cache boundary");
+            TestAssert.Contains(
+                gateway,
+                "_semanticDiffSessionRevision == _session.SessionRevision",
+                "semantic diffs must be reused for an unchanged session revision");
+            TestAssert.Contains(
+                gateway,
+                "_inspectionIndexContext == _inspectionContext",
+                "the inspection index must invalidate when Apply/Update context changes");
+            TestAssert.Contains(
+                gateway,
+                "_cachedLiveDiff = liveResult.Succeeded && liveResult.Value != null",
+                "Apply inspection must cache the live-impact diff separately");
+            TestAssert.Contains(
+                gateway,
+                "overApply && HasLiveImpact",
+                "Apply hover must select the live-impact inspection context");
+            TestAssert.Contains(
+                gateway,
+                "overUpdate && HasTemplateDiff",
+                "Save/Update hover must select the template inspection context");
+            TestAssert.Contains(
+                gateway,
+                "separate row indicator path",
+                "membership changes must remain outside the priority-cell overlay index");
+
+            int drawStart = renderer.IndexOf(
+                "private void DrawWorkloadInspectionHighlights(",
+                StringComparison.Ordinal);
+            int bindingStart = renderer.IndexOf(
+                "private void EnsureInspectionColumnBindings(",
+                drawStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                drawStart >= 0 && bindingStart > drawStart,
+                "inspection drawing and binding-cache seams must remain explicit");
+            string drawPath = renderer.Substring(drawStart, bindingStart - drawStart);
+            TestAssert.Contains(
+                drawPath,
+                "preview.HasInspectionCellTargets",
+                "no-cell and membership-only inspections must avoid the draw walk");
+            TestAssert.Contains(
+                drawPath,
+                "WorkGridInteractionGeometry.GetAnimatedBodyContentRect",
+                "inspection must recalculate animated body geometry each draw");
+            TestAssert.False(
+                drawPath.IndexOf("TryGetWorkGiverForColumn", StringComparison.Ordinal) >= 0,
+                "sub-work semantic resolution must not occur inside the row/cell hot loop");
+            TestAssert.False(
+                drawPath.IndexOf("DrawHighlight(\n                        rowRect", StringComparison.Ordinal) >= 0,
+                "unrelated rows must not receive a blanket inspection dim pass");
+
+            TestAssert.Contains(
+                renderer,
+                "WorkPriorityCellGeometry.GetDrawnPriorityBoxRect",
+                "priority inspection must use the authoritative drawn box geometry");
+            TestAssert.Contains(
+                renderer,
+                "_inspectionBindingSubWorkRevision = subWorkRevision",
+                "sub-work binding semantics must be cached at the existing layout revision boundary");
         }
 
         private static void FooterSelectorKeepsManagerAndPreviewActionsSeparate(
