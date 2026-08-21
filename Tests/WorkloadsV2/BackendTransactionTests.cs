@@ -441,12 +441,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "receipt recovery must round-trip the authoritative persisted target");
             TestAssert.Contains(
                 recovery,
-                "receipt.Value.TargetIdentity",
-                "receipt recovery must validate the current target identity");
+                "WorkloadPersistenceReceiptRecovery.TryRecover(",
+                "receipt recovery must use the pure fail-closed recovery seam");
             TestAssert.Contains(
                 recovery,
-                "receipt.Value.CurrentWorkloadId",
-                "receipt recovery must validate the current workload identity");
+                "new WorkloadPersistenceRecoverySnapshot(",
+                "receipt recovery must pass an authoritative persistence snapshot to the pure seam");
             TestAssert.Contains(
                 backend,
                 "WorkloadScope synchronizedScope",

@@ -24,6 +24,16 @@ namespace Better_Work_Tab.UI.Chrome
         private const float InfoIconSize = 24f;
         private const float ContextSettingsHintWidth = 230f;
 
+        internal static Rect GetManualPrioritiesCheckboxRect()
+        {
+            return new Rect(5f, 5f, 140f, 30f);
+        }
+
+        internal static Rect GetManualPrioritiesContextRect()
+        {
+            return new Rect(5f, 5f, 220f, 90f);
+        }
+
         internal static Rect GetInfoIconRect(Rect inRect)
         {
             return new Rect(

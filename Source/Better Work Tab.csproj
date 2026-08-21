@@ -170,8 +170,10 @@
     <Compile Include="Features\Workloads\V2\WorkloadCanonical.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadDefinition.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadDiff.cs" />
+    <Compile Include="Features\Workloads\V2\WorkloadInspectionSemantics.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadKeys.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadMembership.cs" />
+    <Compile Include="Features\Workloads\V2\Runtime\WorkloadPersistenceReceiptRecovery.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadScope.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadSession.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadState.cs" />
