@@ -143,7 +143,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "a terminal synchronized failure must not require an unrelated draft edit before retry");
             TestAssert.Contains(
                 gateway,
-                "the preview is still open",
+                "leaving the preview open",
                 "terminal rejection must retain the existing preview session");
         }
 
@@ -207,7 +207,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "rollback failure must be handled as a structured recovery status");
             TestAssert.Contains(
                 gateway,
-                "retained synchronized rollback lease is explicitly resolved",
+                "T(\"BWT_Workload_MultiplayerRecovery\")",
                 "the UI must explain why a retained rollback lease blocks new commits");
         }
 
