@@ -137,8 +137,8 @@ namespace Better_Work_Tab.UI.Chrome
 
             TooltipHandler.TipRegion(
                 exitRect,
-                "Back to work types. " + SubWorkDrilldownInput.GestureLabel() +
-                " or press Escape to return.");
+                "BWT_Chrome_BackToWorkTypesTooltip".Translate(
+                    SubWorkDrilldownInput.GestureLabel()));
         }
 
         internal void DrawBottomCounters(Rect inRect, PawnTable table)
@@ -178,14 +178,18 @@ namespace Better_Work_Tab.UI.Chrome
             if (showPawns)
             {
                 GUI.color = new Color(1f, 1f, 1f, 0.7f);
-                Widgets.Label(rect, $"Colonists: {pawnCount}");
+                Widgets.Label(rect, "BWT_Chrome_Colonists".Translate(pawnCount));
             }
 
             // Draw bed count in red if insufficient, otherwise gray.
             if (showBeds)
             {
-                string bedLabel = showPawns ? $" | Beds: {bedCount}" : $"Beds: {bedCount}";
-                float colonistWidth = showPawns ? Text.CalcSize($"Colonists: {pawnCount}").x : 0f;
+                string bedLabel = showPawns
+                    ? " | " + "BWT_Chrome_Beds".Translate(bedCount)
+                    : "BWT_Chrome_Beds".Translate(bedCount);
+                float colonistWidth = showPawns
+                    ? Text.CalcSize("BWT_Chrome_Colonists".Translate(pawnCount)).x
+                    : 0f;
                 Rect bedRect = new Rect(rect.x + colonistWidth, rect.y, rect.width - colonistWidth, rect.height);
 
                 // Red if fewer beds than pawns, gray otherwise.
@@ -220,7 +224,7 @@ namespace Better_Work_Tab.UI.Chrome
             Text.Font = GameFont.Tiny;
             Text.Anchor = TextAnchor.UpperRight;
             GUI.color = new Color(1f, 1f, 1f, 0.42f);
-            Widgets.Label(hintRect, "Alt + click anywhere for settings");
+            Widgets.Label(hintRect, "BWT_Chrome_AltClickSettings".Translate());
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             Text.Font = GameFont.Small;
@@ -290,7 +294,7 @@ namespace Better_Work_Tab.UI.Chrome
             GUI.color = Color.white;
             TooltipHandler.TipRegion(
                 checkboxRect,
-                "This preview changes the global manual-priority mode.");
+                "BWT_Chrome_ManualPriorityPreviewWarning".Translate());
         }
 
         private void DrawPriorityLegend(Rect rect)

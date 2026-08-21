@@ -94,14 +94,14 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             GUI.color = new Color(0.8f, 0.9f, 1f, isHovered ? 1f : 0.7f);
             // Increased height to 18f and moved up slightly to prevent clipping of descenders
             Rect labelRect = new Rect(rect.x, rect.yMax - 18f, rect.width, 18f);
-            Verse.Widgets.Label(labelRect, "⇄ Drag");
+            Verse.Widgets.Label(labelRect, "BWT_RuleDrag_Handle".Translate());
             Text.Anchor = TextAnchor.UpperLeft;
             GUI.color = Color.white;
             
             // Tooltip
             string tip = "BWT_DragToDuplicate".CanTranslate() 
                 ? "BWT_DragToDuplicate".Translate() 
-                : "Drag to duplicate these rules to another Work Type or Priority";
+                : "Drag to copy these rules to another Work type or priority.";
             TooltipHandler.TipRegion(rect, tip);
             
             // Handle mouse input
@@ -240,9 +240,9 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             
             // Determine size based on content
             int rulesCount = DraggedRules.Count;
-            string countText = $"{rulesCount} rule{(rulesCount != 1 ? "s" : "")}";
-            string fromText = SourceWorkType != null 
-                ? $"from {SourceWorkType.labelShort}" 
+            string countText = "BWT_RuleDrag_Count".Translate(rulesCount);
+            string fromText = SourceWorkType != null
+                ? "BWT_RuleDrag_From".Translate(SourceWorkType.labelShort).ToString()
                 : "";
             
             float boxWidth = 180f;
@@ -282,7 +282,7 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.MiddleLeft;
                 Rect textRect = new Rect(38f, 6f, innerRect.width - 44f, 20f);
-                Verse.Widgets.Label(textRect, "Duplicating " + countText);
+                Verse.Widgets.Label(textRect, "BWT_RuleDrag_Copying".Translate(countText));
                 
                 // Subtext
                 if (!string.IsNullOrEmpty(fromText))

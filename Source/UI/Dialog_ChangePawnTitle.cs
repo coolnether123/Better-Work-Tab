@@ -37,13 +37,16 @@ namespace Better_Work_Tab.UI
                 Event.current.Use();
             }
 
-            Widgets.Label(new Rect(0f, 0f, inRect.width, 24f), "Change pawn title");
+            Widgets.Label(new Rect(0f, 0f, inRect.width, 24f), "BWT_Dialog_PawnTitle_Title".Translate());
 
             string defaultTitle = PawnTitleUtility.GetDefaultTitle(pawn);
             string currentTitle = PawnTitleUtility.GetCurrentTitle(pawn);
             Widgets.Label(
                 new Rect(0f, 28f, inRect.width, 24f),
-                "Default: " + (string.IsNullOrEmpty(defaultTitle) ? "(none)" : defaultTitle));
+                "BWT_Dialog_PawnTitle_Default".Translate(
+                    string.IsNullOrEmpty(defaultTitle)
+                        ? "BWT_Dialog_None".Translate()
+                        : defaultTitle));
 
             Rect titleRect = new Rect(0f, 58f, inRect.width, 32f);
             GUI.SetNextControlName("BWTChangePawnTitle");
@@ -63,7 +66,7 @@ namespace Better_Work_Tab.UI
             }
 
             Text.Font = GameFont.Tiny;
-            Widgets.Label(new Rect(0f, 96f, inRect.width, 22f), "Leave blank to use the default title.");
+            Widgets.Label(new Rect(0f, 96f, inRect.width, 22f), "BWT_Dialog_PawnTitle_BlankUsesDefault".Translate());
             Text.Font = GameFont.Small;
 
             // Three equal buttons measured from the actual width, rather than
@@ -78,7 +81,7 @@ namespace Better_Work_Tab.UI
             Rect cancelRect = new Rect(buttonWidth + buttonGap, buttonY, buttonWidth, buttonHeight);
             Rect okRect = new Rect(inRect.width - buttonWidth, buttonY, buttonWidth, buttonHeight);
 
-            if (Widgets.ButtonText(resetRect, "Use default"))
+            if (Widgets.ButtonText(resetRect, "BWT_Dialog_UseDefault".Translate()))
             {
                 titleBuffer = string.Empty;
                 ApplyTitle();
@@ -86,13 +89,13 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            if (Widgets.ButtonText(cancelRect, "Cancel"))
+            if (Widgets.ButtonText(cancelRect, "Cancel".Translate()))
             {
                 Close();
                 return;
             }
 
-            if (Widgets.ButtonText(okRect, "OK") || accept)
+            if (Widgets.ButtonText(okRect, "OK".Translate()) || accept)
             {
                 if ((titleBuffer ?? string.Empty).Trim() == currentTitle)
                 {

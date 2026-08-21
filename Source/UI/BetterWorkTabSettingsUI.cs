@@ -33,12 +33,12 @@ namespace Better_Work_Tab.UI
                     drawer.AdvancedLabel = BWTSettingsTranslation.Advanced;
                     drawer.NoResultsLabel = BWTSettingsTranslation.NoResults;
                     drawer.EditColorLabel = BWTSettingsTranslation.Edit;
-                    drawer.ColorPreviewTooltip = "Hover here or adjust the picker to preview this color live on the Work tab.";
+                    drawer.ColorPreviewTooltip = "BWT_Settings_UI_ColorPreviewTooltip".Translate();
                     drawer.ColorPreviewSink = WorkTabColorPreviewController.Instance;
                     drawer.OnSettingPreview = WorkTabColorPreviewController.Instance.PreviewSetting;
                     drawer.Filters = BWTSettingsFilters.Create();
-                    drawer.FilterLabel = "Filter";
-                    drawer.AllSettingsFilterLabel = "All Settings";
+                    drawer.FilterLabel = "BWT_Settings_UI_Filter".Translate();
+                    drawer.AllSettingsFilterLabel = "BWT_Settings_UI_AllSettings".Translate();
                     drawer.IndentPerLevel = 20f;
                     drawer.OnSettingTooltipViewed = MarkSettingViewed;
                     drawer.OnSettingInteracted = (definition, settingsObject) =>

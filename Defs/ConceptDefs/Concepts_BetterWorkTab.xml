@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
 
-  <!--=========== Better Work Tab's help, taught through RimWorld's own learning
-       readout when the relevant window opens.
+  <!--=========== Better Work Tab help appears in RimWorld's learning readout
+       when the relevant window opens.
 
-       Written to vanilla's shape deliberately: one or two short beats separated
-       by a blank line, the key noun in capitals, and the action last. These sit
-       in the same box as CameraDolly and Stockpiles, so anything longer or
-       chattier than those reads as a different mod talking over the game.
+       Each entry follows the vanilla format: one or two short passages, a key
+       noun in capitals, and the action last. These entries appear beside
+       CameraDolly and Stockpiles.
 
-       needsOpportunity keeps them out of the readout until something actually
-       registers one, so a player who never opens the Rule Builder is never
-       taught about rules. ============================================-->
+       needsOpportunity keeps an entry out of the readout until something
+       registers it. Players who do not open the Rule Builder do not see rule
+       guidance. ============================================-->
 
   <ConceptDef Abstract="True" Name="BWT_OpportunityConceptBase">
     <priority>50</priority>
@@ -27,7 +26,7 @@
   <ConceptDef ParentName="BWT_OpportunityConceptBase">
     <defName>BWT_SpecificJobs</defName>
     <label>Specific jobs</label>
-    <helpText>Every Work type is made of smaller jobs. Ctrl-click a Work type's header to set priorities for one SPECIFIC JOB instead of the whole thing.</helpText>
+    <helpText>Every Work type contains smaller jobs. Ctrl-click a Work type's header to set priorities for one SPECIFIC JOB instead of the whole Work type.</helpText>
   </ConceptDef>
 
   <ConceptDef ParentName="BWT_OpportunityConceptBase">

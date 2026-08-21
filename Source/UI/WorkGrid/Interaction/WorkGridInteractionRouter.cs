@@ -139,7 +139,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.SpecificJobOrder,
-                    "Undo and redo of the live WorkGiver layout are unavailable while a workload order preview is active.");
+                    "BWT_Workload_OrderUndoUnavailable".Translate());
                 evt.Use();
                 return true;
             }

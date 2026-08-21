@@ -60,7 +60,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 ClearPendingSubWorkGesture();
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.SpecificJobOrder,
-                    "Specific-job expansion is unavailable while this workload preview owns an unprojected ordering dimension.");
+                    "BWT_Workload_SpecificJobOrderUnavailable".Translate());
                 return false;
             }
 
@@ -345,7 +345,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.SpecificJobOrder,
-                    "Specific-job expansion is unavailable while this workload preview owns an unprojected ordering dimension.");
+                    "BWT_Workload_SpecificJobOrderUnavailable".Translate());
                 return;
             }
 

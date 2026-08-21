@@ -58,7 +58,7 @@ namespace Better_Work_Tab.UI.Workloads
             if (_isPreviewActive?.Invoke() == true)
             {
                 _reportPreviewMessage?.Invoke(
-                    "Finish, Save, Save As, Apply, or Cancel the active workload preview before opening the workload list.");
+                    "BWT_Workload_FinishBeforeOpeningList".Translate());
                 return false;
             }
 
@@ -115,8 +115,8 @@ namespace Better_Work_Tab.UI.Workloads
         private static LegacyWorkloadBackend _legacyBackend;
         private static Workload2Backend _modernBackend;
 
-        private const string NoCurrentGameMessage =
-            "There is no current Better Work Tab game.";
+        private static string NoCurrentGameMessage =>
+            "BWT_Workload_NoCurrentGame".Translate();
 
         private static TResult Dispatch<TResult>(
             Func<LegacyWorkloadBackend, TResult> legacyOperation,
@@ -246,7 +246,7 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(
                     WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
+                    NoCurrentGameMessage);
             }
 
             return ResolveMode() == WorkloadBackendMode.Legacy
@@ -262,7 +262,7 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(
                     WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab workload backend.");
+                    "BWT_Workload_NotReady".Translate());
             }
 
             // Keep the picker/create surface on the same capture path as the
@@ -314,14 +314,14 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
                     WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
+                    NoCurrentGameMessage);
             }
 
             if (ResolveMode() != WorkloadBackendMode.Modern)
             {
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
                     WorkloadDiagnosticCode.UnsupportedOperation,
-                    "V2 capture is unavailable while legacy workloads are active.");
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate());
             }
 
             WorkloadOperationResult<WorkloadTemplate> captured =
@@ -341,7 +341,7 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
                     WorkloadDiagnosticCode.InvalidState,
-                    "The captured workload template is empty.");
+                    "BWT_Workload_Empty".Translate());
             }
 
             try
@@ -569,7 +569,7 @@ namespace Better_Work_Tab.UI.Workloads
                 Log.Error("[BWT] Typed workload capture failed.\n" + exception);
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
                     WorkloadDiagnosticCode.InvalidState,
-                    "The current workload could not be captured with complete typed UI state.");
+                    "BWT_Workload_CaptureFailed".Translate());
             }
         }
 
@@ -651,7 +651,7 @@ namespace Better_Work_Tab.UI.Workloads
                 modern => modern.SaveTemplate(template, makeCurrent),
                 NoCurrentGame<WorkloadDescriptor>,
                 () => V2Unavailable<WorkloadDescriptor>(
-                    "V2 template storage is unavailable while legacy workloads are active."));
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
         }
 
         /// <summary>
@@ -671,7 +671,7 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 return WorkloadOperationResult.Fail(
                     WorkloadDiagnosticCode.UnsupportedOperation,
-                    "The requested workload mode is not supported.");
+                    "BWT_Workload_ModeUnavailable".Translate());
             }
 
             WorkloadBackendMode currentMode = ResolveMode();
@@ -685,7 +685,7 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 return WorkloadOperationResult.Fail(
                     WorkloadDiagnosticCode.BlockedModeTransition,
-                    "Close the active V2 preview before changing workload mode.");
+                    "BWT_Workload_CloseBeforeModeChange".Translate());
             }
 
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
@@ -693,7 +693,7 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 return WorkloadOperationResult.Fail(
                     WorkloadDiagnosticCode.NoSettings,
-                    "Better Work Tab settings are not loaded.");
+                    "BWT_Workload_NotReady".Translate());
             }
 
             settings.useLegacyWorkloads = targetMode == WorkloadBackendMode.Legacy;
@@ -716,7 +716,7 @@ namespace Better_Work_Tab.UI.Workloads
                 modern => modern.BeginPreview(),
                 NoCurrentGame<WorkloadSession>,
                 () => V2Unavailable<WorkloadSession>(
-                    "V2 preview is unavailable while legacy workloads are active."));
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
         }
 
         internal static WorkloadOperationResult<WorkloadSession> SetV2PreviewSession(WorkloadSession session)
@@ -725,7 +725,7 @@ namespace Better_Work_Tab.UI.Workloads
                 modern => modern.SetPreviewSession(session),
                 NoCurrentGame<WorkloadSession>,
                 () => V2Unavailable<WorkloadSession>(
-                    "V2 preview is unavailable while legacy workloads are active."));
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
         }
 
         internal static WorkloadOperationResult<WorkloadSession> AdoptV2PreviewSession(
@@ -748,7 +748,7 @@ namespace Better_Work_Tab.UI.Workloads
             if (ResolveMode() != WorkloadBackendMode.Modern)
             {
                 return V2Unavailable<WorkloadSession>(
-                    "V2 preview rebasing is unavailable while legacy workloads are active.");
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate());
             }
 
             if (receipt == null &&
@@ -790,7 +790,7 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
                     WorkloadDiagnosticCode.NotFound,
-                    "There is no authoritative rebased V2 preview session to adopt.");
+                    "BWT_Workload_PreviewRefreshFailed".Translate());
             }
 
             // Read the session from the active UI backend. Temporary peer
@@ -805,7 +805,7 @@ namespace Better_Work_Tab.UI.Workloads
                 modern => modern.EditPreview(edit),
                 NoCurrentGame<WorkloadSession>,
                 () => V2Unavailable<WorkloadSession>(
-                    "V2 preview editing is unavailable while legacy workloads are active."));
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
         }
 
         internal static WorkloadOperationResult<WorkloadSession> SetV2PreviewState(
@@ -815,7 +815,7 @@ namespace Better_Work_Tab.UI.Workloads
                 modern => modern.SetPreviewState(projectedState),
                 NoCurrentGame<WorkloadSession>,
                 () => V2Unavailable<WorkloadSession>(
-                    "V2 preview editing is unavailable while legacy workloads are active."));
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
         }
 
         internal static WorkloadOperationResult<WorkloadSession> ExtendV2PreviewBaseline(
@@ -826,14 +826,14 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
                     WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no current Better Work Tab game.");
+                    NoCurrentGameMessage);
             }
 
             return ResolveMode() == WorkloadBackendMode.Modern
                 ? modern.ExtendPreviewBaseline(candidate, pawn)
                 : WorkloadOperationResult<WorkloadSession>.Fail(
                     WorkloadDiagnosticCode.UnsupportedOperation,
-                    "V2 preview baseline extension is unavailable while legacy workloads are active.");
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate());
         }
 
         internal static WorkloadOperationResult<WorkloadSession> RevertV2Preview()
@@ -842,7 +842,7 @@ namespace Better_Work_Tab.UI.Workloads
                 modern => modern.RevertPreview(),
                 NoCurrentGame<WorkloadSession>,
                 () => V2Unavailable<WorkloadSession>(
-                    "V2 preview editing is unavailable while legacy workloads are active."));
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
         }
 
         internal static WorkloadOperationResult<WorkloadPreviewPlan> GetV2PreviewPlan(
@@ -852,7 +852,7 @@ namespace Better_Work_Tab.UI.Workloads
                 modern => modern.PreviewPlan(decisionKind),
                 NoCurrentGame<WorkloadPreviewPlan>,
                 () => V2Unavailable<WorkloadPreviewPlan>(
-                    "V2 preview planning is unavailable while legacy workloads are active."));
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
         }
 
         internal static WorkloadOperationResult<WorkloadSemanticDiff> GetV2PreviewDiff()
@@ -861,7 +861,7 @@ namespace Better_Work_Tab.UI.Workloads
                 modern => modern.PreviewDiff(),
                 NoCurrentGame<WorkloadSemanticDiff>,
                 () => V2Unavailable<WorkloadSemanticDiff>(
-                    "V2 preview diff is unavailable while legacy workloads are active."));
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
         }
 
         internal static WorkloadOperationResult<WorkloadSemanticDiff> GetV2PreviewImpactDiff()
@@ -870,7 +870,7 @@ namespace Better_Work_Tab.UI.Workloads
                 modern => modern.PreviewImpactDiff(),
                 NoCurrentGame<WorkloadSemanticDiff>,
                 () => V2Unavailable<WorkloadSemanticDiff>(
-                    "V2 preview impact diff is unavailable while legacy workloads are active."));
+                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
         }
 
         internal static WorkloadV2CommitResult CommitV2Apply()
@@ -878,7 +878,7 @@ namespace Better_Work_Tab.UI.Workloads
             return DispatchV2Commit(
                 WorkloadDecisionKind.Apply,
                 modern => modern.CommitApply(),
-                "V2 apply is unavailable while legacy workloads are active.");
+                "BWT_Workload_PreviewLegacyUnavailable".Translate());
         }
 
         internal static WorkloadV2CommitResult CommitV2Update()
@@ -886,7 +886,7 @@ namespace Better_Work_Tab.UI.Workloads
             return DispatchV2Commit(
                 WorkloadDecisionKind.Update,
                 modern => modern.CommitUpdate(),
-                "V2 save is unavailable while legacy workloads are active.");
+                "BWT_Workload_PreviewLegacyUnavailable".Translate());
         }
 
         internal static WorkloadV2CommitResult CommitV2Fork(
@@ -896,7 +896,7 @@ namespace Better_Work_Tab.UI.Workloads
             return DispatchV2Commit(
                 WorkloadDecisionKind.Fork,
                 modern => modern.CommitFork(stableId, label),
-                "V2 fork is unavailable while legacy workloads are active.");
+                "BWT_Workload_PreviewLegacyUnavailable".Translate());
         }
 
         /// <summary>
@@ -1189,6 +1189,11 @@ namespace Better_Work_Tab.UI.Workloads
             Current = this;
         }
 
+        private static string T(string key)
+        {
+            return key.Translate().ToString();
+        }
+
         internal static WorkloadPreviewController Current { get; private set; }
 
         internal static bool IsInspectionActiveForCurrentTab =>
@@ -1358,9 +1363,7 @@ namespace Better_Work_Tab.UI.Workloads
                 string clearMessage = _session?.GetUnsupportedClearMessage() ?? string.Empty;
                 return clearMessage.AnyNonWhitespace()
                     ? clearMessage
-                      : "This workload contains a legacy or unsupported workload-owned " +
-                      "payload. Apply, Save, and Save As are disabled so state cannot be " +
-                      "silently dropped.";
+                      : T("BWT_Workload_UnsupportedData");
             }
         }
 
@@ -1393,7 +1396,7 @@ namespace Better_Work_Tab.UI.Workloads
         internal bool CanForkPreview =>
             IsActive && !IsUnsafePreviewInputBlocked && !HasUnsupportedOwnedPresentationState;
         internal string CommitBlockedMessage => _previewRecoveryBlocked
-            ? "The active preview is recovery-blocked because its committed persistence identity could not be adopted safely. Cancel the preview before retrying."
+            ? T("BWT_Workload_PreviewRefreshFailed")
             : IsMultiplayerCommitInFlight
             ? MultiplayerStatusExplanation
             : HasUnsupportedOwnedPresentationState
@@ -1406,8 +1409,7 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 if (IsMultiplayerRecoveryBlocked)
                 {
-                    return "Multiplayer workload recovery is required. " +
-                           "The preview is locked until the retained synchronized rollback lease is explicitly resolved." +
+                    return T("BWT_Workload_MultiplayerRecovery") +
                            (_multiplayerCommitMessage.AnyNonWhitespace()
                                ? " " + _multiplayerCommitMessage
                                : string.Empty);
@@ -1415,8 +1417,9 @@ namespace Better_Work_Tab.UI.Workloads
 
                 if (IsMultiplayerCommitInFlight)
                 {
-                    return "Waiting for synchronized workload " +
-                           MultiplayerDecisionLabel(_multiplayerDecision) + "." +
+                    return "BWT_Workload_MultiplayerWaiting"
+                               .Translate(MultiplayerDecisionLabel(_multiplayerDecision))
+                               .ToString() +
                            (_multiplayerCommitMessage.AnyNonWhitespace()
                                ? " " + _multiplayerCommitMessage
                                : string.Empty);
@@ -1424,7 +1427,7 @@ namespace Better_Work_Tab.UI.Workloads
 
                 if (_previewRecoveryBlocked)
                 {
-                    return "The active workload preview is recovery-blocked until its persisted identity is safely adopted or the preview is cancelled.";
+                    return T("BWT_Workload_PreviewRefreshFailed");
                 }
 
                 return _multiplayerCommitMessage ?? string.Empty;
@@ -1437,15 +1440,15 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 if (IsMultiplayerRecoveryBlocked)
                 {
-                    return " • recovery";
+                    return T("BWT_Workload_StatusRecovery");
                 }
 
                 if (IsMultiplayerCommitInFlight)
                 {
-                    return " • syncing";
+                    return T("BWT_Workload_StatusSyncing");
                 }
 
-                return " • preview";
+                return T("BWT_Workload_StatusPreview");
             }
         }
 
@@ -1474,13 +1477,13 @@ namespace Better_Work_Tab.UI.Workloads
             switch (decision)
             {
                 case WorkloadDecisionKind.Apply:
-                    return "apply";
+                    return T("BWT_Workload_ApplyAction");
                 case WorkloadDecisionKind.Update:
-                    return "save";
+                    return T("BWT_Workload_SaveAction");
                 case WorkloadDecisionKind.Fork:
-                    return "Save As";
+                    return T("BWT_Workload_SaveAsAction");
                 default:
-                    return "operation";
+                    return T("BWT_Workload_OperationAction");
             }
         }
 
@@ -1549,10 +1552,7 @@ namespace Better_Work_Tab.UI.Workloads
                 state.TerminalState == WorkloadTransactionTerminalState.RollbackFailed)
             {
                 _multiplayerRecoveryBlocked = true;
-                _multiplayerCommitMessage =
-                    state.TerminalState == WorkloadTransactionTerminalState.RollbackFailed
-                        ? "The synchronized commit retained a rollback lease and requires explicit recovery."
-                        : "The synchronized commit requires rollback acknowledgement.";
+                _multiplayerCommitMessage = T("BWT_Workload_MultiplayerRecovery");
                 SetMessage(MultiplayerStatusExplanation);
             }
         }
@@ -1587,14 +1587,11 @@ namespace Better_Work_Tab.UI.Workloads
                     string failedMessage = _multiplayerCommitMessage;
                     _multiplayerRecoveryBlocked = false;
                     PrepareMultiplayerRetry();
-                    SetMessage(
-                        "Multiplayer workload " +
-                        failedDecision +
-                        " was not committed; the preview is still open. " +
-                        (failedMessage.AnyNonWhitespace()
+                    SetMessage("BWT_Workload_MultiplayerNotSaved".Translate(
+                        failedDecision,
+                        failedMessage.AnyNonWhitespace()
                             ? failedMessage
-                            : "No live or stored workload state was changed.") +
-                        " Retry is available without changing the draft.");
+                            : T("BWT_Workload_NoChangesMade")).ToString());
                     return;
                 case WorkloadMultiplayerCommitState.RollbackFailed:
                     _multiplayerRecoveryBlocked = true;
@@ -1650,9 +1647,7 @@ namespace Better_Work_Tab.UI.Workloads
                 {
                     _previewRecoveryBlocked = true;
                     _multiplayerCommitState = WorkloadMultiplayerCommitState.Failed;
-                    _multiplayerCommitMessage =
-                        "The synchronized " + MultiplayerDecisionLabel(_multiplayerDecision) +
-                        " completed, but the authoritative rebased preview could not be adopted safely.";
+                    _multiplayerCommitMessage = T("BWT_Workload_PreviewRefreshFailed");
                     SetMessage(MultiplayerStatusExplanation);
                     return;
                 }
@@ -1666,8 +1661,7 @@ namespace Better_Work_Tab.UI.Workloads
                 SetMessage(
                     (saveMessage ?? string.Empty).AnyNonWhitespace()
                         ? saveMessage
-                        : "The synchronized " + confirmedDecision +
-                          " was confirmed; the preview remains open.");
+                        : "BWT_Workload_MultiplayerSaved".Translate(confirmedDecision).ToString());
                 return;
             }
 
@@ -1677,8 +1671,7 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 _multiplayerRecoveryBlocked = true;
                 _multiplayerCommitState = WorkloadMultiplayerCommitState.Failed;
-                _multiplayerCommitMessage =
-                    "The synchronized commit succeeded, but the local preview could not be closed safely.";
+                _multiplayerCommitMessage = T("BWT_Workload_MultiplayerApplyCloseFailed");
                 SetMessage(MultiplayerStatusExplanation);
                 return;
             }
@@ -1688,7 +1681,7 @@ namespace Better_Work_Tab.UI.Workloads
             SetMessage(
                 (message ?? string.Empty).AnyNonWhitespace()
                     ? message
-                    : "The synchronized workload operation was confirmed.");
+                    : T("BWT_Workload_MultiplayerConfirmed"));
         }
 
         private void ClearMultiplayerAttempt()
@@ -1788,7 +1781,7 @@ namespace Better_Work_Tab.UI.Workloads
             get
             {
                 return IsActive
-                    ? "Workload preview is active; Alt-click continues through BWT contextual settings."
+                    ? T("BWT_Workload_SettingsStatus")
                     : string.Empty;
             }
         }
@@ -1808,9 +1801,10 @@ namespace Better_Work_Tab.UI.Workloads
             get
             {
                 return PriorityAuthorityBroker.CurrentAuthority == PriorityAuthorityOwner.BetterWorkTab
-                    ? "BWT owns priority data"
-                    : "External priority authority: " +
-                      PriorityAuthorityBroker.CurrentAuthority;
+                    ? T("BWT_Workload_PrioritySourceBWT")
+                    : "BWT_Workload_PrioritySourceExternal"
+                        .Translate(PriorityAuthorityBroker.CurrentAuthority.ToString())
+                        .ToString();
             }
         }
 
@@ -1826,7 +1820,7 @@ namespace Better_Work_Tab.UI.Workloads
                 var blocked = new List<string>();
                 if ((_session.UnsupportedClearDimensions?.Count ?? 0) > 0)
                 {
-                    blocked.Add("explicit clears without typed state");
+                    blocked.Add(T("BWT_Workload_UnsupportedOlderClears"));
                 }
 
                 WorkloadProjectedState[] states =
@@ -1839,22 +1833,24 @@ namespace Better_Work_Tab.UI.Workloads
                     if (WorkloadV2OwnershipResolver.HasLegacyPayload(
                             states[i],
                             WorkloadStateDimension.Schedules) &&
-                        !blocked.Contains("legacy schedules"))
+                        !blocked.Contains(T("BWT_Workload_UnsupportedOlderSchedules")))
                     {
-                        blocked.Add("legacy schedules");
+                        blocked.Add(T("BWT_Workload_UnsupportedOlderSchedules"));
                     }
 
                     if (WorkloadV2OwnershipResolver.HasLegacyPayload(
                             states[i],
                             WorkloadStateDimension.PresentationSettings) &&
-                        !blocked.Contains("legacy presentation settings"))
+                        !blocked.Contains(T("BWT_Workload_UnsupportedOlderDisplay")))
                     {
-                        blocked.Add("legacy presentation settings");
+                        blocked.Add(T("BWT_Workload_UnsupportedOlderDisplay"));
                     }
                 }
                 return blocked.Count == 0
                     ? string.Empty
-                    : "Unsupported dimensions: " + string.Join(", ", blocked.ToArray());
+                    : "BWT_Workload_UnsupportedList"
+                        .Translate(string.Join(", ", blocked.ToArray()))
+                        .ToString();
             }
         }
 
@@ -1878,8 +1874,10 @@ namespace Better_Work_Tab.UI.Workloads
                 }
 
                 return messages.Count == 0
-                    ? "Blocked: workload validation failed."
-                    : "Blocked: " + string.Join(" | ", messages.ToArray());
+                    ? T("BWT_Workload_ValidationFailed")
+                    : "BWT_Workload_ValidationDetails"
+                        .Translate(string.Join(" | ", messages.ToArray()))
+                        .ToString();
             }
         }
 
@@ -1898,8 +1896,7 @@ namespace Better_Work_Tab.UI.Workloads
                 if (IsMultiplayerCommitInFlight)
                 {
                     _multiplayerRecoveryBlocked = true;
-                    _multiplayerCommitMessage =
-                        "The game context changed while synchronized workload state was in flight.";
+                    _multiplayerCommitMessage = T("BWT_Workload_GameChanged");
                     SetMessage(MultiplayerStatusExplanation);
                 }
                 else
@@ -1993,7 +1990,7 @@ namespace Better_Work_Tab.UI.Workloads
                 }
                 catch (Exception exception)
                 {
-                    SetMessage("The workload preview operation failed.");
+                    SetMessage(T("BWT_Workload_OperationFailed"));
                     Log.Error("[BWT] Workload preview lifecycle action failed.\n" + exception);
                 }
 
@@ -2006,7 +2003,7 @@ namespace Better_Work_Tab.UI.Workloads
                     string message = LastMessage;
                     if (!message.AnyNonWhitespace())
                     {
-                        message = "The workload preview operation could not be completed.";
+                        message = T("BWT_Workload_OperationFailed");
                     }
 
                     Messages.Message(message, MessageTypeDefOf.RejectInput, false);
@@ -2073,7 +2070,7 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (WorkloadGateway.CurrentMode != WorkloadBackendMode.Modern)
             {
-                SetMessage("Modern workload preview is unavailable in legacy mode.");
+                SetMessage(T("BWT_Workload_PreviewLegacyUnavailable"));
                 return false;
             }
 
@@ -2127,9 +2124,9 @@ namespace Better_Work_Tab.UI.Workloads
                 return true;
             }
 
-            SetMessage(
-                "Finish, Save, Save As, Apply, or Cancel the active workload preview " +
-                "before " + (operation ?? "changing workloads") + ".");
+            SetMessage("BWT_Workload_FinishPreviewBefore"
+                .Translate(operation ?? T("BWT_Workload_ChangingWorkloads"))
+                .ToString());
             return false;
         }
 
@@ -2137,7 +2134,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             if (string.IsNullOrEmpty(stableId))
             {
-                SetMessage("The workload stable ID is missing.");
+                SetMessage(T("BWT_Workload_NotFound"));
                 return false;
             }
 
@@ -2165,7 +2162,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return BeginCurrentPreview();
             }
 
-            SetMessage("Selected workload.");
+            SetMessage(T("BWT_Workload_Selected"));
             return true;
         }
 
@@ -2174,7 +2171,7 @@ namespace Better_Work_Tab.UI.Workloads
             descriptor = null;
             if (IsActive)
             {
-                if (!CanLeavePreviewForWorkloadOperation("creating a workload"))
+                if (!CanLeavePreviewForWorkloadOperation(T("BWT_Workload_Creating")))
                 {
                     return false;
                 }
@@ -2197,7 +2194,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
-            SetMessage("Created workload " + descriptor.Label + ".");
+            SetMessage("BWT_Workload_Created".Translate(descriptor.Label).ToString());
             return true;
         }
 
@@ -2205,7 +2202,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             if (string.IsNullOrEmpty(stableId) || string.IsNullOrWhiteSpace(label))
             {
-                SetMessage("A workload name is required.");
+                SetMessage(T("BWT_Workload_NameRequired"));
                 return false;
             }
 
@@ -2213,7 +2210,7 @@ namespace Better_Work_Tab.UI.Workloads
                 StringComparer.Ordinal.Equals(SourceStableId, stableId);
             if (reopenPreview)
             {
-                if (!CanLeavePreviewForWorkloadOperation("renaming this workload"))
+                if (!CanLeavePreviewForWorkloadOperation(T("BWT_Workload_Renaming")))
                 {
                     return false;
                 }
@@ -2236,7 +2233,7 @@ namespace Better_Work_Tab.UI.Workloads
                 }
             }
 
-            SetMessage("Renamed workload.");
+            SetMessage(T("BWT_Workload_Renamed"));
             return true;
         }
 
@@ -2244,7 +2241,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             if (string.IsNullOrEmpty(stableId))
             {
-                SetMessage("The workload stable ID is missing.");
+                SetMessage(T("BWT_Workload_NotFound"));
                 return false;
             }
 
@@ -2252,7 +2249,7 @@ namespace Better_Work_Tab.UI.Workloads
                 StringComparer.Ordinal.Equals(SourceStableId, stableId);
             if (wasPreviewSource)
             {
-                if (!CanLeavePreviewForWorkloadOperation("deleting this workload"))
+                if (!CanLeavePreviewForWorkloadOperation(T("BWT_Workload_Deleting")))
                 {
                     return false;
                 }
@@ -2267,7 +2264,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
-            SetMessage("Deleted workload.");
+            SetMessage(T("BWT_Workload_Deleted"));
             return true;
         }
 
@@ -2278,7 +2275,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             if (!IsActive)
             {
-                SetMessage("There is no active workload preview.");
+                SetMessage(T("BWT_Workload_NoActivePreview"));
                 return false;
             }
 
@@ -2300,8 +2297,9 @@ namespace Better_Work_Tab.UI.Workloads
             _multiplayerForkStableId = forkStableId ?? string.Empty;
             _multiplayerForkLabel = forkLabel ?? string.Empty;
             _multiplayerPayloadFingerprint = payloadFingerprint;
-            _multiplayerCommitMessage =
-                "The request was created from one immutable preview snapshot.";
+            _multiplayerCommitMessage = "BWT_Workload_MultiplayerWaiting"
+                .Translate(MultiplayerDecisionLabel(decision))
+                .ToString();
 
             WorkloadMultiplayerCommitStatus status =
                 WorkloadGateway.BeginV2MultiplayerCommit(
@@ -2312,8 +2310,7 @@ namespace Better_Work_Tab.UI.Workloads
             if (status == null)
             {
                 _multiplayerCommitState = WorkloadMultiplayerCommitState.Rejected;
-                _multiplayerCommitMessage =
-                    "The multiplayer workload transaction could not be created.";
+                _multiplayerCommitMessage = T("BWT_Workload_MultiplayerStartFailed");
                 SetMessage(MultiplayerStatusExplanation);
                 return false;
             }
@@ -2376,7 +2373,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
-            SetMessage("Preview canceled; live work priorities were unchanged.");
+            SetMessage(T("BWT_Workload_PreviewCanceled"));
             return true;
         }
 
@@ -2384,7 +2381,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             if (!IsActive)
             {
-                SetMessage("There is no active workload preview.");
+                SetMessage(T("BWT_Workload_NoActivePreview"));
                 return false;
             }
 
@@ -2428,15 +2425,10 @@ namespace Better_Work_Tab.UI.Workloads
 
         private bool AdoptRebasedPreview(WorkloadV2CommitResult result)
         {
-            string operationLabel = result?.Report?.DecisionKind == WorkloadDecisionKind.Fork
-                ? "Save As"
-                : "Save";
             if (result == null || result.RebasedSession == null)
             {
                 _previewRecoveryBlocked = true;
-                SetMessage(
-                    "The workload " + operationLabel.ToLowerInvariant() +
-                    " succeeded, but its authoritative rebased preview was not available. Cancel the preview before retrying.");
+                SetMessage(T("BWT_Workload_PreviewRefreshFailed"));
                 return false;
             }
 
@@ -2449,9 +2441,7 @@ namespace Better_Work_Tab.UI.Workloads
                     expectedStableId))
             {
                 _previewRecoveryBlocked = true;
-                SetMessage(
-                    "The workload " + operationLabel.ToLowerInvariant() +
-                    " succeeded, but the persisted identity could not be adopted safely. Cancel the preview before retrying.");
+                SetMessage(T("BWT_Workload_PreviewRefreshFailed"));
                 return false;
             }
 
@@ -2466,7 +2456,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             if (!IsActive)
             {
-                SetMessage("There is no active workload preview.");
+                SetMessage(T("BWT_Workload_NoActivePreview"));
                 return false;
             }
 
@@ -2477,7 +2467,7 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (!HasSemanticDiff)
             {
-                SetMessage("Save is available only when the semantic diff is non-empty.");
+                SetMessage(T("BWT_Workload_NothingToSave"));
                 return false;
             }
 
@@ -2499,7 +2489,7 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (!HasSemanticDiff)
             {
-                SetMessage("Save is available only when the semantic diff is non-empty.");
+                SetMessage(T("BWT_Workload_NothingToSave"));
                 return false;
             }
 
@@ -2529,7 +2519,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             if (!IsActive)
             {
-                SetMessage("There is no active workload preview to fork.");
+                SetMessage(T("BWT_Workload_NoActivePreviewForSaveAs"));
                 return false;
             }
 
@@ -2607,12 +2597,12 @@ namespace Better_Work_Tab.UI.Workloads
                     _hasMultiplayerAttempt)
                 {
                     return _multiplayerCommitMessage + " " +
-                           "Finish, Save, Save As, Apply, or Cancel the active preview " +
-                           "before switching workloads.";
+                           "BWT_Workload_FinishPreviewBefore"
+                               .Translate(T("BWT_Workload_Switching"))
+                               .ToString();
                 }
 
-                return "Finish the active workload preview with Apply, Save As, or Cancel before " +
-                       "switching workloads. Save is available when the workload has changes.";
+                return T("BWT_Workload_FinishBeforeSwitching");
             }
         }
 
@@ -2749,20 +2739,20 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (!IsActive || key == null || !key.IsValid)
             {
-                SetMessage("The specific-job preview target is no longer available.");
+                SetMessage(T("BWT_Workload_SpecificJobMissing"));
                 return false;
             }
 
             if (!_session.SourceTemplate.Definition.OwnershipDimensions.Owns(
                     WorkloadStateDimension.SpecificJobOverrides))
             {
-                SetMessage("The active workload does not own specific-job priorities.");
+                SetMessage(T("BWT_Workload_SpecificJobPriorityUnavailable"));
                 return false;
             }
 
             return EditPreviewDraft(
                 draft => draft.SetSpecificPriorityIntent(key, intent),
-                "The specific-job preview could not be changed.");
+                T("BWT_Workload_SpecificJobChangeFailed"));
         }
 
         internal bool SetWorkTypeOrderPreviewIntent(
@@ -2777,20 +2767,20 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (!IsActive || key == null || !key.IsValid)
             {
-                SetMessage("The WorkGiver order preview target is no longer available.");
+                SetMessage(T("BWT_Workload_SpecificJobOrderTargetMissing"));
                 return false;
             }
 
             if (!_session.SourceTemplate.Definition.OwnershipDimensions.Owns(
                     WorkloadStateDimension.SpecificJobOrder))
             {
-                SetMessage("The active workload does not own WorkGiver ordering.");
+                SetMessage(T("BWT_Workload_SpecificJobOrderUnavailable"));
                 return false;
             }
 
             return EditPreviewDraft(
                 draft => draft.SetWorkTypeOrderIntent(key, intent),
-                "The WorkGiver order preview could not be changed.");
+                T("BWT_Workload_SpecificJobOrderChangeFailed"));
         }
 
         internal bool SetSchedulePreviewIntent(
@@ -2805,20 +2795,20 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (!IsActive || key == null || !key.IsValid)
             {
-                SetMessage("The schedule preview target is no longer available.");
+                SetMessage(T("BWT_Workload_HourlyPriorityMissing"));
                 return false;
             }
 
             if (!_session.SourceTemplate.Definition.OwnershipDimensions.Owns(
                     WorkloadStateDimension.Schedules))
             {
-                SetMessage("The active workload does not own schedules.");
+                SetMessage(T("BWT_Workload_HourlyPriorityUnavailable"));
                 return false;
             }
 
             return EditPreviewDraft(
                 draft => draft.SetScheduleIntent(key, intent),
-                "The schedule preview could not be changed.");
+                T("BWT_Workload_HourlyPriorityChangeFailed"));
         }
 
         private bool EditPreviewDraft(
@@ -2886,21 +2876,21 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (!IsActive || pawnKey == null || !pawnKey.IsValid)
             {
-                SetMessage("This pawn cannot be changed in the current preview.");
+                SetMessage(T("BWT_Workload_PawnCannotChange"));
                 return false;
             }
 
             WorkloadMembershipRecord record = GetMembershipSnapshot().Find(pawnKey);
             if (record == null || !record.IsAvailable)
             {
-                SetMessage("This pawn is stale or missing and cannot be included.");
+                SetMessage(T("BWT_Workload_PawnMissing"));
                 return false;
             }
 
             WorkloadScope scope = _session.SourceTemplate.Definition.Scope ?? WorkloadScope.Empty;
             if (scope.IsExplicitlyExcluded(pawnKey))
             {
-                SetMessage("This pawn is explicitly excluded by the saved workload scope.");
+                SetMessage(T("BWT_Workload_PawnNeverIncluded"));
                 return false;
             }
 
@@ -2911,7 +2901,7 @@ namespace Better_Work_Tab.UI.Workloads
                     return false;
                 }
 
-                SetMessage("Pawn included for this application.");
+                SetMessage(T("BWT_Workload_PawnIncluded"));
                 return true;
             }
 
@@ -2922,7 +2912,7 @@ namespace Better_Work_Tab.UI.Workloads
                     return false;
                 }
 
-                SetMessage("Pawn included with its current live values for this application.");
+                SetMessage(T("BWT_Workload_PawnIncludedCurrent"));
                 return true;
             }
 
@@ -2934,11 +2924,11 @@ namespace Better_Work_Tab.UI.Workloads
                     return false;
                 }
 
-                SetMessage("Pawn excluded from this application; its live values remain unchanged.");
+                SetMessage(T("BWT_Workload_PawnExcluded"));
                 return true;
             }
 
-            SetMessage("This pawn is outside the saved workload scope and was left unchanged.");
+            SetMessage(T("BWT_Workload_PawnOutside"));
             return false;
         }
 
@@ -2966,7 +2956,7 @@ namespace Better_Work_Tab.UI.Workloads
             Pawn pawn = ResolvePawn(pawnKey);
             if (pawn == null)
             {
-                SetMessage("The current pawn could not be resolved.");
+                SetMessage(T("BWT_Workload_PawnMissing"));
                 return false;
             }
 
@@ -3083,7 +3073,7 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (!wroteValue)
             {
-                SetMessage("This workload has no supported current-pawn dimension to include.");
+                SetMessage(T("BWT_Workload_PawnNoStoredSettings"));
                 return false;
             }
 
@@ -3112,11 +3102,11 @@ namespace Better_Work_Tab.UI.Workloads
 
             if ((dimensions & WorkloadOwnershipDimensions.PresentationSettings) != 0)
             {
-                values.Add("presentation settings");
+                values.Add(T("BWT_Workload_UnsupportedOlderDisplay"));
             }
 
             return values.Count == 0
-                ? "unsupported state"
+                ? T("BWT_Workload_UnsupportedDataShort")
                 : string.Join(", ", values.ToArray());
         }
 
@@ -3128,7 +3118,7 @@ namespace Better_Work_Tab.UI.Workloads
             _session = session;
             _boundComponent = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             RebuildProjection(_session.ProjectedState);
-            SetMessage("Preview open; live work priorities are unchanged until Apply.");
+            SetMessage(T("BWT_Workload_PreviewOpened"));
         }
 
         private void RebuildProjection(WorkloadProjectedState projectedState)

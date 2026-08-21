@@ -123,9 +123,9 @@ namespace Better_Work_Tab.UI
         public override void DoWindowContents(Rect inRect)
         {
             Text.Font = GameFont.Medium;
-            Widgets.Label(inRect, "Manage Rules");
+            Widgets.Label(inRect, "BWT_ManageRules".Translate());
             Text.Font = GameFont.Small;
-            float titleHeight = Text.CalcHeight("Manage Rules", 0) + 12f;
+            float titleHeight = Text.CalcHeight("BWT_ManageRules".Translate(), 0) + 12f;
 
             Rect contentRect = inRect;
             contentRect.height -= titleHeight;
@@ -214,7 +214,7 @@ namespace Better_Work_Tab.UI
                 GUI.color = Color.gray;
                 var defaultAnchor = Text.Anchor;
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(outRect, "No rule selected");
+                Widgets.Label(outRect, "BWT_NoRuleSelected".Translate());
                 Text.Anchor = defaultAnchor;
                 GUI.color = oldColor;
                 return;
@@ -321,11 +321,11 @@ namespace Better_Work_Tab.UI
             if (uneditable) GUI.color = Color.gray;
 
             Gender? value = (Gender?)field.GetValue(SelectedRule.Parameters);
-            if (Widgets.ButtonText(valueRect, value?.ToString() ?? "Unassigned", active: !uneditable))
+            if (Widgets.ButtonText(valueRect, value?.ToString() ?? "BWT_Unassigned".Translate(), active: !uneditable))
             {
                 List<FloatMenuOption> enums = new List<FloatMenuOption>()
                 {
-                    new FloatMenuOption("Unassigned", delegate
+                    new FloatMenuOption("BWT_Unassigned".Translate(), delegate
                     {
                         field.SetValue(SelectedRule.Parameters, null);
                         SoundDefOf.Tick_Tiny.PlayOneShotOnCamera();
@@ -360,10 +360,10 @@ namespace Better_Work_Tab.UI
             }
 
             bool missingSavedWorktype = !string.IsNullOrEmpty(parameters.WorktypeString) && worktype == null;
-            string buttonLabel = worktype?.labelShort.CapitalizeFirst() ?? "Unassigned";
+            string buttonLabel = worktype?.labelShort.CapitalizeFirst() ?? "BWT_Unassigned".Translate();
             if (missingSavedWorktype)
             {
-                buttonLabel = $"\"{parameters.WorktypeString}\" (Missing)";
+                buttonLabel = "BWT_MissingSavedValue".Translate(parameters.WorktypeString);
             }
 
             var oldColor = GUI.color;
@@ -373,7 +373,7 @@ namespace Better_Work_Tab.UI
             {
                 List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
                 {
-                    new FloatMenuOption("Unassigned", delegate
+                    new FloatMenuOption("BWT_Unassigned".Translate(), delegate
                     {
                         field.SetValue(parameters, null);
                         parameters.WorktypeString = "";
@@ -409,7 +409,7 @@ namespace Better_Work_Tab.UI
             {
                 List<FloatMenuOption> defOptions = new List<FloatMenuOption>()
                 {
-                    new FloatMenuOption("Unassigned", delegate
+                    new FloatMenuOption("BWT_Unassigned".Translate(), delegate
                     {
                         field.SetValue(parameters, null);
                         parameters.XenotypeString = "";
@@ -437,14 +437,14 @@ namespace Better_Work_Tab.UI
 
             var parameters = SelectedRule.Parameters;
             Tuple<TraitDef, int> trait = (Tuple<TraitDef, int>)field.GetValue(parameters);
-            string buttonLabel = "Unassigned";
+            string buttonLabel = "BWT_Unassigned".Translate();
             if (trait?.Item1 != null)
             {
                 buttonLabel = trait.Item1.DataAtDegree(trait.Item2).LabelCap;
             }
             else if (!string.IsNullOrEmpty(parameters.TraitString))
             {
-                buttonLabel = $"\"{parameters.TraitString}\" (Missing)";
+                buttonLabel = "BWT_MissingSavedValue".Translate(parameters.TraitString);
             }
 
             var oldColor = GUI.color;
@@ -461,7 +461,7 @@ namespace Better_Work_Tab.UI
             {
                 List<FloatMenuOption> list = new List<FloatMenuOption>()
                 {
-                    new FloatMenuOption("Unassigned", delegate
+                    new FloatMenuOption("BWT_Unassigned".Translate(), delegate
                     {
                         field.SetValue(parameters, null);
                         parameters.TraitString = "";
@@ -495,7 +495,7 @@ namespace Better_Work_Tab.UI
 
         private void DrawUnsupportedParameter(Rect rowRect)
         {
-            Widgets.Label(rowRect, "NESTED RULES NOT SUPPORTED");
+            Widgets.Label(rowRect, "BWT_NestedRulesNotSupported".Translate());
         }
 
         /// <summary>
@@ -563,7 +563,7 @@ namespace Better_Work_Tab.UI
 
             rect2.SplitHorizontally(32f, out Rect titleRect, out rect2);
 
-            selectedRuleset.Name = ruleNameBuffer == "" ? "New Ruleset " + (Settings.SavedRulesets?.IndexOf(selectedRuleset) + 1) ?? ruleNameBuffer : ruleNameBuffer;
+            selectedRuleset.Name = ruleNameBuffer == "" ? "BWT_NewRuleset".Translate().ToString() + " " + (Settings.SavedRulesets?.IndexOf(selectedRuleset) + 1) ?? ruleNameBuffer : ruleNameBuffer;
 
             if (uneditable)
             {

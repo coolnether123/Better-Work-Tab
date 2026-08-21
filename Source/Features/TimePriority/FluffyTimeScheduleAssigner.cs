@@ -298,7 +298,7 @@ namespace Better_Work_Tab.Features.TimePriority
                     {
                         WorkTabEffectiveStateRuntime.ReportBlocked(
                             WorkTabEffectiveStateDimension.Schedule,
-                            clearReason ?? "The projected hourly schedule could not be cleared.");
+                            clearReason ?? "BWT_HourlyPriorities_ClearRejected".Translate());
                         return false;
                     }
 
@@ -412,7 +412,7 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    reason ?? "The hourly schedule write was rejected.");
+                    reason ?? "BWT_HourlyPriorities_WriteRejected".Translate());
             }
 
             return accepted;
@@ -427,7 +427,7 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    reason ?? "The hourly schedule clear was rejected.");
+                    reason ?? "BWT_HourlyPriorities_ClearRejected".Translate());
             }
 
             return accepted;
@@ -470,14 +470,14 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 SelectWholeDay();
             }
-            TooltipHandler.TipRegion(wholeDayButton, "Select the whole day");
+            TooltipHandler.TipRegion(wholeDayButton, "BWT_HourlyPriorities_SelectWholeDay".Translate());
 
             if (FluffyWorkTabGateway.TryGetIcon(FluffyWorkTabIcon.Now, out Texture2D nowIcon) &&
                 Widgets.ButtonImage(nowButton, nowIcon, Color.white, GenUI.MouseoverColor))
             {
                 SelectHour(Find.CurrentMap != null ? GenLocalDate.HourOfDay(Find.CurrentMap) : 0, replace: true);
             }
-            TooltipHandler.TipRegion(nowButton, "Select the current hour");
+            TooltipHandler.TipRegion(nowButton, "BWT_HourlyPriorities_SelectCurrentHour".Translate());
         }
 
         private static void DrawHourBar(Rect bar)

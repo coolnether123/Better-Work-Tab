@@ -212,7 +212,7 @@ namespace Better_Work_Tab.UI.RuleBuilder
                 Close();
             }
 
-            if (RWWidgets.ButtonText(okRect, "OK"))
+            if (RWWidgets.ButtonText(okRect, "BWT_OK".Translate()))
             {
                 ConfirmSelection();
             }

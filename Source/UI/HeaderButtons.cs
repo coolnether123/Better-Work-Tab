@@ -687,7 +687,9 @@ namespace Better_Work_Tab.UI
             if (DrawFluffyTopButton(
                     rects.Priority,
                     prioritiesEnabled ? FluffyWorkTabIcon.PrioritiesDetailed : FluffyWorkTabIcon.PrioritiesSimple,
-                    prioritiesEnabled ? "Manual priorities" : "Simple priorities",
+                    prioritiesEnabled
+                        ? "BWT_Header_ManualPriorities".Translate().ToString()
+                        : "BWT_Header_SimplePriorities".Translate().ToString(),
                     prioritiesEnabled ? "1" : "Y"))
             {
                 ToggleManualPriorities(!prioritiesEnabled);
@@ -697,7 +699,9 @@ namespace Better_Work_Tab.UI
             if (DrawFluffyTopButton(
                     rects.Scheduler,
                     plannerVisible ? FluffyWorkTabIcon.PrioritiesTimed : FluffyWorkTabIcon.PrioritiesWholeDay,
-                    plannerVisible ? "Close time priorities" : "Open time priorities",
+                    plannerVisible
+                        ? "BWT_Header_CloseHourlyPriorities".Translate().ToString()
+                        : "BWT_Header_OpenHourlyPriorities".Translate().ToString(),
                     plannerVisible ? "T" : "D"))
             {
                 if (!ToggleScheduler(layout))
@@ -710,7 +714,9 @@ namespace Better_Work_Tab.UI
             if (DrawFluffyTopButton(
                     rects.Expand,
                     anyExpanded ? FluffyWorkTabIcon.Collapse : FluffyWorkTabIcon.Expand,
-                    anyExpanded ? "Collapse all specific jobs" : "Expand all specific jobs",
+                    anyExpanded
+                        ? "BWT_Header_CollapseSpecificJobs".Translate().ToString()
+                        : "BWT_Header_ExpandSpecificJobs".Translate().ToString(),
                     anyExpanded ? "-" : "+"))
             {
                 ToggleAllVisibleSubWork(layout);
@@ -970,7 +976,7 @@ namespace Better_Work_Tab.UI
                 : hasWorkload
                     ? (legacyMode
                         ? "BWT_BottomBar_WorkloadTooltip".Translate(name)
-                        : "Open a non-destructive Workload 2.0 preview for " + name + ".")
+                        : "BWT_Workload_OpenPreviewTooltip".Translate(name))
                     : "BWT_BottomBar_WorkloadTooltipEmpty".Translate();
 
             if (DrawWorkloadMainControl(
@@ -993,7 +999,7 @@ namespace Better_Work_Tab.UI
                     if (preview == null)
                     {
                         Messages.Message(
-                            "Modern workload preview is unavailable.",
+                            "BWT_Workload_PreviewUnavailable".Translate(),
                             MessageTypeDefOf.RejectInput,
                             false);
                     }
@@ -1008,7 +1014,7 @@ namespace Better_Work_Tab.UI
                 else
                 {
                     ReportWorkloadFailure(
-                        "Select a workload with the ... menu before opening a preview.");
+                        "BWT_Workload_SelectBeforePreview".Translate());
                 }
             }
 
@@ -1046,7 +1052,7 @@ namespace Better_Work_Tab.UI
                     DrawWorkloadPreviewButton(
                         ToWorkloadActionGroup(rects.WorkloadSaveAsDraw, rects.WorkloadActionClip),
                         ToWorkloadActionGroup(rects.WorkloadSaveAs, rects.WorkloadActionClip),
-                        "Save As",
+                        "BWT_Workload_SaveAs".Translate(),
                         () => QueuePreviewLifecycleAction(
                             preview,
                             BeginWorkloadPreviewSaveAsEditor,
@@ -1054,15 +1060,14 @@ namespace Better_Work_Tab.UI
                         interactive && preview.CanForkPreview,
                         preview.CommitBlockedMessage.AnyNonWhitespace()
                             ? preview.CommitBlockedMessage
-                            : "Save As creates a new workload definition without changing the colony. " +
-                              "Hover to inspect the template changes. Scroll here to move the Work tab.");
+                            : "BWT_Workload_SaveAsTooltip".Translate());
                 }
                 if (rects.HasWorkloadUpdate)
                 {
                     DrawWorkloadPreviewButton(
                         ToWorkloadActionGroup(rects.WorkloadUpdateDraw, rects.WorkloadActionClip),
                         ToWorkloadActionGroup(rects.WorkloadUpdate, rects.WorkloadActionClip),
-                        "Save",
+                        "BWT_Workload_Save".Translate(),
                         () => QueuePreviewLifecycleAction(
                             preview,
                             () => preview.UpdatePreview(),
@@ -1070,14 +1075,13 @@ namespace Better_Work_Tab.UI
                         interactive && preview.CanUpdatePreview,
                         preview.CommitBlockedMessage.AnyNonWhitespace()
                             ? preview.CommitBlockedMessage
-                            : "Save applies this semantic diff and replaces the same workload template. " +
-                              "Hover to inspect changed pawn/worktype cells. Scroll here to move the Work tab.");
+                            : "BWT_Workload_SaveTooltip".Translate());
                 }
 
                 DrawWorkloadPreviewButton(
                     ToWorkloadActionGroup(rects.WorkloadCancelDraw, rects.WorkloadActionClip),
                     ToWorkloadActionGroup(rects.WorkloadCancel, rects.WorkloadActionClip),
-                    PreviewActionLabel(rects.WorkloadCancelDraw, "Cancel", "C"),
+                    PreviewActionLabel(rects.WorkloadCancelDraw, "BWT_Workload_Cancel".Translate(), "C"),
                     () => QueuePreviewLifecycleAction(
                         preview,
                         () => preview.CancelPreview(),
@@ -1085,11 +1089,11 @@ namespace Better_Work_Tab.UI
                     enabled: interactive && preview.CanCancelPreview,
                     tooltip: preview.IsMultiplayerCommitInFlight
                         ? preview.MultiplayerStatusExplanation
-                        : "Cancel the preview and keep live work priorities unchanged.");
+                        : "BWT_Workload_CancelTooltip".Translate());
                 DrawWorkloadPreviewButton(
                     ToWorkloadActionGroup(rects.WorkloadApplyDraw, rects.WorkloadActionClip),
                     ToWorkloadActionGroup(rects.WorkloadApply, rects.WorkloadActionClip),
-                    PreviewActionLabel(rects.WorkloadApplyDraw, "Apply", "A"),
+                    PreviewActionLabel(rects.WorkloadApplyDraw, "BWT_Workload_Apply".Translate(), "A"),
                     () => QueuePreviewLifecycleAction(
                         preview,
                         () => preview.ApplyPreview(),
@@ -1351,7 +1355,7 @@ namespace Better_Work_Tab.UI
 
             if (workloads.Count == 0)
             {
-                options.Add(new FloatMenuOption("No saved workloads.", null));
+                options.Add(new FloatMenuOption("BWT_Workload_NoSaved".Translate(), null));
             }
             else
             {
@@ -1373,13 +1377,13 @@ namespace Better_Work_Tab.UI
             }
 
             options.Add(new FloatMenuOption(
-                "New workload",
+                "BWT_Workload_New".Translate(),
                 () => BeginWorkloadFooterEditor(createNew: true)));
             if (!currentId.NullOrEmpty())
             {
                 string stableId = currentId;
                 options.Add(new FloatMenuOption(
-                    "Workload actions",
+                    "BWT_Workload_Actions".Translate(),
                     () => OpenWorkloadManagementMenu(stableId)));
             }
 
@@ -1398,12 +1402,12 @@ namespace Better_Work_Tab.UI
                 var options = new List<FloatMenuOption>
                 {
                     new FloatMenuOption(
-                        "Rename",
+                        "BWT_Workload_Rename".Translate(),
                         () => BeginWorkloadFooterEditor(
                             createNew: false,
                             stableId: stableId)),
                     new FloatMenuOption(
-                        "Delete",
+                        "BWT_Workload_Delete".Translate(),
                         () => DeleteWorkloadInline(stableId))
                 };
                 Find.WindowStack.Add(new FloatMenu(options));
@@ -1524,10 +1528,10 @@ namespace Better_Work_Tab.UI
             Widgets.Label(
                 new Rect(panel.xMin + 8f, panel.yMin + 5f, panel.width - 16f, 20f),
                 _workloadFooterEditSaveAs
-                    ? "Save workload as"
+                    ? "BWT_Workload_SaveAsTitle".Translate().ToString()
                     : _workloadFooterEditCreatesNew
-                        ? "New workload"
-                        : "Rename workload");
+                        ? "BWT_Workload_NewTitle".Translate().ToString()
+                        : "BWT_Workload_RenameTitle".Translate().ToString());
             _workloadFooterEditFieldRect = new Rect(
                 panel.xMin + 8f,
                 panel.yMin + 30f,
@@ -1552,11 +1556,13 @@ namespace Better_Work_Tab.UI
                 24f);
             DrawWorkloadFooterButton(
                 _workloadFooterEditConfirmRect,
-                _workloadFooterEditSaveAs ? "Save As" : "Save",
+                _workloadFooterEditSaveAs
+                    ? "BWT_Workload_SaveAs".Translate().ToString()
+                    : "BWT_Workload_Save".Translate().ToString(),
                 CommitWorkloadFooterEditor);
             DrawWorkloadFooterButton(
                 _workloadFooterEditCancelRect,
-                "Cancel",
+                "BWT_Workload_Cancel".Translate(),
                 CloseWorkloadFooterPopover);
 
             Event evt = Event.current;
@@ -1581,11 +1587,11 @@ namespace Better_Work_Tab.UI
         {
             Widgets.Label(
                 new Rect(panel.xMin + 8f, panel.yMin + 5f, panel.width - 16f, 20f),
-                "Apply legacy workload?");
+                "BWT_Workload_ApplyLegacyTitle".Translate());
             GUI.color = new Color(0.78f, 0.86f, 0.87f, 0.95f);
             Widgets.Label(
                 new Rect(panel.xMin + 8f, panel.yMin + 28f, panel.width - 16f, 32f),
-                "Applying this will reset the current work tab priority configuration. Continue?");
+                "BWT_Workload_ApplyLegacyBody".Translate());
             GUI.color = Color.white;
             Widgets.CheckboxLabeled(
                 new Rect(panel.xMin + 8f, panel.yMin + 62f, panel.width - 16f, 20f),
@@ -1605,11 +1611,11 @@ namespace Better_Work_Tab.UI
                 24f);
             DrawWorkloadFooterButton(
                 _workloadFooterConfirmApplyRect,
-                "Apply",
+                "BWT_Workload_Apply".Translate(),
                 ConfirmLegacyWorkloadApply);
             DrawWorkloadFooterButton(
                 _workloadFooterConfirmCancelRect,
-                "Cancel",
+                "BWT_Workload_Cancel".Translate(),
                 CloseWorkloadFooterPopover);
         }
 
@@ -1668,7 +1674,7 @@ namespace Better_Work_Tab.UI
                 string candidate;
                 do
                 {
-                    candidate = "Workload " + number++;
+                    candidate = "BWT_Workload_DefaultName".Translate(number++);
                 }
                 while (ContainsWorkloadLabel(workloads, candidate));
 
@@ -1692,7 +1698,7 @@ namespace Better_Work_Tab.UI
             _workloadFooterEditCreatesNew = false;
             _workloadFooterEditSaveAs = true;
             _workloadFooterEditStableId = preview.SourceStableId;
-            _workloadFooterEditBuffer = preview.SourceLabel + " copy";
+            _workloadFooterEditBuffer = "BWT_Workload_CopyName".Translate(preview.SourceLabel);
             return true;
         }
 
@@ -1701,7 +1707,7 @@ namespace Better_Work_Tab.UI
             string label = (_workloadFooterEditBuffer ?? string.Empty).Trim();
             if (label.Length == 0)
             {
-                ReportWorkloadFailure("A workload name is required.");
+                ReportWorkloadFailure("BWT_Workload_NameRequired".Translate());
                 return;
             }
 
@@ -1710,7 +1716,7 @@ namespace Better_Work_Tab.UI
             {
                 if (preview == null || !preview.IsActive)
                 {
-                    ReportWorkloadFailure("The workload preview is no longer active.");
+                    ReportWorkloadFailure("BWT_Workload_PreviewEnded".Translate());
                     return;
                 }
 
@@ -1886,7 +1892,7 @@ namespace Better_Work_Tab.UI
         {
             if (!message.AnyNonWhitespace())
             {
-                message = "The workload operation could not be completed.";
+                message = "BWT_Workload_OperationFailed".Translate();
             }
 
             Messages.Message(message, MessageTypeDefOf.RejectInput, false);

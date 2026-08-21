@@ -286,7 +286,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             pawnId = _session.PawnIds[0];
-            ActiveDivider.DividerName = _session.TargetLabel + " time priorities";
+            ActiveDivider.DividerName = "BWT_HourlyPriorities_DividerName".Translate(_session.TargetLabel);
             ActiveDivider.Height = TransientDividerVisualHeight;
             ActiveDivider.IsCollapsed = false;
             divider = ActiveDivider;
@@ -702,7 +702,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 {
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.Schedule,
-                        reason ?? "The hourly schedule write was rejected.");
+                        reason ?? "BWT_HourlyPriorities_WriteRejected".Translate());
                 }
 
                 if (accepted)
@@ -782,13 +782,13 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    "Schedule copy is unavailable while Better Work Tab does not own priority data.");
+                    "BWT_HourlyPriorities_CopyUnavailable".Translate());
                 return;
             }
 
             TimePriorityScheduleClipboard.CopyFrom(hit.Target, hit.FallbackPriority, hit.Label);
             TimePriorityScheduleTransferFeedback.StartCopy(hit.Target);
-            Messages.Message("Copied " + hit.Label + " time priorities.", MessageTypeDefOf.PositiveEvent, false);
+            Messages.Message("BWT_HourlyPriorities_Copied".Translate(hit.Label), MessageTypeDefOf.PositiveEvent, false);
         }
 
         private static void PasteSchedule(CopyPasteHit hit)
@@ -797,7 +797,7 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    "Schedule paste is unavailable while Better Work Tab does not own priority data.");
+                    "BWT_HourlyPriorities_PasteUnavailable".Translate());
                 return;
             }
 
@@ -818,12 +818,12 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    reason ?? "The schedule paste was rejected.");
+                    reason ?? "BWT_HourlyPriorities_PasteRejected".Translate());
                 return;
             }
 
             TimePriorityScheduleTransferFeedback.StartPaste(hit.Target, beforePriorities, afterPriorities, closeWhenComplete: true);
-            Messages.Message("Pasted " + snapshot.Label + " time priorities.", MessageTypeDefOf.PositiveEvent, false);
+            Messages.Message("BWT_HourlyPriorities_Pasted".Translate(snapshot.Label), MessageTypeDefOf.PositiveEvent, false);
         }
 
         private static void EnsureTargetVisibleForTransfer(CopyPasteHit hit)
@@ -932,7 +932,7 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.Schedule,
-                    "Hourly schedule sessions are unavailable while Better Work Tab does not own priority data.");
+                    "BWT_HourlyPriorities_OpenUnavailable".Translate());
                 return;
             }
 
@@ -2145,8 +2145,11 @@ namespace Better_Work_Tab.Features.TimePriority
 
                 TooltipHandler.TipRegion(
                     drawRect,
-                    "Hour " + hour + ": priority " +
-                    (priority <= WorkPrioritySystem.DisabledPriority ? "disabled" : priority.ToString()));
+                    "BWT_HourlyPriorities_HourTooltip".Translate(
+                        hour,
+                        priority <= WorkPrioritySystem.DisabledPriority
+                            ? "BWT_Disabled".Translate().ToString()
+                            : priority.ToString()));
             }
         }
 
