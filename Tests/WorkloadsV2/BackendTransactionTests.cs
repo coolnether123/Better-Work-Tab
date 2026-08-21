@@ -30,6 +30,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             FreshnessRevisionsAreCapturedAndValidatedIndependently(backend, multiplayer);
             PersistenceRevalidatesRuntimeStateBeforeTemplateWrites(backend);
             SaveRebaseAndForkCurrentIdentityAreTransactional(backend);
+            ReceiptRecoveryIsReadOnlyAndFailClosed(backend);
         }
 
         private static void PrepareIsReadOnlyAndExecuteIsCapabilityBound(
@@ -394,6 +395,82 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 backend,
                 "Keep the lease active so the protocol can still issue",
                 "a failed final confirmation must remain rollback-recoverable");
+            TestAssert.Contains(
+                backend,
+                "store.PersistenceRevision != receipt.PersistenceRevision",
+                "preview rebasing must reject a receipt from a different local persistence revision");
+            TestAssert.Contains(
+                backend,
+                "store.PersistenceFingerprint",
+                "preview rebasing must verify the local persistence fingerprint before adopting a receipt");
+            TestAssert.Contains(
+                backend,
+                "store.Find(receipt.TargetStableId)",
+                "preview rebasing must round-trip the local target record before changing baseline identity");
+        }
+
+        private static void ReceiptRecoveryIsReadOnlyAndFailClosed(string backend)
+        {
+            string recovery = Slice(
+                backend,
+                "internal WorkloadOperationResult<WorkloadPersistenceReceipt> RecoverPersistenceReceipt(\n            WorkloadSession session",
+                "internal WorkloadOperationResult<WorkloadProjectedState> CaptureLiveBaseline(");
+            TestAssert.Contains(
+                recovery,
+                "decisionKind != WorkloadDecisionKind.Update",
+                "receipt recovery must reject non-Update/Fork decisions");
+            TestAssert.Contains(
+                recovery,
+                "targetStableId",
+                "receipt recovery must bind the requested target identity");
+            TestAssert.Contains(
+                recovery,
+                "_backendBaselines.TryGetValue(sourceIdentity",
+                "receipt recovery must use the old service-owned source baseline");
+            TestAssert.Contains(
+                recovery,
+                "BuildPersistenceReceipt(",
+                "receipt recovery must reuse the existing target validation");
+            TestAssert.Contains(
+                backend,
+                "store.HasDuplicateStableId(targetStableId)",
+                "the reused receipt builder must reject an ambiguous target");
+            TestAssert.Contains(
+                backend,
+                "WorkloadV2RecordConverter.TryToTemplate(record)",
+                "receipt recovery must round-trip the authoritative persisted target");
+            TestAssert.Contains(
+                recovery,
+                "receipt.Value.TargetIdentity",
+                "receipt recovery must validate the current target identity");
+            TestAssert.Contains(
+                recovery,
+                "receipt.Value.CurrentWorkloadId",
+                "receipt recovery must validate the current workload identity");
+            TestAssert.Contains(
+                backend,
+                "WorkloadScope synchronizedScope",
+                "multiplayer reconstruction must retain the payload scope independently of the stored source scope");
+            TestAssert.Contains(
+                backend,
+                "synchronizedState = synchronizedState.ExcludePawn(excludedPawn)",
+                "multiplayer reconstruction must restore temporary exclusions into the detached session state");
+            TestAssert.Contains(
+                backend,
+                "source.Value.WithDefinition(observedDefinition).WithState(synchronizedState)",
+                "peer baseline capture must observe the payload scope while preserving source identity");
+            TestAssert.Contains(
+                backend,
+                "session.EditState(synchronizedState)",
+                "the reconstructed peer session must use the exclusion-preserving state");
+            TestAssert.Contains(
+                backend,
+                "scope.IsExplicitlyExcluded(entry.Key.Pawn)",
+                "live baseline capture must not require excluded pawn-local identities");
+            TestAssert.False(
+                recovery.IndexOf("CaptureLiveBaseline", StringComparison.Ordinal) >= 0 ||
+                recovery.IndexOf("RekeyBackendBaseline", StringComparison.Ordinal) >= 0,
+                "receipt recovery must not recapture live state or mutate the baseline");
         }
 
         private static string FindRepositoryRoot()
@@ -419,6 +496,16 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
             TestAssert.True(File.Exists(path), "expected production source file is missing: " + path);
             return File.ReadAllText(path).Replace("\r\n", "\n");
+        }
+
+        private static string Slice(string value, string startMarker, string endMarker)
+        {
+            int start = value.IndexOf(startMarker, StringComparison.Ordinal);
+            int end = start < 0
+                ? -1
+                : value.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
+            TestAssert.True(start >= 0 && end > start, "expected backend method boundary is missing");
+            return value.Substring(start, end - start);
         }
     }
 }

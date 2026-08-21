@@ -1395,6 +1395,23 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return WorkloadOperationResult<WorkloadSession>.Ok(_previewSession);
         }
 
+        internal WorkloadOperationResult<WorkloadPersistenceReceipt> RecoverPersistenceReceipt(
+            WorkloadDecisionKind decisionKind,
+            string targetStableId)
+        {
+            if (_previewSession == null)
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.NotFound,
+                    "There is no active V2 preview session from which to recover a persistence receipt.");
+            }
+
+            return _applyService.RecoverPersistenceReceipt(
+                _previewSession,
+                decisionKind,
+                targetStableId);
+        }
+
         internal WorkloadOperationResult<WorkloadSession> BuildMultiplayerSession(
             WorkloadTransactionRequest request,
             WorkloadTemplate projectedTemplate)
@@ -1431,9 +1448,32 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     "The synchronized workload source fingerprint is stale.");
             }
 
+            WorkloadProjectedState synchronizedState =
+                projectedTemplate.ProjectedState ?? WorkloadProjectedState.Empty;
+            WorkloadScope synchronizedScope =
+                projectedTemplate.Definition.Scope ?? WorkloadScope.Empty;
+            for (int i = 0; i < synchronizedScope.ExcludedPawnIds.Count; i++)
+            {
+                PawnKey excludedPawn = synchronizedScope.ExcludedPawnIds[i];
+                if (!synchronizedState.IsExcluded(excludedPawn))
+                {
+                    synchronizedState = synchronizedState.ExcludePawn(excludedPawn);
+                }
+            }
+
+            // The payload scope carries temporary application exclusions that
+            // are deliberately not part of the persisted source definition.
+            // Use that scope for peer baseline capture, while keeping the
+            // stored source template as the session identity authority.
+            WorkloadDefinition observedDefinition = new WorkloadDefinition(
+                source.Value.Definition.StableId,
+                source.Value.Definition.Label,
+                source.Value.Definition.SchemaVersion,
+                source.Value.Definition.OwnershipDimensions,
+                synchronizedScope);
             WorkloadTemplate observedSource = BuildEffectiveTemplate(
-                source.Value.WithState(projectedTemplate.ProjectedState),
-                projectedTemplate.ProjectedState,
+                source.Value.WithDefinition(observedDefinition).WithState(synchronizedState),
+                synchronizedState,
                 source.Value.ProjectedState);
             WorkloadOperationResult<WorkloadLiveBaselineCapture> capture =
                 _applyService.CaptureLiveBaselineCapture(observedSource);
@@ -1489,7 +1529,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             _applyService.RememberBackendBaseline(source.Value, capture.Value.BackendBaseline);
             return WorkloadOperationResult<WorkloadSession>.Ok(
-                session.EditState(projectedTemplate.ProjectedState));
+                session.EditState(synchronizedState));
         }
 
         internal WorkloadV2CommitResult ValidateMultiplayerCommit(
@@ -2772,6 +2812,37 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     "The V2 service-owned baseline no longer matches the committed persistence receipt.");
             }
 
+            WorkloadV2PersistenceEnvelope store = _component?.EnsureWorkloadV2Persistence();
+            if (store == null || store.IsReadOnlyDiagnostic ||
+                store.PersistenceRevision != receipt.PersistenceRevision ||
+                !StringComparer.Ordinal.Equals(
+                    store.PersistenceFingerprint,
+                    receipt.PersistenceFingerprint) ||
+                store.HasDuplicateStableId(receipt.TargetStableId))
+            {
+                return WorkloadOperationResult.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The local V2 persistence envelope does not match the committed receipt.");
+            }
+
+            WorkloadV2PersistenceRecord targetRecord =
+                store.Find(receipt.TargetStableId);
+            WorkloadOperationResult<WorkloadTemplate> targetTemplate =
+                WorkloadV2RecordConverter.TryToTemplate(targetRecord);
+            if (!targetTemplate.Succeeded || targetTemplate.Value == null ||
+                !StringComparer.Ordinal.Equals(
+                    WorkloadSession.GetSourceIdentity(targetTemplate.Value),
+                    newIdentity) ||
+                (receipt.DecisionKind == WorkloadDecisionKind.Fork &&
+                 !StringComparer.Ordinal.Equals(
+                     store.CurrentWorkloadId,
+                     receipt.TargetStableId)))
+            {
+                return WorkloadOperationResult.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The local V2 target record does not match the committed receipt.");
+            }
+
             if (!StringComparer.Ordinal.Equals(oldIdentity, newIdentity) &&
                 _backendBaselines.ContainsKey(newIdentity))
             {
@@ -2804,6 +2875,141 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return !string.IsNullOrWhiteSpace(identity) &&
                 _backendBaselines.TryGetValue(identity, out baseline) &&
                 baseline != null;
+        }
+
+        internal WorkloadOperationResult<WorkloadPersistenceReceipt> RecoverPersistenceReceipt(
+            WorkloadSession session,
+            WorkloadDecisionKind decisionKind,
+            string targetStableId)
+        {
+            if (session == null || session.SourceTemplate == null ||
+                session.SourceTemplate.Definition == null)
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The V2 preview source required for persistence receipt recovery is missing.");
+            }
+
+            if (decisionKind != WorkloadDecisionKind.Update &&
+                decisionKind != WorkloadDecisionKind.Fork)
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.UnsupportedOperation,
+                    "A V2 persistence receipt can only be recovered for Update or Fork.");
+            }
+
+            string sourceStableId = session.SourceTemplate.StableId ?? string.Empty;
+            string sourceIdentity = session.SourceIdentity ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(sourceStableId) ||
+                string.IsNullOrWhiteSpace(sourceIdentity) ||
+                !StringComparer.Ordinal.Equals(
+                    sourceIdentity,
+                    WorkloadSession.GetSourceIdentity(session.SourceTemplate)))
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The V2 preview source identity is stale or unavailable for persistence receipt recovery.");
+            }
+
+            targetStableId = targetStableId ?? string.Empty;
+            if (decisionKind == WorkloadDecisionKind.Update)
+            {
+                if (!StringComparer.Ordinal.Equals(targetStableId, sourceStableId))
+                {
+                    return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                        WorkloadDiagnosticCode.InvalidState,
+                        "The V2 Update receipt target does not match the active preview source.");
+                }
+            }
+            else if (string.IsNullOrWhiteSpace(targetStableId) ||
+                     StringComparer.Ordinal.Equals(targetStableId, sourceStableId))
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "The V2 Fork receipt target is missing or reuses the preview source ID.");
+            }
+
+            if (!_backendBaselines.TryGetValue(sourceIdentity, out var baseline) ||
+                baseline == null ||
+                !baseline.HasPersistenceBaseline ||
+                baseline.PersistenceRevision < 0 ||
+                string.IsNullOrWhiteSpace(baseline.PersistenceFingerprint))
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The old V2 service-owned persistence baseline is unavailable for receipt recovery.");
+            }
+
+            WorkloadV2PersistenceEnvelope store = _component?.EnsureWorkloadV2Persistence();
+            store?.RefreshDiagnostics();
+            if (store == null || store.IsReadOnlyDiagnostic ||
+                store.PersistenceRevision < 0)
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The current V2 persistence envelope is not authoritative for receipt recovery.");
+            }
+
+            WorkloadOperationResult<WorkloadPersistenceReceipt> receipt =
+                BuildPersistenceReceipt(
+                    store,
+                    null,
+                    decisionKind,
+                    sourceStableId,
+                    targetStableId,
+                    sourceIdentity,
+                    baseline);
+            if (!receipt.Succeeded || receipt.Value == null)
+            {
+                return receipt;
+            }
+
+            string expectedTargetIdentity =
+                WorkloadSession.GetSourceIdentity(session.TargetTemplate);
+            if (!StringComparer.Ordinal.Equals(
+                    receipt.Value.TargetIdentity,
+                    expectedTargetIdentity))
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The current V2 target identity is stale relative to the active preview.");
+            }
+
+            int expectedRevision = baseline.PersistenceRevision;
+            bool requiresPostWriteRevision = decisionKind == WorkloadDecisionKind.Fork ||
+                !StringComparer.Ordinal.Equals(
+                    receipt.Value.TargetIdentity,
+                    sourceIdentity);
+            if (requiresPostWriteRevision)
+            {
+                if (expectedRevision == int.MaxValue)
+                {
+                    return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                        WorkloadDiagnosticCode.PersistenceConflict,
+                        "The V2 persistence revision cannot prove the recovered write.");
+                }
+
+                expectedRevision++;
+            }
+
+            if (receipt.Value.PersistenceRevision != expectedRevision)
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The current V2 persistence revision is not the authoritative post-write revision.");
+            }
+
+            if (decisionKind == WorkloadDecisionKind.Fork &&
+                !StringComparer.Ordinal.Equals(
+                    receipt.Value.CurrentWorkloadId,
+                    targetStableId))
+            {
+                return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
+                    WorkloadDiagnosticCode.PersistenceConflict,
+                    "The recovered V2 Fork target is not the current workload.");
+            }
+
+            return receipt;
         }
 
         internal WorkloadOperationResult<WorkloadProjectedState> CaptureLiveBaseline(
@@ -2980,6 +3186,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 for (int i = 0; i < templateState.ParentPriorities.Count; i++)
                 {
                     WorkloadParentPriorityEntry entry = templateState.ParentPriorities[i];
+                    if (scope.IsExplicitlyExcluded(entry.Key.Pawn)) continue;
                     if (!TryResolveLiveEntry(
                             entry.Key,
                             runtime,
@@ -3010,6 +3217,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 for (int i = 0; i < templateState.ManualModes.Count; i++)
                 {
                     WorkloadManualModeEntry entry = templateState.ManualModes[i];
+                    if (scope.IsExplicitlyExcluded(entry.Key.Pawn)) continue;
                     if (!TryResolveLiveEntry(
                             entry.Key,
                             runtime,
@@ -3029,6 +3237,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 for (int i = 0; i < templateState.SpecificJobOverrides.Count; i++)
                 {
                     WorkloadSpecificJobOverrideEntry entry = templateState.SpecificJobOverrides[i];
+                    if (scope.IsExplicitlyExcluded(entry.Key.Pawn)) continue;
                     if (!TryResolveSpecificLiveEntry(
                             entry.Key,
                             runtime,
@@ -3057,6 +3266,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 for (int i = 0; i < templateState.SpecificJobOrder.Count; i++)
                 {
                     WorkloadSpecificJobOrderEntry entry = templateState.SpecificJobOrder[i];
+                    if (scope.IsExplicitlyExcluded(entry.Key.Pawn)) continue;
                     if (!TryResolveSpecificLiveEntry(
                             entry.Key,
                             runtime,
@@ -3275,6 +3485,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         {
             WorkloadBackendDimensionBaseline baseline = CapturePersistenceBaseline();
             baseline.TaxonomyFingerprint = ComputeTaxonomyFingerprint(runtime);
+            WorkloadScope scope = template?.Definition?.Scope ?? WorkloadScope.Empty;
 
             if (ownership.Owns(WorkloadStateDimension.Schedules))
             {
@@ -3289,7 +3500,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 for (int i = 0; i < state.ScheduleIntents.Count; i++)
                 {
                     WorkloadScheduleIntentEntry entry = state.ScheduleIntents[i];
-                    if (entry == null || entry.Intent.IsNoOpinion) continue;
+                    if (entry == null || entry.Intent.IsNoOpinion ||
+                        (!entry.Key.IsGlobal && scope.IsExplicitlyExcluded(entry.Key.Pawn))) continue;
                     if (!TryCaptureScheduleBaseline(
                             entry.Key,
                             runtime,
@@ -3313,7 +3525,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 {
                     WorkloadSpecificPriorityIntentEntry entry =
                         state.SpecificPriorityIntents[i];
-                    if (entry == null || entry.Intent.IsNoOpinion) continue;
+                    if (entry == null || entry.Intent.IsNoOpinion ||
+                        (!entry.Key.IsGlobal && scope.IsExplicitlyExcluded(entry.Key.Pawn))) continue;
                     if (!TryCaptureSpecificPriorityBaseline(
                             entry.Key,
                             runtime,
@@ -3337,7 +3550,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 {
                     WorkloadWorkTypeOrderIntentEntry entry =
                         state.WorkTypeOrderIntents[i];
-                    if (entry == null || entry.Intent.IsNoOpinion) continue;
+                    if (entry == null || entry.Intent.IsNoOpinion ||
+                        (!entry.Key.IsGlobal && scope.IsExplicitlyExcluded(entry.Key.Pawn))) continue;
                     if (!TryCaptureWorkTypeOrderBaseline(
                             entry.Key,
                             runtime,
@@ -4561,6 +4775,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (store == null ||
                 (mutation == null && baseline == null) ||
                 (mutation != null && !mutation.WasApplied) ||
+                (baseline != null &&
+                 (!baseline.HasPersistenceBaseline ||
+                  baseline.PersistenceRevision < 0 ||
+                  string.IsNullOrWhiteSpace(baseline.PersistenceFingerprint))) ||
                 (decisionKind != WorkloadDecisionKind.Update &&
                  decisionKind != WorkloadDecisionKind.Fork))
             {
