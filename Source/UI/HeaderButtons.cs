@@ -39,17 +39,13 @@ namespace Better_Work_Tab.UI
         private const float CompactPreviewCancelWidth = 52f;
         private const float CompactPreviewApplyWidth = 48f;
         private const float CompactSelectorMainWidth = 54f;
-        private const float CompactOptionalSelectorMainWidth = 40f;
         private const float WorkloadPreviewRevealSeconds = 0.22f;
-
-        private const float WorkloadPopoverGap = 5f;
-        private const float WorkloadPopoverWidth = 330f;
-        private const float WorkloadPopoverRowHeight = 25f;
+        private const float WorkloadFooterPanelGap = 5f;
+        private const float WorkloadFooterPanelWidth = 330f;
 
         private enum WorkloadFooterPopoverKind
         {
             None,
-            Picker,
             Editor,
             ApplyConfirmation
         }
@@ -60,7 +56,6 @@ namespace Better_Work_Tab.UI
         private static bool _workloadFooterEditCreatesNew;
         private static bool _workloadFooterEditSaveAs;
         private static bool _workloadFooterConfirmDoNotAskAgain;
-        private static Vector2 _workloadFooterScroll;
         private static Rect _workloadFooterPopoverRect;
         private static Rect _workloadFooterEditFieldRect;
         private static Rect _workloadFooterEditConfirmRect;
@@ -99,7 +94,6 @@ namespace Better_Work_Tab.UI
             public bool HasWorkloadSaveAs;
             public bool HasWorkloadUpdate;
             public bool CompactWorkloadMain;
-            public bool CompactRulesetMain;
 
             /// <summary>
             /// The left edge of everything in the row, so the footer hint text
@@ -248,33 +242,21 @@ namespace Better_Work_Tab.UI
                 : 0f;
             bool showWorkloadMenu = allowWorkload;
             bool showRuleset = allowRuleset;
-            float minimumRulesetWidth = CompactOptionalSelectorMainWidth;
 
             if (!allowWorkload)
             {
-                float minimumRulesetGroup = minimumRulesetWidth + SelectorMenuWidth;
-                if (available < minimumRulesetGroup)
-                {
-                    rulesetWidth = available;
-                }
-                else
-                {
-                    rulesetWidth = Mathf.Min(
-                        rulesetWidth,
-                        available - SelectorMenuWidth);
-                }
+                rulesetWidth = Mathf.Min(rulesetWidth, available - SelectorMenuWidth);
                 showRuleset = allowRuleset && rulesetWidth > 0f;
             }
 
             // Keep the normal footer on its established right-hand baseline,
-            // but reduce the naming halves before allowing any rectangle to
-            // cross the Work-tab content edge. The compact minimums retain a
-            // usable selector in narrow tabs; the ruleset is the optional
-            // group that gives way first when even both compact selectors do
-            // not fit.
+            // but let only the workload naming half compact before the optional
+            // ruleset group gives way. The shared ruleset selector keeps its
+            // normal measured geometry instead of acquiring workload-specific
+            // narrow-tab metrics.
             float minimumWorkloadWidth = CompactSelectorMainWidth;
             float minimumBothWidth = minimumWorkloadWidth + SelectorMenuWidth +
-                GroupGap + minimumRulesetWidth + SelectorMenuWidth;
+                GroupGap + rulesetWidth + SelectorMenuWidth;
             if (allowWorkload && showRuleset && available >= minimumBothWidth)
             {
                 float preferred = workloadWidth + SelectorMenuWidth +
@@ -285,10 +267,10 @@ namespace Better_Work_Tab.UI
                     Mathf.Max(0f, workloadWidth - minimumWorkloadWidth));
                 workloadWidth -= workloadReduction;
                 deficit -= workloadReduction;
-                float rulesetReduction = Mathf.Min(
-                    deficit,
-                    Mathf.Max(0f, rulesetWidth - minimumRulesetWidth));
-                rulesetWidth -= rulesetReduction;
+                if (deficit > 0f)
+                {
+                    showRuleset = false;
+                }
             }
             else if (allowWorkload && showRuleset)
             {
@@ -328,8 +310,6 @@ namespace Better_Work_Tab.UI
                     height);
                 rects.HasRuleset = rects.RulesetMain.width > 0f &&
                     rects.RulesetMenu.width > 0f;
-                rects.CompactRulesetMain = rects.RulesetMain.width <=
-                    CompactOptionalSelectorMainWidth + 0.01f;
                 x -= GroupGap;
             }
 
@@ -383,7 +363,9 @@ namespace Better_Work_Tab.UI
             bool showRuleset = false;
             bool showUpdate = false;
             bool showSaveAs = false;
-            float rulesetWidth = CompactOptionalSelectorMainWidth;
+            float rulesetWidth = allowRuleset
+                ? BWTBottomBarSelector.MeasureWidth(RuleBuilderGateway.CurrentRulesetLabel())
+                : 0f;
             float used = mandatoryWidth;
 
             // Add optional affordances in reverse removal order. Consequently,
@@ -437,16 +419,6 @@ namespace Better_Work_Tab.UI
                     BWTBottomBarSelector.MeasureWidth(WorkloadGeometryLabel()));
                 float workloadGrowth = Mathf.Min(spare, desiredWorkloadWidth - workloadWidth);
                 workloadWidth += workloadGrowth;
-                spare -= workloadGrowth;
-
-                if (showRuleset && spare > 0f)
-                {
-                    float desiredRulesetWidth = Mathf.Max(
-                        rulesetWidth,
-                        BWTBottomBarSelector.MeasureWidth(RuleBuilderGateway.CurrentRulesetLabel()));
-                    float rulesetGrowth = Mathf.Min(spare, desiredRulesetWidth - rulesetWidth);
-                    rulesetWidth += rulesetGrowth;
-                }
             }
 
             float x = rightEdge;
@@ -914,7 +886,6 @@ namespace Better_Work_Tab.UI
         public static void ResetWorkloadFooterState()
         {
             CloseWorkloadFooterPopover();
-            _workloadFooterScroll = Vector2.zero;
             _workloadPreviewRevealProgress = 0f;
             _workloadPreviewRevealFrame = -1;
             _workloadPreviewRevealIncludesUpdate = false;
@@ -929,13 +900,11 @@ namespace Better_Work_Tab.UI
             string tooltip = hasRuleset
                 ? "BWT_BottomBar_RulesetTooltip".Translate(name)
                 : "BWT_BottomBar_RulesetTooltipEmpty".Translate();
-            bool clicked = rects.CompactRulesetMain
-                ? DrawCompactSelectorMain(rects.RulesetMain, "R", tooltip)
-                : BWTBottomBarSelector.DrawMain(
-                    rects.RulesetMain,
-                    name,
-                    hasRuleset,
-                    tooltip);
+            bool clicked = BWTBottomBarSelector.DrawMain(
+                rects.RulesetMain,
+                name,
+                hasRuleset,
+                tooltip);
             if (clicked)
             {
                 if (hasRuleset)
@@ -1088,7 +1057,7 @@ namespace Better_Work_Tab.UI
                     DrawWorkloadPreviewButton(
                         ToWorkloadActionGroup(rects.WorkloadUpdateDraw, rects.WorkloadActionClip),
                         ToWorkloadActionGroup(rects.WorkloadUpdate, rects.WorkloadActionClip),
-                        "Update",
+                        "Save",
                         () => QueuePreviewLifecycleAction(
                             preview,
                             () => preview.UpdatePreview(),
@@ -1096,7 +1065,7 @@ namespace Better_Work_Tab.UI
                         interactive && preview.CanUpdatePreview,
                         preview.CommitBlockedMessage.AnyNonWhitespace()
                             ? preview.CommitBlockedMessage
-                            : "Update applies this semantic diff and replaces the same workload template. " +
+                            : "Save applies this semantic diff and replaces the same workload template. " +
                               "Hover to inspect changed pawn/worktype cells. Scroll here to move the Work tab.");
                 }
 
@@ -1237,13 +1206,6 @@ namespace Better_Work_Tab.UI
                 tooltip);
         }
 
-        private static bool DrawCompactSelectorMain(Rect rect, string label, string tooltip)
-        {
-            bool clicked = Widgets.ButtonText(rect, label, active: true);
-            TooltipHandler.TipRegion(rect, tooltip);
-            return clicked;
-        }
-
         private static string PreviewActionLabel(Rect rect, string fullLabel, string compactLabel)
         {
             return rect.width >= 44f ? fullLabel : compactLabel;
@@ -1350,23 +1312,101 @@ namespace Better_Work_Tab.UI
 
         private static void OpenWorkloadFooterPicker()
         {
-            if (_workloadFooterPopover == WorkloadFooterPopoverKind.Picker)
+            if (_workloadFooterPopover != WorkloadFooterPopoverKind.None)
             {
                 CloseWorkloadFooterPopover();
-                return;
             }
 
-            WorkloadSurfaceCoordinator.RegisterFooterCloser(CloseWorkloadFooterPopover);
             if (!WorkloadSurfaceCoordinator.TryOpenFooter())
             {
                 return;
             }
-            _workloadFooterPopover = WorkloadFooterPopoverKind.Picker;
-            _workloadFooterEditBuffer = string.Empty;
-            _workloadFooterEditStableId = string.Empty;
-            _workloadFooterEditCreatesNew = false;
-            _workloadFooterEditSaveAs = false;
-            _workloadFooterScroll = Vector2.zero;
+
+            try
+            {
+                Find.WindowStack.Add(new FloatMenu(BuildWorkloadPickerOptions()));
+            }
+            finally
+            {
+                // FloatMenu owns its own dismissal and input capture. Do not
+                // leave the footer surface registered after handing control to
+                // the normal RimWorld menu stack.
+                WorkloadSurfaceCoordinator.NotifyFooterClosed();
+            }
+        }
+
+        private static List<FloatMenuOption> BuildWorkloadPickerOptions()
+        {
+            var options = new List<FloatMenuOption>();
+            IReadOnlyList<WorkloadDescriptor> workloads = WorkloadGateway.SavedWorkloads();
+            WorkloadOperationResult<WorkloadDescriptor> currentResult = WorkloadGateway.GetCurrent();
+            string currentId = currentResult.Succeeded
+                ? currentResult.Value?.StableId
+                : string.Empty;
+
+            if (workloads.Count == 0)
+            {
+                options.Add(new FloatMenuOption("No saved workloads.", null));
+            }
+            else
+            {
+                for (int i = 0; i < workloads.Count; i++)
+                {
+                    WorkloadDescriptor workload = workloads[i];
+                    if (workload == null || workload.StableId.NullOrEmpty())
+                    {
+                        continue;
+                    }
+
+                    string stableId = workload.StableId;
+                    string label = workload.Label ?? string.Empty;
+                    bool selected = StringComparer.Ordinal.Equals(currentId, stableId);
+                    options.Add(new FloatMenuOption(
+                        selected ? "[x] " + label : label,
+                        () => SelectWorkloadInline(stableId)));
+                }
+            }
+
+            options.Add(new FloatMenuOption(
+                "New workload",
+                () => BeginWorkloadFooterEditor(createNew: true)));
+            if (!currentId.NullOrEmpty())
+            {
+                string stableId = currentId;
+                options.Add(new FloatMenuOption(
+                    "Workload actions",
+                    () => OpenWorkloadManagementMenu(stableId)));
+            }
+
+            return options;
+        }
+
+        private static void OpenWorkloadManagementMenu(string stableId)
+        {
+            if (stableId.NullOrEmpty() || !WorkloadSurfaceCoordinator.TryOpenFooter())
+            {
+                return;
+            }
+
+            try
+            {
+                var options = new List<FloatMenuOption>
+                {
+                    new FloatMenuOption(
+                        "Rename",
+                        () => BeginWorkloadFooterEditor(
+                            createNew: false,
+                            stableId: stableId)),
+                    new FloatMenuOption(
+                        "Delete",
+                        () => DeleteWorkloadInline(stableId))
+                };
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+            finally
+            {
+                WorkloadSurfaceCoordinator.NotifyFooterClosed();
+            }
         }
 
         private static void CloseWorkloadFooterPopover()
@@ -1411,13 +1451,11 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            float desiredHeight = _workloadFooterPopover == WorkloadFooterPopoverKind.Picker
-                ? 276f
-                : _workloadFooterPopover == WorkloadFooterPopoverKind.Editor
-                    ? 112f
-                    : 136f;
+            float desiredHeight = _workloadFooterPopover == WorkloadFooterPopoverKind.Editor
+                ? 112f
+                : 136f;
             float width = Mathf.Min(
-                WorkloadPopoverWidth,
+                WorkloadFooterPanelWidth,
                 Mathf.Max(1f, inRect.width - 8f));
             float height = Mathf.Min(
                 desiredHeight,
@@ -1427,10 +1465,10 @@ namespace Better_Work_Tab.UI
                 anchor.xMax - width,
                 inRect.xMin + 4f,
                 Mathf.Max(inRect.xMin + 4f, inRect.xMax - width - 4f));
-            float y = anchor.yMin - height - WorkloadPopoverGap;
+            float y = anchor.yMin - height - WorkloadFooterPanelGap;
             if (y < inRect.yMin + 4f)
             {
-                y = anchor.yMax + WorkloadPopoverGap;
+                y = anchor.yMax + WorkloadFooterPanelGap;
             }
 
             y = Mathf.Clamp(
@@ -1460,9 +1498,6 @@ namespace Better_Work_Tab.UI
 
                 switch (_workloadFooterPopover)
                 {
-                    case WorkloadFooterPopoverKind.Picker:
-                        DrawWorkloadFooterPicker(panel);
-                        break;
                     case WorkloadFooterPopoverKind.Editor:
                         DrawWorkloadFooterEditor(panel);
                         break;
@@ -1477,78 +1512,6 @@ namespace Better_Work_Tab.UI
                 Text.Font = previousFont;
                 Text.Anchor = previousAnchor;
             }
-        }
-
-        private static void DrawWorkloadFooterPicker(Rect panel)
-        {
-            Widgets.Label(
-                new Rect(panel.xMin + 8f, panel.yMin + 5f, panel.width - 16f, 20f),
-                "Workloads");
-
-            IReadOnlyList<WorkloadDescriptor> workloads = WorkloadGateway.SavedWorkloads();
-            WorkloadOperationResult<WorkloadDescriptor> currentResult = WorkloadGateway.GetCurrent();
-            string currentId = currentResult.Succeeded ? currentResult.Value?.StableId : string.Empty;
-            Rect listRect = new Rect(
-                panel.xMin + 6f,
-                panel.yMin + 28f,
-                panel.width - 12f,
-                Mathf.Max(28f, panel.height - 68f));
-            float viewWidth = Mathf.Max(1f, listRect.width - 16f);
-            float viewHeight = Mathf.Max(listRect.height, workloads.Count * WorkloadPopoverRowHeight);
-            Rect viewRect = new Rect(0f, 0f, viewWidth, viewHeight);
-            Widgets.BeginScrollView(listRect, ref _workloadFooterScroll, viewRect);
-            if (workloads.Count == 0)
-            {
-                GUI.color = new Color(0.75f, 0.82f, 0.82f, 0.9f);
-                Widgets.Label(new Rect(8f, 7f, viewWidth - 16f, 20f), "No saved workloads.");
-                GUI.color = Color.white;
-            }
-            else
-            {
-                for (int i = 0; i < workloads.Count; i++)
-                {
-                    WorkloadDescriptor workload = workloads[i];
-                    if (workload == null)
-                    {
-                        continue;
-                    }
-
-                    bool selected = StringComparer.Ordinal.Equals(currentId, workload.StableId);
-                    string label = selected ? "[x] " + workload.Label : workload.Label;
-                    Rect row = new Rect(
-                        0f,
-                        i * WorkloadPopoverRowHeight,
-                        viewWidth,
-                        WorkloadPopoverRowHeight - 2f);
-                    if (Widgets.ButtonText(row, label))
-                    {
-                        SelectWorkloadInline(workload.StableId);
-                    }
-                }
-            }
-            Widgets.EndScrollView();
-
-            float actionY = panel.yMax - 30f;
-            float actionWidth = (panel.width - 12f - (3f * 4f)) / 4f;
-            Rect actions = new Rect(panel.xMin + 6f, actionY, panel.width - 12f, 24f);
-            DrawWorkloadFooterButton(
-                new Rect(actions.xMin, actions.yMin, actionWidth, actions.height),
-                "New",
-                () => BeginWorkloadFooterEditor(createNew: true));
-            DrawWorkloadFooterButton(
-                new Rect(actions.xMin + (actionWidth + 4f), actions.yMin, actionWidth, actions.height),
-                "Rename",
-                () => BeginWorkloadFooterEditor(createNew: false),
-                currentResult.Succeeded);
-            DrawWorkloadFooterButton(
-                new Rect(actions.xMin + (actionWidth + 4f) * 2f, actions.yMin, actionWidth, actions.height),
-                "Delete",
-                () => DeleteWorkloadInline(currentId),
-                currentResult.Succeeded);
-            DrawWorkloadFooterButton(
-                new Rect(actions.xMin + (actionWidth + 4f) * 3f, actions.yMin, actionWidth, actions.height),
-                "Close",
-                CloseWorkloadFooterPopover);
         }
 
         private static void DrawWorkloadFooterEditor(Rect panel)
@@ -1672,10 +1635,14 @@ namespace Better_Work_Tab.UI
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
         }
 
-        private static void BeginWorkloadFooterEditor(bool createNew)
+        private static void BeginWorkloadFooterEditor(bool createNew, string stableId = null)
         {
             WorkloadOperationResult<WorkloadDescriptor> current = WorkloadGateway.GetCurrent();
-            if (!createNew && !current.Succeeded)
+            if (!createNew &&
+                (!current.Succeeded ||
+                 current.Value == null ||
+                 stableId.NullOrEmpty() ||
+                 !StringComparer.Ordinal.Equals(current.Value.StableId, stableId)))
             {
                 return;
             }
@@ -1688,7 +1655,7 @@ namespace Better_Work_Tab.UI
             _workloadFooterPopover = WorkloadFooterPopoverKind.Editor;
             _workloadFooterEditCreatesNew = createNew;
             _workloadFooterEditSaveAs = false;
-            _workloadFooterEditStableId = createNew ? string.Empty : current.Value.StableId;
+            _workloadFooterEditStableId = createNew ? string.Empty : stableId;
             if (createNew)
             {
                 IReadOnlyList<WorkloadDescriptor> workloads = WorkloadGateway.SavedWorkloads();
@@ -1721,7 +1688,6 @@ namespace Better_Work_Tab.UI
             _workloadFooterEditSaveAs = true;
             _workloadFooterEditStableId = preview.SourceStableId;
             _workloadFooterEditBuffer = preview.SourceLabel + " copy";
-            _workloadFooterScroll = Vector2.zero;
             return true;
         }
 

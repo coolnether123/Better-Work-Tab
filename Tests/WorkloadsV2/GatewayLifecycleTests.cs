@@ -23,7 +23,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string settings = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
 
             FooterSelectorKeepsManagerAndPreviewActionsSeparate(header);
-            PickerRowsOnlySelectWorkloads(header);
+            WorkloadMenuUsesStableIds(header);
             PreviewActionsUseVisibleHitRects(header);
             NarrowFooterGeometryIsBounded(header);
             DeletedFeedbackCopyIsAbsent(english, settings);
@@ -107,30 +107,49 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "preview reveal must not scale action widths in place");
         }
 
-        private static void PickerRowsOnlySelectWorkloads(string header)
+        private static void WorkloadMenuUsesStableIds(string header)
         {
             int start = header.IndexOf(
-                "private static void SelectWorkloadInline(",
+                "private static List<FloatMenuOption> BuildWorkloadPickerOptions(",
                 StringComparison.Ordinal);
             int end = header.IndexOf(
-                "private static void BeginWorkloadFooterEditor(",
+                "private static void OpenWorkloadManagementMenu(",
                 start,
                 StringComparison.Ordinal);
             TestAssert.True(
                 start >= 0 && end > start,
-                "the workload picker row handler must remain a distinct source path");
+                "the workload picker must remain a distinct FloatMenu construction path");
 
             string rowPath = header.Substring(start, end - start);
             TestAssert.Contains(
                 rowPath,
-                "WorkloadGateway.SelectWorkload(stableId)",
-                "a picker row must only select/manage the workload");
+                "() => SelectWorkloadInline(stableId)",
+                "a workload menu option must capture the stable ID for selection");
+            TestAssert.Contains(
+                rowPath,
+                "() => OpenWorkloadManagementMenu(stableId)",
+                "the management menu option must capture the current stable ID");
             TestAssert.False(
                 rowPath.IndexOf("preview.SelectWorkload", StringComparison.Ordinal) >= 0,
-                "a picker row must not start or switch a projected preview");
+                "a workload menu option must not start or switch a projected preview");
             TestAssert.False(
                 rowPath.IndexOf("BeginCurrentPreview", StringComparison.Ordinal) >= 0,
                 "only the workload main button may enter preview");
+            TestAssert.Contains(
+                header,
+                "WorkloadGateway.SelectWorkload(stableId)",
+                "a workload menu selection must route through the gateway by stable ID");
+            TestAssert.Contains(
+                header,
+                "stableId: stableId",
+                "rename callbacks must retain stable workload identity");
+            TestAssert.Contains(
+                header,
+                "new FloatMenu(BuildWorkloadPickerOptions())",
+                "the visible workload picker must use the native FloatMenu stack");
+            TestAssert.False(
+                header.IndexOf("DrawWorkloadFooterPicker", StringComparison.Ordinal) >= 0,
+                "the bespoke workload picker panel must be removed");
         }
 
         private static void PreviewActionsUseVisibleHitRects(string header)
@@ -181,15 +200,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "normal footer controls must be placed through the shared bounded geometry helper");
             TestAssert.Contains(
                 header,
-                "rects.CompactRulesetMain",
-                "narrow ruleset controls must have a compact rendering path");
+                "float minimumWorkloadWidth",
+                "narrow footer geometry must compact only the workload naming half");
+            TestAssert.False(
+                header.IndexOf("CompactRulesetMain", StringComparison.Ordinal) >= 0,
+                "ruleset selector metrics must not acquire workload-specific compact rendering");
             TestAssert.Contains(
                 header,
                 "Mathf.Max(1f, inRect.width - 8f)",
-                "the workload picker width must be bounded by the available Work-tab content");
+                "the workload editor surface must be bounded by the available Work-tab content");
             TestAssert.False(
-                header.IndexOf("Mathf.Max(210f, inRect.width - 8f)", StringComparison.Ordinal) >= 0,
-                "the workload picker must not force a width larger than a narrow Work-tab");
+                header.IndexOf("Widgets.BeginScrollView", StringComparison.Ordinal) >= 0,
+                "the workload picker must not retain bespoke scroll-panel rendering");
         }
 
         private static void DeletedFeedbackCopyIsAbsent(string english, string settings)
