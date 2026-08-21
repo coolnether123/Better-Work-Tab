@@ -46,6 +46,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private readonly List<WorkTabLayoutColumn> _visibleRenderColumns = new List<WorkTabLayoutColumn>(64);
         private readonly List<InspectionColumnBinding> _inspectionColumnBindings =
             new List<InspectionColumnBinding>(64);
+        private readonly Dictionary<int, int> _inspectionVisibleRows =
+            new Dictionary<int, int>();
+        private readonly HashSet<InspectionDrawKey> _inspectionDrawnCells =
+            new HashSet<InspectionDrawKey>();
         private IReadOnlyList<WorkTabLayoutColumn> _inspectionBindingColumns;
         private int _inspectionBindingLayoutRevision = int.MinValue;
         private int _inspectionBindingSubWorkRevision = int.MinValue;
@@ -69,6 +73,36 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             internal WorkGiverDef WorkGiver { get; }
             internal bool IsExpandBesideChild { get; }
             internal bool IsPriorityCell { get; }
+        }
+
+        private readonly struct InspectionDrawKey : IEquatable<InspectionDrawKey>
+        {
+            internal InspectionDrawKey(int rowIndex, int columnIndex)
+            {
+                RowIndex = rowIndex;
+                ColumnIndex = columnIndex;
+            }
+
+            private int RowIndex { get; }
+            private int ColumnIndex { get; }
+
+            public bool Equals(InspectionDrawKey other)
+            {
+                return RowIndex == other.RowIndex && ColumnIndex == other.ColumnIndex;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is InspectionDrawKey && Equals((InspectionDrawKey)obj);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return (RowIndex * 397) ^ ColumnIndex;
+                }
+            }
         }
 
         internal WorkTabBodyRenderer(WorkTabViewportController viewportController)
@@ -692,7 +726,61 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
-            bool hasGlobalTargets = preview.HasGlobalInspectionCellTargets;
+            IReadOnlyList<WorkloadInspectionTarget> targets = preview.InspectionTargets;
+            if (targets == null || targets.Count == 0)
+            {
+                return;
+            }
+
+            _inspectionVisibleRows.Clear();
+            _inspectionDrawnCells.Clear();
+            for (int rowIndex = visibleRows.Start; rowIndex < visibleRows.EndExclusive; rowIndex++)
+            {
+                Pawn pawn = rowDescriptors[rowIndex]?.Pawn;
+                if (pawn != null && pawn.thingIDNumber > 0)
+                {
+                    _inspectionVisibleRows[pawn.thingIDNumber] = rowIndex;
+                }
+            }
+
+            for (int targetIndex = 0; targetIndex < targets.Count; targetIndex++)
+            {
+                WorkloadInspectionTarget target = targets[targetIndex];
+                if (target.Scope == WorkloadTargetScope.GlobalShared)
+                {
+                    DrawGlobalInspectionTarget(
+                        target,
+                        rowDescriptors,
+                        columns,
+                        totalWidth,
+                        rowGeometry,
+                        visibleRows,
+                        preview);
+                }
+                else if (_inspectionVisibleRows.TryGetValue(target.PawnId, out int rowIndex))
+                {
+                    DrawLocalInspectionTarget(
+                        target,
+                        rowIndex,
+                        rowDescriptors,
+                        columns,
+                        totalWidth,
+                        rowGeometry,
+                        visibleRows,
+                        preview);
+                }
+            }
+        }
+
+        private void DrawGlobalInspectionTarget(
+            WorkloadInspectionTarget target,
+            List<RowDescriptor> rowDescriptors,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            float totalWidth,
+            WorkGridGeometrySnapshot rowGeometry,
+            WorkGridIndexRange visibleRows,
+            WorkloadPreviewController preview)
+        {
             float currentY = 0f;
             for (int rowIndex = visibleRows.Start; rowIndex < visibleRows.EndExclusive; rowIndex++)
             {
@@ -702,57 +790,141 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
 
                 RowDescriptor descriptor = rowDescriptors[rowIndex];
-                if (descriptor?.Pawn == null)
+                if (descriptor?.Pawn != null)
                 {
-                    if (rowGeometry == null)
-                    {
-                        currentY += descriptor?.Height ?? 0f;
-                    }
-
-                    continue;
-                }
-
-                Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
-                if (!hasGlobalTargets && !preview.IsInspectionRowAffected(descriptor.Pawn))
-                {
-                    if (rowGeometry == null)
-                    {
-                        currentY += descriptor.Height;
-                    }
-                    continue;
-                }
-
-                for (int columnIndex = 0;
-                     columnIndex < _inspectionColumnBindings.Count;
-                     columnIndex++)
-                {
-                    InspectionColumnBinding binding = _inspectionColumnBindings[columnIndex];
-                    if (!binding.IsPriorityCell || binding.WorkType == null)
-                    {
-                        continue;
-                    }
-
-                    WorkTabLayoutColumn column = columns[columnIndex];
-                    WorkloadInspectionCellKind kind = preview.GetInspectionCellKind(
-                        descriptor.Pawn,
-                        binding.WorkType,
-                        binding.WorkGiver);
-                    if (kind == WorkloadInspectionCellKind.None)
-                    {
-                        continue;
-                    }
-
-                    Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
-                        column,
-                        rowRect);
-                    DrawInspectionCell(cellRect, binding.IsExpandBesideChild, kind);
+                    DrawInspectionTargetOnRow(
+                        target,
+                        rowIndex,
+                        currentY,
+                        descriptor,
+                        columns,
+                        totalWidth,
+                        preview);
                 }
 
                 if (rowGeometry == null)
                 {
-                    currentY += descriptor.Height;
+                    currentY += descriptor?.Height ?? 0f;
                 }
             }
+        }
+
+        private void DrawLocalInspectionTarget(
+            WorkloadInspectionTarget target,
+            int rowIndex,
+            List<RowDescriptor> rowDescriptors,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            float totalWidth,
+            WorkGridGeometrySnapshot rowGeometry,
+            WorkGridIndexRange visibleRows,
+            WorkloadPreviewController preview)
+        {
+            RowDescriptor descriptor = rowDescriptors[rowIndex];
+            if (descriptor?.Pawn == null ||
+                rowIndex < visibleRows.Start || rowIndex >= visibleRows.EndExclusive)
+            {
+                return;
+            }
+
+            float currentY = rowGeometry != null
+                ? rowGeometry.Rows[rowIndex].OffsetY
+                : GetRowOffset(rowDescriptors, visibleRows.Start, rowIndex);
+            DrawInspectionTargetOnRow(
+                target,
+                rowIndex,
+                currentY,
+                descriptor,
+                columns,
+                totalWidth,
+                preview);
+        }
+
+        private void DrawInspectionTargetOnRow(
+            WorkloadInspectionTarget target,
+            int rowIndex,
+            float currentY,
+            RowDescriptor descriptor,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            float totalWidth,
+            WorkloadPreviewController preview)
+        {
+            Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
+            for (int columnIndex = 0; columnIndex < _inspectionColumnBindings.Count; columnIndex++)
+            {
+                InspectionColumnBinding binding = _inspectionColumnBindings[columnIndex];
+                if (!binding.IsPriorityCell || !MatchesInspectionTarget(target, binding))
+                {
+                    continue;
+                }
+
+                InspectionDrawKey drawKey = new InspectionDrawKey(rowIndex, columnIndex);
+                if (!_inspectionDrawnCells.Add(drawKey))
+                {
+                    continue;
+                }
+
+                WorkloadInspectionCellKind kind = preview.GetInspectionCellKind(
+                    descriptor.Pawn,
+                    binding.WorkType,
+                    binding.WorkGiver);
+                if (kind == WorkloadInspectionCellKind.None)
+                {
+                    continue;
+                }
+
+                Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
+                    columns[columnIndex],
+                    rowRect);
+                DrawInspectionCell(cellRect, binding.IsExpandBesideChild, kind);
+            }
+        }
+
+        private static bool MatchesInspectionTarget(
+            WorkloadInspectionTarget target,
+            InspectionColumnBinding binding)
+        {
+            if (binding.WorkType == null ||
+                !StringComparer.Ordinal.Equals(binding.WorkType.defName, target.WorkType))
+            {
+                return false;
+            }
+
+            bool hasWorkGiver = binding.WorkGiver != null;
+            bool targetHasWorkGiver = !string.IsNullOrEmpty(target.WorkGiver);
+            switch (target.Kind)
+            {
+                case WorkloadInspectionTargetKind.ParentPriority:
+                    return !hasWorkGiver && !targetHasWorkGiver;
+                case WorkloadInspectionTargetKind.SpecificPriority:
+                    return hasWorkGiver && targetHasWorkGiver &&
+                        StringComparer.Ordinal.Equals(binding.WorkGiver.defName, target.WorkGiver);
+                case WorkloadInspectionTargetKind.Schedule:
+                    if (target.ScheduleKind == (int)WorkloadScheduleTargetKind.ParentWorkType)
+                    {
+                        return !hasWorkGiver;
+                    }
+
+                    return hasWorkGiver && targetHasWorkGiver &&
+                        StringComparer.Ordinal.Equals(binding.WorkGiver.defName, target.WorkGiver);
+                case WorkloadInspectionTargetKind.Ordering:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static float GetRowOffset(
+            List<RowDescriptor> rowDescriptors,
+            int startRow,
+            int targetRow)
+        {
+            float offset = 0f;
+            for (int rowIndex = startRow; rowIndex < targetRow; rowIndex++)
+            {
+                offset += rowDescriptors[rowIndex]?.Height ?? 0f;
+            }
+
+            return offset;
         }
 
         private static void DrawWorkloadInspectionRows(

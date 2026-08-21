@@ -111,6 +111,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "legacy schedule-only inspection must draw only affected visible rows");
             TestAssert.Contains(
                 drawPath,
+                "preview.InspectionTargets",
+                "cell inspection must enumerate the cached changed targets");
+            TestAssert.Contains(
+                drawPath,
+                "DrawGlobalInspectionTarget(",
+                "global inspection changes must draw affected columns across visible rows");
+            TestAssert.Contains(
+                drawPath,
                 "WorkGridInteractionGeometry.GetAnimatedBodyContentRect",
                 "inspection must recalculate animated body geometry each draw");
             TestAssert.False(
