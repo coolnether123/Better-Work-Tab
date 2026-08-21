@@ -663,8 +663,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             WorkloadPreviewController preview = WorkloadPreviewController.Current;
-            if (preview == null || !preview.HasInspectionCellTargets)
+            if (preview == null)
             {
+                return;
+            }
+
+            if (!preview.HasInspectionCellTargets)
+            {
+                if (preview.HasInspectionRowLevelChanges)
+                {
+                    DrawWorkloadInspectionRows(
+                        rowDescriptors,
+                        totalWidth,
+                        rowGeometry,
+                        visibleRows,
+                        preview);
+                }
+
                 // Membership-only and presentation-only changes are rendered
                 // by their own paths (or have no grid visual). Do not walk the
                 // body columns for them.
@@ -736,6 +751,37 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 if (rowGeometry == null)
                 {
                     currentY += descriptor.Height;
+                }
+            }
+        }
+
+        private static void DrawWorkloadInspectionRows(
+            List<RowDescriptor> rowDescriptors,
+            float totalWidth,
+            WorkGridGeometrySnapshot rowGeometry,
+            WorkGridIndexRange visibleRows,
+            WorkloadPreviewController preview)
+        {
+            float currentY = 0f;
+            for (int rowIndex = visibleRows.Start; rowIndex < visibleRows.EndExclusive; rowIndex++)
+            {
+                if (rowGeometry != null)
+                {
+                    currentY = rowGeometry.Rows[rowIndex].OffsetY;
+                }
+
+                RowDescriptor descriptor = rowDescriptors[rowIndex];
+                if (descriptor?.Pawn != null &&
+                    preview.IsInspectionRowLevelChanged(descriptor.Pawn))
+                {
+                    HighlightDrawer.DrawHighlight(
+                        new Rect(0f, currentY, totalWidth, descriptor.Height),
+                        new Color(0.34f, 0.65f, 0.62f, 0.18f));
+                }
+
+                if (rowGeometry == null)
+                {
+                    currentY += descriptor?.Height ?? 0f;
                 }
             }
         }
