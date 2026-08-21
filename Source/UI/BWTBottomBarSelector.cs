@@ -14,19 +14,15 @@ namespace Better_Work_Tab.UI
     ///
     /// A caption line was the first attempt at the first half of that, and it
     /// cost a second row of height for two words that never change. The compact
-    /// control keeps a reserved leading slot so the name has the same geometry
-    /// and the whole width is sized to fit rather than truncated.
+    /// control sizes the name to fit rather than reserving space for an icon
+    /// that is no longer drawn.
     /// </summary>
     internal static class BWTBottomBarSelector
     {
         internal const float Height = 30f;
         internal const float MenuWidth = 30f;
 
-        // Keep the leading blank slot stable so removing the former glyphs does
-        // not move the selector text or change the bottom-bar geometry.
-        private const float LeadingSlotSize = 24f;
         private const float SidePadding = 6f;
-        private const float LeadingTextGap = 7f;
 
         private const float MinTextWidth = 96f;
         private const float MaxTextWidth = 240f;
@@ -45,7 +41,7 @@ namespace Better_Work_Tab.UI
             float text = Text.CalcSize(value ?? string.Empty).x;
             Text.Font = previousFont;
             return Mathf.Clamp(text, MinTextWidth, MaxTextWidth) +
-                   (SidePadding * 2f) + LeadingSlotSize + LeadingTextGap;
+                   (SidePadding * 2f);
         }
 
         /// <summary>
@@ -62,8 +58,8 @@ namespace Better_Work_Tab.UI
             Color previousColor = GUI.color;
             bool previousWrap = Text.WordWrap;
 
-            float textX = rect.x + SidePadding + LeadingSlotSize + LeadingTextGap;
-            float textWidth = rect.xMax - SidePadding - textX;
+            float textX = rect.x + SidePadding;
+            float textWidth = Mathf.Max(0f, rect.xMax - SidePadding - textX);
 
             Text.Anchor = TextAnchor.MiddleLeft;
             Text.Font = GameFont.Small;

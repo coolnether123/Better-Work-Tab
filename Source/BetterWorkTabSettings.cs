@@ -70,6 +70,10 @@ namespace Better_Work_Tab
         public static bool enableDividers = true;
         public static bool showDividerRows = true;
         public static bool enableWorkloads = true;
+        public static bool enableWorkloadPreviewRevealAnimation = true;
+        public static int workloadPreviewRevealSpeed = 100;
+        public static bool enableWorkloadInspectionHighlights = true;
+        public static int workloadInspectionOpacity = 100;
         public static bool useLegacyWorkloads = false;
         public static bool enableSubWorkDrilldown = BWT20CohortPolicy.FreshInstall.EnableSubWorkDrilldown;
         public static bool enableFluffyStyleFeatures = BWT20CohortPolicy.FreshInstall.EnableFluffyStyleFeatures;
@@ -360,6 +364,10 @@ namespace Better_Work_Tab
         public bool enableDividers = DefaultSettings.enableDividers;
         public bool showDividerRows = DefaultSettings.showDividerRows;
         public bool enableWorkloads = DefaultSettings.enableWorkloads;
+        public bool enableWorkloadPreviewRevealAnimation = DefaultSettings.enableWorkloadPreviewRevealAnimation;
+        public int workloadPreviewRevealSpeed = DefaultSettings.workloadPreviewRevealSpeed;
+        public bool enableWorkloadInspectionHighlights = DefaultSettings.enableWorkloadInspectionHighlights;
+        public int workloadInspectionOpacity = DefaultSettings.workloadInspectionOpacity;
         public bool useLegacyWorkloads = DefaultSettings.useLegacyWorkloads;
         public bool enableSubWorkDrilldown = DefaultSettings.enableSubWorkDrilldown;
         public bool enableFluffyStyleFeatures = DefaultSettings.enableFluffyStyleFeatures;
@@ -955,6 +963,7 @@ namespace Better_Work_Tab
 
             // REGISTERED PREFERENCES WITH MIGRATION BEHAVIOR
             subWorkTransitionSeconds = ClampSubWorkTransitionSeconds(subWorkTransitionSeconds);
+            NormalizeWorkloadPresentationSettings();
             Scribe_Collections.Look(ref hiddenWorktypes, "hiddenWorktypes", LookMode.Value);
             if (hiddenWorktypes == null)
             {
@@ -1292,6 +1301,22 @@ namespace Better_Work_Tab
         public static float ClampSubWorkTransitionSeconds(float value)
         {
             return Mathf.Clamp(value, 0.2f, 0.9f);
+        }
+
+        public static int ClampWorkloadPreviewRevealSpeed(int value)
+        {
+            return Mathf.Clamp(value, 25, 200);
+        }
+
+        public static int ClampWorkloadInspectionOpacity(int value)
+        {
+            return Mathf.Clamp(value, 0, 100);
+        }
+
+        private void NormalizeWorkloadPresentationSettings()
+        {
+            workloadPreviewRevealSpeed = ClampWorkloadPreviewRevealSpeed(workloadPreviewRevealSpeed);
+            workloadInspectionOpacity = ClampWorkloadInspectionOpacity(workloadInspectionOpacity);
         }
 
         /// <summary>

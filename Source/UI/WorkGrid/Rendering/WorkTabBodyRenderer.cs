@@ -673,7 +673,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             float horizontalScrollX,
             float horizontalViewportWidth)
         {
-            if (!WorkloadPreviewController.IsInspectionActiveForCurrentTab)
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (!BWTWorkTabEffectiveSettings.GetBool(
+                    SettingIDs.WorkloadsInspectionHighlights,
+                    settings?.enableWorkloadInspectionHighlights ??
+                        DefaultSettings.enableWorkloadInspectionHighlights) ||
+                !WorkloadPreviewController.IsInspectionActiveForCurrentTab)
             {
                 return;
             }
@@ -684,6 +689,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
+            float opacity = GetWorkloadInspectionOpacity(settings);
+
             if (preview.HasInspectionRowLevelChanges)
             {
                 DrawWorkloadInspectionRows(
@@ -691,7 +698,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     totalWidth,
                     rowGeometry,
                     visibleRows,
-                    preview);
+                    preview,
+                    opacity);
             }
 
             if (!preview.HasInspectionCellTargets)
@@ -819,7 +827,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 DrawInspectionCell(
                     cellRect,
                     _inspectionColumnBindings[columnIndex].IsExpandBesideChild,
-                    cell.Value);
+                    cell.Value,
+                    opacity);
             }
         }
 
@@ -926,7 +935,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             float totalWidth,
             WorkGridGeometrySnapshot rowGeometry,
             WorkGridIndexRange visibleRows,
-            WorkloadPreviewController preview)
+            WorkloadPreviewController preview,
+            float opacity)
         {
             float currentY = 0f;
             for (int rowIndex = visibleRows.Start; rowIndex < visibleRows.EndExclusive; rowIndex++)
@@ -942,7 +952,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 {
                     HighlightDrawer.DrawHighlight(
                         new Rect(0f, currentY, totalWidth, descriptor.Height),
-                        new Color(0.34f, 0.65f, 0.62f, 0.18f));
+                        ApplyWorkloadInspectionOpacity(
+                            new Color(0.34f, 0.65f, 0.62f, 0.18f),
+                            opacity));
                 }
 
                 if (rowGeometry == null)
@@ -1015,7 +1027,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private static void DrawInspectionCell(
             Rect cellRect,
             bool isExpandBesideChild,
-            WorkloadInspectionCellKind kind)
+            WorkloadInspectionCellKind kind,
+            float opacity)
         {
             Rect priorityRect = WorkPriorityCellGeometry.GetDrawnPriorityBoxRect(
                 cellRect,
@@ -1024,7 +1037,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 HighlightDrawer.DrawHighlight(
                     priorityRect,
-                    new Color(0.30f, 0.75f, 0.68f, 0.32f));
+                    ApplyWorkloadInspectionOpacity(
+                        new Color(0.30f, 0.75f, 0.68f, 0.32f),
+                        opacity));
             }
             if ((kind & WorkloadInspectionCellKind.SpecificPriority) != 0)
             {
@@ -1033,23 +1048,44 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 {
                     HighlightDrawer.DrawHighlight(
                         specificRect,
-                        new Color(0.45f, 0.58f, 0.92f, 0.34f));
+                        ApplyWorkloadInspectionOpacity(
+                            new Color(0.45f, 0.58f, 0.92f, 0.34f),
+                            opacity));
                 }
             }
             if ((kind & WorkloadInspectionCellKind.Schedule) != 0)
             {
                 DrawInspectionStripe(
                     cellRect,
-                    new Color(0.95f, 0.70f, 0.25f, 0.88f),
+                    ApplyWorkloadInspectionOpacity(
+                        new Color(0.95f, 0.70f, 0.25f, 0.88f),
+                        opacity),
                     right: false);
             }
             if ((kind & WorkloadInspectionCellKind.Ordering) != 0)
             {
                 DrawInspectionStripe(
                     cellRect,
-                    new Color(0.72f, 0.46f, 0.90f, 0.88f),
+                    ApplyWorkloadInspectionOpacity(
+                        new Color(0.72f, 0.46f, 0.90f, 0.88f),
+                        opacity),
                     right: true);
             }
+        }
+
+        private static float GetWorkloadInspectionOpacity(BetterWorkTabSettings settings)
+        {
+            int opacity = BWTWorkTabEffectiveSettings.GetInt(
+                SettingIDs.WorkloadsInspectionOpacity,
+                settings?.workloadInspectionOpacity ??
+                    DefaultSettings.workloadInspectionOpacity);
+            return BetterWorkTabSettings.ClampWorkloadInspectionOpacity(opacity) / 100f;
+        }
+
+        private static Color ApplyWorkloadInspectionOpacity(Color color, float opacity)
+        {
+            color.a *= Mathf.Clamp01(opacity);
+            return color;
         }
 
         private static void DrawInspectionStripe(Rect cellRect, Color color, bool right)

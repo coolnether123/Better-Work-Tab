@@ -520,6 +520,51 @@ namespace Better_Work_Tab.UI.Settings
                 .Ordered(1);
 
             schema.Root.Under(FeaturesWorkloads)
+                .Toggle(
+                    WorkloadsPreviewRevealAnimation,
+                    settings => settings.enableWorkloadPreviewRevealAnimation,
+                    "Animate workload preview reveal",
+                    tooltip: "Animate the workload preview controls as they appear and disappear.")
+                .DefaultTo(DefaultSettings.enableWorkloadPreviewRevealAnimation)
+                .Ordered(2);
+
+            schema.Root.Under(FeaturesWorkloads)
+                .Int(
+                    WorkloadsPreviewRevealSpeed,
+                    settings => settings.workloadPreviewRevealSpeed,
+                    "Workload preview reveal speed",
+                    tooltip: "Controls how quickly the workload preview controls slide into view.")
+                .DefaultTo(DefaultSettings.workloadPreviewRevealSpeed)
+                .Ordered(3)
+                .ShownWhen(s => ((BetterWorkTabSettings)s).enableWorkloadPreviewRevealAnimation)
+                .ValueRange(25f, 200f)
+                .ValueLabels("Slow", "Fast")
+                .FormattedAs("{0}%");
+
+            schema.Root.Under(FeaturesWorkloads)
+                .Toggle(
+                    WorkloadsInspectionHighlights,
+                    settings => settings.enableWorkloadInspectionHighlights,
+                    "Workload inspection highlights",
+                    tooltip: "Highlight changed workload rows and cells while inspecting a workload preview.")
+                .DefaultTo(DefaultSettings.enableWorkloadInspectionHighlights)
+                .ControlsChildren()
+                .Ordered(4);
+
+            schema.Root.Under(FeaturesWorkloads)
+                .Int(
+                    WorkloadsInspectionOpacity,
+                    settings => settings.workloadInspectionOpacity,
+                    "Workload inspection highlight opacity",
+                    tooltip: "Controls the opacity of workload inspection highlights.")
+                .DefaultTo(DefaultSettings.workloadInspectionOpacity)
+                .Ordered(5)
+                .ShownWhen(s => ((BetterWorkTabSettings)s).enableWorkloadInspectionHighlights)
+                .ValueRange(0f, 100f)
+                .ValueLabels("Transparent", "Solid")
+                .FormattedAs("{0}%");
+
+            schema.Root.Under(FeaturesWorkloads)
                 .Toggle(AdvancedWorkloadsLegacy, settings => settings.useLegacyWorkloads, "Use legacy Workloads (1.0.5)",
                         tooltip: "Use the original Workloads behavior from Better Work Tab 1.0.5 instead of the modern Workloads implementation.",
                         onChanged: settings => BWTWorkloadSettingsOwnershipPolicy.HandleLegacyWorkloadModeChanged(settings))

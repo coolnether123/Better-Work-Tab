@@ -487,11 +487,21 @@ namespace Better_Work_Tab.UI
             }
 
             _workloadPreviewRevealFrame = Time.frameCount;
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            bool animated = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.WorkloadsPreviewRevealAnimation,
+                settings?.enableWorkloadPreviewRevealAnimation ??
+                    DefaultSettings.enableWorkloadPreviewRevealAnimation);
+            int revealSpeed = BWTWorkTabEffectiveSettings.GetInt(
+                SettingIDs.WorkloadsPreviewRevealSpeed,
+                settings?.workloadPreviewRevealSpeed ??
+                    DefaultSettings.workloadPreviewRevealSpeed);
+            revealSpeed = BetterWorkTabSettings.ClampWorkloadPreviewRevealSpeed(revealSpeed);
             _workloadPreviewRevealProgress = SpineEasing.Move01(
                 _workloadPreviewRevealProgress,
                 previewActive ? 1f : 0f,
-                WorkloadPreviewRevealSeconds,
-                animated: true);
+                WorkloadPreviewRevealSeconds * 100f / Mathf.Max(1f, revealSpeed),
+                animated: animated);
             if ((previewActive && _workloadPreviewRevealProgress < 0.999f) ||
                 (!previewActive && _workloadPreviewRevealProgress > 0.001f))
             {
@@ -866,6 +876,17 @@ namespace Better_Work_Tab.UI
                 return false;
             }
 
+            // Contextual settings gets first refusal for Alt-clicks. If its
+            // binding is unavailable, still reserve the visible footer hit
+            // region so the gesture cannot fall through to a normal action.
+            if (evt.type == EventType.MouseDown &&
+                evt.button == 0 &&
+                evt.alt &&
+                rects.ContainsWorkloadFooter(evt.mousePosition))
+            {
+                return true;
+            }
+
             if (evt.type == EventType.ScrollWheel &&
                 preview?.ShouldRouteInspectionWheel(
                     evt,
@@ -1120,46 +1141,18 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            bool fullyVisible = Mathf.Abs(drawRect.xMin - hitRect.xMin) < 0.01f &&
-                                Mathf.Abs(drawRect.xMax - hitRect.xMax) < 0.01f &&
-                                Mathf.Abs(drawRect.yMin - hitRect.yMin) < 0.01f &&
-                                Mathf.Abs(drawRect.yMax - hitRect.yMax) < 0.01f;
-            bool clicked;
-            if (fullyVisible)
+            // Keep the native RimWorld button renderer for the entire reveal.
+            // The translated draw rectangle is clipped by the action group;
+            // this gate keeps the hidden part from becoming clickable while
+            // ButtonText still supplies the normal visual treatment.
+            bool clicked = Widgets.ButtonText(drawRect, label, active: enabled);
+            Event current = Event.current;
+            if (clicked &&
+                current != null &&
+                (current.type == EventType.MouseDown || current.type == EventType.MouseUp) &&
+                !hitRect.Contains(current.mousePosition))
             {
-                clicked = Widgets.ButtonText(drawRect, label, active: enabled);
-            }
-            else
-            {
-                Color previousColor = GUI.color;
-                Widgets.DrawBoxSolid(
-                    drawRect,
-                    enabled
-                        ? new Color(0.15f, 0.15f, 0.15f, 0.95f)
-                        : new Color(0.1f, 0.1f, 0.1f, 0.7f));
-                Widgets.DrawBox(drawRect, 1);
-                if (enabled && Mouse.IsOver(hitRect))
-                {
-                    Widgets.DrawHighlight(hitRect);
-                }
-
-                TextAnchor previousAnchor = Text.Anchor;
-                GameFont previousFont = Text.Font;
-                bool previousWrap = Text.WordWrap;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Text.Font = GameFont.Small;
-                Text.WordWrap = false;
-                GUI.color = enabled ? Color.white : BWTUiPalette.DimmedText;
-                Widgets.Label(drawRect, label);
-                Text.WordWrap = previousWrap;
-                Text.Font = previousFont;
-                Text.Anchor = previousAnchor;
-                GUI.color = previousColor;
-
-                // The translated draw rectangle can extend beneath the
-                // selector while the lane reveals. Only the visible clipped
-                // rectangle is a real control during that transition.
-                clicked = enabled && Widgets.ButtonInvisible(hitRect);
+                clicked = false;
             }
             if (tooltip.AnyNonWhitespace())
             {
