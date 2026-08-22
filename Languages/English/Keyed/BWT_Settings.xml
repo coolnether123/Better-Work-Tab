@@ -530,6 +530,8 @@
     <BWT_Settings_advanced.hideSettingResetIcons_Tooltip>Hide the per-setting reset buttons shown beside settings that differ from their defaults.</BWT_Settings_advanced.hideSettingResetIcons_Tooltip>
     <BWT_Settings_advanced.settingFocusHighlightColor>Setting focus highlight</BWT_Settings_advanced.settingFocusHighlightColor>
     <BWT_Settings_advanced.settingFocusHighlightColor_Tooltip>Color used to pulse a setting row after Alt-clicking the Work tab or double-clicking a search result.</BWT_Settings_advanced.settingFocusHighlightColor_Tooltip>
+    <BWT_Settings_advanced.searchAliases>Learned settings search</BWT_Settings_advanced.searchAliases>
+    <BWT_Settings_advanced.searchAliases_Tooltip>BWT can remember a local search correction after three deliberate confirmations. The alias file stays on this computer and can be reset here.</BWT_Settings_advanced.searchAliases_Tooltip>
     <BWT_Settings_advanced.workGridRenderer>Work grid renderer</BWT_Settings_advanced.workGridRenderer>
     <BWT_Settings_advanced.workGridRenderer_Tooltip>Auto uses BWT&apos;s optimized renderer when available and falls back safely. Vanilla always uses the game&apos;s native Work grid renderer. Both paths preserve vanilla visuals and interactions.</BWT_Settings_advanced.workGridRenderer_Tooltip>
     <BWT_Settings_autoassign.viewMode>Ruleset editor</BWT_Settings_autoassign.viewMode>
