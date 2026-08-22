@@ -27,6 +27,13 @@ namespace Better_Work_Tab.UI.Headers
         /// </summary>
         public const string MovedMarker = "*";
 
+        internal static string RemoveMovedMarker(string text)
+        {
+            return text.NullOrEmpty() || !text.EndsWith(MovedMarker)
+                ? text
+                : text.Substring(0, text.Length - MovedMarker.Length);
+        }
+
         /// <summary>
         /// Default text to show if a work type label cannot be determined.
         /// </summary>
