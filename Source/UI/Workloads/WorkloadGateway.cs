@@ -1434,24 +1434,6 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
-        internal string MultiplayerPreviewLabelSuffix
-        {
-            get
-            {
-                if (IsMultiplayerRecoveryBlocked)
-                {
-                    return T("BWT_Workload_StatusRecovery");
-                }
-
-                if (IsMultiplayerCommitInFlight)
-                {
-                    return T("BWT_Workload_StatusSyncing");
-                }
-
-                return T("BWT_Workload_StatusPreview");
-            }
-        }
-
         private static bool ContainsDimension(
             WorkloadSemanticDiff diff,
             WorkloadStateDimension dimension)

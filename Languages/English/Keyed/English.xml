@@ -383,9 +383,6 @@
 <BWT_Workload_PreviewRefreshFailed>The workload was saved, but Better Work Tab could not refresh the preview. Cancel it before trying again.</BWT_Workload_PreviewRefreshFailed>
 <BWT_Workload_MultiplayerRecovery>Multiplayer is still finishing the previous workload action. You cannot edit this preview yet.</BWT_Workload_MultiplayerRecovery>
 <BWT_Workload_MultiplayerWaiting>Waiting for multiplayer to finish the workload {0}.</BWT_Workload_MultiplayerWaiting>
-<BWT_Workload_StatusRecovery> • finishing</BWT_Workload_StatusRecovery>
-<BWT_Workload_StatusSyncing> • syncing</BWT_Workload_StatusSyncing>
-<BWT_Workload_StatusPreview> • preview</BWT_Workload_StatusPreview>
 <BWT_Workload_ApplyAction>apply</BWT_Workload_ApplyAction>
 <BWT_Workload_SaveAction>save</BWT_Workload_SaveAction>
 <BWT_Workload_SaveAsAction>save as</BWT_Workload_SaveAsAction>

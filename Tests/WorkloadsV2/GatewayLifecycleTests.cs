@@ -47,6 +47,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
             FooterSelectorKeepsManagerAndPreviewActionsSeparate(header, gateway);
             WorkloadMenuUsesStableIds(header);
+            WorkloadSelectorUsesOnlyTheWorkloadName(header);
             PreviewActionsUseVisibleHitRects(header);
             NarrowFooterGeometryIsBounded(header);
             SelectorSpacingIsMeasuredWithoutLeadingReserve(selector);
@@ -382,6 +383,29 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 actionPath.IndexOf("Widgets.ButtonInvisible(hitRect)", StringComparison.Ordinal) >= 0,
                 "preview actions must not switch to a custom invisible control while partially revealed");
+        }
+
+        private static void WorkloadSelectorUsesOnlyTheWorkloadName(string header)
+        {
+            int start = header.IndexOf(
+                "private static string WorkloadLabel()",
+                StringComparison.Ordinal);
+            int end = header.IndexOf(
+                "private static string WorkloadGeometryLabel()",
+                start,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                start >= 0 && end > start,
+                "the workload selector label must remain a distinct helper");
+
+            string labelPath = header.Substring(start, end - start);
+            TestAssert.Contains(
+                labelPath,
+                "return preview.SourceLabel;",
+                "the workload selector must show only the active workload name");
+            TestAssert.False(
+                labelPath.IndexOf("MultiplayerPreviewLabelSuffix", StringComparison.Ordinal) >= 0,
+                "the workload selector must not append a preview status suffix");
         }
 
         private static void SelectorSpacingIsMeasuredWithoutLeadingReserve(string selector)

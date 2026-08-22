@@ -980,7 +980,7 @@ namespace Better_Work_Tab.UI
             WorkloadPreviewController preview = WorkloadPreviewController.Current;
             if (preview?.IsActive == true)
             {
-                return preview.SourceLabel + preview.MultiplayerPreviewLabelSuffix;
+                return preview.SourceLabel;
             }
 
             string currentLabel = WorkloadGateway.CurrentLabel();
