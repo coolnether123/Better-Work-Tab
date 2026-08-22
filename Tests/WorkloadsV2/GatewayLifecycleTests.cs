@@ -50,6 +50,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PreviewActionsUseVisibleHitRects(header);
             NarrowFooterGeometryIsBounded(header);
             SelectorSpacingIsMeasuredWithoutLeadingReserve(selector);
+            SelectorLabelsClipWithoutInjectedEllipsis(selector);
             WorkloadFooterContextRoutingIsClippedAndSettingsBacked(
                 header,
                 contextRouter,
@@ -399,6 +400,29 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 selector,
                 "(SidePadding * 2f);",
                 "selector measurement must include only the two side paddings around text");
+        }
+
+        private static void SelectorLabelsClipWithoutInjectedEllipsis(string selector)
+        {
+            int drawMainStart = selector.IndexOf(
+                "internal static bool DrawMain(",
+                StringComparison.Ordinal);
+            int drawMenuStart = selector.IndexOf(
+                "internal static bool DrawMenu(",
+                drawMainStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                drawMainStart >= 0 && drawMenuStart > drawMainStart,
+                "selector source must keep the main and menu draw methods separate");
+
+            string drawMain = selector.Substring(drawMainStart, drawMenuStart - drawMainStart);
+            TestAssert.Contains(
+                drawMain,
+                "GUI.BeginGroup(",
+                "selector names must clip raw text without adding an in-label ellipsis");
+            TestAssert.False(
+                drawMain.IndexOf("Truncate(", StringComparison.Ordinal) >= 0,
+                "selector names must not draw a second ellipsis inside the main button");
         }
 
         private static void WorkloadFooterContextRoutingIsClippedAndSettingsBacked(
