@@ -28,6 +28,25 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 new[] { pawn });
             var v2 = (IWorkTabEffectiveStateV2Editor)projection;
 
+            var secondWorkType = TestSupport.WorkType("Hauling");
+            WorkTabEffectiveStateMutationResult manualBatch = projection.SetManualModes(
+                new[]
+                {
+                    new WorkloadParentPriorityKey(pawn, workType),
+                    new WorkloadParentPriorityKey(pawn, secondWorkType)
+                },
+                true);
+            TestAssert.True(manualBatch.Accepted,
+                "a scoped manual-mode change must be accepted as one projected mutation");
+            TestAssert.True(
+                projection.ResolveManualMode(
+                    new WorkloadParentPriorityKey(pawn, workType)).Value,
+                "the batched manual-mode change must update the first work type");
+            TestAssert.True(
+                projection.ResolveManualMode(
+                    new WorkloadParentPriorityKey(pawn, secondWorkType)).Value,
+                "the batched manual-mode change must update every work type in scope");
+
             var settingResult = v2.SetPresentationSetting(
                 "ui.angled",
                 WorkloadSettingValue.WorkloadOwned(WorkloadScalarValue.FromBoolean(true)));

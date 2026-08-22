@@ -658,8 +658,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return false;
             }
 
-            if (CurrentProvider is ProjectedWorkTabEffectiveStateProvider projected &&
-                (projected.OwnedDimensions & WorkloadOwnershipDimensions.ManualModes) == 0)
+            ProjectedWorkTabEffectiveStateProvider projectedProvider =
+                CurrentProvider as ProjectedWorkTabEffectiveStateProvider;
+            if (projectedProvider != null &&
+                (projectedProvider.OwnedDimensions & WorkloadOwnershipDimensions.ManualModes) == 0)
             {
                 ReportBlocked(
                     WorkTabEffectiveStateDimension.ManualMode,
@@ -668,6 +670,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             }
 
             bool attempted = false;
+            List<WorkloadParentPriorityKey> projectedKeys =
+                projectedProvider != null
+                    ? new List<WorkloadParentPriorityKey>()
+                    : null;
             IReadOnlyList<WorkTypeDef> workTypes =
                 DefDatabase<WorkTypeDef>.AllDefsListForReading;
             foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
@@ -678,7 +684,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 }
 
                 PawnKey pawnKey = WorkTabEffectiveStateIds.ForPawn(pawn);
-                if (CurrentProvider is ProjectedWorkTabEffectiveStateProvider projectedProvider &&
+                if (projectedProvider != null &&
                     !projectedProvider.CanEditPawn(pawnKey))
                 {
                     // Manual priority mode is global in RimWorld, but the
@@ -698,9 +704,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     }
 
                     attempted = true;
-                    WorkTabEffectiveStateMutationResult result = editor.SetManualMode(
-                        WorkTabEffectiveStateIds.ForParentPriority(pawn, workType),
-                        manualMode);
+                    WorkloadParentPriorityKey key =
+                        WorkTabEffectiveStateIds.ForParentPriority(pawn, workType);
+                    if (projectedKeys != null)
+                    {
+                        projectedKeys.Add(key);
+                        continue;
+                    }
+
+                    WorkTabEffectiveStateMutationResult result =
+                        editor.SetManualMode(key, manualMode);
                     if (!AcceptPreviewMutation(result))
                     {
                         return false;
@@ -714,6 +727,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     WorkTabEffectiveStateDimension.ManualMode,
                     "BWT_Workload_PawnCannotChange".Translate());
                 return false;
+            }
+
+            if (projectedProvider != null)
+            {
+                return AcceptPreviewMutation(
+                    projectedProvider.SetManualModes(projectedKeys, manualMode));
             }
 
             return true;

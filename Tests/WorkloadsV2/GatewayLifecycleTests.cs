@@ -53,6 +53,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             SelectorSpacingIsMeasuredWithoutLeadingReserve(selector);
             SelectorUsesLegacyMinimumAndMeasuredGrowth(header);
             SelectorLabelsClipWithoutInjectedEllipsis(selector);
+            SelectorLabelsAreCentered(selector);
             WorkloadFooterContextRoutingIsClippedAndSettingsBacked(
                 header,
                 contextRouter,
@@ -465,6 +466,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 drawMain.IndexOf("Truncate(", StringComparison.Ordinal) >= 0,
                 "selector names must not draw a second ellipsis inside the main button");
+        }
+
+        private static void SelectorLabelsAreCentered(string selector)
+        {
+            TestAssert.Contains(
+                selector,
+                "Text.Anchor = TextAnchor.MiddleCenter;",
+                "workload and ruleset names must be centered in their main buttons");
         }
 
         private static void WorkloadFooterContextRoutingIsClippedAndSettingsBacked(

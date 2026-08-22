@@ -85,7 +85,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.Priority |
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.Presentation);
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
         }
 
         internal static int GetMaxPriority()

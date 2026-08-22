@@ -46,7 +46,7 @@ namespace Better_Work_Tab.UI
             float textX = rect.x + SidePadding;
             float textWidth = Mathf.Max(0f, rect.xMax - SidePadding - textX);
 
-            Text.Anchor = TextAnchor.MiddleLeft;
+            Text.Anchor = TextAnchor.MiddleCenter;
             Text.Font = GameFont.Small;
             Text.WordWrap = false;
             GUI.color = hasValue ? Color.white : EmptyValueColor;

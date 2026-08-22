@@ -987,6 +987,58 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 draft => draft.SetManualMode(key, manualMode));
         }
 
+        /// <summary>
+        /// Applies a global-mode preview change as one draft mutation so the
+        /// projection is rebuilt and fingerprinted once for the whole scope.
+        /// </summary>
+        internal WorkTabEffectiveStateMutationResult SetManualModes(
+            IReadOnlyList<WorkloadParentPriorityKey> keys,
+            bool manualMode)
+        {
+            RefreshProjection();
+            if (keys == null || keys.Count == 0)
+            {
+                return WorkTabEffectiveStateMutationResult.Blocked(
+                    WorkTabEffectiveStateDimension.ManualMode,
+                    _revision,
+                    "At least one valid manual-mode key is required.");
+            }
+
+            for (int i = 0; i < keys.Count; i++)
+            {
+                WorkloadParentPriorityKey key = keys[i];
+                if (key == null || !key.IsValid)
+                {
+                    return WorkTabEffectiveStateMutationResult.Blocked(
+                        WorkTabEffectiveStateDimension.ManualMode,
+                        _revision,
+                        "A valid manual-mode key is required.");
+                }
+
+                if (!IsEditablePawn(key.Pawn, _projectedState))
+                {
+                    return WorkTabEffectiveStateMutationResult.Blocked(
+                        WorkTabEffectiveStateDimension.ManualMode,
+                        _revision,
+                        "A pawn is outside the active workload scope or is excluded for this preview.");
+                }
+            }
+
+            return Apply(
+                WorkTabEffectiveStateDimension.ManualMode,
+                WorkloadOwnershipDimensions.ManualModes,
+                null,
+                true,
+                "At least one valid manual-mode key is required.",
+                draft =>
+                {
+                    for (int i = 0; i < keys.Count; i++)
+                    {
+                        draft.SetManualMode(keys[i], manualMode);
+                    }
+                });
+        }
+
         public WorkTabEffectiveStateMutationResult ClearManualMode(
             WorkloadParentPriorityKey key)
         {
