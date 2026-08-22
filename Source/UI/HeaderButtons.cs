@@ -1057,8 +1057,7 @@ namespace Better_Work_Tab.UI
                 }
                 else
                 {
-                    ReportWorkloadFailure(
-                        "BWT_Workload_SelectBeforePreview".Translate());
+                    BeginWorkloadFooterEditor(createNew: true);
                 }
             }
 

@@ -242,8 +242,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the selected modern workload name button must enter the projected preview");
             TestAssert.Contains(
                 nameButtonPath,
-                "BWT_Workload_SelectBeforePreview\".Translate()",
-                "the empty name button must report the no-selection state without opening the workload manager");
+                "BeginWorkloadFooterEditor(createNew: true)",
+                "the empty name button must open the save-workload editor");
             TestAssert.False(
                 nameButtonPath.IndexOf("OpenWorkloadFooterPicker();", StringComparison.Ordinal) >= 0,
                 "the workload name button must never open the workload picker");
@@ -255,10 +255,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 ellipsisButtonPath.IndexOf("BeginCurrentPreview", StringComparison.Ordinal) >= 0,
                 "the workload ellipsis button must never enter projected preview");
             TestAssert.False(
-                ellipsisButtonPath.IndexOf(
-                    "Select a workload with the ... menu before opening a preview.",
-                    StringComparison.Ordinal) >= 0,
-                "the no-selection feedback belongs to the workload name button path");
+                ellipsisButtonPath.IndexOf("BeginWorkloadFooterEditor", StringComparison.Ordinal) >= 0,
+                "the workload ellipsis button must not open the save-workload editor directly");
             TestAssert.Contains(
                 header,
                 "rects.HasWorkloadPreview ? rects.WorkloadApply : Rect.zero",
