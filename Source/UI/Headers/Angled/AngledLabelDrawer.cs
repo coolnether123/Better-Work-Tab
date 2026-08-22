@@ -350,9 +350,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             AngledHeaderCache.CachedTextMetrics parentMetrics =
-                AngledHeaderCache.GetParentTextMetrics(column.workType, currentLayout.ShowMarker);
+                AngledHeaderCache.GetParentTextMetrics(column.workType, false);
             string parentText = parentMetrics.Label;
-            if (parentText.NullOrEmpty() || parentText == currentLayout.Text)
+            if (parentText.NullOrEmpty() ||
+                parentText == HeaderUtility.RemoveMovedMarker(currentLayout.Text))
             {
                 return;
             }
@@ -395,13 +396,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 GUI.matrix = GetTransformMatrix(originalMatrix, pivotPoint, rotation, Vector2.one);
 
                 Text.Anchor = isCJKVertical ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
-                GUI.color = (currentLayout.ShowMarker && BWTWorkTabEffectiveSettings.GetBool(
-                    "columns.showMovedColorTint",
-                    BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true))
-                    ? HeaderUtility.Colors.MovedMarkerColor
-                    : BWTWorkTabEffectiveSettings.GetColor(
-                        "headers.angledColor",
-                        BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
+                GUI.color = BWTWorkTabEffectiveSettings.GetColor(
+                    "headers.angledColor",
+                    BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * alpha);
 
                 if (isCJKVertical)

@@ -77,8 +77,9 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             Rect parentTextRect = Rect.zero;
             if (parentAlpha > 0.001f && column?.workType != null)
             {
-                parentText = HeaderUtility.GetParentHeaderText(column.workType, showMarker);
-                if (!parentText.NullOrEmpty() && parentText != displayText)
+                parentText = HeaderUtility.GetParentHeaderText(column.workType);
+                if (!parentText.NullOrEmpty() &&
+                    parentText != HeaderUtility.RemoveMovedMarker(displayText))
                 {
                     Vector2 parentSize = Text.CalcSize(parentText);
                     float parentTextY = headerBottom - yOffset - (parentSize.y / 2f);
@@ -115,7 +116,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
                 if (parentText != null)
                 {
-                    DrawLabel(parentTextRect, parentText, showMarker, parentAlpha);
+                    DrawLabel(parentTextRect, parentText, false, parentAlpha);
                     DrawStemLine(parentTextRect, headerBottom, parentAlpha);
                 }
 
