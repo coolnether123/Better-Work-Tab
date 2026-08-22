@@ -235,10 +235,10 @@ namespace Better_Work_Tab.UI
             }
 
             float workloadWidth = allowWorkload
-                ? BWTBottomBarSelector.MeasureWidth(WorkloadGeometryLabel())
+                ? MeasureFooterSelectorWidth(WorkloadGeometryLabel())
                 : 0f;
             float rulesetWidth = allowRuleset
-                ? BWTBottomBarSelector.MeasureWidth(RuleBuilderGateway.CurrentRulesetLabel())
+                ? MeasureFooterSelectorWidth(RuleBuilderGateway.CurrentRulesetLabel())
                 : 0f;
             bool showWorkloadMenu = allowWorkload;
             bool showRuleset = allowRuleset;
@@ -337,6 +337,13 @@ namespace Better_Work_Tab.UI
             rects.LeftEdge = Mathf.Max(leftEdge, x);
         }
 
+        private static float MeasureFooterSelectorWidth(string value)
+        {
+            return Mathf.Max(
+                BWTBottomBarSelector.MeasureWidth(value),
+                CompactSelectorMainWidth);
+        }
+
         private static void LayoutBoundedWorkloadPreview(
             float leftEdge,
             float rightEdge,
@@ -364,7 +371,7 @@ namespace Better_Work_Tab.UI
             bool showUpdate = false;
             bool showSaveAs = false;
             float rulesetWidth = allowRuleset
-                ? BWTBottomBarSelector.MeasureWidth(RuleBuilderGateway.CurrentRulesetLabel())
+                ? MeasureFooterSelectorWidth(RuleBuilderGateway.CurrentRulesetLabel())
                 : 0f;
             float used = mandatoryWidth;
 
@@ -416,7 +423,7 @@ namespace Better_Work_Tab.UI
                 float spare = available - used;
                 float desiredWorkloadWidth = Mathf.Max(
                     workloadWidth,
-                    BWTBottomBarSelector.MeasureWidth(WorkloadGeometryLabel()));
+                    MeasureFooterSelectorWidth(WorkloadGeometryLabel()));
                 float workloadGrowth = Mathf.Min(spare, desiredWorkloadWidth - workloadWidth);
                 workloadWidth += workloadGrowth;
             }

@@ -24,15 +24,13 @@ namespace Better_Work_Tab.UI
 
         private const float SidePadding = 6f;
 
-        private const float MinTextWidth = 96f;
         private const float MaxTextWidth = 240f;
 
         private static readonly Color EmptyValueColor = new Color(1f, 1f, 1f, 0.6f);
 
         /// <summary>
         /// How wide the naming half has to be to hold <paramref name="value"/>.
-        /// The clamp keeps a short name from looking lost and a long one from
-        /// crossing the tab.
+        /// The upper clamp keeps a long name from crossing the tab.
         /// </summary>
         internal static float MeasureWidth(string value)
         {
@@ -40,7 +38,7 @@ namespace Better_Work_Tab.UI
             Text.Font = GameFont.Small;
             float text = Text.CalcSize(value ?? string.Empty).x;
             Text.Font = previousFont;
-            return Mathf.Clamp(text, MinTextWidth, MaxTextWidth) +
+            return Mathf.Min(text, MaxTextWidth) +
                    (SidePadding * 2f);
         }
 
