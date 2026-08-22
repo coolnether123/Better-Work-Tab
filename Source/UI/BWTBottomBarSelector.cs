@@ -65,7 +65,10 @@ namespace Better_Work_Tab.UI
             Text.Font = GameFont.Small;
             Text.WordWrap = false;
             GUI.color = hasValue ? Color.white : EmptyValueColor;
-            Widgets.Label(new Rect(textX, rect.y, textWidth, rect.height), value.Truncate(textWidth));
+            Rect labelRect = new Rect(textX, rect.y, textWidth, rect.height);
+            GUI.BeginGroup(labelRect);
+            Widgets.Label(new Rect(0f, 0f, textWidth, rect.height), value ?? string.Empty);
+            GUI.EndGroup();
 
             Text.WordWrap = previousWrap;
             GUI.color = previousColor;
