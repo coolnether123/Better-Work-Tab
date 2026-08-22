@@ -3,20 +3,7 @@ using Verse;
 
 namespace Better_Work_Tab.UI
 {
-    /// <summary>
-    /// The control the Work tab's bottom bar uses for its "what is currently
-    /// selected" pickers.
-    ///
-    /// One line of plain text could not carry both things the player needs to
-    /// know: "BWT Default (Rule Builder 2.0)" never said what kind of thing it
-    /// was, and at a fixed 150px the button edge cut it mid-word, so it did not
-    /// reliably say its own name either.
-    ///
-    /// A caption line was the first attempt at the first half of that, and it
-    /// cost a second row of height for two words that never change. The compact
-    /// control sizes the name to fit rather than reserving space for an icon
-    /// that is no longer drawn.
-    /// </summary>
+    /// <summary>Draws the Work tab's bottom-bar selectors.</summary>
     internal static class BWTBottomBarSelector
     {
         internal const float Height = 30f;

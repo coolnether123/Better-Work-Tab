@@ -8,6 +8,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             new TestCase("schedules", ScheduleTests.Run),
             new TestCase("projection-and-settings", ProjectionAndSettingsTests.Run),
+            new TestCase("priority-cycle", PriorityCycleMathTests.Run),
             new TestCase("specific-jobs-and-tombstones", SpecificJobTests.Run),
             new TestCase("session-lifecycle", SessionTests.Run),
             new TestCase("persistence-receipt-recovery", PersistenceReceiptRecoveryTests.Run),
