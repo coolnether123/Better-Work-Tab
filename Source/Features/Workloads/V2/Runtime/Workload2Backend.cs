@@ -3156,6 +3156,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 {
                     WorkloadParentPriorityEntry entry = templateState.ParentPriorities[i];
                     if (scope.IsExplicitlyExcluded(entry.Key.Pawn)) continue;
+                    if (!IsLiveBaselineEntryInScope(scope, entry.Key.Pawn, runtime)) continue;
                     if (!TryResolveLiveEntry(
                             entry.Key,
                             runtime,
@@ -3187,6 +3188,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 {
                     WorkloadManualModeEntry entry = templateState.ManualModes[i];
                     if (scope.IsExplicitlyExcluded(entry.Key.Pawn)) continue;
+                    if (!IsLiveBaselineEntryInScope(scope, entry.Key.Pawn, runtime)) continue;
                     if (!TryResolveLiveEntry(
                             entry.Key,
                             runtime,
@@ -3207,6 +3209,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 {
                     WorkloadSpecificJobOverrideEntry entry = templateState.SpecificJobOverrides[i];
                     if (scope.IsExplicitlyExcluded(entry.Key.Pawn)) continue;
+                    if (!IsLiveBaselineEntryInScope(scope, entry.Key.Pawn, runtime)) continue;
                     if (!TryResolveSpecificLiveEntry(
                             entry.Key,
                             runtime,
@@ -3236,6 +3239,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 {
                     WorkloadSpecificJobOrderEntry entry = templateState.SpecificJobOrder[i];
                     if (scope.IsExplicitlyExcluded(entry.Key.Pawn)) continue;
+                    if (!IsLiveBaselineEntryInScope(scope, entry.Key.Pawn, runtime)) continue;
                     if (!TryResolveSpecificLiveEntry(
                             entry.Key,
                             runtime,
@@ -3311,6 +3315,29 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     WorkloadDiagnosticCode.InvalidState,
                     "The V2 live baseline could not be captured safely: " + exception.Message);
             }
+        }
+
+        private static bool IsLiveBaselineEntryInScope(
+            WorkloadScope scope,
+            PawnKey pawnKey,
+            RuntimeContext runtime)
+        {
+            // Dynamic scopes can retain identities from an earlier roster. The
+            // commit path already skips those entries; baseline capture must
+            // apply the same boundary before dereferencing pawn-local state.
+            // Preserve the existing fail-closed validation for malformed or
+            // missing identities by treating them as candidates for resolve.
+            if (scope == null || pawnKey == null || !pawnKey.IsValid || runtime == null)
+            {
+                return true;
+            }
+
+            if (!runtime.Pawns.TryGetValue(pawnKey.Value, out Pawn pawn) || pawn == null)
+            {
+                return true;
+            }
+
+            return IsInScope(scope, pawn, runtime);
         }
 
         private static bool TryResolveLiveEntry(
