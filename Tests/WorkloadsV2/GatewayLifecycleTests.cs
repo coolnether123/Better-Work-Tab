@@ -416,6 +416,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 selector.IndexOf("LeadingTextGap", StringComparison.Ordinal) >= 0,
                 "selectors must not reserve the removed leading icon gap");
+            TestAssert.False(
+                selector.IndexOf("MinTextWidth", StringComparison.Ordinal) >= 0,
+                "selectors must not reserve a second minimum text lane after removing the leading slot");
             TestAssert.Contains(
                 selector,
                 "float textX = rect.x + SidePadding;",
