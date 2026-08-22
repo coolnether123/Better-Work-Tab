@@ -539,6 +539,9 @@ namespace Better_Work_Tab.UI
                 Vector2 pointer = evt.mousePosition;
                 TooltipHandler.ClearTooltipsFrom(new Rect(pointer.x - 1f, pointer.y - 1f, 2f, 2f));
             }
+            HeaderButtons.DrawWorkloadFooterPopoverOnTop(
+                inRect,
+                WorkTabChromeGeometry.GetInfoIconRect(inRect));
             NativeCursorPosition.ProcessPendingMove();
             NativeCursorPosition.DrawPendingMoveCue();
         }

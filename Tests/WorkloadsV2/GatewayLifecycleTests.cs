@@ -491,6 +491,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 footerContextController,
                 "rects.WorkloadApply",
                 "Apply contextual routing must use the shared footer geometry");
+            int tutorialDraw = mainWindow.IndexOf(
+                "BWTWorkTabTutorial.TickAndDraw(",
+                StringComparison.Ordinal);
+            int workloadPopoverDraw = mainWindow.IndexOf(
+                "HeaderButtons.DrawWorkloadFooterPopoverOnTop(",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                tutorialDraw >= 0 && workloadPopoverDraw > tutorialDraw,
+                "the workload editor must be painted after the tutorial overlay so its Save button owns the first click");
             TestAssert.Contains(
                 header,
                 "animated: animated",

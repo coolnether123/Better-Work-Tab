@@ -811,7 +811,6 @@ namespace Better_Work_Tab.UI
                 DrawWorkloadGroup(rects);
             }
 
-            DrawWorkloadFooterPopover(inRect, rects);
             if (_workloadFooterPopover == WorkloadFooterPopoverKind.None)
             {
                 WorkloadPreviewController.Current?.UpdateFooterInspectionHover(
@@ -826,6 +825,23 @@ namespace Better_Work_Tab.UI
                     Rect.zero);
             }
 
+        }
+
+        /// <summary>
+        /// Paints the workload editor after the tutorial overlay. The editor is
+        /// hosted by the Work-tab window rather than WindowStack, so it needs an
+        /// explicit final pass to remain the topmost owner of its controls.
+        /// </summary>
+        internal static void DrawWorkloadFooterPopoverOnTop(Rect inRect, Rect gearRect)
+        {
+            if (_workloadFooterPopover == WorkloadFooterPopoverKind.None)
+            {
+                return;
+            }
+
+            DrawWorkloadFooterPopover(
+                inRect,
+                GetBottomButtonRects(inRect, gearRect));
         }
 
         /// <summary>
