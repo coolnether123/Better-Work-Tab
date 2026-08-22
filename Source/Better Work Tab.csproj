@@ -120,6 +120,7 @@
     <Compile Include="Features\RaisedPriorityMaximum\PriorityAuthorityTransitionService.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\BwtRaisedPriorityFeatureInstaller.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityConstants.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\PriorityCycleMath.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSelector.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSnapshot.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />

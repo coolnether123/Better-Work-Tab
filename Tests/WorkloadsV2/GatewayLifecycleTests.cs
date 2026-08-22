@@ -51,6 +51,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PreviewActionsUseVisibleHitRects(header);
             NarrowFooterGeometryIsBounded(header);
             SelectorSpacingIsMeasuredWithoutLeadingReserve(selector);
+            SelectorUsesLegacyMinimumAndMeasuredGrowth(header);
             SelectorLabelsClipWithoutInjectedEllipsis(selector);
             WorkloadFooterContextRoutingIsClippedAndSettingsBacked(
                 header,
@@ -427,6 +428,22 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "selector measurement must include only the two side paddings around text");
         }
 
+        private static void SelectorUsesLegacyMinimumAndMeasuredGrowth(string header)
+        {
+            TestAssert.Contains(
+                header,
+                "private const float PreferredSelectorMainWidth = 150f;",
+                "selector main buttons must keep the 1.0.5 minimum width");
+            TestAssert.Contains(
+                header,
+                "BWTBottomBarSelector.MeasureWidth(value),\n                PreferredSelectorMainWidth",
+                "selector names must still grow beyond the preferred minimum when measured text needs more room");
+            TestAssert.Contains(
+                header,
+                "PreferredSelectorMainWidth - 0.01f",
+                "a selector at the preferred width must retain its name instead of switching to the narrow fallback");
+        }
+
         private static void SelectorLabelsClipWithoutInjectedEllipsis(string selector)
         {
             int drawMainStart = selector.IndexOf(
@@ -593,6 +610,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 header,
                 "float minimumWorkloadWidth",
                 "narrow footer geometry must compact only the workload naming half");
+            TestAssert.False(
+                header.IndexOf("float leftEdge = rects.HasWorkload", StringComparison.Ordinal) >= 0,
+                "footer hint reservation must not follow clipped preview controls during the reveal");
             TestAssert.False(
                 header.IndexOf("CompactRulesetMain", StringComparison.Ordinal) >= 0,
                 "ruleset selector metrics must not acquire workload-specific compact rendering");

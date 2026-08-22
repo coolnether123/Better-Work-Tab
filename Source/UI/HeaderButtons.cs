@@ -38,7 +38,7 @@ namespace Better_Work_Tab.UI
         private const float CompactPreviewActionGap = 3f;
         private const float CompactPreviewCancelWidth = 52f;
         private const float CompactPreviewApplyWidth = 48f;
-        private const float CompactSelectorMainWidth = 54f;
+        private const float PreferredSelectorMainWidth = 150f;
         private const float WorkloadPreviewRevealSeconds = 0.22f;
         private const float WorkloadFooterPanelGap = 5f;
         private const float WorkloadFooterPanelWidth = 330f;
@@ -96,8 +96,8 @@ namespace Better_Work_Tab.UI
             public bool CompactWorkloadMain;
 
             /// <summary>
-            /// The left edge of everything in the row, so the footer hint text
-            /// knows where it has to stop.
+            /// The left edge reserved for the row. During a reveal this remains
+            /// at the final layout edge so adjacent footer text stays stable.
             /// </summary>
             public float LeftEdge;
 
@@ -254,7 +254,7 @@ namespace Better_Work_Tab.UI
             // ruleset group gives way. The shared ruleset selector keeps its
             // normal measured geometry instead of acquiring workload-specific
             // narrow-tab metrics.
-            float minimumWorkloadWidth = CompactSelectorMainWidth;
+            float minimumWorkloadWidth = PreferredSelectorMainWidth;
             float minimumBothWidth = minimumWorkloadWidth + SelectorMenuWidth +
                 GroupGap + rulesetWidth + SelectorMenuWidth;
             if (allowWorkload && showRuleset && available >= minimumBothWidth)
@@ -332,8 +332,8 @@ namespace Better_Work_Tab.UI
             rects.HasWorkload = allowWorkload && rects.WorkloadMain.width > 0f;
             rects.HasWorkloadMenu = allowWorkload &&
                 showWorkloadMenu && rects.WorkloadMenu.width > 0f;
-            rects.CompactWorkloadMain = rects.WorkloadMain.width <=
-                CompactSelectorMainWidth + 0.01f;
+            rects.CompactWorkloadMain = rects.WorkloadMain.width <
+                PreferredSelectorMainWidth - 0.01f;
             rects.LeftEdge = Mathf.Max(leftEdge, x);
         }
 
@@ -341,7 +341,7 @@ namespace Better_Work_Tab.UI
         {
             return Mathf.Max(
                 BWTBottomBarSelector.MeasureWidth(value),
-                CompactSelectorMainWidth);
+                PreferredSelectorMainWidth);
         }
 
         private static void LayoutBoundedWorkloadPreview(
@@ -360,7 +360,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            float workloadWidth = CompactSelectorMainWidth;
+            float workloadWidth = PreferredSelectorMainWidth;
             float cancelWidth = CompactPreviewCancelWidth;
             float applyWidth = CompactPreviewApplyWidth;
             float actionGap = CompactPreviewActionGap;
@@ -445,7 +445,7 @@ namespace Better_Work_Tab.UI
             rects.WorkloadMain = TakeFromRight(ref x, leftEdge, workloadWidth, y, height);
             rects.HasWorkload = rects.WorkloadMain.width > 0f;
             rects.HasWorkloadMenu = showWorkloadMenu && rects.WorkloadMenu.width > 0f;
-            rects.CompactWorkloadMain = workloadWidth < CompactSelectorMainWidth;
+            rects.CompactWorkloadMain = workloadWidth < PreferredSelectorMainWidth;
 
             x -= actionGap;
             rects.WorkloadApply = TakeFromRight(ref x, leftEdge, applyWidth, y, height);
@@ -581,27 +581,6 @@ namespace Better_Work_Tab.UI
                  rects.WorkloadCancel.width > 0.01f ||
                  rects.WorkloadApply.width > 0.01f);
 
-            float leftEdge = rects.HasWorkload
-                ? rects.WorkloadMain.xMin
-                : rects.LeftEdge;
-            if (rects.HasRuleset)
-            {
-                leftEdge = Mathf.Min(leftEdge, rects.RulesetMain.xMin);
-            }
-            if (rects.HasWorkloadSaveAs)
-            {
-                leftEdge = Mathf.Min(leftEdge, rects.WorkloadSaveAs.xMin);
-            }
-            if (rects.HasWorkloadUpdate)
-            {
-                leftEdge = Mathf.Min(leftEdge, rects.WorkloadUpdate.xMin);
-            }
-            if (rects.HasWorkloadPreview)
-            {
-                leftEdge = Mathf.Min(leftEdge, rects.WorkloadCancel.xMin);
-            }
-
-            rects.LeftEdge = leftEdge;
         }
 
         private static Rect TranslateWorkloadActionLane(

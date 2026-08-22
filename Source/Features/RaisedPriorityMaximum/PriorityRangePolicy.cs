@@ -105,17 +105,18 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return 1;
             }
 
-            int requested = normalized + delta;
-            if (requested <= PriorityConstants.Disabled)
+            if (delta == 0)
             {
-                return PriorityConstants.Disabled;
+                return normalized;
             }
 
-            PriorityProviderSnapshot requestedSnapshot =
-                PriorityProviderSelector.GetSnapshotForPriority(requested);
-            return requested <= requestedSnapshot.MaxPriority
-                ? requested
-                : PriorityConstants.Disabled;
+            // Keep one input gesture inside the priority range that was active when the
+            // gesture began. In Auto mode, resolving a fresh snapshot for the next value can
+            // make the click itself manufacture a higher required priority and switch the
+            // provider from vanilla 1..4 to BWT's extended range. That breaks wraparound:
+            // clicking 4 upward becomes 5 instead of 0. Explicit writes/imports still use
+            // request-aware snapshot resolution; click cycling must not.
+            return PriorityCycleMath.StepEnabled(normalized, currentMax, delta < 0);
         }
 
         internal static int GetNextManualPriority(int currentPriority, int direction)
@@ -134,26 +135,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                         : maxPriority;
                 }
 
-                if (normalized <= 1)
-                {
-                    return 1;
-                }
-
-                return normalized - 1;
+                return PriorityCycleMath.StepEnabled(normalized, maxPriority, decrease: true);
             }
 
             if (direction < 0)
             {
-                if (normalized == maxPriority)
-                {
-                    PriorityProviderSnapshot expanded =
-                        PriorityProviderSelector.GetSnapshotForPriority(maxPriority + 1);
-                    return expanded.MaxPriority > maxPriority
-                        ? maxPriority + 1
-                        : PriorityConstants.Disabled;
-                }
-
-                return normalized > PriorityConstants.Disabled ? normalized + 1 : normalized;
+                // A bounded step follows the same stable-cycle rule as mouse clicks.
+                // Do not let probing max + 1 expand Auto mode as a side effect of scrolling
+                // or a bulk/header gesture. The active maximum wraps directly to disabled.
+                return PriorityCycleMath.StepEnabled(normalized, maxPriority, decrease: false);
             }
 
             return normalized;
