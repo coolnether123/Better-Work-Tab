@@ -31,6 +31,41 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PersistenceRevalidatesRuntimeStateBeforeTemplateWrites(backend);
             SaveRebaseAndForkCurrentIdentityAreTransactional(backend);
             ReceiptRecoveryIsReadOnlyAndFailClosed(backend);
+            CurrentScopeBaselineSkipsStaleEntries(backend);
+        }
+
+        private static void CurrentScopeBaselineSkipsStaleEntries(string backend)
+        {
+            string capture = Slice(
+                backend,
+                "internal WorkloadOperationResult<WorkloadLiveBaselineCapture> CaptureLiveBaselineCapture(\n            WorkloadTemplate template",
+                "private static bool TryResolveLiveEntry(");
+            TestAssert.True(
+                CountOccurrences(capture, "IsLiveBaselineEntryInScope(scope, entry.Key.Pawn, runtime)") == 4,
+                "live baseline capture must apply the dynamic workload scope to every persisted pawn-local dimension");
+            TestAssert.Contains(
+                backend,
+                "return IsInScope(scope, pawn, runtime);",
+                "scope-aware baseline capture must reuse the authoritative runtime scope predicate");
+        }
+
+        private static int CountOccurrences(string value, string token)
+        {
+            int count = 0;
+            int offset = 0;
+            while (value != null && token != null && token.Length > 0)
+            {
+                int found = value.IndexOf(token, offset, StringComparison.Ordinal);
+                if (found < 0)
+                {
+                    break;
+                }
+
+                count++;
+                offset = found + token.Length;
+            }
+
+            return count;
         }
 
         private static void PrepareIsReadOnlyAndExecuteIsCapabilityBound(
