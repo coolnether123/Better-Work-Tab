@@ -853,9 +853,9 @@ namespace Better_Work_Tab.UI
 
         /// <summary>
         /// Reserves only the workload footer's already-drawn IMGUI rectangles.
-        /// The event is intentionally left available for the widgets below to
-        /// process; returning true only prevents the Work-grid router from
-        /// interpreting a footer click as a priority edit.
+        /// Popover controls handle their own clicks; returning true for the
+        /// remaining footer events prevents the Work-grid router from
+        /// interpreting them as priority edits.
         /// </summary>
         public static bool TryHandleWorkloadFooterInput(
             Rect inRect,
@@ -897,6 +897,19 @@ namespace Better_Work_Tab.UI
                 }
 
                 return false;
+            }
+
+            if (evt.type == EventType.MouseUp && evt.button == 0)
+            {
+                Rect cancelRect = _workloadFooterPopover == WorkloadFooterPopoverKind.Editor
+                    ? _workloadFooterEditCancelRect
+                    : _workloadFooterConfirmCancelRect;
+                if (cancelRect.width > 0f && cancelRect.Contains(evt.mousePosition))
+                {
+                    CloseWorkloadFooterPopover();
+                    evt.Use();
+                    return true;
+                }
             }
 
             // Contextual settings gets first refusal for Alt-clicks. If its

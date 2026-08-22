@@ -513,6 +513,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "rects.ContainsWorkloadFooter(evt.mousePosition)",
                 "the normal footer input path must reserve Alt-clicks over visible workload controls");
             TestAssert.Contains(
+                header,
+                "evt.type == EventType.MouseUp && evt.button == 0",
+                "footer editor cancellation must be handled on the completed click");
+            TestAssert.Contains(
+                header,
+                "_workloadFooterEditCancelRect",
+                "editor cancellation must use its visible button rectangle");
+            TestAssert.Contains(
+                header,
+                "evt.Use();",
+                "footer cancellation must consume the click before lower Work-tab controls see it");
+            TestAssert.Contains(
                 mainWindow,
                 "TryHandleFooterContextSettings(\n                    inRect,",
                 "the window must give contextual settings first refusal before normal footer actions");
