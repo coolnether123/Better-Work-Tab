@@ -247,7 +247,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 case WorkloadV2SchemaState.KnownOld:
                     MarkReadOnly(
                         WorkloadDiagnosticCode.UnsupportedSchema,
-                        "The saved Workloads V2 schema is older than this build and has no registered migration.");
+                        "The saved Workloads V2 schema has not completed its required document-load migration.");
                     return;
                 case WorkloadV2SchemaState.Newer:
                     MarkReadOnly(
@@ -303,7 +303,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     case WorkloadV2SchemaState.KnownOld:
                         MarkReadOnly(
                             WorkloadDiagnosticCode.UnsupportedSchema,
-                            "At least one V2 workload record uses an older schema with no registered migration.");
+                            "At least one V2 workload record has not completed required document-load migration.");
                         return;
                     case WorkloadV2SchemaState.Newer:
                         MarkReadOnly(
@@ -838,8 +838,24 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         public bool LegacyOrderRequiresReview;
         public string MigrationDiagnostic = string.Empty;
 
+        // The schema-2 in-memory model lost whether the typed XML member was
+        // present. Keep that loading fact through migration so an explicit
+        // empty list is not mistaken for scalar-only data.
+        internal bool PresentationSettingIntentsWerePersisted { get; private set; }
+
+        internal bool HasTypedPresentationSettingSource =>
+            PresentationSettingIntentsWerePersisted ||
+            (PresentationSettingIntents != null && PresentationSettingIntents.Count > 0);
+
         public void ExposeData()
         {
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                PresentationSettingIntentsWerePersisted = HasMember(
+                    Scribe.loader?.curXmlParent,
+                    "presentationSettingIntents");
+            }
+
             Scribe_Values.Look(ref StableId, "stableId", string.Empty);
             Scribe_Values.Look(ref Label, "label", string.Empty);
             Scribe_Values.Look(ref SchemaVersion, "schemaVersion", 0);
@@ -886,6 +902,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkTypeOrderIntents ??= new List<WorkloadV2WorkTypeOrderIntentRecord>();
             PresentationSettingIntents ??= new List<WorkloadV2PresentationSettingIntentRecord>();
             MigrationDiagnostic ??= string.Empty;
+        }
+
+        internal void MarkPresentationSettingIntentsPersisted()
+        {
+            PresentationSettingIntentsWerePersisted = true;
         }
 
         public void NormalizeStableState()
@@ -940,6 +961,25 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 if (StringComparer.Ordinal.Equals(values[i], values[i - 1])) values.RemoveAt(i);
             }
+        }
+
+        private static bool HasMember(XmlNode node, string name)
+        {
+            if (node == null || string.IsNullOrEmpty(name))
+            {
+                return false;
+            }
+
+            foreach (XmlNode child in node.ChildNodes)
+            {
+                if (child.NodeType == XmlNodeType.Element &&
+                    string.Equals(child.Name, name, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static int CompareParentPriorities(WorkloadV2ParentPriorityRecord left, WorkloadV2ParentPriorityRecord right)
@@ -1310,7 +1350,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             error = string.Empty;
             if (envelope == null) return true;
 
-            bool migrateEnvelope = envelope.SchemaVersion == WorkloadSchema.LegacyVersion;
+            bool migrateEnvelope = IsMigratableSchema(envelope.SchemaVersion);
             if (envelope.SchemaVersion == 0 && envelope.HasPersistedDocument)
             {
                 error = "The saved Workloads V2 document has no schema version and cannot be migrated safely.";
@@ -1345,8 +1385,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     return true;
                 }
 
-                if (record.SchemaVersion == WorkloadSchema.LegacyVersion &&
-                    !ValidateLegacyRecord(record, out error))
+                if (IsMigratableSchema(record.SchemaVersion) &&
+                    !ValidateMigratableRecord(record, out error))
                 {
                     return false;
                 }
@@ -1356,9 +1396,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             // cannot leave a partially converted envelope.
             for (int i = 0; i < records.Count; i++)
             {
-                if (records[i].SchemaVersion == WorkloadSchema.LegacyVersion)
+                if (IsMigratableSchema(records[i].SchemaVersion))
                 {
-                    MigrateLegacyRecord(records[i]);
+                    MigrateKnownRecord(records[i]);
                 }
             }
 
@@ -1367,19 +1407,42 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return true;
         }
 
-        internal static bool TryMigrateRecord(
+        private static bool IsMigratableSchema(int schemaVersion)
+        {
+            return schemaVersion >= WorkloadSchema.LegacyVersion &&
+                   schemaVersion < WorkloadSchema.CurrentVersion;
+        }
+
+        private static bool ValidateMigratableRecord(
             WorkloadV2PersistenceRecord record,
             out string error)
         {
-            error = string.Empty;
-            if (record == null) return false;
             if (record.SchemaVersion == WorkloadSchema.LegacyVersion)
             {
-                if (!ValidateLegacyRecord(record, out error)) return false;
-                MigrateLegacyRecord(record);
+                return ValidateLegacyRecord(record, out error);
             }
 
-            return true;
+            if (record.SchemaVersion == WorkloadSchema.PresentationIntentVersion)
+            {
+                return ValidatePresentationSettings(record, out error);
+            }
+
+            error = "This Workloads V2 record version has no document-load migration.";
+            return false;
+        }
+
+        private static void MigrateKnownRecord(WorkloadV2PersistenceRecord record)
+        {
+            if (record.SchemaVersion == WorkloadSchema.LegacyVersion)
+            {
+                MigrateLegacyRecord(record);
+                return;
+            }
+
+            if (record.SchemaVersion == WorkloadSchema.PresentationIntentVersion)
+            {
+                MigratePresentationIntentRecord(record);
+            }
         }
 
         private static bool ValidateLegacyRecord(
@@ -1457,6 +1520,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
             }
 
+            return ValidatePresentationSettings(record, out error);
+        }
+
+        private static bool ValidatePresentationSettings(
+            WorkloadV2PersistenceRecord record,
+            out string error)
+        {
+            error = string.Empty;
+            record.EnsureCollections();
             for (int i = 0; i < record.PresentationSettings.Count; i++)
             {
                 WorkloadV2PresentationSettingRecord value = record.PresentationSettings[i];
@@ -1552,6 +1624,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 });
             }
 
+            record.MarkPresentationSettingIntentsPersisted();
+
             if (record.Schedules.Count > 0)
             {
                 record.LegacyScheduleRequiresReview = true;
@@ -1587,6 +1661,29 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     string.Join(" and ", reasons.ToArray()) + ".";
             }
 
+            record.SchemaVersion = WorkloadSchema.CurrentVersion;
+        }
+
+        private static void MigratePresentationIntentRecord(WorkloadV2PersistenceRecord record)
+        {
+            record.EnsureCollections();
+            if (!record.HasTypedPresentationSettingSource)
+            {
+                for (int i = 0; i < record.PresentationSettings.Count; i++)
+                {
+                    WorkloadV2PresentationSettingRecord value = record.PresentationSettings[i];
+                    record.PresentationSettingIntents.Add(
+                        new WorkloadV2PresentationSettingIntentRecord
+                        {
+                            Key = value.Key,
+                            IntentState = (int)WorkloadIntentState.Set,
+                            Ownership = (int)WorkloadSettingOwnership.WorkloadOwned,
+                            Value = value.Value ?? new WorkloadV2ScalarRecord()
+                        });
+                }
+            }
+
+            record.MarkPresentationSettingIntentsPersisted();
             record.SchemaVersion = WorkloadSchema.CurrentVersion;
         }
 

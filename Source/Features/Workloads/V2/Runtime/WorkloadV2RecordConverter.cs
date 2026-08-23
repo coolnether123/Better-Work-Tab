@@ -29,14 +29,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     "The workload record has no stable ID.");
             }
 
-            string migrationError;
-            if (!WorkloadV2Migration.TryMigrateRecord(record, out migrationError))
-            {
-                return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.ReadOnlyDiagnostic,
-                    migrationError);
-            }
-
             WorkloadV2SchemaState schemaState =
                 WorkloadV2SchemaPolicy.Classify(record.SchemaVersion);
             switch (schemaState)
@@ -48,7 +40,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 case WorkloadV2SchemaState.KnownOld:
                     return WorkloadOperationResult<WorkloadTemplate>.Fail(
                         WorkloadDiagnosticCode.UnsupportedSchema,
-                        "The workload record uses an older schema with no registered migration.");
+                        "The workload record has not completed the required document-load migration.");
                 case WorkloadV2SchemaState.Newer:
                     return WorkloadOperationResult<WorkloadTemplate>.Fail(
                         WorkloadDiagnosticCode.NewerSchema,
@@ -357,12 +349,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             WorkloadDefinition definition = template.Definition;
+            if (WorkloadV2SchemaPolicy.Classify(definition.SchemaVersion) ==
+                WorkloadV2SchemaState.KnownOld)
+            {
+                return WorkloadOperationResult<WorkloadV2PersistenceRecord>.Fail(
+                    WorkloadDiagnosticCode.UnsupportedSchema,
+                    "The workload template has not completed the required document-load migration and cannot be serialized.");
+            }
+
             WorkloadScope scope = definition.Scope ?? WorkloadScope.Empty;
             var record = new WorkloadV2PersistenceRecord
             {
                 StableId = definition.StableId,
                 Label = definition.Label,
-                SchemaVersion = definition.SchemaVersion,
+                SchemaVersion = WorkloadSchema.CurrentVersion,
                 OwnershipDimensions = (int)definition.OwnershipDimensions,
                 ScopeMode = (int)scope.Mode,
                 ExplicitPawnIds = ToPawnIds(scope.ExplicitPawnIds),

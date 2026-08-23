@@ -414,11 +414,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(ready.Code, ready.Message);
             }
 
-            string finalLabel = string.IsNullOrWhiteSpace(label)
-                ? GetDefaultLabel()
-                : label;
+            string finalLabel = WorkloadLiveCapturePolicy.ResolveLabel(label, GetDefaultLabel);
             string stableId = Guid.NewGuid().ToString("N");
-            WorkloadOperationResult<WorkloadTemplate> captured = CaptureCurrentTemplate(stableId, finalLabel);
+            WorkloadOperationResult<WorkloadTemplate> captured =
+                WorkloadLiveCapture.CaptureCurrentTemplate(stableId, finalLabel);
             if (!captured.Succeeded)
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(captured.Code, captured.Message);
@@ -577,139 +576,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return result.Succeeded
                 ? WorkloadOperationResult.Ok(result.Message)
                 : WorkloadOperationResult.Fail(result.Code, result.Message);
-        }
-
-        internal WorkloadOperationResult<WorkloadTemplate> CaptureCurrentTemplate(
-            string stableId,
-            string label)
-        {
-            if (string.IsNullOrWhiteSpace(stableId))
-            {
-                return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.MissingStableId,
-                    "A stable workload ID is required for capture.");
-            }
-
-            if (Verse.Find.CurrentMap == null)
-            {
-                return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentMap,
-                    "A current map is required to capture a workload.");
-            }
-
-            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out _))
-            {
-                return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.ExternalPriorityAuthority,
-                    "BWT cannot capture priority state while an external priority authority is active.");
-            }
-
-            if (Verse.Find.PlaySettings == null)
-            {
-                return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "Global manual-priority state is unavailable for workload capture.");
-            }
-
-            var priorities = new List<WorkloadParentPriorityEntry>();
-            var manualModes = new List<WorkloadManualModeEntry>();
-            var specificOverrides = new List<WorkloadSpecificJobOverrideEntry>();
-            var specificOrder = new List<WorkloadSpecificJobOrderEntry>();
-            bool manualMode = Verse.Find.PlaySettings.useWorkPriorities;
-            List<Pawn> pawns = Verse.Find.CurrentMap.mapPawns?.FreeColonists;
-            List<WorkTypeDef> workTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
-            if (pawns != null && workTypes != null)
-            {
-                for (int pawnIndex = 0; pawnIndex < pawns.Count; pawnIndex++)
-                {
-                    Pawn pawn = pawns[pawnIndex];
-                    if (pawn?.workSettings == null) continue;
-                    string pawnId = pawn.thingIDNumber.ToString(CultureInfo.InvariantCulture);
-                    for (int workIndex = 0; workIndex < workTypes.Count; workIndex++)
-                    {
-                        WorkTypeDef workType = workTypes[workIndex];
-                        if (workType == null || string.IsNullOrEmpty(workType.defName)) continue;
-                        var parentKey = new WorkloadParentPriorityKey(
-                            new PawnKey(pawnId),
-                            new WorkTypeKey(workType.defName));
-
-                        // Read BWT's stored/base dimension only. This is a read
-                        // through the authority broker and never mutates live state.
-                        int priority = PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                            pawn.workSettings,
-                            workType);
-                        priorities.Add(new WorkloadParentPriorityEntry(
-                            parentKey,
-                            priority));
-                        manualModes.Add(new WorkloadManualModeEntry(parentKey, manualMode));
-
-                        IReadOnlyList<WorkGiver> workGivers =
-                            WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType, pawn);
-                        for (int workGiverIndex = 0;
-                             workGiverIndex < workGivers.Count;
-                             workGiverIndex++)
-                        {
-                            WorkGiverDef workGiver = workGivers[workGiverIndex]?.def;
-                            if (workGiver == null || string.IsNullOrEmpty(workGiver.defName)) continue;
-
-                            if (WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
-                                    pawn,
-                                    workGiver,
-                                    out int specificPriority))
-                            {
-                                specificOverrides.Add(new WorkloadSpecificJobOverrideEntry(
-                                    new WorkloadSpecificJobKey(
-                                        new PawnKey(pawnId),
-                                        new WorkTypeKey(workType.defName),
-                                        new WorkGiverKey(workGiver.defName)),
-                                    WorkloadScalarValue.FromInteger(specificPriority)));
-                            }
-                        }
-
-                        if (WorkGiverReassignmentManager.HasPawnOrdering(pawn, workType))
-                        {
-                            WorkGiverReassignmentManager.PawnWorkGiverOrderSnapshot snapshot =
-                                WorkGiverReassignmentManager.CapturePawnWorkGiverOrderSnapshot(
-                                    pawn,
-                                    workType);
-                            for (int orderIndex = 0;
-                                 orderIndex < snapshot.OrderedWorkGiverNames.Count;
-                                 orderIndex++)
-                            {
-                                string workGiverName = snapshot.OrderedWorkGiverNames[orderIndex];
-                                if (string.IsNullOrEmpty(workGiverName)) continue;
-                                specificOrder.Add(new WorkloadSpecificJobOrderEntry(
-                                    new WorkloadSpecificJobKey(
-                                        new PawnKey(pawnId),
-                                        new WorkTypeKey(workType.defName),
-                                        new WorkGiverKey(workGiverName)),
-                                    orderIndex));
-                            }
-                        }
-                    }
-                }
-            }
-
-            WorkloadOwnershipDimensions ownership =
-                WorkloadOwnershipDimensions.ParentPriorities |
-                WorkloadOwnershipDimensions.ManualModes |
-                WorkloadOwnershipDimensions.SpecificJobOverrides |
-                WorkloadOwnershipDimensions.SpecificJobOrder;
-
-            var definition = new WorkloadDefinition(
-                stableId,
-                string.IsNullOrWhiteSpace(label) ? GetDefaultLabel() : label,
-                WorkloadSchema.CurrentVersion,
-                ownership,
-                WorkloadScope.CurrentMapFreeColonists());
-            return WorkloadOperationResult<WorkloadTemplate>.Ok(
-                new WorkloadTemplate(
-                    definition,
-                    new WorkloadProjectedState(
-                        parentPriorities: priorities,
-                        manualModes: manualModes,
-                        specificJobOverrides: specificOverrides,
-                        specificJobOrder: specificOrder)));
         }
 
         internal WorkloadOperationResult<WorkloadTemplate> GetTemplate(string workloadId = null)
@@ -9653,6 +9519,335 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             internal string PreviousCurrentWorkloadId { get; set; }
             internal bool CurrentWorkloadIdChanged { get; set; }
             internal bool RevisionAdvanced { get; set; }
+        }
+    }
+
+    /// <summary>
+    /// Captures the live Work-tab state for both a new workload and a pawn
+    /// added to an existing preview. Global entries stay outside the pawn
+    /// loop because they do not belong to any captured pawn.
+    /// </summary>
+    internal static class WorkloadLiveCapture
+    {
+        private static readonly Func<WorkloadScheduleTargetKey, int, WorkloadSchedulePayload> LiveScheduleCapture =
+            TryCaptureLiveSchedule;
+
+        internal static WorkloadOperationResult<WorkloadTemplate> CaptureCurrentTemplate(
+            string stableId,
+            string label)
+        {
+            WorkloadOperationResult preflight = WorkloadLiveCapturePolicy.ValidateTemplateCapture(
+                stableId,
+                Verse.Find.CurrentMap != null,
+                delegate { return WorkPrioritySystem.TryCaptureBwtMutationAuthority(out _); },
+                Verse.Find.PlaySettings != null);
+            if (!preflight.Succeeded)
+            {
+                return WorkloadOperationResult<WorkloadTemplate>.Fail(
+                    preflight.Code,
+                    preflight.Message);
+            }
+
+            try
+            {
+                WorkloadOwnershipDimensions ownership =
+                    WorkloadOwnershipDimensions.ParentPriorities |
+                    WorkloadOwnershipDimensions.ManualModes |
+                    WorkloadOwnershipDimensions.SpecificJobOverrides |
+                    WorkloadOwnershipDimensions.SpecificJobOrder;
+                var draft = new WorkloadDraft(WorkloadProjectedState.Empty);
+                bool capturedSchedule = false;
+                List<Pawn> pawns = Verse.Find.CurrentMap.mapPawns?.FreeColonists;
+                for (int pawnIndex = 0; pawns != null && pawnIndex < pawns.Count; pawnIndex++)
+                {
+                    CapturePawn(
+                        draft,
+                        pawns[pawnIndex],
+                        ownership,
+                        null,
+                        true,
+                        ref capturedSchedule);
+                }
+
+                CaptureGlobalState(draft, ownership, ref capturedSchedule);
+                ownership = WorkloadLiveCapturePolicy.CompleteOwnership(
+                    ownership,
+                    capturedSchedule);
+
+                var definition = new WorkloadDefinition(
+                    stableId,
+                    label,
+                    WorkloadSchema.CurrentVersion,
+                    ownership,
+                    WorkloadScope.CurrentMapFreeColonists());
+                return WorkloadOperationResult<WorkloadTemplate>.Ok(
+                    new WorkloadTemplate(definition, draft.ProjectedState));
+            }
+            catch (Exception exception)
+            {
+                Log.Error("[BWT] Typed workload capture failed.\n" + exception);
+                return WorkloadOperationResult<WorkloadTemplate>.Fail(
+                    WorkloadDiagnosticCode.InvalidState,
+                    "BWT_Workload_CaptureFailed".Translate());
+            }
+        }
+
+        internal static bool CapturePawn(
+            WorkloadDraft draft,
+            Pawn pawn,
+            WorkloadOwnershipDimensions ownership,
+            IWorkTabEffectiveStateProvider liveProvider,
+            bool templateCapture,
+            ref bool capturedSchedule)
+        {
+            if (draft == null || pawn?.workSettings == null ||
+                (!templateCapture && (!pawn.workSettings.EverWork || liveProvider == null)))
+            {
+                return false;
+            }
+
+            bool capturesSchedules = templateCapture ||
+                ownership.Owns(WorkloadStateDimension.Schedules);
+            bool ownsSpecificPriority =
+                ownership.Owns(WorkloadStateDimension.SpecificJobOverrides);
+            bool ownsSpecificOrder =
+                ownership.Owns(WorkloadStateDimension.SpecificJobOrder);
+            IReadOnlyList<WorkTypeDef> workTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+            bool wroteValue = false;
+            for (int workTypeIndex = 0;
+                 workTypes != null && workTypeIndex < workTypes.Count;
+                 workTypeIndex++)
+            {
+                WorkTypeDef workType = workTypes[workTypeIndex];
+                if (workType == null || workType.defName.NullOrEmpty())
+                {
+                    continue;
+                }
+
+                WorkloadParentPriorityKey parentKey =
+                    WorkTabEffectiveStateIds.ForParentPriority(pawn, workType);
+                int parentFallback =
+                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+                if (ownership.Owns(WorkloadStateDimension.ParentPriorities))
+                {
+                    int storedPriority = templateCapture
+                        ? PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(pawn.workSettings, workType)
+                        : parentFallback;
+                    int effectivePriority = templateCapture
+                        ? parentFallback
+                        : liveProvider.GetParentPriority(parentKey, parentFallback);
+                    int priority = WorkloadLiveCapturePolicy.SelectParentPriority(
+                        templateCapture,
+                        storedPriority,
+                        effectivePriority);
+                    draft.SetParentPriority(parentKey, priority);
+                    wroteValue = true;
+                }
+
+                if (ownership.Owns(WorkloadStateDimension.ManualModes))
+                {
+                    bool manualMode = templateCapture
+                        ? Verse.Find.PlaySettings.useWorkPriorities
+                        : liveProvider.IsManualMode(
+                            parentKey,
+                            Verse.Find.PlaySettings?.useWorkPriorities ?? true);
+                    draft.SetManualMode(parentKey, manualMode);
+                    wroteValue = true;
+                }
+
+                if (capturesSchedules && WorkloadLiveCapturePolicy.TryCaptureSchedule(
+                        draft,
+                        WorkloadScheduleTargetKey.ForParent(
+                            parentKey.Pawn,
+                            parentKey.WorkType),
+                        parentFallback,
+                        LiveScheduleCapture))
+                {
+                    capturedSchedule = true;
+                    wroteValue = true;
+                }
+
+                if (!templateCapture && !ownsSpecificPriority && !ownsSpecificOrder)
+                {
+                    continue;
+                }
+
+                IReadOnlyList<WorkGiver> workGivers =
+                    WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(
+                        workType,
+                        pawn);
+                for (int workGiverIndex = 0;
+                     workGivers != null && workGiverIndex < workGivers.Count;
+                     workGiverIndex++)
+                {
+                    WorkGiverDef workGiver = workGivers[workGiverIndex]?.def;
+                    if (workGiver == null || workGiver.defName.NullOrEmpty())
+                    {
+                        continue;
+                    }
+
+                    WorkloadSpecificJobKey specificKey =
+                        WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver);
+                    int inheritedPriority =
+                        WorkGiverReassignmentManager.GetWorkGiverPriority(
+                            pawn,
+                            workGiver,
+                            parentFallback);
+                    if (ownsSpecificPriority)
+                    {
+                        if (templateCapture)
+                        {
+                            if (WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+                                    pawn,
+                                    workGiver,
+                                    out int priority))
+                            {
+                                draft.SetSpecificPriority(specificKey.ToTargetKey(), priority);
+                                wroteValue = true;
+                            }
+                        }
+                        else
+                        {
+                            draft.SetSpecificJobOverride(
+                                specificKey,
+                                liveProvider.GetSpecificJobOverride(
+                                    specificKey,
+                                    WorkloadScalarValue.FromInteger(inheritedPriority)));
+                            wroteValue = true;
+                        }
+                    }
+
+                    if (capturesSchedules && WorkloadLiveCapturePolicy.TryCaptureSchedule(
+                            draft,
+                            WorkloadScheduleTargetKey.ForWorkGiver(
+                                parentKey.Pawn,
+                                parentKey.WorkType,
+                                WorkTabEffectiveStateIds.ForWorkGiver(workGiver)),
+                            inheritedPriority,
+                            LiveScheduleCapture))
+                    {
+                        capturedSchedule = true;
+                        wroteValue = true;
+                    }
+
+                    if (!templateCapture && ownsSpecificOrder &&
+                        liveProvider.TryGetSpecificJobOrder(specificKey, out int order))
+                    {
+                        draft.SetSpecificJobOrder(specificKey, order);
+                        wroteValue = true;
+                    }
+                }
+
+                if (templateCapture && ownsSpecificOrder &&
+                    WorkGiverReassignmentManager.HasPawnOrdering(pawn, workType))
+                {
+                    WorkGiverReassignmentManager.PawnWorkGiverOrderSnapshot snapshot =
+                        WorkGiverReassignmentManager.CapturePawnWorkGiverOrderSnapshot(
+                            pawn,
+                            workType);
+                    if (WorkloadLiveCapturePolicy.ApplyWorkTypeOrderSnapshot(
+                            draft,
+                            WorkTabEffectiveStateIds.ForWorkTypeOrder(pawn, workType),
+                            true,
+                            false,
+                            snapshot.OrderedWorkGiverNames))
+                    {
+                        wroteValue = true;
+                    }
+                }
+            }
+
+            return wroteValue;
+        }
+
+        private static void CaptureGlobalState(
+            WorkloadDraft draft,
+            WorkloadOwnershipDimensions ownership,
+            ref bool capturedSchedule)
+        {
+            IReadOnlyList<WorkTypeDef> workTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+            for (int workTypeIndex = 0;
+                 workTypes != null && workTypeIndex < workTypes.Count;
+                 workTypeIndex++)
+            {
+                WorkTypeDef workType = workTypes[workTypeIndex];
+                if (workType == null || workType.defName.NullOrEmpty())
+                {
+                    continue;
+                }
+
+                IReadOnlyList<WorkGiver> workGivers =
+                    WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+                for (int workGiverIndex = 0;
+                     workGivers != null && workGiverIndex < workGivers.Count;
+                     workGiverIndex++)
+                {
+                    WorkGiverDef workGiver = workGivers[workGiverIndex]?.def;
+                    if (workGiver == null || workGiver.defName.NullOrEmpty())
+                    {
+                        continue;
+                    }
+
+                    if (ownership.Owns(WorkloadStateDimension.SpecificJobOverrides))
+                    {
+                        WorkGiverReassignmentManager.GlobalWorkGiverPrioritySnapshot snapshot =
+                            WorkGiverReassignmentManager.CaptureGlobalWorkGiverPrioritySnapshot(
+                                workGiver.defName);
+                        WorkloadSpecificJobTargetKey key =
+                            WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(
+                                workType,
+                                workGiver);
+                        WorkloadLiveCapturePolicy.ApplySpecificPrioritySnapshot(
+                            draft,
+                            key,
+                            snapshot.HasStoredValue,
+                            snapshot.IsExplicitlyCleared,
+                            snapshot.Priority);
+                    }
+
+                    if (WorkloadLiveCapturePolicy.TryCaptureSchedule(
+                            draft,
+                            WorkloadScheduleTargetKey.GlobalWorkGiver(
+                                WorkTabEffectiveStateIds.ForWorkType(workType),
+                                WorkTabEffectiveStateIds.ForWorkGiver(workGiver)),
+                            WorkGiverReassignmentManager.GetWorkGiverPriority(
+                                null,
+                                workGiver,
+                                WorkPrioritySystem.GetDefaultEnabledPriority()),
+                            LiveScheduleCapture))
+                    {
+                        capturedSchedule = true;
+                    }
+                }
+
+                if (ownership.Owns(WorkloadStateDimension.SpecificJobOrder))
+                {
+                    WorkGiverReassignmentManager.GlobalWorkTypeOrderSnapshot snapshot =
+                        WorkGiverReassignmentManager.CaptureGlobalWorkTypeOrderSnapshot(
+                            workType.defName);
+                    WorkloadWorkTypeOrderKey key =
+                        WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(workType);
+                    WorkloadLiveCapturePolicy.ApplyWorkTypeOrderSnapshot(
+                        draft,
+                        key,
+                        snapshot.HasStoredValue,
+                        snapshot.IsExplicitlyCleared,
+                        snapshot.OrderedWorkGiverNames);
+                }
+            }
+        }
+
+        private static WorkloadSchedulePayload TryCaptureLiveSchedule(
+            WorkloadScheduleTargetKey key,
+            int fallbackPriority)
+        {
+            return TimePriorityService.TryCaptureLiveScheduleSnapshot(
+                    key,
+                    fallbackPriority,
+                    out TimePriorityLiveScheduleSnapshot snapshot,
+                    out _) && snapshot.HadSchedule
+                ? snapshot.Payload
+                : null;
         }
     }
 }
