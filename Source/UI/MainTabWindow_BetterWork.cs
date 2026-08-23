@@ -216,7 +216,16 @@ namespace Better_Work_Tab.UI
 
         private void DoWindowContentsProfiledCore(Rect inRect, PawnTable table)
         {
-            _workloadPreviewController.PrepareFrame();
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time(
+                    "WorkTab.WorkloadPreview.PrepareFrame",
+                    () => _workloadPreviewController.PrepareFrame());
+            }
+            else
+            {
+                _workloadPreviewController.PrepareFrame();
+            }
             IDisposable effectiveStateScope =
                 _workloadPreviewController.PushEffectiveStateScope();
             try
@@ -230,7 +239,16 @@ namespace Better_Work_Tab.UI
                 effectiveStateScope.Dispose();
                 try
                 {
-                    _workloadPreviewController.SynchronizeAfterInput();
+                    if (SpineTiming.Enabled)
+                    {
+                        SpineTiming.Time(
+                            "WorkTab.WorkloadPreview.SynchronizeAfterInput",
+                            () => _workloadPreviewController.SynchronizeAfterInput());
+                    }
+                    else
+                    {
+                        _workloadPreviewController.SynchronizeAfterInput();
+                    }
                 }
                 finally
                 {
@@ -478,10 +496,22 @@ namespace Better_Work_Tab.UI
             try
             {
                 WorkGridInvalidationAudit.Poll(table);
-                presentationSnapshot = _workGridSnapshots.Prepare(
-                    organizer?.Layout,
-                    table,
-                    WorkTabInvalidationHub.Current);
+                if (SpineTiming.Enabled)
+                {
+                    SpineTiming.Time(
+                        "WorkTab.Snapshot.Prepare",
+                        () => presentationSnapshot = _workGridSnapshots.Prepare(
+                            organizer?.Layout,
+                            table,
+                            WorkTabInvalidationHub.Current));
+                }
+                else
+                {
+                    presentationSnapshot = _workGridSnapshots.Prepare(
+                        organizer?.Layout,
+                        table,
+                        WorkTabInvalidationHub.Current);
+                }
             }
             catch (Exception exception)
             {
@@ -554,22 +584,18 @@ namespace Better_Work_Tab.UI
         {
             HeaderButtons.BottomButtonRects buttonRects =
                 HeaderButtons.GetBottomButtonRects(inRect, gearRect);
-            if (!_workloadPreviewController.ShouldRouteInspectionWheel(
-                    evt,
-                    buttonRects.HasWorkloadUpdate
-                        ? buttonRects.WorkloadUpdate
-                        : Rect.zero,
-                    buttonRects.HasWorkloadPreview
-                        ? buttonRects.WorkloadApply
-                        : Rect.zero) ||
+            if (!_workloadPreviewController.IsActive ||
+                evt == null ||
+                evt.type != EventType.ScrollWheel ||
+                !buttonRects.ContainsWorkloadFooter(evt.mousePosition) ||
                 table == null)
             {
                 return false;
             }
 
-            // Consume the wheel over the footer's Update button and update the
-            // same PawnTable scroll owner the body renderer uses. Update hover
-            // inspection must never let that wheel become a priority edit.
+            // Keep scrolling continuous when the pointer reaches the preview
+            // footer. The viewport remains the sole scroll owner and the event
+            // never reaches priority-cell input beneath the footer.
             Vector2 scrollPosition = table.scrollPosition;
             _viewportController.TryApplyScrollWheel(ref scrollPosition, evt);
             table.scrollPosition = scrollPosition;

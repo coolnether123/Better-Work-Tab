@@ -1054,10 +1054,13 @@ namespace Better_Work_Tab.UI.Workloads
         private bool _hasInspectionCellTargets;
         private bool _hasManualModeInspectionChange;
         private WorkloadMembershipSnapshot _membershipSnapshot;
-        private WorkloadSession _membershipSnapshotSession;
-        private long _membershipSnapshotProjectionRevision = long.MinValue;
+        private string _membershipSnapshotSourceIdentity = string.Empty;
+        private long _membershipSnapshotMembershipRevision = long.MinValue;
         private long _membershipSnapshotPawnSetRevision = long.MinValue;
         private long _projectedEditablePawnSetRevision = long.MinValue;
+        private long _synchronizedProjectedProviderRevision = long.MinValue;
+        private int _availablePawnSetRevisionFrame = -1;
+        private long _availablePawnSetRevision = long.MinValue;
 
         private sealed class QueuedLifecycleAction
         {
@@ -2003,6 +2006,12 @@ namespace Better_Work_Tab.UI.Workloads
                 return true;
             }
 
+            long providerRevision = _projectedProvider?.ProjectionRevision ?? long.MinValue;
+            if (providerRevision == _synchronizedProjectedProviderRevision)
+            {
+                return true;
+            }
+
             if (IsUnsafePreviewInputBlocked)
             {
                 // A third-party input owner may have run after the Work-tab
@@ -2014,6 +2023,10 @@ namespace Better_Work_Tab.UI.Workloads
                 {
                     RebuildProjection(_session.ProjectedState);
                 }
+                else
+                {
+                    _synchronizedProjectedProviderRevision = providerRevision;
+                }
 
                 return true;
             }
@@ -2024,6 +2037,7 @@ namespace Better_Work_Tab.UI.Workloads
                     projected,
                     WorkloadOwnershipDimensions.All))
             {
+                _synchronizedProjectedProviderRevision = providerRevision;
                 return true;
             }
 
@@ -2037,7 +2051,20 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             _session = result.Value;
-            RebuildProjection(_session.ProjectedState);
+            if (!_session.ProjectedState.SemanticallyEquals(
+                    projected,
+                    WorkloadOwnershipDimensions.All))
+            {
+                RebuildProjection(_session.ProjectedState);
+            }
+            else
+            {
+                // The active provider already owns the accepted draft and its
+                // indexes. A value-only edit does not change the membership
+                // boundary, so retain it and invalidate only derived diffs.
+                ClearInspectionIndex();
+                _synchronizedProjectedProviderRevision = providerRevision;
+            }
             ResetCompletedMultiplayerAttemptIfPayloadChanged();
             return true;
         }
@@ -2586,52 +2613,6 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
-        internal bool ShouldRouteInspectionWheel(Event evt, Rect updateRect)
-        {
-            return ShouldRouteInspectionWheel(evt, Rect.zero, updateRect, Rect.zero);
-        }
-
-        internal bool ShouldRouteInspectionWheel(
-            Event evt,
-            Rect updateRect,
-            Rect applyRect)
-        {
-            return ShouldRouteInspectionWheel(
-                evt,
-                Rect.zero,
-                updateRect,
-                applyRect);
-        }
-
-        internal bool ShouldRouteInspectionWheel(
-            Event evt,
-            Rect saveAsRect,
-            Rect updateRect,
-            Rect applyRect)
-        {
-            if (evt == null || evt.type != EventType.ScrollWheel || !IsActive)
-            {
-                return false;
-            }
-
-            bool overApply = applyRect.width > 0f && applyRect.Contains(evt.mousePosition);
-            bool overSaveAs = saveAsRect.width > 0f && saveAsRect.Contains(evt.mousePosition);
-            bool overUpdate = updateRect.width > 0f && updateRect.Contains(evt.mousePosition);
-            bool overInspection =
-                (overApply && HasLiveImpact) ||
-                (overSaveAs && HasTemplateDiff) ||
-                (overUpdate && HasTemplateDiff);
-            if (overInspection)
-            {
-                _inspectionActive = true;
-                _inspectionContext = overApply
-                    ? WorkloadInspectionContext.Live
-                    : WorkloadInspectionContext.Template;
-            }
-
-            return overInspection;
-        }
-
         internal void UpdateFooterInspectionHover(Rect updateRect)
         {
             UpdateFooterInspectionHover(Rect.zero, updateRect, Rect.zero);
@@ -2826,11 +2807,12 @@ namespace Better_Work_Tab.UI.Workloads
                 return new WorkloadMembershipSnapshot(null);
             }
 
-            long projectionRevision = _projectedProvider?.Revision ?? 0L;
             long pawnSetRevision = ComputeAvailablePawnSetRevision();
             if (_membershipSnapshot == null ||
-                !ReferenceEquals(_membershipSnapshotSession, _session) ||
-                _membershipSnapshotProjectionRevision != projectionRevision ||
+                !StringComparer.Ordinal.Equals(
+                    _membershipSnapshotSourceIdentity,
+                    _session.SourceIdentity) ||
+                _membershipSnapshotMembershipRevision != _session.MembershipRevision ||
                 _membershipSnapshotPawnSetRevision != pawnSetRevision)
             {
                 WorkloadTemplate template =
@@ -2838,8 +2820,8 @@ namespace Better_Work_Tab.UI.Workloads
                 WorkloadMembershipResult result =
                     WorkloadMembershipClassifier.Classify(template, BuildAvailableCandidates());
                 _membershipSnapshot = new WorkloadMembershipSnapshot(result);
-                _membershipSnapshotSession = _session;
-                _membershipSnapshotProjectionRevision = projectionRevision;
+                _membershipSnapshotSourceIdentity = _session.SourceIdentity;
+                _membershipSnapshotMembershipRevision = _session.MembershipRevision;
                 _membershipSnapshotPawnSetRevision = pawnSetRevision;
             }
 
@@ -2910,6 +2892,54 @@ namespace Better_Work_Tab.UI.Workloads
 
             SetMessage(T("BWT_Workload_PawnOutside"));
             return false;
+        }
+
+        internal bool EnsurePawnIncludedForPriorityEdit(Pawn pawn)
+        {
+            if (!IsActive)
+            {
+                return true;
+            }
+
+            PawnKey pawnKey = WorkTabEffectiveStateIds.ForPawn(pawn);
+            WorkloadMembershipRecord record = pawnKey.IsValid
+                ? GetMembershipSnapshot().Find(pawnKey)
+                : null;
+            WorkloadScope scope = _session.SourceTemplate.Definition.Scope ?? WorkloadScope.Empty;
+            if (record == null ||
+                !record.IsAvailable ||
+                scope.IsExplicitlyExcluded(pawnKey) ||
+                record.Classification == WorkloadMembershipClassification.UnchangedOutsideScope ||
+                record.Classification == WorkloadMembershipClassification.StaleMissing)
+            {
+                SetMessage(T("BWT_Workload_PawnCannotChange"));
+                return false;
+            }
+
+            if (record.Classification == WorkloadMembershipClassification.Included)
+            {
+                return true;
+            }
+
+            if (_session.ProjectedState.IsExcluded(pawnKey))
+            {
+                bool included = SetSessionMembership(pawnKey, include: true);
+                if (included)
+                {
+                    SetMessage(T("BWT_Workload_PawnIncluded"));
+                }
+
+                return included;
+            }
+
+            if (record.Classification != WorkloadMembershipClassification.UnrepresentedNew ||
+                !AddCurrentLiveBaseline(pawnKey))
+            {
+                return false;
+            }
+
+            SetMessage(T("BWT_Workload_PawnIncludedCurrent"));
+            return true;
         }
 
         private bool SetSessionMembership(PawnKey pawnKey, bool include)
@@ -3103,11 +3133,11 @@ namespace Better_Work_Tab.UI.Workloads
 
         private void RebuildProjection(WorkloadProjectedState projectedState)
         {
-            InvalidateMembershipSnapshot();
             if (_session == null)
             {
                 _projectedProvider = null;
                 _projectedEditablePawnSetRevision = long.MinValue;
+                _synchronizedProjectedProviderRevision = long.MinValue;
                 ClearInspectionIndex();
                 return;
             }
@@ -3120,17 +3150,20 @@ namespace Better_Work_Tab.UI.Workloads
                 "bwt.preview",
                 _session.SourceTemplate.Definition.Scope,
                 BuildEditablePawnIds());
+            _synchronizedProjectedProviderRevision = _projectedProvider.ProjectionRevision;
             _projectedEditablePawnSetRevision = ComputeAvailablePawnSetRevision();
             ClearInspectionIndex();
         }
 
         private void ClearLocalSession()
         {
+            WorkTabEffectiveStateRuntime.ClearPreviewCacheResidue();
             WorkloadSurfaceCoordinator.NotifyPreviewClosed();
             InvalidateMembershipSnapshot();
             _session = null;
             _projectedProvider = null;
             _projectedEditablePawnSetRevision = long.MinValue;
+            _synchronizedProjectedProviderRevision = long.MinValue;
             _inspectionActive = false;
             _inspectionContext = WorkloadInspectionContext.None;
             ClearInspectionIndex();
@@ -3146,8 +3179,8 @@ namespace Better_Work_Tab.UI.Workloads
         private void InvalidateMembershipSnapshot()
         {
             _membershipSnapshot = null;
-            _membershipSnapshotSession = null;
-            _membershipSnapshotProjectionRevision = long.MinValue;
+            _membershipSnapshotSourceIdentity = string.Empty;
+            _membershipSnapshotMembershipRevision = long.MinValue;
             _membershipSnapshotPawnSetRevision = long.MinValue;
         }
 
@@ -3392,8 +3425,7 @@ namespace Better_Work_Tab.UI.Workloads
                 }
 
                 bool currentMap = pawn.Map == Find.CurrentMap;
-                bool freeColonist = currentMap &&
-                    Find.CurrentMap?.mapPawns?.FreeColonists?.Contains(pawn) == true;
+                bool freeColonist = currentMap && pawn.IsFreeColonist;
                 candidates.Add(new PawnScopeCandidate(
                     WorkTabEffectiveStateIds.ForPawn(pawn),
                     currentMap,
@@ -3436,6 +3468,12 @@ namespace Better_Work_Tab.UI.Workloads
         /// </summary>
         private long ComputeAvailablePawnSetRevision()
         {
+            int frame = Time.frameCount;
+            if (_availablePawnSetRevisionFrame == frame)
+            {
+                return _availablePawnSetRevision;
+            }
+
             unchecked
             {
                 long revision = 17L;
@@ -3444,7 +3482,9 @@ namespace Better_Work_Tab.UI.Workloads
                 Map currentMap = Find.CurrentMap;
                 if (pawns == null)
                 {
-                    return revision;
+                    _availablePawnSetRevisionFrame = frame;
+                    _availablePawnSetRevision = revision;
+                    return _availablePawnSetRevision;
                 }
 
                 for (int i = 0; i < pawns.Count; i++)
@@ -3457,15 +3497,16 @@ namespace Better_Work_Tab.UI.Workloads
                     }
 
                     bool currentMapPawn = pawn.Map == currentMap;
-                    bool freeColonist = currentMapPawn &&
-                        currentMap?.mapPawns?.FreeColonists?.Contains(pawn) == true;
+                    bool freeColonist = currentMapPawn && pawn.IsFreeColonist;
                     revision = (revision * 31L) + pawn.thingIDNumber;
                     revision = (revision * 31L) + (currentMapPawn ? 1L : 0L);
                     revision = (revision * 31L) + (pawn.IsColonist ? 1L : 0L);
                     revision = (revision * 31L) + (freeColonist ? 1L : 0L);
                 }
 
-                return revision;
+                _availablePawnSetRevisionFrame = frame;
+                _availablePawnSetRevision = revision;
+                return _availablePawnSetRevision;
             }
         }
 

@@ -38,7 +38,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         BestPawn = 1 << 4,
         HasPassion = 1 << 5,
         IdeologyWarning = 1 << 6,
-        LowSkillWarning = 1 << 7
+        LowSkillWarning = 1 << 7,
+        ManualPriorityMode = 1 << 8
     }
 
     public readonly struct WorkGridRowEntry

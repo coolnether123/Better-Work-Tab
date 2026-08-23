@@ -30,6 +30,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private int[] _cellLookup = Array.Empty<int>();
         private WorkGridIndexRange _visibleRows;
         private WorkGridIndexRange _visibleColumns;
+        private ImGuiEventPhase _eventPhase;
         private bool _delegateFeatureCells;
         private GuiStateScope _cellBatchState;
         private bool _cellBatchActive;
@@ -44,13 +45,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public bool IsAvailable(in WorkGridRenderContext context)
         {
-            // The optimized layer stores a single snapshot-wide manual-mode
-            // flag and optimized vanilla cells cannot consume projected
-            // specific-job state. Let the selector choose the permanent
-            // vanilla fallback for this pass while the Harmony paths read the
-            // scoped effective provider.
-            return !WorkTabEffectiveStateRuntime.IsPreviewActive &&
-                   !PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority &&
+            // The snapshot is built inside the effective-state scope, so a
+            // workload presentation captures projected parent priorities,
+            // specific-job state, and its validated global manual mode. An
+            // external priority owner still lacks a safe content revision and
+            // therefore remains on the native correctness path.
+            return !PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority &&
                    WorkGridSnapshotProvider.IsActiveEffectiveStateCurrent() &&
                    context.Presentation.Snapshot != null &&
                    context.Presentation.Geometry != null &&
@@ -60,6 +60,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public void Prepare(in WorkGridRenderContext context)
         {
+            _eventPhase = context.EventPhase;
             WorkGridSnapshot snapshot = context.Presentation.Snapshot;
             if (!ReferenceEquals(snapshot, _snapshot))
             {
@@ -103,7 +104,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 context.Presentation.Table,
                 context.Layout,
                 context.WindowRect,
-                context.EventPhase == ImGuiEventPhase.Repaint ? this : null);
+                this);
         }
 
         public void HandleEvent(in WorkGridRenderContext context)
@@ -174,7 +175,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             WorkCellVisualState cell = _snapshot.Cells[cellIndex];
-            if (IsNativeHoverOwned(cellRect, cell.WorkType))
+            if (_eventPhase == ImGuiEventPhase.Repaint &&
+                IsNativeHoverOwned(cellRect, cell.WorkType))
             {
                 // Harmony/native DoCell owns hover-sensitive visuals and
                 // tooltips. Returning false lets the body renderer delegate
@@ -276,7 +278,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             DrawCachedWorkBoxBackground(boxRect, cell);
 
             GUI.color = Color.white;
-            if (_snapshot.ManualPriorities)
+            if ((cell.Flags & WorkCellVisualFlags.ManualPriorityMode) != 0)
             {
                 if (cell.Priority > WorkPrioritySystem.DisabledPriority)
                 {

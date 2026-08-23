@@ -270,9 +270,9 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            // Vanilla disabled/incapable cells are display-only. Apply the same guard before
-            // BWT's wheel handler so it cannot reach Pawn_WorkSettings.SetPriority first.
-            if (GetIsIncapable(pawn, workType) || pawn.WorkTypeIsDisabled(workType))
+            // Vanilla blocks work types disabled by pawn restrictions, but a temporary
+            // capacity incapability only tints the box red and remains interactive.
+            if (pawn.WorkTypeIsDisabled(workType))
             {
                 return true;
             }
@@ -563,7 +563,9 @@ namespace Better_Work_Tab.Patches
             {
                 Text.WordWrap = false;
 
-                GUI.color = new Color(oldColor.r, oldColor.g, oldColor.b, oldColor.a * alpha);
+                GUI.color = GetIsIncapable(pawn, workType)
+                    ? new Color(1f, 0.3f, 0.3f, alpha)
+                    : new Color(oldColor.r, oldColor.g, oldColor.b, oldColor.a * alpha);
                 WidgetsWork.DrawWorkBoxBackground(boxRect, pawn, workType);
 
                 if (WorkTabEffectiveStateRuntime.IsManualMode(
@@ -1094,6 +1096,15 @@ namespace Better_Work_Tab.Patches
 
         internal static bool TryHandleRootPriorityInput(Rect rootCellRect, Pawn pawn, WorkTypeDef workType)
         {
+            if (pawn == null ||
+                workType == null ||
+                pawn.workSettings == null ||
+                pawn.WorkTypeIsDisabled(workType))
+            {
+                Event.current?.Use();
+                return true;
+            }
+
             return TryHandleParentSubWorkOverrideInput(rootCellRect, pawn, workType) ||
                 TryHandleScheduleIndicatorInput(rootCellRect, pawn, workType) ||
                 TryHandleWorkPriorityScroll(rootCellRect, pawn, workType, trustHit: true) ||
@@ -1167,71 +1178,55 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            if (WorkTabEffectiveStateRuntime.IsManualMode(
+            bool manualPriorities = WorkTabEffectiveStateRuntime.IsManualMode(
                     pawn,
                     workType,
-                    Find.PlaySettings?.useWorkPriorities ?? true))
-            {
-                if (evt.button != 0 && evt.button != 1)
-                {
-                    return false;
-                }
-
-                bool wasActive = IsEffectiveWorkActive(pawn, workType);
-                int currentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                    pawn,
-                    workType,
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
-                int nextPriority = WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button);
-
-                if (nextPriority != currentPriority)
-                {
-                    if (WorkPriorityCommandGateway.Execute(new SetPriorityCommand(pawn, workType, nextPriority)))
-                    {
-                        SoundDefOf.DragSlider.PlayOneShotOnCamera();
-                    }
-                }
-
-                NotifyWorkActivatedIfNeeded(pawn, workType, wasActive);
-                evt.Use();
-                PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.WorkTab, KnowledgeAmount.SpecificInteraction);
-                PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.ManualWorkPriorities, KnowledgeAmount.SmallInteraction);
-                return true;
-            }
-
-            if (evt.button != 0)
+                    Find.PlaySettings?.useWorkPriorities ?? true);
+            if ((manualPriorities && evt.button != 0 && evt.button != 1) ||
+                (!manualPriorities && evt.button != 0))
             {
                 return false;
             }
 
-            bool wasEnabled = IsEffectiveWorkActive(pawn, workType);
-            if (WorkTabEffectiveStateRuntime.GetParentPriority(
+            bool wasActive = IsEffectiveWorkActive(pawn, workType);
+            int currentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                pawn,
+                workType,
+                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+            int nextPriority = WorkPrioritySystem.GetPriorityAfterCellClick(
+                currentPriority,
+                evt.button,
+                manualPriorities);
+
+            if (nextPriority != currentPriority &&
+                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
                     pawn,
                     workType,
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType)) > 0)
+                    nextPriority)))
             {
-                if (WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
-                        pawn,
-                        workType,
-                        WorkPrioritySystem.DisabledPriority)))
+                if (manualPriorities)
+                {
+                    SoundDefOf.DragSlider.PlayOneShotOnCamera();
+                }
+                else if (nextPriority > WorkPrioritySystem.DisabledPriority)
+                {
+                    SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
+                }
+                else
                 {
                     SoundDefOf.Checkbox_TurnedOff.PlayOneShotOnCamera();
                 }
             }
-            else
-            {
-                if (WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
-                        pawn,
-                        workType,
-                        WorkPrioritySystem.GetDefaultEnabledPriority())))
-                {
-                    SoundDefOf.Checkbox_TurnedOn.PlayOneShotOnCamera();
-                }
-            }
 
-            NotifyWorkActivatedIfNeeded(pawn, workType, wasEnabled);
+            NotifyWorkActivatedIfNeeded(pawn, workType, wasActive);
             evt.Use();
             PlayerKnowledgeDatabase.KnowledgeDemonstrated(ConceptDefOf.WorkTab, KnowledgeAmount.SpecificInteraction);
+            if (manualPriorities)
+            {
+                PlayerKnowledgeDatabase.KnowledgeDemonstrated(
+                    ConceptDefOf.ManualWorkPriorities,
+                    KnowledgeAmount.SmallInteraction);
+            }
             return true;
         }
 

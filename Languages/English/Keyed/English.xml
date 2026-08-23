@@ -197,6 +197,7 @@
 <BWT_FluffyMigration_SettingsContextTooltip>Settings for Fluffy-style controls, saved hourly priorities, visible compatibility columns, and choosing which mod owns the Work tab.</BWT_FluffyMigration_SettingsContextTooltip>
 <BWT_Tutorial_Selector_Title>Explore Better Work Tab</BWT_Tutorial_Selector_Title>
 <BWT_Tutorial_Selector_DefaultBody>Click a highlighted name, header, or priority to explore it.</BWT_Tutorial_Selector_DefaultBody>
+<BWT_Tutorial_WorkloadPresentation_Body>You are viewing a workload presentation. This is what the Work tab will change to if you apply it.</BWT_Tutorial_WorkloadPresentation_Body>
 <BWT_Tutorial_Selector_AllDoneBody>You have explored every enabled feature. Turn on another feature to see its lesson.</BWT_Tutorial_Selector_AllDoneBody>
 <BWT_Tutorial_AlreadyUsing>Your colony already uses this feature. Open the lesson if you want a refresher.</BWT_Tutorial_AlreadyUsing>
 <BWT_Tutorial_Discover_Button>{0} switched off</BWT_Tutorial_Discover_Button>

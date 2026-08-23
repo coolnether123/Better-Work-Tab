@@ -19,6 +19,16 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static readonly ConditionalWeakTable<Pawn_IdeoTracker, PawnReference> IdeologyOwners =
             new ConditionalWeakTable<Pawn_IdeoTracker, PawnReference>();
         private static Game _currentGame;
+        private static int _skillRevision;
+
+        internal static int SkillRevision
+        {
+            get
+            {
+                EnsureCurrentGame();
+                return _skillRevision;
+            }
+        }
 
         internal static void RegisterCapacityOwner(PawnCapacitiesHandler handler, Pawn pawn)
         {
@@ -74,6 +84,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.CapabilitySkill);
         }
 
+        internal static void NotifySkillStateChanged()
+        {
+            EnsureCurrentGame();
+            _skillRevision = unchecked(_skillRevision + 1);
+            WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.CapabilitySkill);
+        }
+
         private static void EnsureCurrentGame()
         {
             Game game = Current.Game;
@@ -84,6 +101,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             _currentGame = game;
             PawnDynamicVersions.Clear();
+            _skillRevision = 0;
         }
 
         private static void RegisterOwner<TOwner>(

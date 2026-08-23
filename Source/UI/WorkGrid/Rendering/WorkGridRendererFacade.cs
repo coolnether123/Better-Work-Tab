@@ -54,15 +54,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkTabEffectiveStateRuntime.BeginRenderPass();
             WorkGridRendererMode userMode = _selectionMode();
             WorkGridForcedRendererMode forcedMode = WorkGridRendererDiagnostics.ForcedMode;
-            bool nativeOnly = WorkTabEffectiveStateRuntime.IsPreviewActive ||
-                              PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority;
+            bool nativeOnly = PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority;
 
             if (nativeOnly)
             {
-                // Preview and external priority authority are correctness
-                // boundaries for the optimized snapshot renderer. Enforce the
-                // boundary immediately, including an input/repaint event that
-                // arrives before the next Layout selection pass.
+                // External priority authority is a correctness boundary for
+                // the optimized snapshot renderer because it has no safe
+                // content revision. Enforce it immediately, including input
+                // that arrives before the next Layout selection pass.
                 SwitchToRenderer(_vanilla, context);
                 _activeId = VanillaWorkGridRenderer.RendererId;
                 PublishSelection(
@@ -70,9 +69,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     forcedMode,
                     new WorkGridFallbackReason(
                         WorkGridFallbackReasonCode.CapabilityUnavailable,
-                        WorkTabEffectiveStateRuntime.IsPreviewActive
-                            ? "Projected Work-tab state requires the native renderer."
-                            : "External priority authority requires the native renderer."),
+                        "External priority authority requires the native renderer."),
                     context.Scope);
             }
             else if (context.EventPhase == ImGuiEventPhase.Layout)
