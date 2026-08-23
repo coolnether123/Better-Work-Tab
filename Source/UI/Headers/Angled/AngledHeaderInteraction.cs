@@ -488,13 +488,17 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                 if (WorkTabEffectiveStateRuntime.IsPreviewActive)
                 {
-                    changed |= WorkPriorityCommandGateway.Execute(
-                        new SetPriorityCommand(pawn, workType, nextPriority));
+                    changed |= WorkPriorityCommandGateway.TrySetPreviewParentPriority(
+                        pawn,
+                        workType,
+                        nextPriority);
                 }
                 else
                 {
-                    WorkPrioritySystem.SetPriority(pawn.workSettings, workType, nextPriority);
-                    changed = true;
+                    changed |= ParentPriorityApplication.SetStoredParentPriority(
+                        pawn,
+                        workType,
+                        nextPriority);
                 }
             }
 
@@ -613,11 +617,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                     if (nextPriority != currentPriority)
                     {
-                        changedInPreview |= WorkPriorityCommandGateway.Execute(
-                            new SetWorkGiverPriorityCommand(
-                                pawn.thingIDNumber,
-                                workGiverDef,
-                                nextPriority));
+                        changedInPreview |= WorkPriorityCommandGateway.SetWorkGiverPriority(
+                            pawn.thingIDNumber,
+                            workGiverDef,
+                            nextPriority);
                     }
                 }
 

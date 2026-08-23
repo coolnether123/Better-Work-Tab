@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Threading;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
-using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.Foundation;
 using Verse;
 
@@ -211,23 +210,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Diagnostics
             Volatile.Write(ref _snapshotUpdatedCellCount, 0);
         }
 
-        internal static void RecordCommand(in WorkGridCommandObservation observation)
-        {
-            IRenderDiagnosticsSink sink = BwtWorkGridDiagnosticsSink.Instance;
-            if (!sink.Enabled)
-            {
-                return;
-            }
-
-            sink.Record(new RenderDiagnostic(
-                observation.Accepted
-                    ? RenderDiagnosticSeverity.Information
-                    : RenderDiagnosticSeverity.Warning,
-                "work-grid-command",
-                "kind=" + observation.Kind +
-                ", accepted=" + observation.Accepted +
-                ", detail=" + observation.Detail + "."));
-        }
     }
 
     internal sealed class BwtWorkGridDiagnosticsSink : IRenderDiagnosticsSink

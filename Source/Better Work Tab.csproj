@@ -126,6 +126,8 @@
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityRangePolicy.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityValueResolver.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\ParentPriorityCommandExpectation.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\ParentPriorityApplication.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\WorkPrioritySystem.cs" />
     <Compile Include="Features\Patches\Patch_PawnTable_RecacheIfDirty.cs" />
     <Compile Include="Features\Patches\Patch_Pawn_WorkSettings_SetPriority.cs" />
@@ -371,8 +373,6 @@
     <Compile Include="UI\WorkGrid\Projection\LiveWorkTabEffectiveStateProvider.cs" />
     <Compile Include="UI\WorkGrid\Projection\BwtLiveWorkTabEffectiveStateAdapter.cs" />
     <Compile Include="UI\WorkGrid\Projection\ProjectedWorkTabEffectiveStateProvider.cs" />
-    <Compile Include="UI\WorkGrid\Commands\WorkGridCommandMath.cs" />
-    <Compile Include="UI\WorkGrid\Commands\WorkGridCommands.cs" />
     <Compile Include="UI\WorkGrid\Commands\WorkPriorityCommandGateway.cs" />
     <Compile Include="UI\WorkGrid\Compatibility\WorkGridVanillaCompatibilityPolicy.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkGridContextActionController.cs" />

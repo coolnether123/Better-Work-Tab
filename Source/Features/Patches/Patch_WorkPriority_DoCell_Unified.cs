@@ -1143,7 +1143,15 @@ namespace Better_Work_Tab.Patches
                     : WorkPrioritySystem.GetDefaultEnabledPriority();
             if (nextPriority != currentPriority)
             {
-                if (WorkPriorityCommandGateway.Execute(new SetPriorityCommand(pawn, workType, nextPriority)))
+                if (WorkTabEffectiveStateRuntime.IsPreviewActive
+                    ? WorkPriorityCommandGateway.TrySetPreviewParentPriority(
+                        pawn,
+                        workType,
+                        nextPriority)
+                    : ParentPriorityApplication.SetDisplayedParentPriority(
+                        pawn,
+                        workType,
+                        nextPriority))
                 {
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
@@ -1199,10 +1207,15 @@ namespace Better_Work_Tab.Patches
                 manualPriorities);
 
             if (nextPriority != currentPriority &&
-                WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
-                    pawn,
-                    workType,
-                    nextPriority)))
+                (WorkTabEffectiveStateRuntime.IsPreviewActive
+                    ? WorkPriorityCommandGateway.TrySetPreviewParentPriority(
+                        pawn,
+                        workType,
+                        nextPriority)
+                    : ParentPriorityApplication.SetDisplayedParentPriority(
+                        pawn,
+                        workType,
+                        nextPriority)))
             {
                 if (manualPriorities)
                 {

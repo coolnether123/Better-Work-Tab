@@ -1,9 +1,7 @@
 using System;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.ModSupport;
-using Multiplayer.API;
 using RimWorld;
-using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using Verse;
@@ -56,14 +54,14 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return false;
             }
 
-            Find.PlaySettings.useWorkPriorities = enabled;
             if (!IsBwtMutationAuthorityCurrent(authorityRevision))
             {
                 return false;
             }
 
+            Find.PlaySettings.useWorkPriorities = enabled;
             NotifyManualPrioritiesChanged();
-            return IsBwtMutationAuthorityCurrent(authorityRevision);
+            return true;
         }
 
         /// <summary>
@@ -142,6 +140,17 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return PriorityAuthorityBroker.GetEffectivePriority(pawn, workType);
         }
 
+        internal static bool TryGetRawStoredPriority(
+            Pawn_WorkSettings workSettings,
+            WorkTypeDef workType,
+            out int priority)
+        {
+            priority = DisabledPriority;
+            if (workSettings?.priorities == null || workType == null) return false;
+            priority = workSettings.priorities[workType];
+            return true;
+        }
+
         internal static int GetCurrentPriorityForPawnWorkType(Pawn pawn, WorkTypeDef workType)
         {
             if (PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority)
@@ -192,6 +201,20 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 PriorityAuthorityResolver.CurrentAuthorityRevision == revision;
         }
 
+        internal static bool TryCaptureExpectedStoredState(
+            Pawn_WorkSettings workSettings,
+            WorkTypeDef workType,
+            ParentPriorityCommandExpectation expectation,
+            out long authorityRevision)
+        {
+            authorityRevision = 0L;
+            return expectation != null &&
+                   TryCaptureBwtMutationAuthority(out authorityRevision) &&
+                   TryGetRawStoredPriority(workSettings, workType, out int storedPriority) &&
+                   expectation.MatchesStored(authorityRevision, storedPriority) &&
+                   IsBwtMutationAuthorityCurrent(authorityRevision);
+        }
+
         /// <summary>
         /// Writes a work-type priority while Better Work Tab owns a coherent authority snapshot,
         /// then mirrors it to any external work-tab mod that is observing BWT.
@@ -200,59 +223,61 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// An external owner is never silently shadow-written by this boundary. External adapters may
         /// still perform their own writes through their own authority contract.
         /// </remarks>
-        internal static bool SetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType, int priority)
+        internal static bool SetPriority(Pawn_WorkSettings workSettings, WorkTypeDef workType, int priority) =>
+            ApplyPriority(workSettings, workType, priority, null) != PriorityMutationOutcome.Rejected;
+
+        internal static PriorityMutationOutcome ApplyPriority(
+            Pawn_WorkSettings workSettings,
+            WorkTypeDef workType,
+            int priority,
+            ParentPriorityCommandExpectation expectation)
         {
             if (workSettings == null || workType == null)
             {
-                return false;
+                return PriorityMutationOutcome.Rejected;
             }
 
             Pawn pawn = GetPawn(workSettings);
             if (pawn?.Dead == true || !workSettings.EverWork ||
                 (pawn != null && pawn.WorkTypeIsDisabled(workType)))
             {
-                return false;
+                return PriorityMutationOutcome.Rejected;
             }
 
             if (!TryCaptureBwtMutationAuthority(out long authorityRevision))
             {
-                return false;
+                return PriorityMutationOutcome.Rejected;
             }
 
             workSettings.EnableAndInitializeIfNotAlreadyInitialized();
             if (workSettings.priorities == null)
             {
-                return false;
+                return PriorityMutationOutcome.Rejected;
             }
 
-            workSettings.SetPriority(workType, ClampPriority(priority));
-            if (!IsBwtMutationAuthorityCurrent(authorityRevision))
+            if (!PriorityMutationTransaction.TryPrepareFinalWrite(
+                    () => ClampPriority(priority),
+                    () => expectation != null
+                        ? TryCaptureExpectedStoredState(
+                            workSettings,
+                            workType,
+                            expectation,
+                            out authorityRevision)
+                        : IsBwtMutationAuthorityCurrent(authorityRevision),
+                    out int clampedPriority))
             {
-                return false;
+                return PriorityMutationOutcome.Rejected;
             }
 
+            workSettings.SetPriority(workType, clampedPriority);
             PriorityRangePolicy.InvalidateCache();
-            ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
-            return IsBwtMutationAuthorityCurrent(authorityRevision);
-        }
-
-        [SyncMethod]
-        internal static void SetPrioritySynced(int pawnId, string workTypeDefName, int priority)
-        {
-            if (pawnId < 0 || string.IsNullOrEmpty(workTypeDefName))
+            if (IsBwtMutationAuthorityCurrent(authorityRevision))
             {
-                return;
+                ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
             }
 
-            Pawn pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(
-                candidate => candidate?.thingIDNumber == pawnId);
-            WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
-            if (pawn?.workSettings == null || workType == null)
-            {
-                return;
-            }
-
-            SetPriority(pawn.workSettings, workType, priority);
+            return PriorityMutationOutcomePolicy.AfterWrite(
+                IsBwtMutationAuthorityCurrent(authorityRevision));
         }
 
         /// <summary>
@@ -298,15 +323,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 return false;
             }
 
-            workSettings.priorities[workType] = clamped;
             if (!IsBwtMutationAuthorityCurrent(authorityRevision))
             {
                 return false;
             }
 
+            workSettings.priorities[workType] = clamped;
             PriorityRangePolicy.InvalidateCache();
             workSettings.Notify_UseWorkPrioritiesChanged();
-            return IsBwtMutationAuthorityCurrent(authorityRevision);
+            return true;
         }
 
         internal static int GetPriorityAfterMouseButton(int currentPriority, int button)
