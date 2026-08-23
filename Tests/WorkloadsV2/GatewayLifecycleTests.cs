@@ -223,42 +223,75 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string header,
             string gateway)
         {
-            int main = header.IndexOf(
-                "if (DrawWorkloadMainControl(",
+            int input = header.IndexOf(
+                "public static bool TryHandleWorkloadFooterInput(",
                 StringComparison.Ordinal);
-            int menu = header.IndexOf(
-                "if (rects.HasWorkloadMenu && DrawWorkloadMenuControl(",
+            int draw = header.IndexOf(
+                "private static void DrawWorkloadGroup(",
                 StringComparison.Ordinal);
             int previewActions = header.IndexOf(
                 "private static void DrawWorkloadPreviewActions(",
                 StringComparison.Ordinal);
             TestAssert.True(
-                main >= 0 && menu > main && previewActions > menu,
-                "the workload name and ellipsis controls must have independent draw paths");
+                input >= 0 && draw > input && previewActions > draw,
+                "footer input, selector drawing, and preview-action drawing must remain separate paths");
 
-            string nameButtonPath = header.Substring(main, menu - main);
-            string ellipsisButtonPath = header.Substring(menu, previewActions - menu);
+            string inputPath = header.Substring(input, draw - input);
+            string drawPath = header.Substring(draw, previewActions - draw);
+            int execute = header.IndexOf(
+                "private static void ExecuteWorkloadFooterControl(",
+                StringComparison.Ordinal);
+            int picker = header.IndexOf(
+                "private static List<FloatMenuOption> BuildWorkloadPickerOptions(",
+                execute,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                execute >= 0 && picker > execute,
+                "footer control execution must remain isolated from drawing");
+            string executionPath = header.Substring(execute, picker - execute);
             TestAssert.Contains(
-                nameButtonPath,
+                inputPath,
+                "TryResolveWorkloadFooterControl(",
+                "footer input must resolve a visible control before executing it");
+            TestAssert.Contains(
+                inputPath,
+                "ExecuteWorkloadFooterControl(hoveredFooterControl, preview)",
+                "footer input must execute only the resolved control");
+            TestAssert.Contains(
+                drawPath,
+                "DrawWorkloadMainControl(",
+                "the workload name control must retain a dedicated draw call");
+            TestAssert.Contains(
+                drawPath,
+                "DrawWorkloadMenuControl(",
+                "the workload ellipsis control must retain a dedicated draw call");
+            TestAssert.False(
+                drawPath.IndexOf("ExecuteWorkloadFooterControl", StringComparison.Ordinal) >= 0,
+                "selector drawing must not execute footer lifecycle actions");
+            TestAssert.Contains(
+                executionPath,
                 "() => preview.BeginCurrentPreview(),",
                 "the selected modern workload name button must enter the projected preview");
             TestAssert.Contains(
-                nameButtonPath,
+                executionPath,
                 "BeginWorkloadFooterEditor(createNew: true)",
                 "the empty name button must open the save-workload editor");
-            TestAssert.False(
-                nameButtonPath.IndexOf("OpenWorkloadFooterPicker();", StringComparison.Ordinal) >= 0,
-                "the workload name button must never open the workload picker");
-            TestAssert.Contains(
-                ellipsisButtonPath,
+            int menuBranch = executionPath.IndexOf(
+                "if (control == WorkloadFooterControl.Menu)",
+                StringComparison.Ordinal);
+            int pickerAction = executionPath.IndexOf(
                 "OpenWorkloadFooterPicker();",
-                "the workload ellipsis button must open the workload picker when preview guards allow it");
-            TestAssert.False(
-                ellipsisButtonPath.IndexOf("BeginCurrentPreview", StringComparison.Ordinal) >= 0,
-                "the workload ellipsis button must never enter projected preview");
-            TestAssert.False(
-                ellipsisButtonPath.IndexOf("BeginWorkloadFooterEditor", StringComparison.Ordinal) >= 0,
-                "the workload ellipsis button must not open the save-workload editor directly");
+                StringComparison.Ordinal);
+            int mainAction = executionPath.IndexOf(
+                "bool hasWorkload = WorkloadGateway.HasCurrentWorkload();",
+                StringComparison.Ordinal);
+            int previewAction = executionPath.IndexOf(
+                "() => preview.BeginCurrentPreview(),",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                menuBranch >= 0 && pickerAction > menuBranch && mainAction > pickerAction &&
+                previewAction > mainAction,
+                "the menu branch must return through the picker before main-control preview or editor actions");
             TestAssert.Contains(
                 header,
                 "rects.HasWorkloadPreview ? rects.WorkloadApply : Rect.zero",
@@ -364,24 +397,42 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "private static Rect ToWorkloadActionGroup(",
                 start,
                 StringComparison.Ordinal);
+            int resolver = header.IndexOf(
+                "private static bool TryResolveWorkloadPreviewAction(",
+                StringComparison.Ordinal);
+            int resolverEnd = header.IndexOf(
+                "private static bool TryResolveWorkloadFooterPopoverAction(",
+                resolver,
+                StringComparison.Ordinal);
             TestAssert.True(
-                start >= 0 && end > start,
-                "the preview action painter must remain a single shared draw/input helper");
+                start >= 0 && end > start && resolver > end && resolverEnd > resolver,
+                "preview action drawing and visible-hit resolution must remain separate helpers");
 
-            string actionPath = header.Substring(start, end - start);
+            string drawPath = header.Substring(start, end - start);
+            string resolverPath = header.Substring(resolver, resolverEnd - resolver);
             TestAssert.Contains(
-                actionPath,
-                "hitRect.Contains(current.mousePosition)",
-                "partially revealed actions must only accept input in their visible hit rectangle");
-            TestAssert.Contains(
-                actionPath,
+                drawPath,
                 "Widgets.ButtonText(drawRect, label, active: enabled)",
                 "preview actions must retain the native footer button rendering throughout the reveal");
             TestAssert.False(
-                actionPath.IndexOf("Widgets.DrawBoxSolid(", StringComparison.Ordinal) >= 0,
+                drawPath.IndexOf("Widgets.DrawBoxSolid(", StringComparison.Ordinal) >= 0,
                 "preview actions must not switch to a custom solid renderer while partially revealed");
             TestAssert.False(
-                actionPath.IndexOf("Widgets.ButtonInvisible(hitRect)", StringComparison.Ordinal) >= 0,
+                drawPath.IndexOf("Event.current", StringComparison.Ordinal) >= 0,
+                "preview action drawing must not consume input events");
+            TestAssert.Contains(
+                resolverPath,
+                "rects.WorkloadApply.Contains(position)",
+                "partially revealed Apply input must use its clipped visible hit rectangle");
+            TestAssert.Contains(
+                resolverPath,
+                "rects.WorkloadCancel.Contains(position)",
+                "partially revealed Cancel input must use its clipped visible hit rectangle");
+            TestAssert.False(
+                resolverPath.IndexOf("DrawWorkloadPreviewButton", StringComparison.Ordinal) >= 0,
+                "visible-hit resolution must not redraw preview actions while processing input");
+            TestAssert.False(
+                drawPath.IndexOf("Widgets.ButtonInvisible(hitRect)", StringComparison.Ordinal) >= 0,
                 "preview actions must not switch to a custom invisible control while partially revealed");
         }
 
@@ -540,7 +591,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the normal footer input path must reserve Alt-clicks over visible workload controls");
             TestAssert.Contains(
                 header,
-                "evt.type == EventType.MouseUp && evt.button == 0",
+                "evt.type == EventType.MouseUp &&\n                    (overPopoverAction || _pressedWorkloadFooterPopoverAction.HasValue)",
                 "footer editor cancellation must be handled on the completed click");
             TestAssert.Contains(
                 header,
@@ -730,20 +781,61 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             TestAssert.Contains(
                 gateway,
-                "WorkloadGateway.ExtendV2PreviewBaseline(candidate, pawnKey)",
-                "include must hand the candidate to the bound backend instead of constructing a temporary service");
+                "modern => modern.Create(label)",
+                "modern workload creation must delegate capture and persistence to the workload backend");
+            TestAssert.False(
+                gateway.IndexOf("CreateModernWorkload(", StringComparison.Ordinal) >= 0 ||
+                gateway.IndexOf("CaptureCurrentV2Template(", StringComparison.Ordinal) >= 0,
+                "the gateway must not retain a forwarding create or capture wrapper");
             TestAssert.Contains(
                 gateway,
-                "CaptureScheduleIntent(",
-                "include must retain captured 24-hour schedule state");
+                "WorkloadLiveCapture.CapturePawn(",
+                "include must use the workload-owned live capture path");
             TestAssert.Contains(
-                gateway,
-                "GetSpecificJobOverride(",
+                backend,
+                "internal static bool CapturePawn(",
+                "the shared capture owner must retain an explicit pawn-baseline entry point");
+            TestAssert.False(
+                gateway.IndexOf("CompleteCapturedV2Template(", StringComparison.Ordinal) >= 0 ||
+                backend.IndexOf("CapturePawnBaseline(", StringComparison.Ordinal) >= 0,
+                "gateway and preview capture must not retain duplicate capture wrappers");
+            TestAssert.Contains(
+                backend,
+                "TryCaptureSchedule(",
+                "include must retain captured 24-hour schedule state through the shared capture path");
+            TestAssert.Contains(
+                backend,
+                "draft.SetManualMode(parentKey, manualMode)",
+                "the shared capture path must retain manual-mode baselines");
+            TestAssert.Contains(
+                backend,
+                "liveProvider.GetSpecificJobOverride(",
                 "include must capture the current specific-job value before planning a commit");
             TestAssert.Contains(
-                gateway,
-                "SetSpecificJobOrder(",
+                backend,
+                "draft.SetSpecificJobOrder(",
                 "include must retain the current specific-job ordering baseline");
+            int pawnCapture = backend.IndexOf(
+                "for (int pawnIndex = 0; pawns != null && pawnIndex < pawns.Count; pawnIndex++)",
+                StringComparison.Ordinal);
+            int globalCapture = backend.IndexOf(
+                "CaptureGlobalState(draft, ownership, ref capturedSchedule);",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                pawnCapture >= 0 && globalCapture > pawnCapture,
+                "global specific-job state must be captured after, not inside, pawn membership traversal");
+            TestAssert.Contains(
+                backend,
+                "}\n\n                CaptureGlobalState(draft, ownership, ref capturedSchedule);",
+                "the completed capture must leave the pawn loop before reading global state");
+            TestAssert.Contains(
+                backend,
+                "ownership = WorkloadLiveCapturePolicy.CompleteOwnership(\n                    ownership,\n                    capturedSchedule);",
+                "a completed capture must claim schedule ownership only after observing a real schedule");
+            TestAssert.Contains(
+                gateway,
+                "WorkloadGateway.ExtendV2PreviewBaseline(candidate, pawnKey)",
+                "include must hand the candidate to the bound backend instead of constructing a temporary service");
             TestAssert.False(
                 gateway.IndexOf("new WorkloadV2ApplyService(", StringComparison.Ordinal) >= 0,
                 "the gateway must not install a temporary apply service for included pawns");

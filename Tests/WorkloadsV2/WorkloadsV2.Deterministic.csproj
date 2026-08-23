@@ -44,6 +44,7 @@
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadBackendContracts.cs" Link="Production\WorkloadBackendContracts.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadV2Persistence.cs" Link="Production\WorkloadV2Persistence.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadV2RecordConverter.cs" Link="Production\WorkloadV2RecordConverter.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadLiveCapturePolicy.cs" Link="Production\WorkloadLiveCapturePolicy.cs" />
     <Compile Include="..\..\Source\Features\TimePriority\TimePriorityMutationAuthorization.cs" Link="Production\TimePriorityMutationAuthorization.cs" />
     <Compile Include="..\..\Source\Features\RaisedPriorityMaximum\PriorityConstants.cs" Link="Production\PriorityConstants.cs" />
     <Compile Include="..\..\Source\Features\RaisedPriorityMaximum\PriorityCycleMath.cs" Link="Production\PriorityCycleMath.cs" />
@@ -75,6 +76,7 @@
     <Compile Include="GatewayMultiplayerTests.cs" />
     <Compile Include="GatewayLifecycleTests.cs" />
     <Compile Include="BackendTransactionTests.cs" />
+    <Compile Include="CapturePolicyTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
   <ItemGroup>

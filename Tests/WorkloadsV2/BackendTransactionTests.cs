@@ -14,6 +14,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
     {
         public static void Run()
         {
+            CapturePolicyTests.Run();
             string root = FindRepositoryRoot();
             string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
             string contracts = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "WorkloadBackendContracts.cs");
