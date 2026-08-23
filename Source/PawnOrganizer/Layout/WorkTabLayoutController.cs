@@ -315,15 +315,9 @@ namespace Better_Work_Tab.PawnOrganizer
             {
                 var settings = BetterWorkTabMod.Settings;
                 int hash = 17;
-                hash = hash * 31 + (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.SubWorkAutoExpandColumns,
-                    settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns) ? 1 : 0);
-                hash = hash * 31 + (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.SubWorkEvenlyExpandColumns,
-                    settings?.subWorkEvenlyExpandColumns ?? DefaultSettings.subWorkEvenlyExpandColumns) ? 1 : 0);
-                hash = hash * 31 + (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.HeadersAngled,
-                    settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders) ? 1 : 0);
+                hash = hash * 31 + (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkAutoExpandColumns) ? 1 : 0);
+                hash = hash * 31 + (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkEvenlyExpandColumns) ? 1 : 0);
+                hash = hash * 31 + (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled) ? 1 : 0);
                 hash = hash * 31 + (IsPreviewSpecificJobOrderingBlocked() ? 1 : 0);
                 return hash;
             }
@@ -1191,9 +1185,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 fillerIndex >= visibleColumns.Count ||
                 surplus <= 0.5f ||
                 !(visibleColumns[fillerIndex].Def.Worker is PawnColumnWorker_Label) ||
-                BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.HeadersAngled,
-                    BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders))
+                BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled))
             {
                 return surplus;
             }
@@ -1304,9 +1296,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return;
             }
 
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.SubWorkEvenlyExpandColumns,
-                    settings?.subWorkEvenlyExpandColumns ?? DefaultSettings.subWorkEvenlyExpandColumns))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkEvenlyExpandColumns))
             {
                 ApplyEvenSubWorkExpansion(widths, surplus, workColumnIndexes);
                 return;
@@ -1390,27 +1380,21 @@ namespace Better_Work_Tab.PawnOrganizer
 
         private static bool ShouldExpandSubWorkPriorityColumns(BetterWorkTabSettings settings)
         {
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.SubWorkAutoExpandColumns,
-                    settings?.subWorkAutoExpandColumns ?? DefaultSettings.subWorkAutoExpandColumns))
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkAutoExpandColumns))
             {
                 return false;
             }
 
             // Compact window mode must retain the natural focused-column span. Filling the
             // vanilla table surplus here would silently prevent the window from shrinking.
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.LayoutWorkTabMinimumWidth,
-                    settings?.keepVanillaWorkTabMinimumWidth ?? DefaultSettings.keepVanillaWorkTabMinimumWidth))
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.LayoutWorkTabMinimumWidth))
             {
                 return false;
             }
 
             // Angled headers already avoid label collisions vertically; horizontal expansion
             // makes the sub-work columns drift away from vanilla compact work-tab spacing.
-            return !BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.HeadersAngled,
-                settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
+            return !BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
         }
 
         private static void ApplyEvenSubWorkExpansion(

@@ -236,9 +236,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
         {
             var key = new LabelTextMetricsKey(
                 label ?? string.Empty,
-                BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.HeadersUseVerticalStackingForCJK,
-                    BetterWorkTabMod.Settings?.useVerticalStackingForCJK ?? true),
+                BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersUseVerticalStackingForCJK),
                 Quantize(BetterWorkTabMod.Settings?.cjkVerticalKerning ?? 1f));
             if (LabelTextMetricsCache.TryGetValue(key, out CachedTextMetrics metrics))
             {
@@ -345,12 +343,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
                 hash = hash * 23 + (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked ? 1 : 0);
                 hash = hash * 23 + CustomLabelStore.Version;
-                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.ColumnsShowMovedIndicator,
-                    BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true) ? 1 : 0);
-                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.HeadersUseVerticalStackingForCJK,
-                    BetterWorkTabMod.Settings?.useVerticalStackingForCJK ?? true) ? 1 : 0);
+                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator) ? 1 : 0);
+                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersUseVerticalStackingForCJK) ? 1 : 0);
                 hash = hash * 23 + Quantize(BetterWorkTabMod.Settings?.cjkVerticalKerning ?? 1f);
                 if (!parentOnly &&
                     !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&

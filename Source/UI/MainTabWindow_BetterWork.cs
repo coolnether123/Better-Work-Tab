@@ -78,14 +78,8 @@ namespace Better_Work_Tab.UI
                 () => FluffyTimeScheduleAssigner.IsOpen,
                 () => TimePriorityScheduleEditor.LayoutSignature,
                 () => SubWorkDrilldownState.MeasurementSignature,
-                () => BWTWorkTabEffectiveSettings.GetInt(
-                    SettingIDs.LayoutWorkTabMaxVisiblePawns,
-                    BetterWorkTabMod.Settings?.workTabMaxVisiblePawns ??
-                        DefaultSettings.workTabMaxVisiblePawns),
-                () => BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.LayoutWorkTabMinimumWidth,
-                    BetterWorkTabMod.Settings?.keepVanillaWorkTabMinimumWidth ??
-                        DefaultSettings.keepVanillaWorkTabMinimumWidth));
+                () => BWTWorkTabEffectiveSettings.GetInt(SettingIDs.LayoutWorkTabMaxVisiblePawns),
+                () => BWTWorkTabEffectiveSettings.GetBool(SettingIDs.LayoutWorkTabMinimumWidth));
             _bodyRenderer = new WorkTabBodyRenderer(_viewportController);
             WorkGridDrawingSurface drawingSurface = new WorkGridDrawingSurface(
                 _viewportController,
@@ -479,17 +473,11 @@ namespace Better_Work_Tab.UI
         {
             WorkGridFeatureFlags renderFeatures = WorkGridFeatureFlags.None;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.FeaturesOverlay,
-                    settings?.enableSkillOverlayFeature ?? DefaultSettings.enableSkillOverlayFeature))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesOverlay))
                 renderFeatures |= WorkGridFeatureFlags.SkillOverlay;
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.FeaturesDividers,
-                    settings?.enableDividers ?? DefaultSettings.enableDividers))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesDividers))
                 renderFeatures |= WorkGridFeatureFlags.Dividers;
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.FeaturesSubWorkJobs,
-                    settings?.enableSubWorkDrilldown ?? DefaultSettings.enableSubWorkDrilldown))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesSubWorkJobs))
                 renderFeatures |= WorkGridFeatureFlags.SubWork;
 
             WorkGridSnapshot presentationSnapshot = null;
@@ -637,9 +625,7 @@ namespace Better_Work_Tab.UI
             pawns = SleekWorkTabGateway.ApplyMixedSearch(pawns);
             var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             var settings = BetterWorkTabMod.Settings;
-            bool useDividers = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.FeaturesDividers,
-                settings?.enableDividers ?? DefaultSettings.enableDividers);
+            bool useDividers = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesDividers);
             IReadOnlyList<PawnDivider> dividers = useDividers
                 ? comp?.ActiveDividers ?? (IReadOnlyList<PawnDivider>)Array.Empty<PawnDivider>()
                 : Array.Empty<PawnDivider>();

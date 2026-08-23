@@ -59,9 +59,7 @@ namespace Better_Work_Tab.UI
             Widgets.DrawBox(colorStripRect, 1);
 
             Rect colorButtonRect = new Rect(0f, colorStripRect.yMax + 6f, inRect.width, 30f);
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.DividersCustomColors,
-                BetterWorkTabMod.Settings?.allowCustomDividerColors ?? DefaultSettings.allowCustomDividerColors))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DividersCustomColors))
             {
                 if (Widgets.ButtonText(colorButtonRect, "BWT_Dialog_Divider_Color".Translate()))
                 {

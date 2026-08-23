@@ -206,6 +206,7 @@ namespace Better_Work_Tab.UI.Settings
                 settings.workTabMaxVisiblePawns = DefaultSettings.workTabMaxVisiblePawns;
             }
             settings.Write();
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
             report = skipped > 0
                 ? $"Imported {imported} legacy settings. Skipped {skipped} unsupported or invalid entries."
                 : $"Imported {imported} legacy settings.";

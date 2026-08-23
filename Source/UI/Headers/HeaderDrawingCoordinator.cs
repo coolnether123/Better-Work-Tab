@@ -42,10 +42,7 @@ namespace Better_Work_Tab.UI.Headers
             if (table == null) return;
             
             // Only solve for vanilla mode; angled headers do not require this
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.HeadersAngled,
-                    BetterWorkTabMod.Settings?.enableAngledHeaders ??
-                        DefaultSettings.enableAngledHeaders))
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled))
             {
                 _vanillaSolver.SolveLayout(table);
             }
@@ -71,10 +68,7 @@ namespace Better_Work_Tab.UI.Headers
         /// <returns>An implementation of IHeaderRenderer (Angled or Vanilla).</returns>
         public static IHeaderRenderer GetActiveRenderer()
         {
-            return BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.HeadersAngled,
-                    BetterWorkTabMod.Settings?.enableAngledHeaders ??
-                        DefaultSettings.enableAngledHeaders)
+            return BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled)
                 ? (IHeaderRenderer)_angledRenderer
                 : (IHeaderRenderer)_vanillaRenderer;
         }
@@ -104,9 +98,7 @@ namespace Better_Work_Tab.UI.Headers
             try
             {
                 HeaderInputController.UpdateCache(Event.current);
-                bool allowNative = BWTWorkTabEffectiveSettings.GetBool(
-                        SettingIDs.HeadersAngled,
-                        settings.enableAngledHeaders)
+                bool allowNative = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled)
                     ? AngledHeaderController.DoHeader(worker, rect, table)
                     : VanillaHeaderController.DoHeader(worker, rect, table);
                 return !allowNative;

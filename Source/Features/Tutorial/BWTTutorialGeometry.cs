@@ -219,9 +219,7 @@ namespace Better_Work_Tab.Features.Tutorial
             WorkTabLayoutColumn column,
             IWorkTabLayoutController layout)
         {
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.HeadersAngled,
-                    BetterWorkTabMod.Settings?.enableAngledHeaders ?? false) &&
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled) &&
                 TryGetAngledHeaderQuad(column, layout, out Vector2[] angledQuad))
             {
                 // Offset along the edge normals rather than away from the quad's

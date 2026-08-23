@@ -243,10 +243,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             RegisterGlobalPriorityTarget(wg.def, boxRect);
 
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.SubWorkGlobalVanillaPriorityBoxes,
-                BetterWorkTabMod.Settings?.useVanillaSubWorkGlobalPriorityBoxes ??
-                    DefaultSettings.useVanillaSubWorkGlobalPriorityBoxes))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkGlobalVanillaPriorityBoxes))
             {
                 DrawVanillaGlobalPriorityBoxContents(boxRect, workGiverPriority, presentation.HasScheduleIndicator);
             }
@@ -1008,10 +1005,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             int pawnId = pawn.thingIDNumber;
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.SubWorkOverrideBreakAnimation,
-                BetterWorkTabMod.Settings?.enableSubWorkOverrideBreakAnimation ??
-                    DefaultSettings.enableSubWorkOverrideBreakAnimation))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkOverrideBreakAnimation))
             {
                 if (ResetAnimations.Count >= MaximumResetAnimations)
                 {
@@ -1079,10 +1073,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static void DrawOverrideResetAnimation(int pawnId, WorkGiverDef workGiverDef, Rect boxRect)
         {
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.SubWorkOverrideBreakAnimation,
-                BetterWorkTabMod.Settings?.enableSubWorkOverrideBreakAnimation ??
-                    DefaultSettings.enableSubWorkOverrideBreakAnimation))
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkOverrideBreakAnimation))
             {
                 return;
             }

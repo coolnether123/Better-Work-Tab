@@ -352,9 +352,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     var divider = row.Divider;
                     Color color = divider?.DividerColor ?? Color.clear;
                     BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-                    if (!BWTWorkTabEffectiveSettings.GetBool(
-                            SettingIDs.DividersCustomColors,
-                            settings?.allowCustomDividerColors ?? true))
+                    if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DividersCustomColors))
                     {
                         color = Color.gray;
                     }

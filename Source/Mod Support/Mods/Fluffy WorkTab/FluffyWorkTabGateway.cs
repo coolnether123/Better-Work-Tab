@@ -605,6 +605,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 }
 
                 settings.Write();
+                BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
                 PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
                 HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
 #if !v0_18 && !v0_17 && !v0_16 && !v0_15 && !v0_14 && !v0_13 && !vAlpha4
@@ -672,6 +673,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             BetterWorkTabMod.Settings.subWorkDrilldownStyle = style;
             BetterWorkTabMod.Settings.subWorkCtrlClickNoticeDismissed = true;
             BetterWorkTabMod.Settings.Write();
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
             PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             ClearSubWorkDrilldownStyleChooser(clearPreview: false);
             return workType != null;
@@ -760,6 +762,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 BetterWorkTabMod.Settings.subWorkDrilldownStyle = style;
                 BetterWorkTabMod.Settings.subWorkCtrlClickNoticeDismissed = true;
                 BetterWorkTabMod.Settings.Write();
+                BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
                 PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             }
             ClearSubWorkDrilldownStyleChooser(clearPreview: false);

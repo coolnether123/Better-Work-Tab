@@ -105,9 +105,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             _workGivers = source?.ToList() ?? new List<WorkGiver>();
             ApplyPreviewSpecificJobOrder();
             _baselineTracker = new WorkGiverBaselineTracker(_workType, _workGivers, _pawn);
-            _useAngledHeaders = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.HeadersAngled,
-                BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
+            _useAngledHeaders = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
             if (!_useAngledHeaders)
             {
                 RecalculateVanillaHeaderLevels();
@@ -318,9 +316,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             var settings = BetterWorkTabMod.Settings;
-            bool desiredAngled = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.HeadersAngled,
-                settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
+            bool desiredAngled = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
             if (desiredAngled != _useAngledHeaders)
             {
                 _useAngledHeaders = desiredAngled;
@@ -433,13 +429,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 Widgets.DrawHighlight(hoverRect);
             }
 
-            GUI.color = (isMovedFromBaseline && BWTWorkTabEffectiveSettings.GetBool(
-                "columns.showMovedColorTint",
-                BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true))
+            GUI.color = (isMovedFromBaseline && BWTWorkTabEffectiveSettings.GetBool("columns.showMovedColorTint"))
                 ? HeaderUtility.Colors.MovedMarkerColor
-                : BWTWorkTabEffectiveSettings.GetColor(
-                    "headers.angledColor",
-                    BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
+                : BWTWorkTabEffectiveSettings.GetColor("headers.angledColor");
 
             Widgets.Label(textRect, label);
             DrawVanillaStem(textRect, headerRect.yMax);
@@ -460,9 +452,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             string label = WorkGiverDisplayNameService.HeaderLabel(wg?.def);
             var settings = BetterWorkTabMod.Settings;
-            bool showMovedMarker = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.ColumnsShowMovedIndicator,
-                settings?.showColumnMovedMarker ?? DefaultSettings.showColumnMovedMarker);
+            bool showMovedMarker = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator);
             if (isMovedFromBaseline && showMovedMarker && !label.EndsWith(HeaderUtility.MovedMarker))
             {
                 label += HeaderUtility.MovedMarker;
@@ -648,9 +638,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private void DrawVanillaStem(Rect textRect, float headerBottom)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.DragdropRemoveHeaderUnderline,
-                settings?.removeHeaderUnderline ?? DefaultSettings.removeHeaderUnderline))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DragdropRemoveHeaderUnderline))
                 return;
 
             const float StemBaseHeight = 11f;

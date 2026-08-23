@@ -46,10 +46,7 @@ namespace Better_Work_Tab.UI
 
         internal static Rect GetFluffyStyleSubWorkPriorityBoxRect(Rect cellRect)
         {
-            bool compact = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.SubWorkCompactPriorityBoxes,
-                BetterWorkTabMod.Settings?.useCompactSubWorkPriorityBoxes ??
-                    DefaultSettings.useCompactSubWorkPriorityBoxes);
+            bool compact = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkCompactPriorityBoxes);
             return GetCenteredBoxRect(cellRect, compact ? CompactSubWorkBoxSize : BoxSize);
         }
     }

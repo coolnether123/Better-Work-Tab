@@ -210,9 +210,7 @@ namespace Better_Work_Tab.UI.Columns
             if (settings == null)
                 return false;
 
-            bool showColumnMarker = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.ColumnsShowMovedIndicator,
-                settings.showColumnMovedMarker);
+            bool showColumnMarker = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator);
             if (!showColumnMarker)
                 return false;
 

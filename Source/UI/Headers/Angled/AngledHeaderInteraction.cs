@@ -177,9 +177,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             
             if (!Verse.Steam.SteamDeck.IsSteamDeckInNonKeyboardMode)
             {
-                if (BWTWorkTabEffectiveSettings.GetBool(
-                        SettingIDs.DragdropEnableGrouping,
-                        BetterWorkTabMod.Settings?.enableColumnGrouping ?? true))
+                if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DragdropEnableGrouping))
                 {
                     tooltip += "\n" + "Shift + click: Select column for group dragging.".Colorize(ColoredText.SubtleGrayColor);
                 }
@@ -231,9 +229,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 tooltip.Append("\n\n").Append("ClickToSortByThisColumn".Translate().Colorize(ColoredText.SubtleGrayColor));
             }
 
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.DragdropEnableGrouping,
-                    BetterWorkTabMod.Settings?.enableColumnGrouping ?? true))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DragdropEnableGrouping))
             {
                 tooltip.Append("\n").Append("Shift + click: Select column for group dragging.".Colorize(ColoredText.SubtleGrayColor));
             }
@@ -298,12 +294,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             string label = WorkGiverDisplayNameService.FullLabel(workGiverDef);
             bool isMoved = WorkGiverReassignmentManager.ShouldShowMovedWorkGiverMarker(workType, workGiverDef);
             var settings = BetterWorkTabMod.Settings;
-            bool showMovedMarker = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.ColumnsShowMovedIndicator,
-                settings?.showColumnMovedMarker ?? DefaultSettings.showColumnMovedMarker);
-            bool showMovedTint = BWTWorkTabEffectiveSettings.GetBool(
-                "columns.showMovedColorTint",
-                settings?.showMovedColumnColorTint ?? DefaultSettings.showMovedColumnColorTint);
+            bool showMovedMarker = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator);
+            bool showMovedTint = BWTWorkTabEffectiveSettings.GetBool("columns.showMovedColorTint");
             if (isMoved && showMovedMarker && !label.EndsWith(HeaderUtility.MovedMarker))
             {
                 label += HeaderUtility.MovedMarker;
@@ -541,9 +533,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 if (allowRootGrouping &&
                     !isSubWork &&
                     evt.button == 0 &&
-                    BWTWorkTabEffectiveSettings.GetBool(
-                        SettingIDs.DragdropEnableGrouping,
-                        BetterWorkTabMod.Settings?.enableColumnGrouping ?? false))
+                    BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DragdropEnableGrouping))
                 {
                     Better_Work_Tab.DragDrop.ColumnSelectionManager.ToggleSelection(worker.def);
                     SoundDefOf.Tick_High.PlayOneShotOnCamera();
@@ -557,9 +547,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             if (evt.type != EventType.ScrollWheel ||
-                !BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.AdvancedScrollWheelPriority,
-                    BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) ||
+                !BWTWorkTabEffectiveSettings.GetBool(SettingIDs.AdvancedScrollWheelPriority) ||
                 Mathf.Abs(evt.delta.y) < 0.01f)
             {
                 return false;

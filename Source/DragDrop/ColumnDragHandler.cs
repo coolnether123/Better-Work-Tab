@@ -166,9 +166,7 @@ namespace Better_Work_Tab.DragDrop
             }
 
             var settings = BetterWorkTabMod.Settings;
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.ColumnsShowBaselineLine,
-                settings?.showColumnBaselineLine ?? DefaultSettings.showColumnBaselineLine))
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowBaselineLine))
             {
                 return;
             }

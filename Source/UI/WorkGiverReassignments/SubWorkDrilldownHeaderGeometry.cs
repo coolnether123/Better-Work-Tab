@@ -164,9 +164,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static float GetRequiredHeaderHeight(PawnTable table)
         {
             var settings = BetterWorkTabMod.Settings;
-            bool useAngledHeaders = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.HeadersAngled,
-                settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
+            bool useAngledHeaders = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
             if (settings == null || !useAngledHeaders)
             {
                 var solver = HeaderDrawingCoordinator.GetVanillaSolver();

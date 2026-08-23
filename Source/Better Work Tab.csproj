@@ -182,6 +182,7 @@
     <Compile Include="Features\Workloads\V2\WorkloadState.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadValidation.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\WorkloadBackendContracts.cs" />
+    <Compile Include="Features\Workloads\V2\Runtime\WorkloadPresentationSettingsTransaction.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\WorkloadV2Persistence.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\WorkloadV2RecordConverter.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\WorkloadLiveCapturePolicy.cs" />

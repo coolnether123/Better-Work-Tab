@@ -74,9 +74,7 @@ namespace Better_Work_Tab.UI.Headers
             bool ruleBuilderListening = RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab;
             bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            bool showCursorHighlight = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.HighlightsHover,
-                settings?.ShowCursorPawnAndWorktypeHighlight ?? DefaultSettings.ShowCursorPawnAndWorktypeHighlight);
+            bool showCursorHighlight = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HighlightsHover);
 
             foreach (var column in layout.Columns)
             {
@@ -589,9 +587,7 @@ namespace Better_Work_Tab.UI.Headers
 
         private static bool AreAngledHeadersEnabled()
         {
-            return BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.HeadersAngled,
-                BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
+            return BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
         }
 
         private static void DrawColumnHighlightAroundTutorialBand(

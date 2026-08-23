@@ -76,9 +76,7 @@ namespace Better_Work_Tab.UI.Headers
                      drawingWorkGiver?.def != null)
             {
                 label = WorkGiverDisplayNameService.HeaderLabel(drawingWorkGiver.def, subWorkLabelStyle);
-                if (isMoved && BWTWorkTabEffectiveSettings.GetBool(
-                        SettingIDs.ColumnsShowMovedIndicator,
-                        BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true) &&
+                if (isMoved && BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator) &&
                     !label.EndsWith(MovedMarker))
                 {
                     label += MovedMarker;
@@ -120,9 +118,7 @@ namespace Better_Work_Tab.UI.Headers
             string label = WorkTypeDisplayNameService.HeaderLabel(workType);
 
             var settings = BetterWorkTabMod.Settings;
-            if (isMoved && BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.ColumnsShowMovedIndicator,
-                    settings?.showColumnMovedMarker ?? true) &&
+            if (isMoved && BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator) &&
                 !label.EndsWith(MovedMarker))
             {
                 label += MovedMarker;
@@ -150,9 +146,7 @@ namespace Better_Work_Tab.UI.Headers
                     hash = hash * 23 + SubWorkDrilldownState.CurrentDrawingHeaderSignature;
                 }
                 hash = hash * 23 + CustomLabelStore.Version;
-                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.ColumnsShowMovedIndicator,
-                    BetterWorkTabMod.Settings?.showColumnMovedMarker ?? true) ? 1 : 0);
+                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator) ? 1 : 0);
                 if (!parentOnly &&
                     !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
                     SubWorkDrilldownState.IsActive)
@@ -203,9 +197,7 @@ namespace Better_Work_Tab.UI.Headers
 
                 label = WorkGiverDisplayNameService.HeaderLabel(workGiver.def, labelStyle);
                 var settings = BetterWorkTabMod.Settings;
-                if (isMoved && BWTWorkTabEffectiveSettings.GetBool(
-                        SettingIDs.ColumnsShowMovedIndicator,
-                        settings?.showColumnMovedMarker ?? true) &&
+                if (isMoved && BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator) &&
                     !label.EndsWith(MovedMarker))
                 {
                     label += MovedMarker;
@@ -239,9 +231,7 @@ namespace Better_Work_Tab.UI.Headers
 
         public static bool ShouldUseCJKVerticalLabel(string text)
         {
-            return BWTWorkTabEffectiveSettings.GetBool(
-                       SettingIDs.HeadersUseVerticalStackingForCJK,
-                       BetterWorkTabMod.Settings?.useVerticalStackingForCJK ?? DefaultSettings.useVerticalStackingForCJK) &&
+            return BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersUseVerticalStackingForCJK) &&
                 IsCJK(text);
         }
 
@@ -255,9 +245,7 @@ namespace Better_Work_Tab.UI.Headers
         {
             var settings = BetterWorkTabMod.Settings;
             if (settings == null ||
-                !BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.HeadersUseVerticalStackingForCJK,
-                    settings.useVerticalStackingForCJK) ||
+                !BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersUseVerticalStackingForCJK) ||
                 table?.Columns == null)
                 return false;
 
@@ -323,9 +311,7 @@ namespace Better_Work_Tab.UI.Headers
             /// User-configurable underline color for angled headers.
             /// </summary>
             public static Color HeaderUnderlineColor =>
-                BWTWorkTabEffectiveSettings.GetColor(
-                    SettingIDs.HeadersUnderlineColor,
-                    BetterWorkTabMod.Settings?.headerUnderlineColor ?? DefaultSettings.Color_HeaderUnderline);
+                BWTWorkTabEffectiveSettings.GetColor(SettingIDs.HeadersUnderlineColor);
 
             /// <summary>
             /// User-configurable stem color for vanilla-style headers. The default preserves RimWorld's grey.
@@ -335,9 +321,7 @@ namespace Better_Work_Tab.UI.Headers
                 get
                 {
                     var settings = BetterWorkTabMod.Settings;
-                    Color underlineColor = BWTWorkTabEffectiveSettings.GetColor(
-                        SettingIDs.HeadersUnderlineColor,
-                        settings?.headerUnderlineColor ?? DefaultSettings.Color_HeaderUnderline);
+                    Color underlineColor = BWTWorkTabEffectiveSettings.GetColor(SettingIDs.HeadersUnderlineColor);
                     if (Approximately(underlineColor, DefaultSettings.Color_HeaderUnderline))
                     {
                         return DefaultVanillaStemColor;

@@ -73,9 +73,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
-            bool skillOverlayEnabled = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.FeaturesOverlay,
-                (context.Configuration.Features & WorkGridFeatureFlags.SkillOverlay) != 0);
+            bool skillOverlayEnabled = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesOverlay);
             _delegateFeatureCells =
                 (skillOverlayEnabled &&
                  ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted) ||
@@ -377,9 +375,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         boxRect.ExpandedBy(1f),
                         Color.clear,
                         settings.Color_BestPawnForSkillSquare,
-                        BWTWorkTabEffectiveSettings.GetInt(
-                            SettingIDs.HighlightsBestPawnBackground,
-                            settings.bestPawnHighlightThickness));
+                        BWTWorkTabEffectiveSettings.GetInt(SettingIDs.HighlightsBestPawnBackground));
                 }
             }
 

@@ -20,10 +20,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static float _settleStartedAt;
 
         internal static bool IsEnabled =>
-            BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.SubWorkCrossWorkDragDrop,
-                BetterWorkTabMod.Settings?.enableSubWorkCrossWorkDragDrop ??
-                    DefaultSettings.enableSubWorkCrossWorkDragDrop);
+            BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkCrossWorkDragDrop);
 
         internal static bool IsPointerBeyondSubWorkStrip(
             IWorkTabLayoutController layout,

@@ -99,6 +99,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 settings.fluffyWorkTabActivePromptVersion =
                     FluffyWorkTabPromptPolicy.CurrentPromptVersion;
                 settings.Write();
+                BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
             }
 
             if (result.HasSaveEvidence)

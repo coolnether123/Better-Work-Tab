@@ -854,17 +854,18 @@ namespace Better_Work_Tab.UI.Settings
     {
         private const string PreviewSuppressorId = "bwt.workloadPreview";
 
-        private static readonly Dictionary<string, BWTWorkloadSettingMetadata> Metadata =
+        private static readonly HashSet<string> Metadata =
             BuildMetadata();
-
-        private static IReadOnlyDictionary<string, WorkloadScalarKind> _supportedPresentationKinds;
 
         private static readonly HashSet<SettingDefinition> PreparedDefinitions =
             new HashSet<SettingDefinition>();
 
-        private static readonly Dictionary<SettingDefinition, BWTWorkloadSettingDefinitionState>
-            PreparedSettingRows =
-                new Dictionary<SettingDefinition, BWTWorkloadSettingDefinitionState>();
+        private static readonly Dictionary<SettingDefinition, FieldInfo> PreparedFields =
+            new Dictionary<SettingDefinition, FieldInfo>();
+
+        private static readonly Dictionary<string, BWTWorkloadSettingDefinitionState>
+            PreparedPresentationSettings =
+                new Dictionary<string, BWTWorkloadSettingDefinitionState>(StringComparer.Ordinal);
 
         private static readonly HashSet<string> StageablePresentationSettingIds =
             new HashSet<string>(StringComparer.Ordinal)
@@ -891,12 +892,13 @@ namespace Better_Work_Tab.UI.Settings
         private static readonly HashSet<string> SuppressedOnChanged =
             new HashSet<string>(StringComparer.Ordinal);
 
-        private static readonly IBWTWorkloadPreviewController PreviewController =
-            new WorkloadGatewayPreviewController();
-
-        private static BWTWorkloadPreviewSnapshot _snapshot =
-            BWTWorkloadPreviewSnapshot.Inactive;
+        private static BWTWorkloadPresentationSnapshot _snapshot =
+            BWTWorkloadPresentationSnapshot.CreateInactive(
+                new Dictionary<string, WorkloadScalarValue>(StringComparer.Ordinal));
+        private static readonly WorkloadPresentationSnapshotToken PreviewToken =
+            new WorkloadPresentationSnapshotToken();
         private static bool _snapshotValid;
+        private static long _globalSettingsRevision;
         private static bool _legacyModeBeforeInteraction;
         private static bool _legacyModeBeforeInteractionCaptured;
         private static bool _lastObservedLegacyMode;
@@ -905,34 +907,33 @@ namespace Better_Work_Tab.UI.Settings
         [ThreadStatic]
         private static int _authorizedGlobalSettingsWriteDepth;
 
-        internal static void PrepareDefinition(
-            SettingDefinition definition,
-            IDictionary<string, WorkloadScalarKind> supportedPresentationKinds)
+        internal static void PrepareDefinition(SettingDefinition definition)
         {
             if (definition == null ||
-                !Metadata.ContainsKey(definition.Id) ||
+                !Metadata.Contains(definition.Id) ||
                 !PreparedDefinitions.Add(definition))
             {
                 return;
             }
 
-            if (supportedPresentationKinds != null &&
-                TryDeriveSupportedPresentationKind(
-                    definition,
-                    out WorkloadScalarKind supportedPresentationKind))
+            FieldInfo field = FindSettingsField(definition);
+            if (field != null)
             {
-                supportedPresentationKinds[definition.Id] = supportedPresentationKind;
+                PreparedFields[definition] = field;
             }
 
             SettingType originalType = definition.Type;
-            if (
-                TryCreateStageableDefinitionState(
+            if (TryCreatePresentationDefinitionState(
                     definition,
+                    field,
                     out BWTWorkloadSettingDefinitionState rowState))
             {
-                PreparedSettingRows[definition] = rowState;
-                WrapStageableOnChanged(definition);
-                InstallStageableDefinition(rowState);
+                PreparedPresentationSettings[definition.Id] = rowState;
+                if (IsStageablePresentationSetting(definition.Id))
+                {
+                    WrapStageableOnChanged(definition);
+                    InstallStageableDefinition(rowState);
+                }
             }
             else if (definition.Type == SettingType.Enum)
             {
@@ -967,7 +968,7 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             if (RequiresPreviewSuppression(originalType) &&
-                !PreparedSettingRows.ContainsKey(definition))
+                !IsStageablePresentationSetting(definition.Id))
             {
                 if (definition.Suppressions == null)
                 {
@@ -976,8 +977,8 @@ namespace Better_Work_Tab.UI.Settings
 
                 definition.Suppressions.Add(new SettingSuppression
                 {
-                    When = _ => IsBlocked(definition.Id, definition.Type),
-                    Reason = _ => GetBlockReason(definition.Id, definition.Type),
+                    When = _ => Describe(definition).IsBlocked,
+                    Reason = _ => Describe(definition).BlockReason,
                     SuppressorSettingId = PreviewSuppressorId,
                     LinkLabel = "Workload preview"
                 });
@@ -992,7 +993,7 @@ namespace Better_Work_Tab.UI.Settings
 
                 definition.Suppressions.Add(new SettingSuppression
                 {
-                    When = settings => !IsAngledHeaderModeEnabled(settings as BetterWorkTabSettings),
+                    When = _ => !IsAngledHeaderModeEnabled(),
                     Reason = _ => "Enable angled Work headers to edit this setting.",
                     SuppressorSettingId = HeadersAngled,
                     LinkLabel = "Angled headers"
@@ -1000,36 +1001,91 @@ namespace Better_Work_Tab.UI.Settings
             }
         }
 
-        internal static void PublishSupportedPresentationKinds(
-            IReadOnlyDictionary<string, WorkloadScalarKind> supportedPresentationKinds)
-        {
-            _supportedPresentationKinds = supportedPresentationKinds;
-        }
-
         internal static void Refresh()
         {
-            BWTWorkloadPreviewSnapshot next;
+            IDictionary<string, WorkloadScalarValue> globalValues =
+                _snapshot.GlobalValues;
             try
             {
-                next = PreviewController.Read() ?? BWTWorkloadPreviewSnapshot.Inactive;
+                BWTSettingsRegistry.EnsureInitialized();
+                globalValues = CapturePreparedPresentationValues(BetterWorkTabMod.Settings);
             }
             catch (Exception ex)
             {
-                next = BWTWorkloadPreviewSnapshot.Failed(
-                    "The active workload preview could not be read safely: " + ex.Message);
+                globalValues = CapturePreparedPresentationValues(
+                    BetterWorkTabMod.Settings);
+                SetSnapshot(BWTWorkloadPresentationSnapshot.Failed(
+                    globalValues,
+                    "The global Better Work Tab presentation values could not be read safely: " + ex.Message,
+                    PreviewToken.Value,
+                    !string.IsNullOrEmpty(PreviewToken.Value)));
+                return;
             }
 
-            if (!next.IsActive)
+            BWTWorkloadPresentationSnapshot next;
+            try
             {
-                BlockedReasons.Clear();
+                if (!WorkloadGateway.IsV2PreviewSessionActive)
+                {
+                    next = BWTWorkloadPresentationSnapshot.CreateInactive(globalValues);
+                }
+                else
+                {
+                    WorkloadOperationResult<WorkloadPreviewPlan> result =
+                        WorkloadGateway.GetV2PreviewPlan();
+                    if (result.Succeeded && result.Value != null)
+                    {
+                        next = string.IsNullOrEmpty(PreviewToken.Value)
+                            ? BWTWorkloadPresentationSnapshot.Failed(
+                                globalValues,
+                                "The active workload preview has no exact session identity.",
+                                string.Empty)
+                            : BWTWorkloadPresentationSnapshot.FromPlan(
+                                result.Value,
+                                globalValues,
+                                PreviewToken.Value);
+                    }
+                    else
+                    {
+                        next = BWTWorkloadPresentationSnapshot.Failed(
+                            globalValues,
+                            string.IsNullOrEmpty(result.Message)
+                                ? "The active workload preview could not be read safely."
+                                : result.Message,
+                            PreviewToken.Value);
+                    }
+                }
             }
-            else if (!StringComparer.Ordinal.Equals(_snapshot.SourceId, next.SourceId))
+            catch (Exception ex)
+            {
+                next = BWTWorkloadPresentationSnapshot.Failed(
+                    globalValues,
+                    "The active workload preview could not be read safely: " + ex.Message,
+                    PreviewToken.Value);
+            }
+
+            SetSnapshot(next);
+        }
+
+        internal static void EnsureFresh()
+        {
+            if (!_snapshotValid || PreviewToken.NeedsRefresh(_globalSettingsRevision))
+            {
+                Refresh();
+            }
+        }
+
+        private static void SetSnapshot(BWTWorkloadPresentationSnapshot next)
+        {
+            if (!next.IsActive ||
+                !StringComparer.Ordinal.Equals(_snapshot.Identity, next.Identity))
             {
                 BlockedReasons.Clear();
             }
 
             _snapshot = next;
             _snapshotValid = true;
+            PreviewToken.MarkRefreshed(_globalSettingsRevision);
 
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if (settings != null)
@@ -1126,10 +1182,55 @@ namespace Better_Work_Tab.UI.Settings
 
         internal static void Invalidate()
         {
-            _supportedPresentationKinds = null;
             _snapshotValid = false;
             SuppressedOnChanged.Clear();
             _suppressNextGlobalSettingsWrite = false;
+        }
+
+        internal static long GlobalSettingsRevision => _globalSettingsRevision;
+
+        /// <summary>
+        /// Called from the preview controller's lifecycle boundary. The token
+        /// changes for a new source, a new session, a staged edit, or a
+        /// persistence rebase, so a cached presentation snapshot never
+        /// survives a different preview by accident.
+        /// </summary>
+        internal static void ObservePreviewSession(WorkloadSession session)
+        {
+            if (!PreviewToken.Observe(session))
+            {
+                return;
+            }
+
+            BlockedReasons.Clear();
+            InvalidateWorkTabPresentationCore(includesHeaderSetting: true);
+        }
+
+        /// <summary>
+        /// The one local route for ordinary settings writes. It advances the
+        /// cache token before invalidating presentation consumers, including
+        /// compatibility-owned writes that bypass the settings drawer.
+        /// </summary>
+        internal static long NotifyGlobalSettingsChanged(string settingId = null)
+        {
+            return AdvanceGlobalSettingsRevision(IsHeaderPresentationSetting(settingId));
+        }
+
+        internal static long BeginOwnedGlobalSettingsMutation(
+            IEnumerable<string> settingIds)
+        {
+            return AdvanceGlobalSettingsRevision(IncludesHeaderSetting(settingIds));
+        }
+
+        private static long AdvanceGlobalSettingsRevision(bool includesHeaderSetting)
+        {
+            if (_globalSettingsRevision < long.MaxValue)
+            {
+                _globalSettingsRevision++;
+            }
+
+            InvalidateWorkTabPresentationCore(includesHeaderSetting);
+            return _globalSettingsRevision;
         }
 
         internal static void WriteSettings(BetterWorkTabSettings settings)
@@ -1150,10 +1251,9 @@ namespace Better_Work_Tab.UI.Settings
 
         internal static bool IsPreviewActive => WorkloadGateway.IsV2PreviewSessionActive;
 
-        internal static IBWTWorkloadSettingsApplyWriter CreateApplyWriter()
-        {
-            return new BWTWorkloadSettingsApplyWriter();
-        }
+        internal static WorkloadPresentationSettingsTransaction CreateApplyWriter() =>
+            new WorkloadPresentationSettingsTransaction(
+                new BWTWorkloadPresentationSettingsStore());
 
         /// <summary>
         /// The only active-preview exception to the global-settings write
@@ -1185,27 +1285,56 @@ namespace Better_Work_Tab.UI.Settings
             }
         }
 
-        private static bool TryCreateStageableDefinitionState(
+        private static bool TryCreatePresentationDefinitionState(
             SettingDefinition definition,
+            FieldInfo field,
             out BWTWorkloadSettingDefinitionState state)
         {
             state = null;
             if (definition == null ||
-                !StageablePresentationSettingIds.Contains(definition.Id) ||
-                !TryGetDefinitionScalarKind(definition, out WorkloadScalarKind kind))
+                field == null ||
+                definition.ValueGetter != null ||
+                definition.ValueSetter != null)
             {
                 return false;
             }
 
-            state = new BWTWorkloadSettingDefinitionState(
+            WorkloadScalarKind kind;
+            if (definition.Type == SettingType.Bool && field.FieldType == typeof(bool))
+            {
+                kind = WorkloadScalarKind.Boolean;
+            }
+            else if ((definition.Type == SettingType.Int ||
+                      definition.Type == SettingType.NumericInt) &&
+                     field.FieldType == typeof(int))
+            {
+                kind = WorkloadScalarKind.Integer;
+            }
+            else if (definition.Type == SettingType.Color && field.FieldType == typeof(Color))
+            {
+                kind = WorkloadScalarKind.String;
+            }
+            else
+            {
+                return false;
+            }
+
+            var preparedState = new BWTWorkloadSettingDefinitionState(
                 definition,
                 definition.Type,
                 kind,
-                definition.DefaultValue,
-                definition.MinValue,
-                definition.MaxValue,
-                definition.EmphasizeAsHeader,
-                definition.ControlsChildVisibility);
+                field);
+            if (!TryToScalar(
+                    preparedState,
+                    definition.DefaultValue,
+                    true,
+                    out WorkloadScalarValue defaultScalar))
+            {
+                return false;
+            }
+
+            preparedState.DefaultScalar = defaultScalar;
+            state = preparedState;
             return true;
         }
 
@@ -1216,15 +1345,10 @@ namespace Better_Work_Tab.UI.Settings
             definition.Type = SettingType.Custom;
             definition.CustomDrawer = (rect, label, tooltip, settingsObject, disabled) =>
                 DrawStageableSettingRow(state, rect, label, tooltip, settingsObject, disabled);
-            definition.CustomHasNonDefaultValue = settingsObject =>
-                HasStageableNonDefaultValue(state, settingsObject);
+            definition.CustomHasNonDefaultValue = _ => HasStageableNonDefaultValue(state);
             definition.CustomReset = settingsObject =>
             {
-                if (!TryGetDefaultScalar(state, out WorkloadScalarValue defaultValue))
-                {
-                    return;
-                }
-
+                WorkloadScalarValue defaultValue = state.DefaultScalar;
                 BWTWorkloadSettingOwnershipState ownership = Describe(definition);
                 if (ownership.IsPreviewActive)
                 {
@@ -1232,7 +1356,7 @@ namespace Better_Work_Tab.UI.Settings
                     // which always invokes OnChanged and the page write callback
                     // after this delegate returns. Suppress both callbacks even
                     // when projected staging fails so reset remains fail-closed.
-                    MarkStagedMutation(definition.Id);
+                    SuppressSettingsCallbacks(definition.Id);
                     if (CanStageOwnedSetting(ownership))
                     {
                         TryStageScalar(
@@ -1281,7 +1405,7 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            if (!TryReadGlobalScalar(state, settingsObject, out WorkloadScalarValue fallback))
+            if (!TryGetCachedGlobalScalar(state, out WorkloadScalarValue fallback))
             {
                 return false;
             }
@@ -1298,7 +1422,7 @@ namespace Better_Work_Tab.UI.Settings
             WorkloadScalarValue current = fallback;
             if (stageOwned)
             {
-                if (!TryGetEffectivePresentationValue(state.Definition.Id, fallback, out current))
+                if (!TryGetEffectivePresentationValue(state, fallback, out current))
                 {
                     current = fallback;
                     effectiveReadFailed = true;
@@ -1338,7 +1462,7 @@ namespace Better_Work_Tab.UI.Settings
                             out _);
                     if (!changed)
                     {
-                        MarkStagedMutation(state.Definition.Id);
+                        SuppressSettingsCallbacks(state.Definition.Id);
                     }
 
                     return false;
@@ -1361,7 +1485,8 @@ namespace Better_Work_Tab.UI.Settings
                     }
 
                     bool boolValue = current.BooleanValue;
-                    bool boolChanged = state.EmphasizeAsHeader || state.ControlsChildVisibility
+                    bool boolChanged = state.Definition.EmphasizeAsHeader ||
+                        state.Definition.ControlsChildVisibility
                         ? SettingWidgets.DrawHeaderBool(
                             valueRect,
                             label,
@@ -1394,11 +1519,11 @@ namespace Better_Work_Tab.UI.Settings
                     }
 
                     int intValue = current.IntegerValue;
-                    int min = state.MinValue.HasValue
-                        ? Mathf.RoundToInt(state.MinValue.Value)
+                    int min = state.Definition.MinValue.HasValue
+                        ? Mathf.RoundToInt(state.Definition.MinValue.Value)
                         : int.MinValue;
-                    int max = state.MaxValue.HasValue
-                        ? Mathf.RoundToInt(state.MaxValue.Value)
+                    int max = state.Definition.MaxValue.HasValue
+                        ? Mathf.RoundToInt(state.Definition.MaxValue.Value)
                         : int.MaxValue;
                     if (min > max)
                     {
@@ -1455,11 +1580,7 @@ namespace Better_Work_Tab.UI.Settings
                         ref colorValue,
                         tooltip,
                         rowDisabled,
-                        (initialColor, unusedOnSelected) => OpenColorPicker(
-                            state,
-                            settingsObject,
-                            initialColor,
-                            stageOwned));
+                        state.OpenColorPicker);
                     return false;
 
                 default:
@@ -1482,20 +1603,20 @@ namespace Better_Work_Tab.UI.Settings
                     out _);
             }
 
-            if (!CanWriteGlobalFromSettingsUi(state))
-            {
-                return false;
-            }
-
             return TryWriteGlobalScalar(state, settingsObject, value, out _);
         }
 
-        private static void OpenColorPicker(
+        internal static void OpenColorPicker(
             BWTWorkloadSettingDefinitionState state,
-            object settingsObject,
-            Color initialColor,
-            bool stageOwned)
+            Color initialColor)
         {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (state == null || settings == null)
+            {
+                return;
+            }
+
+            bool stageOwned = CanStageOwnedSetting(Describe(state.Definition));
             WorkTabColorPreviewController colorPreview = WorkTabColorPreviewController.Instance;
             colorPreview.BeginPicker(state.Definition, initialColor);
 
@@ -1525,11 +1646,7 @@ namespace Better_Work_Tab.UI.Settings
                 previewRestored = true;
                 if (stageOwned)
                 {
-                    TryStageScalar(
-                        state,
-                        ToColorScalar(committedColor),
-                        suppressDrawerCallbacks: false,
-                        out _);
+                    TryStageColor(state, committedColor);
                 }
             };
 
@@ -1538,14 +1655,10 @@ namespace Better_Work_Tab.UI.Settings
                 (newColor, closing) =>
                 {
                     bool accepted = stageOwned
-                        ? TryStageScalar(
-                            state,
-                            ToColorScalar(newColor),
-                            suppressDrawerCallbacks: false,
-                            out _)
+                        ? TryStageColor(state, newColor)
                         : TryCommitGlobalScalar(
                             state,
-                            settingsObject,
+                            settings,
                             ToColorScalar(newColor),
                             out _);
                     if (accepted)
@@ -1559,11 +1672,7 @@ namespace Better_Work_Tab.UI.Settings
                     colorPreview.PreviewPicker(state.Definition, newColor);
                     if (stageOwned)
                     {
-                        TryStageScalar(
-                            state,
-                            ToColorScalar(newColor),
-                            suppressDrawerCallbacks: false,
-                            out _);
+                        TryStageColor(state, newColor);
                     }
                 });
 
@@ -1584,16 +1693,26 @@ namespace Better_Work_Tab.UI.Settings
             Find.WindowStack.Add(dialog);
         }
 
-        private static bool HasStageableNonDefaultValue(
+        private static bool TryStageColor(
             BWTWorkloadSettingDefinitionState state,
-            object settingsObject)
+            Color color)
         {
-            if (state == null || !TryGetDefaultScalar(state, out WorkloadScalarValue defaultValue))
+            return TryStageScalar(
+                state,
+                ToColorScalar(color),
+                suppressDrawerCallbacks: false,
+                out _);
+        }
+
+        private static bool HasStageableNonDefaultValue(BWTWorkloadSettingDefinitionState state)
+        {
+            if (state == null)
             {
                 return false;
             }
 
-            if (!TryReadGlobalScalar(state, settingsObject, out WorkloadScalarValue fallback))
+            WorkloadScalarValue defaultValue = state.DefaultScalar;
+            if (!TryGetCachedGlobalScalar(state, out WorkloadScalarValue fallback))
             {
                 return false;
             }
@@ -1601,7 +1720,7 @@ namespace Better_Work_Tab.UI.Settings
             BWTWorkloadSettingOwnershipState ownership = Describe(state.Definition);
             WorkloadScalarValue current = fallback;
             if (CanStageOwnedSetting(ownership) &&
-                !TryGetEffectivePresentationValue(state.Definition.Id, fallback, out current))
+                !TryGetEffectivePresentationValue(state, fallback, out current))
             {
                 return false;
             }
@@ -1624,8 +1743,7 @@ namespace Better_Work_Tab.UI.Settings
             out string reason)
         {
             reason = string.Empty;
-            if (state == null || !TryGetSupportedPresentationKind(state.Definition.Id, out WorkloadScalarKind expectedKind) ||
-                value.Kind != expectedKind)
+            if (state == null || value.Kind != state.ScalarKind)
             {
                 reason = "The workload preview does not support this setting value type.";
                 if (state != null)
@@ -1636,46 +1754,13 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            WorkloadPreviewController controller = WorkloadPreviewController.Current;
-            if (controller == null || !controller.IsActive || controller.ProjectedProvider == null)
-            {
-                reason = "The active workload preview is not available for editing.";
-                BlockedReasons[state.Definition.Id] = reason;
-                return false;
-            }
-
-            WorkTabEffectiveStateMutationResult result =
-                controller.ProjectedProvider.SetPresentationSetting(state.Definition.Id, value);
-            if (result.IsBlocked || (!result.Accepted && !result.IsNoOp))
-            {
-                reason = string.IsNullOrEmpty(result.Reason)
-                    ? "The projected presentation setting could not be changed safely."
-                    : result.Reason;
-                BlockedReasons[state.Definition.Id] = reason;
-                WorkTabEffectiveStateRuntime.AcceptPreviewMutation(result);
-                return false;
-            }
-
-            if (!controller.SynchronizeAfterInput())
-            {
-                reason = controller.LastMessage;
-                if (string.IsNullOrEmpty(reason))
-                {
-                    reason = "The projected presentation setting could not be synchronized.";
-                }
-
-                BlockedReasons[state.Definition.Id] = reason;
-                return false;
-            }
-
-            Refresh();
-            InvalidateWorkTabPresentation(state.Definition.Id);
-            if (suppressDrawerCallbacks)
-            {
-                MarkStagedMutation(state.Definition.Id);
-            }
-
-            return true;
+            return TryPreviewMutation(
+                state.Definition.Id,
+                provider => provider.SetPresentationSetting(state.Definition.Id, value),
+                "The projected presentation setting could not be changed safely.",
+                "The projected presentation setting could not be synchronized.",
+                suppressDrawerCallbacks,
+                out reason);
         }
 
         private static bool TryAcquirePresentationSetting(
@@ -1683,62 +1768,29 @@ namespace Better_Work_Tab.UI.Settings
             WorkloadScalarValue globalValue,
             out string reason)
         {
-            reason = string.Empty;
-            if (state == null || !IsStageablePresentationSetting(state.Definition.Id))
-            {
-                reason = "This setting is outside the BWT-local workload ownership allowlist.";
-                return false;
-            }
-
-            BWTWorkloadSettingOwnershipState ownership = Describe(state.Definition);
-            if (!ownership.IsPreviewActive || ownership.IsBlocked)
-            {
-                reason = ownership.BlockReason ??
-                    "The active workload preview is not available for ownership changes.";
-                return false;
-            }
-
-            WorkloadPreviewController controller = WorkloadPreviewController.Current;
-            if (controller == null || !controller.IsActive || controller.ProjectedProvider == null)
-            {
-                reason = "The active workload preview is not available for editing.";
-                return false;
-            }
-
-            WorkTabEffectiveStateMutationResult result =
-                controller.ProjectedProvider.AcquirePresentationSetting(
-                    state.Definition.Id,
-                    globalValue);
-            if (result.IsBlocked || (!result.Accepted && !result.IsNoOp))
-            {
-                reason = string.IsNullOrEmpty(result.Reason)
-                    ? "The presentation setting could not be acquired safely."
-                    : result.Reason;
-                BlockedReasons[state.Definition.Id] = reason;
-                WorkTabEffectiveStateRuntime.AcceptPreviewMutation(result);
-                return false;
-            }
-
-            if (!controller.SynchronizeAfterInput())
-            {
-                reason = controller.LastMessage;
-                if (string.IsNullOrEmpty(reason))
-                {
-                    reason = "The presentation ownership change could not be synchronized.";
-                }
-
-                BlockedReasons[state.Definition.Id] = reason;
-                return false;
-            }
-
-            WorkTabEffectiveStateRuntime.AcceptPreviewMutation(result);
-            Refresh();
-            InvalidateWorkTabPresentation(state.Definition.Id);
-            return true;
+            string settingId = state?.Definition?.Id;
+            return TryChangePresentationOwnership(
+                settingId,
+                provider => provider.AcquirePresentationSetting(settingId, globalValue),
+                "The presentation setting could not be acquired safely.",
+                out reason);
         }
 
         private static bool TryReleasePresentationSetting(
             string settingId,
+            out string reason)
+        {
+            return TryChangePresentationOwnership(
+                settingId,
+                provider => provider.ReleasePresentationSetting(settingId),
+                "The presentation ownership could not be removed safely.",
+                out reason);
+        }
+
+        private static bool TryChangePresentationOwnership(
+            string settingId,
+            Func<ProjectedWorkTabEffectiveStateProvider, WorkTabEffectiveStateMutationResult> mutate,
+            string rejectionReason,
             out string reason)
         {
             reason = string.Empty;
@@ -1756,41 +1808,63 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
+            return TryPreviewMutation(
+                settingId,
+                mutate,
+                rejectionReason,
+                "The presentation ownership change could not be synchronized.",
+                false,
+                out reason);
+        }
+
+        private static bool TryPreviewMutation(
+            string settingId,
+            Func<ProjectedWorkTabEffectiveStateProvider, WorkTabEffectiveStateMutationResult> mutate,
+            string rejectionReason,
+            string synchronizationReason,
+            bool suppressDrawerCallbacks,
+            out string reason)
+        {
+            reason = string.Empty;
             WorkloadPreviewController controller = WorkloadPreviewController.Current;
-            if (controller == null || !controller.IsActive || controller.ProjectedProvider == null)
+            if (controller == null || !controller.IsActive || controller.ProjectedProvider == null ||
+                mutate == null)
             {
                 reason = "The active workload preview is not available for editing.";
-                return false;
             }
-
-            WorkTabEffectiveStateMutationResult result =
-                controller.ProjectedProvider.ReleasePresentationSetting(settingId);
-            if (result.IsBlocked || (!result.Accepted && !result.IsNoOp))
+            else
             {
-                reason = string.IsNullOrEmpty(result.Reason)
-                    ? "The presentation ownership could not be removed safely."
-                    : result.Reason;
-                BlockedReasons[settingId] = reason;
-                WorkTabEffectiveStateRuntime.AcceptPreviewMutation(result);
-                return false;
-            }
-
-            if (!controller.SynchronizeAfterInput())
-            {
-                reason = controller.LastMessage;
-                if (string.IsNullOrEmpty(reason))
+                WorkTabEffectiveStateMutationResult result = mutate(controller.ProjectedProvider);
+                if (!result.IsBlocked && (result.Accepted || result.IsNoOp))
                 {
-                    reason = "The presentation ownership change could not be synchronized.";
-                }
+                    if (controller.SynchronizeAfterInput())
+                    {
+                        WorkTabEffectiveStateRuntime.AcceptPreviewMutation(result);
+                        InvalidateWorkTabPresentation(settingId);
+                        Refresh();
+                        if (suppressDrawerCallbacks)
+                        {
+                            SuppressSettingsCallbacks(settingId);
+                        }
 
-                BlockedReasons[settingId] = reason;
-                return false;
+                        return true;
+                    }
+
+                    reason = controller.LastMessage;
+                    if (string.IsNullOrEmpty(reason))
+                    {
+                        reason = synchronizationReason;
+                    }
+                }
+                else
+                {
+                    reason = string.IsNullOrEmpty(result.Reason) ? rejectionReason : result.Reason;
+                    WorkTabEffectiveStateRuntime.AcceptPreviewMutation(result);
+                }
             }
 
-            WorkTabEffectiveStateRuntime.AcceptPreviewMutation(result);
-            Refresh();
-            InvalidateWorkTabPresentation(settingId);
-            return true;
+            BlockedReasons[settingId ?? string.Empty] = reason;
+            return false;
         }
 
         private static bool TryCommitGlobalScalar(
@@ -1800,12 +1874,6 @@ namespace Better_Work_Tab.UI.Settings
             out string reason)
         {
             reason = string.Empty;
-            if (!CanWriteGlobalFromSettingsUi(state))
-            {
-                reason = "The workload-owned setting cannot write global state during preview.";
-                return false;
-            }
-
             if (!TryWriteGlobalScalar(state, settingsObject, value, out reason))
             {
                 return false;
@@ -1818,21 +1886,6 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             return true;
-        }
-
-        private static bool CanWriteGlobalFromSettingsUi(
-            BWTWorkloadSettingDefinitionState state)
-        {
-            if (state?.Definition == null)
-            {
-                return false;
-            }
-
-            BWTWorkloadSettingOwnershipState ownership = Describe(state.Definition);
-            // Every normal settings-UI write is global. During a workload
-            // preview the global object is immutable; allowlisted ownership
-            // changes must go through the explicit projected action instead.
-            return !ownership.IsPreviewActive;
         }
 
         internal static bool IsBulkSettingsOperationBlocked(out string reason)
@@ -1856,44 +1909,33 @@ namespace Better_Work_Tab.UI.Settings
             return true;
         }
 
-        internal static bool TryGetEffectivePresentationValue(
-            string settingId,
+        private static bool TryGetEffectivePresentationValue(
+            BWTWorkloadSettingDefinitionState state,
             WorkloadScalarValue fallback,
             out WorkloadScalarValue value)
         {
             value = fallback;
-            EnsureSnapshot();
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive && !_snapshot.IsActive)
-            {
-                Refresh();
-            }
-
-            if (!_snapshot.IsActive ||
-                !_snapshot.ReadSucceeded ||
-                !IsPresentationKeyOwned(settingId))
+            if (state == null)
             {
                 return false;
             }
 
-            if (!TryGetSupportedPresentationKind(settingId, out WorkloadScalarKind expectedKind) ||
-                fallback.Kind != expectedKind)
+            BWTWorkloadPresentationSnapshot snapshot = PresentationSnapshot;
+            if (!snapshot.IsActive || !snapshot.ReadSucceeded)
             {
                 return false;
             }
 
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+            if (fallback.Kind != state.ScalarKind)
             {
-                value = WorkTabEffectiveStateRuntime.GetPresentationSetting(
-                    settingId,
-                    fallback);
-                return true;
+                return false;
             }
 
-            // The scoped provider is authoritative during the Work-tab pass.
-            // Outside it, refresh before reading so a preview edit made by a
-            // settings or workload surface cannot leave the layout stale.
-            Refresh();
-            return _snapshot.After.TryGetValue(settingId, out value);
+            return snapshot.TryResolveOwnedScalar(
+                state.Definition.Id,
+                state.ScalarKind,
+                fallback,
+                out value);
         }
 
         internal static string DecorateLabel(
@@ -2014,49 +2056,16 @@ namespace Better_Work_Tab.UI.Settings
             inRect.yMin += bannerHeight + bannerGap;
         }
 
-        internal static bool IsGloballyOwned(string settingId)
-        {
-            return Describe(settingId).IsGloballyOwned;
-        }
-
-        internal static bool IsWorkloadOwnedInActiveTemplate(string settingId)
-        {
-            return Describe(settingId).IsWorkloadOwnedInActiveTemplate;
-        }
-
-        internal static bool IsChangedByActivePreview(string settingId)
-        {
-            return Describe(settingId).IsChangedByActivePreview;
-        }
-
-        internal static bool WillRevertToGlobalOutsidePreview(string settingId)
-        {
-            return Describe(settingId).WillRevertToGlobalOutsidePreview;
-        }
-
-        private static BWTWorkloadSettingOwnershipState Describe(
-            SettingDefinition definition)
-        {
-            return Describe(
-                definition?.Id,
-                definition == null ? SettingType.Header : definition.Type);
-        }
+        private static BWTWorkloadSettingOwnershipState Describe(SettingDefinition definition) =>
+            Describe(definition?.Id);
 
         private static BWTWorkloadSettingOwnershipState Describe(string settingId)
         {
-            return Describe(settingId, SettingType.Header);
-        }
-
-        private static BWTWorkloadSettingOwnershipState Describe(
-            string settingId,
-            SettingType settingType)
-        {
             EnsureSnapshot();
-            bool known = !string.IsNullOrEmpty(settingId) && Metadata.ContainsKey(settingId);
+            bool known = !string.IsNullOrEmpty(settingId) && Metadata.Contains(settingId);
             var state = new BWTWorkloadSettingOwnershipState
             {
                 IsKnown = known,
-                IsGloballyOwned = true,
                 IsPreviewActive = _snapshot.IsActive
             };
 
@@ -2076,47 +2085,35 @@ namespace Better_Work_Tab.UI.Settings
             if (!_snapshot.ReadSucceeded)
             {
                 state.IsBlocked = true;
-                state.BlockReason = ResolveBlockReason(settingId, settingType);
+                state.BlockReason = ResolveBlockReason(settingId);
                 return state;
             }
 
             // A dimension ownership bit is not ownership of every setting in
             // that dimension. Only entries represented by the active template
             // may be marked or blocked here.
-            if (!IsPresentationKeyOwned(settingId))
+            if (!_snapshot.OwnsPresentationSetting(settingId))
             {
                 state.CanAcquireWorkloadOwnership =
                     IsStageablePresentationSetting(settingId);
                 state.IsBlocked = !state.CanAcquireWorkloadOwnership;
                 state.BlockReason = state.IsBlocked
-                    ? ResolveBlockReason(settingId, settingType)
+                    ? ResolveBlockReason(settingId)
                     : string.Empty;
                 return state;
             }
 
-            state.IsGloballyOwned = false;
             state.IsWorkloadOwnedInActiveTemplate = true;
-            state.IsChangedByActivePreview = IsPreviewChanged(settingId);
+            state.IsChangedByActivePreview = _snapshot.IsChanged(settingId);
             state.WillRevertToGlobalOutsidePreview = true;
-            state.CanReleaseWorkloadOwnership = IsStageablePresentationSetting(settingId);
             state.IsBlocked = !IsStageablePresentationSetting(settingId);
             state.BlockReason = state.IsBlocked
-                ? ResolveBlockReason(settingId, settingType)
+                ? ResolveBlockReason(settingId)
                 : string.Empty;
             return state;
         }
 
-        private static bool IsBlocked(string settingId, SettingType settingType)
-        {
-            return Describe(settingId, settingType).IsBlocked;
-        }
-
-        private static string GetBlockReason(string settingId, SettingType settingType)
-        {
-            return Describe(settingId, settingType).BlockReason;
-        }
-
-        private static string ResolveBlockReason(string settingId, SettingType settingType)
+        private static string ResolveBlockReason(string settingId)
         {
             if (BlockedReasons.TryGetValue(settingId ?? string.Empty, out string reason) &&
                 !string.IsNullOrEmpty(reason))
@@ -2136,158 +2133,39 @@ namespace Better_Work_Tab.UI.Settings
                 : "This setting is not in the BWT-local workload presentation editing allowlist. It is read-only during preview; the global setting is unchanged.";
         }
 
-        private static bool IsPreviewChanged(string settingId)
+        private static bool IsStageablePresentationSetting(string settingId) =>
+            !string.IsNullOrEmpty(settingId) && StageablePresentationSettingIds.Contains(settingId);
+
+        private static IDictionary<string, WorkloadScalarValue> CapturePreparedPresentationValues(
+            BetterWorkTabSettings settings)
         {
-            bool hasBeforeIntent = _snapshot.BeforeIntents.TryGetValue(
-                settingId,
-                out WorkloadIntent<WorkloadSettingValue> beforeIntent);
-            bool hasAfterIntent = _snapshot.AfterIntents.TryGetValue(
-                settingId,
-                out WorkloadIntent<WorkloadSettingValue> afterIntent);
-            if (hasBeforeIntent || hasAfterIntent)
-            {
-                return hasBeforeIntent != hasAfterIntent ||
-                    (hasBeforeIntent && !beforeIntent.Equals(afterIntent));
-            }
-
-            bool hasBefore = _snapshot.Before.TryGetValue(settingId, out WorkloadScalarValue before);
-            bool hasAfter = _snapshot.After.TryGetValue(settingId, out WorkloadScalarValue after);
-            return hasBefore != hasAfter || (hasBefore && !before.Equals(after));
-        }
-
-        private static bool TryGetSupportedPresentationKind(
-            string settingId,
-            out WorkloadScalarKind kind)
-        {
-            kind = WorkloadScalarKind.Empty;
-            if (IsStageablePresentationSetting(settingId) &&
-                TryGetDefinition(settingId, out SettingDefinition definition) &&
-                PreparedSettingRows.TryGetValue(
-                    definition,
-                    out BWTWorkloadSettingDefinitionState state))
-            {
-                kind = state.ScalarKind;
-                return true;
-            }
-
-            if (_supportedPresentationKinds == null)
-            {
-                BWTSettingsRegistry.EnsureInitialized();
-            }
-
-            return _supportedPresentationKinds != null &&
-                _supportedPresentationKinds.TryGetValue(settingId, out kind);
-        }
-
-        private static bool IsStageablePresentationSetting(string settingId)
-        {
-            return !string.IsNullOrEmpty(settingId) &&
-                StageablePresentationSettingIds.Contains(settingId);
-        }
-
-        private static bool TryGetDefinition(
-            string settingId,
-            out SettingDefinition definition)
-        {
-            definition = null;
-            if (string.IsNullOrEmpty(settingId) ||
-                !Metadata.ContainsKey(settingId))
-            {
-                return false;
-            }
-
-            IReadOnlyList<SettingDefinition> definitions = BWTSettingsRegistry.Definitions;
-            for (int i = 0; i < definitions.Count; i++)
-            {
-                SettingDefinition candidate = definitions[i];
-                if (candidate != null &&
-                    string.Equals(candidate.Id, settingId, StringComparison.Ordinal))
+            return WorkloadPresentationValueCache.Capture(
+                PreparedPresentationSettings.Keys,
+                _snapshot.GlobalValues,
+                (string settingId, out WorkloadScalarValue value) =>
                 {
-                    definition = candidate;
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool TryGetDefinitionScalarKind(
-            SettingDefinition definition,
-            out WorkloadScalarKind kind)
-        {
-            kind = WorkloadScalarKind.Empty;
-            if (definition == null ||
-                string.IsNullOrEmpty(definition.FieldName) ||
-                definition.ValueGetter != null ||
-                definition.ValueSetter != null)
-            {
-                return false;
-            }
-
-            FieldInfo field = FindSettingsField(definition);
-            if (field == null)
-            {
-                return false;
-            }
-
-            if (definition.Type == SettingType.Bool && field.FieldType == typeof(bool))
-            {
-                kind = WorkloadScalarKind.Boolean;
-                return true;
-            }
-
-            if ((definition.Type == SettingType.Int ||
-                 definition.Type == SettingType.NumericInt) &&
-                field.FieldType == typeof(int))
-            {
-                kind = WorkloadScalarKind.Integer;
-                return true;
-            }
-
-            if (definition.Type == SettingType.Color && field.FieldType == typeof(Color))
-            {
-                // WorkloadScalarValue has no typed Color member. Canonical RGBA
-                // text keeps the value deterministic without widening the V2
-                // model in this BWT-local settings pass.
-                kind = WorkloadScalarKind.String;
-                return true;
-            }
-
-            return false;
-        }
-
-        private static bool TryDeriveSupportedPresentationKind(
-            SettingDefinition definition,
-            out WorkloadScalarKind kind)
-        {
-            return TryGetDefinitionScalarKind(definition, out kind);
-        }
-
-        private static FieldInfo FindSettingsField(SettingDefinition definition)
-        {
-            if (definition == null || string.IsNullOrEmpty(definition.FieldName))
-            {
-                return null;
-            }
-
-            const BindingFlags flags = BindingFlags.Instance |
-                BindingFlags.Public |
-                BindingFlags.NonPublic;
-            Type type = typeof(BetterWorkTabSettings);
-            while (type != null)
-            {
-                FieldInfo field = type.GetField(
-                    definition.FieldName,
-                    flags | BindingFlags.DeclaredOnly);
-                if (field != null)
+                    value = WorkloadScalarValue.Empty;
+                    return PreparedPresentationSettings.TryGetValue(
+                               settingId, out BWTWorkloadSettingDefinitionState state) &&
+                        TryReadGlobalScalar(state, settings, out value);
+                },
+                (string settingId, out WorkloadScalarValue value) =>
                 {
-                    return field;
-                }
+                    value = WorkloadScalarValue.Empty;
+                    return PreparedPresentationSettings.TryGetValue(
+                        settingId, out BWTWorkloadSettingDefinitionState state) &&
+                        (value = state.DefaultScalar).Kind == state.ScalarKind;
+                });
+        }
 
-                type = type.BaseType;
-            }
-
-            return null;
+        private static bool TryGetCachedGlobalScalar(
+            BWTWorkloadSettingDefinitionState state,
+            out WorkloadScalarValue value)
+        {
+            value = WorkloadScalarValue.Empty;
+            return state != null &&
+                PresentationSnapshot.TryGetGlobalValue(state.Definition.Id, out value) &&
+                value.Kind == state.ScalarKind;
         }
 
         internal static bool TryReadGlobalScalar(
@@ -2296,44 +2174,8 @@ namespace Better_Work_Tab.UI.Settings
             out WorkloadScalarValue value)
         {
             value = WorkloadScalarValue.Empty;
-            if (state == null || settingsObject == null)
-            {
-                return false;
-            }
-
-            FieldInfo field = FindField(state.Definition, settingsObject);
-            if (field == null)
-            {
-                return false;
-            }
-
-            object raw = field.GetValue(settingsObject);
-            switch (state.ScalarKind)
-            {
-                case WorkloadScalarKind.Boolean:
-                    if (raw is bool boolValue)
-                    {
-                        value = WorkloadScalarValue.FromBoolean(boolValue);
-                        return true;
-                    }
-                    break;
-                case WorkloadScalarKind.Integer:
-                    if (raw is int intValue)
-                    {
-                        value = WorkloadScalarValue.FromInteger(intValue);
-                        return true;
-                    }
-                    break;
-                case WorkloadScalarKind.String:
-                    if (raw is Color colorValue)
-                    {
-                        value = ToColorScalar(colorValue);
-                        return true;
-                    }
-                    break;
-            }
-
-            return false;
+            return state?.Field != null && settingsObject != null &&
+                TryToScalar(state, state.Field.GetValue(settingsObject), false, out value);
         }
 
         internal static bool TryReadGlobalExact(
@@ -2341,26 +2183,10 @@ namespace Better_Work_Tab.UI.Settings
             object settingsObject,
             out object value)
         {
-            value = null;
-            if (state == null || settingsObject == null)
-            {
-                return false;
-            }
-
-            FieldInfo field = FindField(state.Definition, settingsObject);
-            if (field == null)
-            {
-                return false;
-            }
-
-            object raw = field.GetValue(settingsObject);
-            if (!IsExactValueCompatible(state, raw))
-            {
-                return false;
-            }
-
-            value = raw;
-            return true;
+            value = state?.Field == null || settingsObject == null
+                ? null
+                : state.Field.GetValue(settingsObject);
+            return IsExactValueCompatible(state, value);
         }
 
         internal static bool TryGetStageableDefinition(
@@ -2369,8 +2195,7 @@ namespace Better_Work_Tab.UI.Settings
         {
             state = null;
             return IsStageablePresentationSetting(settingId) &&
-                TryGetDefinition(settingId, out SettingDefinition definition) &&
-                PreparedSettingRows.TryGetValue(definition, out state);
+                PreparedPresentationSettings.TryGetValue(settingId, out state);
         }
 
         internal static bool TryWriteGlobalScalar(
@@ -2379,47 +2204,66 @@ namespace Better_Work_Tab.UI.Settings
             WorkloadScalarValue value,
             out string reason)
         {
-            reason = string.Empty;
-            if (IsPreviewActive && _authorizedGlobalSettingsWriteDepth <= 0)
+            if (!TryGetCanonicalGlobalExact(state, value, out object exact, out reason) ||
+                !TryWriteGlobalExact(state, settingsObject, exact, out reason))
             {
-                reason = "Global Better Work Tab settings are protected while a workload preview is active.";
                 return false;
             }
 
-            if (state == null || settingsObject == null ||
-                value.Kind != state.ScalarKind)
+            _snapshot.SetGlobalValue(state.Definition.Id, value);
+            return true;
+        }
+
+        internal static bool TryGetCanonicalGlobalExact(
+            BWTWorkloadSettingDefinitionState state,
+            WorkloadScalarValue value,
+            out object exactValue,
+            out string reason)
+        {
+            exactValue = null;
+            reason = string.Empty;
+            if (state == null || value.Kind != state.ScalarKind)
             {
                 reason = "The setting value does not match its workload scalar type.";
                 return false;
             }
 
-            FieldInfo field = FindField(state.Definition, settingsObject);
-            if (field == null)
-            {
-                reason = "The Better Work Tab setting field could not be resolved.";
-                return false;
-            }
-
-            switch (state.ScalarKind)
+            switch (value.Kind)
             {
                 case WorkloadScalarKind.Boolean:
-                    field.SetValue(settingsObject, value.BooleanValue);
+                    exactValue = value.BooleanValue;
                     return true;
                 case WorkloadScalarKind.Integer:
-                    field.SetValue(
-                        settingsObject,
-                        NormalizeStagedInteger(state.Definition.Id, value.IntegerValue));
+                    int normalized = NormalizeStagedInteger(
+                        state.Definition.Id,
+                        value.IntegerValue);
+                    if (normalized != value.IntegerValue)
+                    {
+                        reason = "The workload value is not in this setting's canonical range.";
+                        return false;
+                    }
+
+                    exactValue = normalized;
                     return true;
                 case WorkloadScalarKind.String:
-                    if (TryGetColor(value, out Color colorValue))
+                    if (TryGetColor(value, out Color color))
                     {
-                        field.SetValue(settingsObject, colorValue);
+                        if (!StringComparer.Ordinal.Equals(
+                                value.StringValue,
+                                ToColorScalar(color).StringValue))
+                        {
+                            reason = "The workload color is not in the canonical RGBA form.";
+                            return false;
+                        }
+
+                        exactValue = color;
                         return true;
                     }
+
                     break;
             }
 
-            reason = "The workload scalar could not be converted to the Better Work Tab setting type.";
+            reason = "The workload scalar could not be normalized for the Better Work Tab setting.";
             return false;
         }
 
@@ -2443,14 +2287,13 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            FieldInfo field = FindField(state.Definition, settingsObject);
-            if (field == null)
+            if (state.Field == null)
             {
                 reason = "The Better Work Tab setting field could not be resolved.";
                 return false;
             }
 
-            field.SetValue(settingsObject, value);
+            state.Field.SetValue(settingsObject, value);
             return true;
         }
 
@@ -2458,26 +2301,16 @@ namespace Better_Work_Tab.UI.Settings
             BWTWorkloadSettingDefinitionState state,
             object value)
         {
-            if (state == null || value == null)
-            {
-                return false;
-            }
-
-            switch (state.ScalarKind)
-            {
-                case WorkloadScalarKind.Boolean:
-                    return value is bool;
-                case WorkloadScalarKind.Integer:
-                    return value is int;
-                case WorkloadScalarKind.String:
-                    return value is Color;
-                default:
-                    return false;
-            }
+            return state != null && value != null &&
+                ((state.ScalarKind == WorkloadScalarKind.Boolean && value is bool) ||
+                 (state.ScalarKind == WorkloadScalarKind.Integer && value is int) ||
+                 (state.ScalarKind == WorkloadScalarKind.String && value is Color));
         }
 
-        private static bool TryGetDefaultScalar(
+        internal static bool TryToScalar(
             BWTWorkloadSettingDefinitionState state,
+            object raw,
+            bool normalizeInteger,
             out WorkloadScalarValue value)
         {
             value = WorkloadScalarValue.Empty;
@@ -2486,30 +2319,24 @@ namespace Better_Work_Tab.UI.Settings
                 return false;
             }
 
-            switch (state.ScalarKind)
+            if (state.ScalarKind == WorkloadScalarKind.Boolean && raw is bool boolean)
             {
-                case WorkloadScalarKind.Boolean:
-                    if (state.DefaultValue is bool boolValue)
-                    {
-                        value = WorkloadScalarValue.FromBoolean(boolValue);
-                        return true;
-                    }
-                    break;
-                case WorkloadScalarKind.Integer:
-                    if (state.DefaultValue is int intValue)
-                    {
-                        value = WorkloadScalarValue.FromInteger(
-                            NormalizeStagedInteger(state.Definition.Id, intValue));
-                        return true;
-                    }
-                    break;
-                case WorkloadScalarKind.String:
-                    if (state.DefaultValue is Color colorValue)
-                    {
-                        value = ToColorScalar(colorValue);
-                        return true;
-                    }
-                    break;
+                value = WorkloadScalarValue.FromBoolean(boolean);
+                return true;
+            }
+
+            if (state.ScalarKind == WorkloadScalarKind.Integer && raw is int integer)
+            {
+                value = WorkloadScalarValue.FromInteger(normalizeInteger
+                    ? NormalizeStagedInteger(state.Definition.Id, integer)
+                    : integer);
+                return true;
+            }
+
+            if (state.ScalarKind == WorkloadScalarKind.String && raw is Color color)
+            {
+                value = ToColorScalar(color);
+                return true;
             }
 
             return false;
@@ -2521,7 +2348,7 @@ namespace Better_Work_Tab.UI.Settings
                 "#" + ColorUtility.ToHtmlStringRGBA(color));
         }
 
-        private static bool TryGetColor(
+        internal static bool TryGetColor(
             WorkloadScalarValue value,
             out Color color)
         {
@@ -2551,26 +2378,8 @@ namespace Better_Work_Tab.UI.Settings
             return value;
         }
 
-        private static bool IsAngledHeaderModeEnabled(BetterWorkTabSettings settings)
-        {
-            bool fallback = settings?.enableAngledHeaders ??
-                DefaultSettings.enableAngledHeaders;
-            return BWTWorkTabEffectiveSettings.GetBool(HeadersAngled, fallback);
-        }
-
-        private static bool IsPresentationKeyOwned(string settingId)
-        {
-            if (string.IsNullOrEmpty(settingId) || !Metadata.ContainsKey(settingId))
-            {
-                return false;
-            }
-
-            // Ownership is determined by the workload entry itself, not by
-            // whether BWT can currently render or commit that scalar type.
-            // Unsupported entries remain explicitly read-only instead of
-            // silently falling through to global settings.
-            return _snapshot.OwnedKeys.Contains(settingId);
-        }
+        private static bool IsAngledHeaderModeEnabled() =>
+            BWTWorkTabEffectiveSettings.GetBool(HeadersAngled);
 
         private static bool TryHandleEnumMutation(
             SettingDefinition definition,
@@ -2587,7 +2396,7 @@ namespace Better_Work_Tab.UI.Settings
             {
                 return BlockAndHandle(
                     definition.Id,
-                    ResolveBlockReason(definition.Id, definition.Type));
+                    ResolveBlockReason(definition.Id));
             }
 
             return false;
@@ -2596,23 +2405,18 @@ namespace Better_Work_Tab.UI.Settings
         private static bool BlockAndHandle(string settingId, string reason)
         {
             BlockedReasons[settingId ?? string.Empty] = reason;
-            MarkHandledMutation(settingId);
-            _suppressNextGlobalSettingsWrite = true;
+            SuppressSettingsCallbacks(settingId);
             InvalidateWorkTabPresentation();
             return true;
         }
 
-        private static void MarkHandledMutation(string settingId)
+        private static void SuppressSettingsCallbacks(string settingId)
         {
             if (!string.IsNullOrEmpty(settingId))
             {
                 SuppressedOnChanged.Add(settingId);
             }
-        }
 
-        private static void MarkStagedMutation(string settingId)
-        {
-            MarkHandledMutation(settingId);
             _suppressNextGlobalSettingsWrite = true;
         }
 
@@ -2626,33 +2430,30 @@ namespace Better_Work_Tab.UI.Settings
             object settingsObject,
             object value)
         {
-            FieldInfo field = FindField(definition, settingsObject);
-            field?.SetValue(settingsObject, value);
+            if (settingsObject != null && definition != null &&
+                PreparedFields.TryGetValue(definition, out FieldInfo field))
+            {
+                field.SetValue(settingsObject, value);
+            }
         }
 
-        private static FieldInfo FindField(
-            SettingDefinition definition,
-            object settingsObject)
+        private static FieldInfo FindSettingsField(SettingDefinition definition)
         {
-            if (definition == null || settingsObject == null ||
-                string.IsNullOrEmpty(definition.FieldName))
+            if (definition == null || string.IsNullOrEmpty(definition.FieldName))
             {
                 return null;
             }
 
-            Type type = settingsObject.GetType();
             const BindingFlags flags = BindingFlags.Instance |
                 BindingFlags.Public |
                 BindingFlags.NonPublic;
-            while (type != null)
+            for (Type type = typeof(BetterWorkTabSettings); type != null; type = type.BaseType)
             {
                 FieldInfo field = type.GetField(definition.FieldName, flags | BindingFlags.DeclaredOnly);
                 if (field != null)
                 {
                     return field;
                 }
-
-                type = type.BaseType;
             }
 
             return null;
@@ -2660,9 +2461,15 @@ namespace Better_Work_Tab.UI.Settings
 
         private static void EnsureSnapshot()
         {
-            if (!_snapshotValid)
+            EnsureFresh();
+        }
+
+        internal static BWTWorkloadPresentationSnapshot PresentationSnapshot
+        {
+            get
             {
-                Refresh();
+                EnsureSnapshot();
+                return _snapshot;
             }
         }
 
@@ -2674,25 +2481,13 @@ namespace Better_Work_Tab.UI.Settings
         internal static void InvalidateWorkTabPresentation(
             IEnumerable<string> settingIds)
         {
-            bool includesHeaderSetting = false;
-            if (settingIds != null)
-            {
-                foreach (string settingId in settingIds)
-                {
-                    if (IsHeaderPresentationSetting(settingId))
-                    {
-                        includesHeaderSetting = true;
-                        break;
-                    }
-                }
-            }
-
-            InvalidateWorkTabPresentationCore(includesHeaderSetting);
+            InvalidateWorkTabPresentationCore(IncludesHeaderSetting(settingIds));
         }
 
         private static void InvalidateWorkTabPresentationCore(
             bool includesHeaderSetting)
         {
+            _snapshotValid = false;
             WorkTabEffectiveStateRuntime.InvalidateRenderPass();
             if (includesHeaderSetting)
             {
@@ -2712,6 +2507,22 @@ namespace Better_Work_Tab.UI.Settings
                 string.Equals(settingId, "headers.horizontalOffset", StringComparison.Ordinal) ||
                 string.Equals(settingId, "headers.angledColor", StringComparison.Ordinal) ||
                 string.Equals(settingId, HeadersUnderlineColor, StringComparison.Ordinal);
+        }
+
+        private static bool IncludesHeaderSetting(IEnumerable<string> settingIds)
+        {
+            if (settingIds != null)
+            {
+                foreach (string settingId in settingIds)
+                {
+                    if (IsHeaderPresentationSetting(settingId))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private static bool RequiresPreviewSuppression(SettingType type)
@@ -2734,11 +2545,10 @@ namespace Better_Work_Tab.UI.Settings
             }
         }
 
-        private static Dictionary<string, BWTWorkloadSettingMetadata> BuildMetadata()
+        private static HashSet<string> BuildMetadata()
         {
-            var metadata = new Dictionary<string, BWTWorkloadSettingMetadata>(StringComparer.Ordinal);
-
-            Add(metadata, "Work-type header",
+            return new HashSet<string>(StringComparer.Ordinal)
+            {
                 HeadersCustomWorkLabels,
                 HeadersAngled,
                 DragdropRemoveHeaderUnderline,
@@ -2747,9 +2557,7 @@ namespace Better_Work_Tab.UI.Settings
                 "headers.cjkVerticalKerning",
                 "headers.angledColor",
                 HeadersUnderlineColor,
-                "headers.horizontalOffset");
-
-            Add(metadata, "Specific-job presentation",
+                "headers.horizontalOffset",
                 SubWorkGlobalVanillaPriorityBoxes,
                 SubWorkCompactPriorityBoxes,
                 SubWorkCrossWorkDragDrop,
@@ -2768,13 +2576,11 @@ namespace Better_Work_Tab.UI.Settings
                 SubWorkDisabledParentMode,
                 FluffyStyleFeatures,
                 FluffyStyleTopButtons,
-                FluffyStyleStandaloneTopButtons);
-
-            Add(metadata, "Work-tab presentation",
-                 FeaturesOverlay,
-                 FeaturesHighlights,
-                 FeaturesDividers,
-                 LayoutWorkTabMinimumWidth,
+                FluffyStyleStandaloneTopButtons,
+                FeaturesOverlay,
+                FeaturesHighlights,
+                FeaturesDividers,
+                LayoutWorkTabMinimumWidth,
                 LayoutWorkTabMaxVisiblePawns,
                 LayoutWorkTabTopSpace,
                 LayoutPawnCount,
@@ -2816,36 +2622,13 @@ namespace Better_Work_Tab.UI.Settings
                 ColumnsShowMovedIndicator,
                 ColumnsShowBaselineLine,
                 "columns.showMovedColorTint",
-                "columns.movedMarkerColor");
-
-            Add(metadata, "Workload presentation",
+                "columns.movedMarkerColor",
                 WorkloadsPreviewRevealAnimation,
                 WorkloadsPreviewRevealSpeed,
                 WorkloadsInspectionHighlights,
                 WorkloadsInspectionOpacity,
-                WorkloadsWarnOnApply);
-
-            return metadata;
-        }
-
-        private static void Add(
-            IDictionary<string, BWTWorkloadSettingMetadata> metadata,
-            string region,
-            params string[] settingIds)
-        {
-            if (settingIds == null)
-            {
-                return;
-            }
-
-            for (int i = 0; i < settingIds.Length; i++)
-            {
-                string settingId = settingIds[i];
-                if (!string.IsNullOrEmpty(settingId))
-                {
-                    metadata[settingId] = new BWTWorkloadSettingMetadata(settingId, region);
-                }
-            }
+                WorkloadsWarnOnApply
+            };
         }
     }
 
@@ -2856,54 +2639,14 @@ namespace Better_Work_Tab.UI.Settings
     /// </summary>
     internal static class BWTWorkTabEffectiveSettings
     {
-        internal static bool GetBool(string settingId, bool fallback)
-        {
-            if (BWTWorkloadSettingsOwnershipPolicy.TryGetEffectivePresentationValue(
-                    settingId,
-                    WorkloadScalarValue.FromBoolean(fallback),
-                    out WorkloadScalarValue value) &&
-                value.Kind == WorkloadScalarKind.Boolean)
-            {
-                return value.BooleanValue;
-            }
+        internal static bool GetBool(string settingId) =>
+            BWTWorkloadSettingsOwnershipPolicy.PresentationSnapshot.GetBool(settingId);
 
-            return fallback;
-        }
+        internal static int GetInt(string settingId) =>
+            BWTWorkloadSettingsOwnershipPolicy.PresentationSnapshot.GetInt(settingId);
 
-        internal static int GetInt(string settingId, int fallback)
-        {
-            if (BWTWorkloadSettingsOwnershipPolicy.TryGetEffectivePresentationValue(
-                    settingId,
-                    WorkloadScalarValue.FromInteger(fallback),
-                    out WorkloadScalarValue value) &&
-                value.Kind == WorkloadScalarKind.Integer)
-            {
-                return value.IntegerValue;
-            }
-
-            return fallback;
-        }
-
-        internal static Color GetColor(string settingId, Color fallback)
-        {
-            if (BWTWorkloadSettingsOwnershipPolicy.TryGetEffectivePresentationValue(
-                    settingId,
-                    WorkloadScalarValue.FromString(
-                        "#" + ColorUtility.ToHtmlStringRGBA(fallback)),
-                    out WorkloadScalarValue value) &&
-                value.Kind == WorkloadScalarKind.String &&
-                !string.IsNullOrEmpty(value.StringValue) &&
-                ColorUtility.TryParseHtmlString(
-                    value.StringValue.StartsWith("#", StringComparison.Ordinal)
-                        ? value.StringValue
-                        : "#" + value.StringValue,
-                    out Color color))
-            {
-                return color;
-            }
-
-            return fallback;
-        }
+        internal static Color GetColor(string settingId) =>
+            BWTWorkloadSettingsOwnershipPolicy.PresentationSnapshot.GetColor(settingId);
     }
 
     internal sealed class BWTWorkloadSettingDefinitionState
@@ -2912,713 +2655,352 @@ namespace Better_Work_Tab.UI.Settings
             SettingDefinition definition,
             SettingType originalType,
             WorkloadScalarKind scalarKind,
-            object defaultValue,
-            float? minValue,
-            float? maxValue,
-            bool emphasizeAsHeader,
-            bool controlsChildVisibility)
+            FieldInfo field)
         {
             Definition = definition;
             OriginalType = originalType;
             ScalarKind = scalarKind;
-            DefaultValue = defaultValue;
-            MinValue = minValue;
-            MaxValue = maxValue;
-            EmphasizeAsHeader = emphasizeAsHeader;
-            ControlsChildVisibility = controlsChildVisibility;
+            Field = field;
+            OpenColorPicker = OpenPreparedColorPicker;
         }
 
         internal SettingDefinition Definition { get; }
         internal SettingType OriginalType { get; }
         internal WorkloadScalarKind ScalarKind { get; }
-        internal object DefaultValue { get; }
-        internal float? MinValue { get; }
-        internal float? MaxValue { get; }
-        internal bool EmphasizeAsHeader { get; }
-        internal bool ControlsChildVisibility { get; }
-    }
+        internal FieldInfo Field { get; }
+        internal WorkloadScalarValue DefaultScalar { get; set; }
+        internal Action<Color, Action<Color>> OpenColorPicker { get; }
 
-    internal interface IBWTWorkloadSettingsApplyWriter
-    {
-        bool TryCapture(
-            IEnumerable<string> settingIds,
-            out BWTWorkloadSettingsSnapshot snapshot,
-            out string reason);
-
-        bool TryApply(
-            BWTWorkloadSettingsSnapshot snapshot,
-            IReadOnlyDictionary<string, WorkloadScalarValue> values,
-            bool persist,
-            out string reason);
-
-        bool TryRollback(
-            BWTWorkloadSettingsSnapshot snapshot,
-            bool persist,
-            out string reason);
-    }
-
-    internal sealed class BWTWorkloadSettingsSnapshot
-    {
-        internal BWTWorkloadSettingsSnapshot(
-            BetterWorkTabSettings settings,
-            IDictionary<string, WorkloadScalarValue> values,
-            IDictionary<string, object> exactValues)
+        private void OpenPreparedColorPicker(Color initialColor, Action<Color> _)
         {
-            Settings = settings;
-            Values = new Dictionary<string, WorkloadScalarValue>(
-                values ?? new Dictionary<string, WorkloadScalarValue>(),
-                StringComparer.Ordinal);
-            ExactValues = new Dictionary<string, object>(
-                exactValues ?? new Dictionary<string, object>(),
-                StringComparer.Ordinal);
+            BWTWorkloadSettingsOwnershipPolicy.OpenColorPicker(this, initialColor);
+        }
+    }
+
+    internal sealed class BWTWorkloadPresentationSettingsStore : IWorkloadPresentationSettingsStore
+    {
+        public object Identity => BetterWorkTabMod.Settings;
+        public long Revision => BWTWorkloadSettingsOwnershipPolicy.GlobalSettingsRevision;
+
+        public bool TryRead(string settingId, out WorkloadScalarValue value)
+        {
+            value = WorkloadScalarValue.Empty;
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            return settings != null &&
+                BWTWorkloadSettingsOwnershipPolicy.TryGetStageableDefinition(
+                    settingId, out BWTWorkloadSettingDefinitionState state) &&
+                BWTWorkloadSettingsOwnershipPolicy.TryReadGlobalExact(
+                    state, settings, out object exact) &&
+                BWTWorkloadSettingsOwnershipPolicy.TryToScalar(
+                    state, exact, false, out value);
         }
 
-        internal BetterWorkTabSettings Settings { get; }
-        internal IReadOnlyDictionary<string, WorkloadScalarValue> Values { get; }
-        internal IReadOnlyDictionary<string, object> ExactValues { get; }
-    }
-
-    /// <summary>
-    /// BWT-local future commit seam for workload-owned presentation settings.
-    /// The current Workload V2 backend is intentionally outside this Phase 2
-    /// scope; the settings drawer never invokes this writer implicitly.
-    /// </summary>
-    internal sealed class BWTWorkloadSettingsApplyWriter : IBWTWorkloadSettingsApplyWriter
-    {
-        public bool TryCapture(
-            IEnumerable<string> settingIds,
-            out BWTWorkloadSettingsSnapshot snapshot,
+        public bool TryCanonicalize(
+            string settingId,
+            WorkloadScalarValue requested,
+            out WorkloadScalarValue canonical,
             out string reason)
         {
-            snapshot = null;
+            canonical = WorkloadScalarValue.Empty;
             reason = string.Empty;
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (settings == null)
-            {
-                reason = "Better Work Tab settings are not loaded.";
-                return false;
-            }
-
-            var values = new Dictionary<string, WorkloadScalarValue>(StringComparer.Ordinal);
-            var exactValues = new Dictionary<string, object>(StringComparer.Ordinal);
-            if (settingIds == null)
-            {
-                reason = "No workload-owned presentation settings were supplied.";
-                return false;
-            }
-
-            foreach (string settingId in settingIds)
-            {
-                if (!BWTWorkloadSettingsOwnershipPolicy.TryGetStageableDefinition(
-                        settingId,
-                        out BWTWorkloadSettingDefinitionState state))
-                {
-                    reason = "The setting '" + (settingId ?? string.Empty) +
-                        "' is not supported by the BWT-local workload writer.";
-                    return false;
-                }
-
-                if (values.ContainsKey(settingId))
-                {
-                    continue;
-                }
-
-                if (!BWTWorkloadSettingsOwnershipPolicy.TryReadGlobalScalar(
-                        state,
-                        settings,
-                        out WorkloadScalarValue value))
-                {
-                    reason = "The setting '" + settingId + "' could not be read.";
-                    return false;
-                }
-
-                if (!BWTWorkloadSettingsOwnershipPolicy.TryReadGlobalExact(
-                        state,
-                        settings,
-                        out object exactValue))
-                {
-                    reason = "The setting '" + settingId +
-                        "' could not be captured exactly.";
-                    return false;
-                }
-
-                values.Add(settingId, value);
-                exactValues.Add(settingId, exactValue);
-            }
-
-            snapshot = new BWTWorkloadSettingsSnapshot(
-                settings,
-                values,
-                exactValues);
-            return true;
+            return BWTWorkloadSettingsOwnershipPolicy.TryGetStageableDefinition(
+                       settingId, out BWTWorkloadSettingDefinitionState state) &&
+                BWTWorkloadSettingsOwnershipPolicy.TryGetCanonicalGlobalExact(
+                    state, requested, out object exact, out reason) &&
+                BWTWorkloadSettingsOwnershipPolicy.TryToScalar(
+                    state, exact, false, out canonical);
         }
 
-        public bool TryApply(
-            BWTWorkloadSettingsSnapshot snapshot,
-            IReadOnlyDictionary<string, WorkloadScalarValue> values,
-            bool persist,
+        public bool TryWrite(
+            string settingId,
+            WorkloadScalarValue value,
             out string reason)
         {
             reason = string.Empty;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (!TryValidateSnapshot(snapshot, settings, out reason) || values == null)
-            {
-                if (string.IsNullOrEmpty(reason))
-                {
-                    reason = "No projected presentation values were supplied.";
-                }
-
-                return false;
-            }
-
-            var keys = new List<string>();
-            foreach (KeyValuePair<string, WorkloadScalarValue> pair in values)
-            {
-                if (!snapshot.Values.ContainsKey(pair.Key))
-                {
-                    reason = "The projected presentation payload contains an uncaptured setting.";
-                    return false;
-                }
-
-                if (!BWTWorkloadSettingsOwnershipPolicy.TryGetStageableDefinition(
-                        pair.Key,
-                        out BWTWorkloadSettingDefinitionState state) ||
-                    pair.Value.Kind != state.ScalarKind)
-                {
-                    reason = "The projected presentation payload contains an invalid setting value.";
-                    return false;
-                }
-
-                keys.Add(pair.Key);
-            }
-
-            if (keys.Count == 0)
-            {
-                return true;
-            }
-
-            keys.Sort(StringComparer.Ordinal);
-            var currentExactValues = new Dictionary<string, object>(StringComparer.Ordinal);
-            foreach (string key in snapshot.ExactValues.Keys)
-            {
-                if (!BWTWorkloadSettingsOwnershipPolicy.TryGetStageableDefinition(
-                        key,
-                        out BWTWorkloadSettingDefinitionState state) ||
-                    !BWTWorkloadSettingsOwnershipPolicy.TryReadGlobalExact(
-                        state,
-                        settings,
-                        out object currentValue) ||
-                    !object.Equals(snapshot.ExactValues[key], currentValue))
-                {
-                    reason = "Global Better Work Tab settings changed while the workload apply was being prepared.";
-                    return false;
-                }
-
-                currentExactValues[key] = currentValue;
-            }
-
-            using (BWTWorkloadSettingsOwnershipPolicy.BeginAuthorizedGlobalSettingsWrite())
-            {
-                try
-                {
-                    for (int i = 0; i < keys.Count; i++)
-                    {
-                        string key = keys[i];
-                        BWTWorkloadSettingsOwnershipPolicy.TryGetStageableDefinition(
-                            key,
-                            out BWTWorkloadSettingDefinitionState state);
-                        if (!BWTWorkloadSettingsOwnershipPolicy.TryWriteGlobalScalar(
-                                state,
-                                settings,
-                                values[key],
-                                out reason))
-                        {
-                            TryRestoreExactValues(
-                                settings,
-                                currentExactValues,
-                                out string restoreReason);
-                            if (!string.IsNullOrEmpty(restoreReason))
-                            {
-                                reason += " Rollback also failed: " + restoreReason;
-                            }
-
-                            BWTWorkloadSettingsOwnershipPolicy.InvalidateWorkTabPresentation(keys);
-                            return false;
-                        }
-                    }
-
-                    if (persist)
-                    {
-                        settings.Write();
-                    }
-
-                    BWTWorkloadSettingsOwnershipPolicy.InvalidateWorkTabPresentation(
-                        keys);
-                    return true;
-                }
-                catch (Exception exception)
-                {
-                    TryRestoreExactValues(
-                        settings,
-                        currentExactValues,
-                        out string restoreReason);
-                    reason = "The workload presentation apply failed: " + exception.Message;
-                    if (!string.IsNullOrEmpty(restoreReason))
-                    {
-                        reason += " Rollback also failed: " + restoreReason;
-                    }
-
-                    string persistenceReason = TryPersistRestoredState(settings, persist);
-                    if (!string.IsNullOrEmpty(persistenceReason))
-                    {
-                        reason += " " + persistenceReason;
-                    }
-
-                    BWTWorkloadSettingsOwnershipPolicy.InvalidateWorkTabPresentation(
-                        keys);
-                    return false;
-                }
-            }
+            return settings != null &&
+                BWTWorkloadSettingsOwnershipPolicy.TryGetStageableDefinition(
+                    settingId, out BWTWorkloadSettingDefinitionState state) &&
+                BWTWorkloadSettingsOwnershipPolicy.TryGetCanonicalGlobalExact(
+                    state, value, out object exact, out reason) &&
+                BWTWorkloadSettingsOwnershipPolicy.TryWriteGlobalExact(
+                    state, settings, exact, out reason);
         }
 
-        public bool TryRollback(
-            BWTWorkloadSettingsSnapshot snapshot,
-            bool persist,
-            out string reason)
+        public long BeginOwnedMutation(IEnumerable<string> settingIds) =>
+            BWTWorkloadSettingsOwnershipPolicy.BeginOwnedGlobalSettingsMutation(settingIds);
+
+        public IDisposable BeginWriteLease() =>
+            BWTWorkloadSettingsOwnershipPolicy.BeginAuthorizedGlobalSettingsWrite();
+
+        public bool TryPersist(out string reason)
         {
             reason = string.Empty;
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (!TryValidateSnapshot(snapshot, settings, out reason))
-            {
-                return false;
-            }
-
-            if (!TryCaptureExactValues(
-                    settings,
-                    snapshot.ExactValues.Keys,
-                    out Dictionary<string, object> currentExactValues,
-                    out reason))
-            {
-                return false;
-            }
-
-            using (BWTWorkloadSettingsOwnershipPolicy.BeginAuthorizedGlobalSettingsWrite())
-            {
-                try
-                {
-                    if (!TryRestoreExactValues(settings, snapshot.ExactValues, out reason))
-                    {
-                        TryRestoreExactValues(
-                            settings,
-                            currentExactValues,
-                            out string compensationReason);
-                        if (!string.IsNullOrEmpty(compensationReason))
-                        {
-                            reason += " Compensation also failed: " + compensationReason;
-                        }
-
-                        BWTWorkloadSettingsOwnershipPolicy.InvalidateWorkTabPresentation(
-                            snapshot.ExactValues.Keys);
-                        return false;
-                    }
-
-                    if (persist)
-                    {
-                        settings.Write();
-                    }
-
-                    BWTWorkloadSettingsOwnershipPolicy.InvalidateWorkTabPresentation(
-                        snapshot.ExactValues.Keys);
-                    return true;
-                }
-                catch (Exception exception)
-                {
-                    TryRestoreExactValues(
-                        settings,
-                        currentExactValues,
-                        out string compensationReason);
-                    reason = "The Better Work Tab settings rollback failed: " +
-                        exception.Message;
-                    if (!string.IsNullOrEmpty(compensationReason))
-                    {
-                        reason += " Compensation also failed: " + compensationReason;
-                    }
-
-                    string persistenceReason = TryPersistRestoredState(settings, persist);
-                    if (!string.IsNullOrEmpty(persistenceReason))
-                    {
-                        reason += " " + persistenceReason;
-                    }
-
-                    BWTWorkloadSettingsOwnershipPolicy.InvalidateWorkTabPresentation(
-                        snapshot.ExactValues.Keys);
-                    return false;
-                }
-            }
-        }
-
-        private static bool TryCaptureExactValues(
-            BetterWorkTabSettings settings,
-            IEnumerable<string> settingIds,
-            out Dictionary<string, object> values,
-            out string reason)
-        {
-            values = new Dictionary<string, object>(StringComparer.Ordinal);
-            reason = string.Empty;
-            if (settingIds == null)
-            {
-                reason = "No Better Work Tab settings were supplied for capture.";
-                return false;
-            }
-
-            foreach (string settingId in settingIds)
-            {
-                if (!BWTWorkloadSettingsOwnershipPolicy.TryGetStageableDefinition(
-                        settingId,
-                        out BWTWorkloadSettingDefinitionState state) ||
-                    !BWTWorkloadSettingsOwnershipPolicy.TryReadGlobalExact(
-                        state,
-                        settings,
-                        out object value))
-                {
-                    reason = "The setting '" + (settingId ?? string.Empty) +
-                        "' could not be captured exactly.";
-                    return false;
-                }
-
-                values[settingId] = value;
-            }
-
-            return true;
-        }
-
-        private static bool TryValidateSnapshot(
-            BWTWorkloadSettingsSnapshot snapshot,
-            BetterWorkTabSettings settings,
-            out string reason)
-        {
-            reason = string.Empty;
-            if (snapshot == null || snapshot.Settings == null ||
-                !ReferenceEquals(snapshot.Settings, settings))
-            {
-                reason = "The Better Work Tab settings snapshot is stale.";
-                return false;
-            }
-
-            if (snapshot.Values == null || snapshot.ExactValues == null ||
-                snapshot.Values.Count != snapshot.ExactValues.Count)
-            {
-                reason = "The Better Work Tab settings snapshot is incomplete.";
-                return false;
-            }
-
-            foreach (string key in snapshot.Values.Keys)
-            {
-                if (!snapshot.ExactValues.ContainsKey(key))
-                {
-                    reason = "The Better Work Tab settings snapshot key set is inconsistent.";
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private static string TryPersistRestoredState(
-            BetterWorkTabSettings settings,
-            bool persist)
-        {
-            if (!persist || settings == null)
-            {
-                return string.Empty;
-            }
-
             try
             {
-                settings.Write();
-                return string.Empty;
+                BetterWorkTabMod.Settings?.Write();
+                return BetterWorkTabMod.Settings != null;
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                return "The restored Better Work Tab settings could not be persisted: " +
-                    exception.Message;
-            }
-        }
-
-        private static bool TryRestoreExactValues(
-            BetterWorkTabSettings settings,
-            IReadOnlyDictionary<string, object> values,
-            out string reason)
-        {
-            reason = string.Empty;
-            if (settings == null || values == null)
-            {
-                reason = "The exact Better Work Tab settings restore payload is missing.";
+                reason = ex.Message;
                 return false;
             }
-
-            var keys = new List<string>(values.Keys);
-            keys.Sort(StringComparer.Ordinal);
-            for (int i = 0; i < keys.Count; i++)
-            {
-                string key = keys[i];
-                if (!BWTWorkloadSettingsOwnershipPolicy.TryGetStageableDefinition(
-                        key,
-                        out BWTWorkloadSettingDefinitionState state) ||
-                    !BWTWorkloadSettingsOwnershipPolicy.TryWriteGlobalExact(
-                        state,
-                        settings,
-                        values[key],
-                        out reason))
-                {
-                    if (string.IsNullOrEmpty(reason))
-                    {
-                        reason = "The setting '" + key +
-                            "' could not be restored exactly.";
-                    }
-
-                    return false;
-                }
-            }
-
-            return true;
         }
     }
 
     internal struct BWTWorkloadSettingOwnershipState
     {
         internal bool IsKnown;
-        internal bool IsGloballyOwned;
         internal bool IsPreviewActive;
         internal bool IsWorkloadOwnedInActiveTemplate;
         internal bool IsChangedByActivePreview;
         internal bool WillRevertToGlobalOutsidePreview;
         internal bool CanAcquireWorkloadOwnership;
-        internal bool CanReleaseWorkloadOwnership;
         internal bool IsBlocked;
         internal string BlockReason;
     }
 
-    internal sealed class BWTWorkloadSettingMetadata
+    internal sealed class BWTWorkloadPresentationSnapshot
     {
-        internal BWTWorkloadSettingMetadata(string settingId, string region)
-        {
-            SettingId = settingId;
-            Region = region;
-        }
+        private readonly Dictionary<string, WorkloadScalarValue> _globalValues;
+        private readonly Dictionary<string, Color> _colors;
+        private readonly Dictionary<string, WorkloadIntent<WorkloadSettingValue>> _afterIntents;
+        private readonly HashSet<string> _changedSettings;
 
-        internal string SettingId { get; }
-        internal string Region { get; }
-    }
-
-    internal sealed class BWTWorkloadPreviewSnapshot
-    {
-        internal static readonly BWTWorkloadPreviewSnapshot Inactive =
-            new BWTWorkloadPreviewSnapshot(
-                false,
-                true,
-                false,
-                string.Empty,
-                string.Empty,
-                null,
-                null,
-                null,
-                null,
-                null);
-
-        private BWTWorkloadPreviewSnapshot(
+        private BWTWorkloadPresentationSnapshot(
             bool isActive,
             bool readSucceeded,
-            bool ownsPresentationSettings,
-            string sourceId,
+            string identity,
             string failureReason,
-            IDictionary<string, WorkloadScalarValue> before,
-            IDictionary<string, WorkloadScalarValue> after,
-            IDictionary<string, WorkloadIntent<WorkloadSettingValue>> beforeIntents,
-            IDictionary<string, WorkloadIntent<WorkloadSettingValue>> afterIntents,
-            IEnumerable<string> ownedKeys)
+            IDictionary<string, WorkloadScalarValue> globalValues,
+            WorkloadProjectedState beforeState,
+            WorkloadProjectedState afterState)
         {
             IsActive = isActive;
             ReadSucceeded = readSucceeded;
-            OwnsPresentationSettings = ownsPresentationSettings;
-            SourceId = sourceId ?? string.Empty;
+            Identity = identity ?? string.Empty;
             FailureReason = failureReason ?? string.Empty;
-            Before = new Dictionary<string, WorkloadScalarValue>(
-                before ?? new Dictionary<string, WorkloadScalarValue>(),
-                StringComparer.Ordinal);
-            After = new Dictionary<string, WorkloadScalarValue>(
-                after ?? new Dictionary<string, WorkloadScalarValue>(),
-                StringComparer.Ordinal);
-            BeforeIntents = new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(
-                beforeIntents ?? new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(),
-                StringComparer.Ordinal);
-            AfterIntents = new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(
-                afterIntents ?? new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(),
-                StringComparer.Ordinal);
-            OwnedKeys = new HashSet<string>(
-                ownedKeys ?? new string[0],
-                StringComparer.Ordinal);
+            _globalValues = new Dictionary<string, WorkloadScalarValue>(
+                globalValues, StringComparer.Ordinal);
+            _colors = new Dictionary<string, Color>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, WorkloadScalarValue> entry in _globalValues)
+            {
+                CacheColor(entry.Key, entry.Value);
+            }
+
+            Dictionary<string, WorkloadIntent<WorkloadSettingValue>> beforeIntents =
+                CopyPresentationIntents(beforeState);
+            _afterIntents = CopyPresentationIntents(afterState);
+            _changedSettings = new HashSet<string>(beforeIntents.Keys, StringComparer.Ordinal);
+            foreach (KeyValuePair<string, WorkloadIntent<WorkloadSettingValue>> entry in _afterIntents)
+            {
+                if (beforeIntents.TryGetValue(entry.Key, out WorkloadIntent<WorkloadSettingValue> before) &&
+                    before.Equals(entry.Value))
+                {
+                    _changedSettings.Remove(entry.Key);
+                }
+                else
+                {
+                    _changedSettings.Add(entry.Key);
+                }
+
+                if (!IsOwned(entry.Value))
+                {
+                    continue;
+                }
+
+                OwnsPresentationSettings = true;
+                if (entry.Value.HasValue)
+                {
+                    CacheColor(entry.Key, entry.Value.Value.Scalar);
+                }
+            }
         }
 
         internal bool IsActive { get; }
         internal bool ReadSucceeded { get; }
         internal bool OwnsPresentationSettings { get; }
-        internal string SourceId { get; }
+        internal string Identity { get; }
         internal string FailureReason { get; }
-        internal Dictionary<string, WorkloadScalarValue> Before { get; }
-        internal Dictionary<string, WorkloadScalarValue> After { get; }
-        internal Dictionary<string, WorkloadIntent<WorkloadSettingValue>> BeforeIntents { get; }
-        internal Dictionary<string, WorkloadIntent<WorkloadSettingValue>> AfterIntents { get; }
-        internal HashSet<string> OwnedKeys { get; }
 
-        internal static BWTWorkloadPreviewSnapshot FromPlan(WorkloadPreviewPlan plan)
+        internal static BWTWorkloadPresentationSnapshot CreateInactive(
+            IDictionary<string, WorkloadScalarValue> globalValues)
         {
-            var before = new Dictionary<string, WorkloadScalarValue>(StringComparer.Ordinal);
-            var after = new Dictionary<string, WorkloadScalarValue>(StringComparer.Ordinal);
-            var beforeIntents = new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(
-                StringComparer.Ordinal);
-            var afterIntents = new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(
-                StringComparer.Ordinal);
-            var beforeOwnedKeys = new HashSet<string>(StringComparer.Ordinal);
-            var afterOwnedKeys = new HashSet<string>(StringComparer.Ordinal);
-            CopyPresentationState(
-                plan?.BeforeState,
-                before,
-                beforeIntents,
-                beforeOwnedKeys);
-            CopyPresentationState(
-                plan?.AfterState,
-                after,
-                afterIntents,
-                afterOwnedKeys);
-
-            // Ownership is a property of the current projected state. The
-            // before-state remains available through Before/BeforeIntents for
-            // semantic diff inspection, but must not keep a released setting
-            // visually or interactively latched as workload-owned.
-            var ownedKeys = new HashSet<string>(afterOwnedKeys, StringComparer.Ordinal);
-
-            return new BWTWorkloadPreviewSnapshot(
-                true,
-                true,
-                ownedKeys.Count > 0,
-                plan.SourceTemplate?.StableId,
-                string.Empty,
-                before,
-                after,
-                beforeIntents,
-                afterIntents,
-                ownedKeys);
-        }
-
-        private static void CopyPresentationState(
-            WorkloadProjectedState state,
-            IDictionary<string, WorkloadScalarValue> values,
-            IDictionary<string, WorkloadIntent<WorkloadSettingValue>> intents,
-            ISet<string> ownedKeys)
-        {
-            if (state == null)
-            {
-                return;
-            }
-
-            if (state.PresentationSettings != null)
-            {
-                for (int i = 0; i < state.PresentationSettings.Count; i++)
-                {
-                    WorkloadPresentationSettingEntry entry = state.PresentationSettings[i];
-                    if (entry == null || string.IsNullOrWhiteSpace(entry.Key))
-                    {
-                        continue;
-                    }
-
-                    WorkloadIntent<WorkloadSettingValue> intent =
-                        WorkloadIntent<WorkloadSettingValue>.CreateSet(
-                            WorkloadSettingValue.WorkloadOwned(entry.Value));
-                    values[entry.Key] = entry.Value;
-                    intents[entry.Key] = intent;
-                    ownedKeys.Add(entry.Key);
-                }
-            }
-
-            if (state.PresentationSettingIntents == null)
-            {
-                return;
-            }
-
-            for (int i = 0; i < state.PresentationSettingIntents.Count; i++)
-            {
-                WorkloadPresentationSettingIntentEntry entry =
-                    state.PresentationSettingIntents[i];
-                if (entry == null || string.IsNullOrWhiteSpace(entry.Key) ||
-                    entry.Intent.IsNoOpinion)
-                {
-                    continue;
-                }
-
-                intents[entry.Key] = entry.Intent;
-                if (entry.Intent.State == WorkloadIntentState.Set &&
-                    entry.Intent.HasValue &&
-                    entry.Intent.Value.Ownership == WorkloadSettingOwnership.WorkloadOwned)
-                {
-                    values[entry.Key] = entry.Intent.Value.Scalar;
-                    ownedKeys.Add(entry.Key);
-                }
-                else if (entry.Intent.IsClear)
-                {
-                    values.Remove(entry.Key);
-                    ownedKeys.Add(entry.Key);
-                }
-                else
-                {
-                    values.Remove(entry.Key);
-                    ownedKeys.Remove(entry.Key);
-                }
-            }
-        }
-
-        internal static BWTWorkloadPreviewSnapshot Failed(string reason)
-        {
-            return new BWTWorkloadPreviewSnapshot(
-                true,
+            return new BWTWorkloadPresentationSnapshot(
                 false,
-                false,
+                true,
                 string.Empty,
-                reason,
-                null,
-                null,
-                null,
+                string.Empty,
+                globalValues,
                 null,
                 null);
         }
-    }
 
-    internal interface IBWTWorkloadPreviewController
-    {
-        BWTWorkloadPreviewSnapshot Read();
-    }
-
-    internal sealed class WorkloadGatewayPreviewController : IBWTWorkloadPreviewController
-    {
-        public BWTWorkloadPreviewSnapshot Read()
+        internal static BWTWorkloadPresentationSnapshot FromPlan(
+            WorkloadPreviewPlan plan,
+            IDictionary<string, WorkloadScalarValue> globalValues,
+            string identity)
         {
-            if (!WorkloadGateway.IsV2PreviewSessionActive)
-            {
-                return BWTWorkloadPreviewSnapshot.Inactive;
-            }
-
-            WorkloadOperationResult<WorkloadPreviewPlan> result =
-                WorkloadGateway.GetV2PreviewPlan();
-            if (!result.Succeeded || result.Value == null)
-            {
-                return BWTWorkloadPreviewSnapshot.Failed(
-                    string.IsNullOrEmpty(result.Message)
-                        ? "The active workload preview could not be read safely."
-                        : result.Message);
-            }
-
-            return BWTWorkloadPreviewSnapshot.FromPlan(result.Value);
+            return new BWTWorkloadPresentationSnapshot(
+                true,
+                true,
+                identity,
+                string.Empty,
+                globalValues,
+                plan?.BeforeState,
+                plan?.AfterState);
         }
 
+        internal static BWTWorkloadPresentationSnapshot Failed(
+            IDictionary<string, WorkloadScalarValue> globalValues,
+            string reason,
+            string identity,
+            bool isActive = true)
+        {
+            return new BWTWorkloadPresentationSnapshot(
+                isActive,
+                false,
+                identity,
+                reason,
+                globalValues,
+                null,
+                null);
+        }
+
+        internal IDictionary<string, WorkloadScalarValue> GlobalValues => _globalValues;
+
+        internal bool TryGetGlobalValue(string settingId, out WorkloadScalarValue value)
+        {
+            return _globalValues.TryGetValue(settingId, out value);
+        }
+
+        internal void SetGlobalValue(string settingId, WorkloadScalarValue value)
+        {
+            _globalValues[settingId] = value;
+            CacheColor(settingId, value);
+        }
+
+        internal bool OwnsPresentationSetting(string settingId)
+        {
+            return !string.IsNullOrEmpty(settingId) &&
+                _afterIntents.TryGetValue(
+                    settingId,
+                    out WorkloadIntent<WorkloadSettingValue> intent) &&
+                IsOwned(intent);
+        }
+
+        internal bool IsChanged(string settingId)
+        {
+            return !string.IsNullOrEmpty(settingId) && _changedSettings.Contains(settingId);
+        }
+
+        internal bool TryResolveOwnedScalar(
+            string settingId,
+            WorkloadScalarKind expectedKind,
+            WorkloadScalarValue fallback,
+            out WorkloadScalarValue value)
+        {
+            value = fallback;
+            if (!_afterIntents.TryGetValue(
+                    settingId,
+                    out WorkloadIntent<WorkloadSettingValue> intent) ||
+                !IsOwned(intent))
+            {
+                return false;
+            }
+
+            if (intent.IsClear)
+            {
+                return true;
+            }
+
+            if (!intent.HasValue ||
+                intent.Value.Scalar.Kind != expectedKind)
+            {
+                return false;
+            }
+
+            value = intent.Value.Scalar;
+            return true;
+        }
+
+        internal bool GetBool(string settingId)
+        {
+            return TryGetValue(settingId, out WorkloadScalarValue value) &&
+                value.Kind == WorkloadScalarKind.Boolean && value.BooleanValue;
+        }
+
+        internal int GetInt(string settingId)
+        {
+            return TryGetValue(settingId, out WorkloadScalarValue value) &&
+                value.Kind == WorkloadScalarKind.Integer
+                ? value.IntegerValue
+                : 0;
+        }
+
+        internal Color GetColor(string settingId)
+        {
+            return _colors.TryGetValue(settingId, out Color color)
+                ? color
+                : default(Color);
+        }
+
+        private bool TryGetValue(string settingId, out WorkloadScalarValue value)
+        {
+            if (_afterIntents.TryGetValue(
+                    settingId,
+                    out WorkloadIntent<WorkloadSettingValue> intent) &&
+                IsOwned(intent) && intent.HasValue)
+            {
+                value = intent.Value.Scalar;
+                return true;
+            }
+
+            return _globalValues.TryGetValue(settingId, out value);
+        }
+
+        private void CacheColor(string settingId, WorkloadScalarValue value)
+        {
+            if (!BWTWorkloadSettingsOwnershipPolicy.TryGetColor(value, out Color color))
+            {
+                return;
+            }
+
+            _colors[settingId] = color;
+        }
+
+        private static bool IsOwned(WorkloadIntent<WorkloadSettingValue> intent)
+        {
+            return intent.IsClear ||
+                (intent.HasValue &&
+                 intent.Value.Ownership == WorkloadSettingOwnership.WorkloadOwned);
+        }
+
+        private static Dictionary<string, WorkloadIntent<WorkloadSettingValue>>
+            CopyPresentationIntents(WorkloadProjectedState state)
+        {
+            var intents = new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(
+                StringComparer.Ordinal);
+            if (state?.PresentationSettingIntents == null)
+            {
+                return intents;
+            }
+
+            // WorkloadProjectedState is the canonical owner of legacy-to-typed
+            // promotion and release normalization. Its intent list therefore
+            // already contains every effective Set/Clear entry exactly once.
+            for (int i = 0; i < state.PresentationSettingIntents.Count; i++)
+            {
+                WorkloadPresentationSettingIntentEntry entry = state.PresentationSettingIntents[i];
+                if (entry != null && !string.IsNullOrWhiteSpace(entry.Key) &&
+                    !entry.Intent.IsNoOpinion)
+                {
+                    intents[entry.Key] = entry.Intent;
+                }
+            }
+
+            return intents;
+        }
     }
 }

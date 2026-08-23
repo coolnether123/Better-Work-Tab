@@ -34,12 +34,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// <summary>
         /// Returns the current rotation angle from settings or default.
         /// </summary>
-        public static float CurrentRotation => BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.HeadersAngled,
-                    BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders)
-                ? BWTWorkTabEffectiveSettings.GetInt(
-                    SettingIDs.HeadersAngleRotation,
-                    BetterWorkTabMod.Settings?.angledHeaderRotation ?? -60)
+        public static float CurrentRotation => BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled)
+                ? BWTWorkTabEffectiveSettings.GetInt(SettingIDs.HeadersAngleRotation)
                 : DefaultRotationAngle;
         
         /// <summary>
@@ -66,9 +62,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 {
                     return 0f;
                 }
-                return BWTWorkTabEffectiveSettings.GetInt(
-                    "headers.horizontalOffset",
-                    BetterWorkTabMod.Settings?.angledHeaderHorizontalOffset ?? 10);
+                return BWTWorkTabEffectiveSettings.GetInt("headers.horizontalOffset");
             }
         }
 
@@ -275,13 +269,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
 
                 // Text: Apply moved marker color only if color tint is enabled
-                GUI.color = (layout.ShowMarker && BWTWorkTabEffectiveSettings.GetBool(
-                    "columns.showMovedColorTint",
-                    BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true))
+                GUI.color = (layout.ShowMarker && BWTWorkTabEffectiveSettings.GetBool("columns.showMovedColorTint"))
                     ? HeaderUtility.Colors.MovedMarkerColor
-                    : BWTWorkTabEffectiveSettings.GetColor(
-                        "headers.angledColor",
-                        BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
+                    : BWTWorkTabEffectiveSettings.GetColor("headers.angledColor");
                 float visibleAlpha = flipAlpha * labelAlpha;
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * visibleAlpha);
 
@@ -305,9 +295,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
 
                 // Underline: Traditionally vertical CJK text does not use work-tab-style underlines as they conflict with legibility.
-                if (!BWTWorkTabEffectiveSettings.GetBool(
-                        SettingIDs.DragdropRemoveHeaderUnderline,
-                        BetterWorkTabMod.Settings?.removeHeaderUnderline ?? false) &&
+                if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DragdropRemoveHeaderUnderline) &&
                     !isCJKVertical)
                 {
                     float textWidth = Mathf.Min(layout.UnderlineWidth, drawRect.width);
@@ -396,9 +384,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 GUI.matrix = GetTransformMatrix(originalMatrix, pivotPoint, rotation, Vector2.one);
 
                 Text.Anchor = isCJKVertical ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
-                GUI.color = BWTWorkTabEffectiveSettings.GetColor(
-                    "headers.angledColor",
-                    BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
+                GUI.color = BWTWorkTabEffectiveSettings.GetColor("headers.angledColor");
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * alpha);
 
                 if (isCJKVertical)
@@ -417,9 +403,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     Widgets.Label(drawRect, parentText);
                 }
 
-                if (!BWTWorkTabEffectiveSettings.GetBool(
-                        SettingIDs.DragdropRemoveHeaderUnderline,
-                        BetterWorkTabMod.Settings?.removeHeaderUnderline ?? false) &&
+                if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DragdropRemoveHeaderUnderline) &&
                     !isCJKVertical)
                 {
                     float underlineWidth = Mathf.Min(size.x, drawRect.width);

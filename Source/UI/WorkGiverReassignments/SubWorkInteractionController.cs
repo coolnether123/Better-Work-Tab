@@ -497,9 +497,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (headerArea.Contains(mousePosition))
             {
                 bounds = headerArea;
-                restoreCursor = BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.SubWorkRestoreCursor,
-                    BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? DefaultSettings.restoreCursorOnSubWorkExit);
+                restoreCursor = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkRestoreCursor);
                 return true;
             }
 
@@ -525,9 +523,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 _bodyRenderer.TryGetPriorityBoxHit(layout, bodyRow, column, mousePosition, out Rect bodyPriorityBoxRect))
             {
                 bounds = bodyPriorityBoxRect;
-                restoreCursor = BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.SubWorkRestoreCursorFromPawnCells,
-                    BetterWorkTabMod.Settings?.restoreCursorOnSubWorkPawnCellExit ?? DefaultSettings.restoreCursorOnSubWorkPawnCellExit);
+                restoreCursor = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkRestoreCursorFromPawnCells);
                 return true;
             }
 

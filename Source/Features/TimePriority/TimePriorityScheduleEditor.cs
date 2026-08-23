@@ -62,10 +62,7 @@ namespace Better_Work_Tab.Features.TimePriority
         private static Rect _closingSourceRect;
 
         internal static bool IsEnabled =>
-            BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.UiTimePrioritySchedules,
-                BetterWorkTabMod.Settings?.enableTimePrioritySchedules ??
-                DefaultSettings.enableTimePrioritySchedules);
+            BWTWorkTabEffectiveSettings.GetBool(SettingIDs.UiTimePrioritySchedules);
 
         private static bool HasBetterWorkTabScheduleAuthority =>
             !PriorityAuthorityResolver.ShouldBlockBetterWorkTabPriorityDataAccess;
@@ -215,10 +212,7 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             if (!IsEnabled ||
                 _session == null ||
-                !BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.UiTimePrioritySourceColumnHighlight,
-                    BetterWorkTabMod.Settings?.keepTimePrioritySourceColumnHighlighted ??
-                    DefaultSettings.keepTimePrioritySourceColumnHighlighted) ||
+                !BWTWorkTabEffectiveSettings.GetBool(SettingIDs.UiTimePrioritySourceColumnHighlight) ||
                 !WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column))
             {
                 return false;
@@ -632,9 +626,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             if (evt.type == EventType.ScrollWheel &&
-                !BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.AdvancedScrollWheelPriority,
-                    BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false))
+                !BWTWorkTabEffectiveSettings.GetBool(SettingIDs.AdvancedScrollWheelPriority))
             {
                 return false;
             }
@@ -653,9 +645,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             if (evt.type == EventType.ScrollWheel &&
-                !BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.AdvancedScrollWheelPriority,
-                    BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false))
+                !BWTWorkTabEffectiveSettings.GetBool(SettingIDs.AdvancedScrollWheelPriority))
             {
                 return false;
             }
@@ -1596,9 +1586,7 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             WorkTypeDef workType = column.Column?.workType;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            bool angledHeaders = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.HeadersAngled,
-                settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
+            bool angledHeaders = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
             if (angledHeaders &&
                 workType != null &&
                 AngledHeaderCache.TryGetBounds(workType, out Rect angledBounds) &&
@@ -1809,10 +1797,7 @@ namespace Better_Work_Tab.Features.TimePriority
             bool drawChronos = ChronosPointerSupport.ShouldReserveTimePriorityTimelineHeight;
             Rect chronosRect = drawChronos ? GetInlineChronosRect(timelineRect, dividerProgress) : Rect.zero;
             Rect hourLabelRect = GetInlineHourLabelRect(timelineRect, dividerProgress);
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.UiTimePriorityHourDivider,
-                    BetterWorkTabMod.Settings?.showTimePriorityHourDivider ??
-                    DefaultSettings.showTimePriorityHourDivider))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.UiTimePriorityHourDivider))
             {
                 GUI.color = new Color(0.95f, 0.85f, 0.55f, 0.38f * progress * dividerProgress);
                 Widgets.DrawLineHorizontal(visibleTimelineRect.xMin, hourLabelRect.yMin - 1f, visibleTimelineRect.width);
@@ -1824,10 +1809,7 @@ namespace Better_Work_Tab.Features.TimePriority
                     chronosRect,
                     priorityRowsRect,
                     progress * dividerProgress,
-                    BWTWorkTabEffectiveSettings.GetBool(
-                        SettingIDs.UiChronosPointerTimePriorityIncidents,
-                        BetterWorkTabMod.Settings?.chronosPointerTimePriorityIncidentOverlay ??
-                        DefaultSettings.chronosPointerTimePriorityIncidentOverlay));
+                    BWTWorkTabEffectiveSettings.GetBool(SettingIDs.UiChronosPointerTimePriorityIncidents));
             }
 
             Text.Font = GameFont.Tiny;
@@ -1992,10 +1974,7 @@ namespace Better_Work_Tab.Features.TimePriority
         }
 
         private static bool ShowCopyPasteButtons =>
-            BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.UiTimePriorityCopyPasteButtons,
-                BetterWorkTabMod.Settings?.showTimePriorityCopyPasteButtons ??
-                DefaultSettings.showTimePriorityCopyPasteButtons);
+            BWTWorkTabEffectiveSettings.GetBool(SettingIDs.UiTimePriorityCopyPasteButtons);
 
         private static Rect GetAccordionRect(Rect fullRect, float progress)
         {
