@@ -90,11 +90,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     RestoreNearestLiveParent();
                 }
 
-                // A scoped provider may have been replaced or cancelled
-                // between Layout and Repaint. Drop the pass token immediately
-                // so no snapshot or native input path can retain the old
-                // projected provider identity.
-                if ((Provider != null && Provider.IsPreview) || FollowsPreviewController)
+                // Retain the active preview snapshot between Layout, input,
+                // and Repaint. Clear only when this pass's projected provider
+                // was replaced or cancelled while the pass was running.
+                WorkloadPreviewController previewController =
+                    WorkloadPreviewController.Current;
+                if (Provider != null && Provider.IsPreview &&
+                    (previewController == null ||
+                     !ReferenceEquals(previewController.ProjectedProvider, Provider)))
                 {
                     WorkTabEffectiveStateRuntime.ClearPreviewCacheResidue();
                 }

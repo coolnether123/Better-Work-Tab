@@ -324,6 +324,27 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             return ClampPriority(currentPriority);
         }
 
+        internal static int GetPriorityAfterCellClick(
+            int currentPriority,
+            int button,
+            bool manualPriorities)
+        {
+            if ((manualPriorities && button != 0 && button != 1) ||
+                (!manualPriorities && button != 0))
+            {
+                return ClampPriority(currentPriority);
+            }
+
+            if (manualPriorities)
+            {
+                return GetPriorityAfterMouseButton(currentPriority, button);
+            }
+
+            return currentPriority > DisabledPriority
+                ? DisabledPriority
+                : GetDefaultEnabledPriority();
+        }
+
         internal static int GetPriorityAfterBoundedStep(int currentPriority, int direction)
         {
             return PriorityAuthorityBroker.GetNextManualPriority(currentPriority, direction);

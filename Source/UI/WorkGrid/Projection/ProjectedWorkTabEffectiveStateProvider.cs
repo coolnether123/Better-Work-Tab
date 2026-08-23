@@ -129,7 +129,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             }
         }
 
-        public long ProjectionRevision => Revision;
+        // Draft mutations refresh the projection synchronously. Consumers that
+        // only need to detect another projected edit must not poll Revision:
+        // that property also observes the live base provider and is intentionally
+        // more expensive.
+        public long ProjectionRevision => _draftRevision;
         public WorkloadDraft Draft => _draft;
         public WorkloadProjectedState ProjectedState
         {

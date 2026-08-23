@@ -140,6 +140,11 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
             if (direction < 0)
             {
+                if (normalized == PriorityConstants.Disabled)
+                {
+                    return 1;
+                }
+
                 // A bounded step follows the same stable-cycle rule as mouse clicks.
                 // Do not let probing max + 1 expand Auto mode as a side effect of scrolling
                 // or a bulk/header gesture. The active maximum wraps directly to disabled.

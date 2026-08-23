@@ -10,6 +10,7 @@ using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.Workloads;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
@@ -118,6 +119,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                     out WorkTypeDef parentWorkType,
                     out _))
             {
+                if (!EnsurePreviewMembershipForMutation(row.Pawn, parentWorkType, evt))
+                {
+                    return true;
+                }
+
                 int parentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
                     row.Pawn,
                     parentWorkType,
@@ -137,6 +143,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return false;
             }
 
+            if (!EnsurePreviewMembershipForMutation(row.Pawn, workType, evt))
+            {
+                return true;
+            }
+
             Rect rowRect = layout.GetScreenRect(row);
             Rect rootCellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(column, rowRect);
             bool parentHandled = Patch_WorkPriority_DoCell_Unified.TryHandleRootPriorityInput(
@@ -144,6 +155,28 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 row.Pawn,
                 workType);
             return parentHandled;
+        }
+
+        private static bool EnsurePreviewMembershipForMutation(
+            Pawn pawn,
+            WorkTypeDef workType,
+            Event evt)
+        {
+            WorkloadPreviewController preview = WorkloadPreviewController.Current;
+            if (preview?.IsActive != true)
+            {
+                return true;
+            }
+
+            bool mutatesPriority = evt.type == EventType.ScrollWheel
+                ? BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false
+                : WorkTabEffectiveStateRuntime.IsManualMode(
+                      pawn,
+                      workType,
+                      Find.PlaySettings?.useWorkPriorities ?? true)
+                    ? evt.button == 0 || evt.button == 1
+                    : evt.button == 0;
+            return !mutatesPriority || preview.EnsurePawnIncludedForPriorityEdit(pawn);
         }
 
         internal bool TryGetGlobalPriorityBoxHit(

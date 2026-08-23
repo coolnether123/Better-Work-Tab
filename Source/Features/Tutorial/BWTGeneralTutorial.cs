@@ -15,6 +15,7 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.RuleBuilder;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using Spine.UI.Tutorial;
 using UnityEngine;
@@ -636,13 +637,16 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             CountCourseProgress(settings, out int completed, out int total);
+            string workloadPresentationBody = WorkTabEffectiveStateRuntime.IsPreviewActive
+                ? T("BWT_Tutorial_WorkloadPresentation_Body")
+                : null;
             if (presentation == TutorialPresentation.Lesson)
             {
                 string lessonId = settings.activeTutorialLessonId;
                 bool complete = IsShowingCompletionOutcome(lessonId);
                 return new BWTTutorialStripContent(
                     complete ? BWTTutorialStripMode.Complete : BWTTutorialStripMode.Lesson,
-                    GetLessonBody(lessonId, settings.tutorialLessonPhase),
+                    workloadPresentationBody ?? GetLessonBody(lessonId, settings.tutorialLessonPhase),
                     completed,
                     total);
             }
@@ -655,7 +659,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 int disabled = BWTTutorialFeatureDiscovery.CountOffer(settings);
                 return new BWTTutorialStripContent(
                     BWTTutorialStripMode.Browse,
-                    T(disabled > 0
+                    workloadPresentationBody ?? T(disabled > 0
                         ? "BWT_Tutorial_Selector_AllDoneBody"
                         : "BWT_Tutorial_Selector_DefaultBody"),
                     completed,

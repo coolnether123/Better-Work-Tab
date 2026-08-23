@@ -80,8 +80,7 @@ namespace Better_Work_Tab.Features.Patches
                 return;
             }
 
-            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.InvalidateCategory(
-                UI.WorkGrid.Invalidation.WorkGridInvalidationCategory.CapabilitySkill);
+            WorkGiverPresentationInvalidation.NotifySkillStateChanged();
         }
     }
 }
