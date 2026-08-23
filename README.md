@@ -17,13 +17,13 @@ is no longer used by BWT.
 
 ## What 2.0 adds
 
-- **Guided tutorial**: Choose the focused "What's new in 2.0" course or the complete Better Work Tab walkthrough. Lessons point to the relevant controls and actions.
-- **Rule Builder 2.0**: Create card-based rulesets with work targets, conditions, priority actions, and map checks. Preview matches before applying. The classic rule builder remains available.
-- **Specific-job view**: Open a Work type to manage its individual jobs. Set shared or pawn-specific priorities, rename and reorder jobs, and move them between Work columns.
-- **Two specific-job layouts**: Use a focused full-tab view or Fluffy-inspired right-expanding columns.
-- **Time-priority schedules**: Ctrl-click a priority cell to set priorities for all 24 hours, including individual specific jobs. Schedules support copy and paste.
-- **Priority ranges**: Keep vanilla priorities, let BWT choose automatically, delegate to a compatible provider, or let BWT manage priorities up to 99.
-- **Fluffy Work Tab coexistence**: Choose which mod owns the Work tab. When BWT owns it, compatible Fluffy columns and top controls remain available.
+- **Guided tutorial.** Choose the focused "What's new in 2.0" course or the complete Better Work Tab walkthrough. Lessons point to the relevant controls and actions.
+- **Rule Builder 2.0.** Create card-based rulesets with work targets, conditions, priority actions, and map checks. Preview matches before applying. The classic rule builder remains available.
+- **Specific-job view.** Open a Work type to manage its individual jobs. Set shared or pawn-specific priorities, rename and reorder jobs, and move them between Work columns.
+- **Two specific-job layouts.** Use a focused full-tab view or Fluffy-inspired right-expanding columns.
+- **Time-priority schedules.** Ctrl-click a priority cell to set priorities for all 24 hours, including individual specific jobs. Schedules support copy and paste.
+- **Priority ranges.** Keep vanilla priorities, let BWT choose automatically, delegate to a compatible provider, or let BWT manage priorities up to 99.
+- **Fluffy Work Tab coexistence.** Choose which mod owns the Work tab. When BWT owns it, compatible Fluffy columns and top controls remain available.
 
 You can toggle each major 2.0 system independently in Mod Settings.
 

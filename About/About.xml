@@ -27,7 +27,7 @@ You can toggle features in settings.
 
 <b>Features</b>
 - Drag and drop work column and pawn row reordering
-- Extended max priorities from vanilla 4 up to 99
+- Priority ranges from vanilla's 4 levels up to 99
 - Specific-job view with shared and pawn-specific priorities
 - Time-of-day priority schedules for work and sub-work jobs
 - Skill level overlay (hold SHIFT)
@@ -41,7 +41,7 @@ You can toggle features in settings.
 - Right-click pawn quick actions
 - Multiplayer support for supported versions with Zetrith Multiplayer
 - Settings for UI, priorities, rules, workloads, and layout
-- Optional Fluffy-style layout with right-expanding specific jobs. It uses installed Fluffy icons for top controls, with an off-by-default BWT text substitute available without Fluffy
+- Optional Fluffy-style layout with right-expanding specific jobs. It uses installed Fluffy icons for top controls. Without Fluffy, you can enable BWT's text substitutes, which are off by default
 
 <b>Compatibility</b>
 - Compatible with most work-type mods
