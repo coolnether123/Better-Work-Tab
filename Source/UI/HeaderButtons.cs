@@ -511,14 +511,8 @@ namespace Better_Work_Tab.UI
 
             _workloadPreviewRevealFrame = Time.frameCount;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            bool animated = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.WorkloadsPreviewRevealAnimation,
-                settings?.enableWorkloadPreviewRevealAnimation ??
-                    DefaultSettings.enableWorkloadPreviewRevealAnimation);
-            int revealSpeed = BWTWorkTabEffectiveSettings.GetInt(
-                SettingIDs.WorkloadsPreviewRevealSpeed,
-                settings?.workloadPreviewRevealSpeed ??
-                    DefaultSettings.workloadPreviewRevealSpeed);
+            bool animated = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.WorkloadsPreviewRevealAnimation);
+            int revealSpeed = BWTWorkTabEffectiveSettings.GetInt(SettingIDs.WorkloadsPreviewRevealSpeed);
             revealSpeed = BetterWorkTabSettings.ClampWorkloadPreviewRevealSpeed(revealSpeed);
             _workloadPreviewRevealProgress = SpineEasing.Move01(
                 _workloadPreviewRevealProgress,
@@ -753,23 +747,15 @@ namespace Better_Work_Tab.UI
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if (!FluffyWorkTabGateway.FluffyStyleFeaturesEnabled ||
-                !BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.FluffyStyleFeatures,
-                    settings?.enableFluffyStyleFeatures ?? true) ||
+                !BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FluffyStyleFeatures) ||
                 !FluffyWorkTabGateway.BetterWorkTabOwnsWorkTab)
             {
                 return false;
             }
 
             return FluffyWorkTabGateway.IsPresent
-                ? BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.FluffyStyleTopButtons,
-                    settings?.showFluffyStyleTopButtons ??
-                        DefaultSettings.showFluffyStyleTopButtons)
-                : BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.FluffyStyleStandaloneTopButtons,
-                    settings?.showStandaloneFluffyStyleTopButtons ??
-                        DefaultSettings.showStandaloneFluffyStyleTopButtons);
+                ? BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FluffyStyleTopButtons)
+                : BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FluffyStyleStandaloneTopButtons);
         }
 
         private static TopButtonRects GetTopButtonRects(Rect inRect)

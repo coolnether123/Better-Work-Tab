@@ -91,12 +91,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             var settings = BetterWorkTabMod.Settings;
             if (settings == null ||
-                !BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.FeaturesHighlights,
-                    settings.ShowPawnAndWorktypeHighlights) ||
-                !BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.HighlightsHover,
-                    settings.ShowCursorPawnAndWorktypeHighlight) ||
+                !BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesHighlights) ||
+                !BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HighlightsHover) ||
                 TimePriorityScheduleEditor.OwnsCurrentMousePosition)
             {
                 return false;
@@ -198,9 +194,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             TimePriorityScheduleEditor.CloseForWorkModeTransition();
             Vector2 returnMousePosition = Vector2.zero;
             string cursorRestoreSuppression = null;
-            bool settingAllowsRestore = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.SubWorkRestoreCursor,
-                BetterWorkTabMod.Settings?.restoreCursorOnSubWorkExit ?? DefaultSettings.restoreCursorOnSubWorkExit);
+            bool settingAllowsRestore = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkRestoreCursor);
             bool shouldRestoreMouse = restoreMousePosition &&
                 settingAllowsRestore &&
                 SubWorkDrilldownState.TryGetCursorRestorePosition(out returnMousePosition, out cursorRestoreSuppression);

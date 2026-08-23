@@ -212,9 +212,7 @@ namespace Better_Work_Tab.UI.Headers
             var settings = BetterWorkTabMod.Settings;
             if (settings == null) return;
 
-            bool enableAngled = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.HeadersAngled,
-                settings.enableAngledHeaders);
+            bool enableAngled = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
 
             if (enableAngled)
             {

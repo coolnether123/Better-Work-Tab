@@ -294,9 +294,7 @@ namespace Better_Work_Tab.UI.Headers
 
         private static bool AreAngledHeadersEnabled()
         {
-            return BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.HeadersAngled,
-                BetterWorkTabMod.Settings?.enableAngledHeaders ?? DefaultSettings.enableAngledHeaders);
+            return BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
         }
 
         private static bool IsUsableRect(Rect rect)

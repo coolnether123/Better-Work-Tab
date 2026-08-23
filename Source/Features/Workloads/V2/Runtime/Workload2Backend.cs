@@ -1647,7 +1647,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return true;
         }
 
-        private static long ComputeSettingsRevision(BWTWorkloadSettingsSnapshot snapshot)
+        private static long ComputeSettingsRevision(WorkloadPresentationSettingsSnapshot snapshot)
         {
             if (snapshot?.Values == null || snapshot.Values.Count == 0) return 0;
             var builder = new StringBuilder();
@@ -2577,8 +2577,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         internal readonly HashSet<string> PresentationSettingIds =
             new HashSet<string>(StringComparer.Ordinal);
 
-        internal IBWTWorkloadSettingsApplyWriter SettingsWriter { get; set; }
-        internal BWTWorkloadSettingsSnapshot SettingsSnapshot { get; set; }
+        internal WorkloadPresentationSettingsTransaction SettingsWriter { get; set; }
+        internal WorkloadPresentationSettingsSnapshot SettingsSnapshot { get; set; }
         internal int SpecificJobRevision { get; set; }
         internal int ScheduleRevision { get; set; }
         internal long AuthorityRevision { get; set; }
@@ -3466,7 +3466,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     baseline.SettingsWriter = BWTWorkloadSettingsOwnershipPolicy.CreateApplyWriter();
                     if (!baseline.SettingsWriter.TryCapture(
                             settingIds,
-                            out BWTWorkloadSettingsSnapshot snapshot,
+                            out WorkloadPresentationSettingsSnapshot snapshot,
                             out string reason))
                     {
                         Abort(
@@ -5450,7 +5450,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (baseline?.SettingsWriter == null || baseline.SettingsSnapshot == null) return;
             if (!baseline.SettingsWriter.TryCapture(
                     baseline.PresentationSettingIds,
-                    out BWTWorkloadSettingsSnapshot current,
+                    out WorkloadPresentationSettingsSnapshot current,
                     out string reason))
             {
                 AbortBaselineChanged(report, "presentation", reason);
@@ -8132,9 +8132,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             if (plan.PresentationValues.Count > 0)
-                {
-                    string reason = string.Empty;
-                    if (MultiplayerBridge.Active &&
+            {
+                if (MultiplayerBridge.Active &&
                     (plan.MutationAuthorization == null ||
                      !plan.MutationAuthorization.IsAcceptedForSettings(
                          synchronizedExecution: true,
@@ -8153,25 +8152,30 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 transaction.PresentationWasChanged = true;
                 transaction.PresentationSnapshot = baseline.SettingsSnapshot;
                 transaction.PresentationWriter = baseline.SettingsWriter;
-                if (baseline.SettingsWriter == null || baseline.SettingsSnapshot == null ||
-                    !baseline.SettingsWriter.TryApply(
-                        baseline.SettingsSnapshot,
+                WorkloadPresentationSettingsMutationReceipt presentationReceipt =
+                    baseline.SettingsWriter == null || baseline.SettingsSnapshot == null
+                        ? null
+                        : baseline.SettingsWriter.TryApply(
+                            baseline.SettingsSnapshot,
                         plan.PresentationValues,
-                        persist: true,
-                        out reason))
+                            persist: true);
+                if (presentationReceipt == null || !presentationReceipt.Succeeded)
                 {
                     Abort(
                         WorkloadDiagnosticCode.InvalidState,
                         "The workload-owned presentation writer rejected the projected settings: " +
-                        reason);
+                        (presentationReceipt?.FailureReason ??
+                         "The writer baseline is unavailable."));
                 }
 
-                foreach (KeyValuePair<string, WorkloadScalarValue> value in plan.PresentationValues)
+                transaction.PresentationWasChanged =
+                    presentationReceipt.ChangedSettingIds.Count > 0;
+                foreach (string settingId in presentationReceipt.ChangedSettingIds)
                 {
                     report.Add(
                         WorkloadV2CommitMessageKind.Changed,
                         "presentation.changed",
-                        value.Key,
+                        settingId,
                         "The workload-owned presentation setting was committed through the BWT settings writer.");
                 }
             }
@@ -8642,27 +8646,29 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
                 if (transaction.PresentationWasChanged && restored)
                 {
-                    string settingsReason = string.Empty;
                     bool settingsCapabilityValid = !MultiplayerBridge.Active ||
                         (transaction.WorkloadAuthorization != null &&
                          transaction.WorkloadAuthorization.IsAcceptedForSettings(
                              synchronizedExecution: true,
                              transaction.AuthorityRevision,
                              transaction.WorkloadAuthorization.SettingsRevision));
-                    if (!settingsCapabilityValid ||
-                        transaction.PresentationWriter == null ||
-                        transaction.PresentationSnapshot == null ||
-                        !transaction.PresentationWriter.TryRollback(
-                            transaction.PresentationSnapshot,
-                            persist: true,
-                            out settingsReason))
+                    WorkloadPresentationSettingsMutationReceipt rollbackReceipt =
+                        settingsCapabilityValid
+                            ? transaction.PresentationWriter?.TryRollback(
+                                transaction.PresentationSnapshot,
+                                persist: true)
+                            : null;
+                    if (rollbackReceipt == null || !rollbackReceipt.Succeeded)
                     {
                         report.Add(
                             WorkloadV2CommitMessageKind.Fatal,
                             "rollback.presentation",
                             "presentation",
                             "The workload-owned presentation settings could not be restored: " +
-                            settingsReason);
+                            (settingsCapabilityValid
+                                ? rollbackReceipt?.FailureReason ??
+                                  "The presentation rollback writer or baseline is unavailable."
+                                : "The synchronized transaction capability is unavailable for presentation rollback."));
                         restored = false;
                     }
                 }
@@ -8924,8 +8930,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     transaction.PresentationWriter != null &&
                     transaction.PresentationSnapshot != null &&
                     (!transaction.PresentationWriter.TryCapture(
-                    transaction.PresentationSnapshot.ExactValues.Keys,
-                    out BWTWorkloadSettingsSnapshot settingsCurrent,
+                    transaction.PresentationSnapshot.Values.Keys,
+                    out WorkloadPresentationSettingsSnapshot settingsCurrent,
                     out _) ||
                      !SettingsMatch(
                          transaction.PresentationSnapshot,
@@ -8943,8 +8949,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         }
 
         private static bool SettingsMatch(
-            BWTWorkloadSettingsSnapshot expected,
-            BWTWorkloadSettingsSnapshot observed)
+            WorkloadPresentationSettingsSnapshot expected,
+            WorkloadPresentationSettingsSnapshot observed)
         {
             if (expected == null || observed == null ||
                 expected.Values.Count != observed.Values.Count)
@@ -9354,8 +9360,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             internal TimePriorityMutationAuthorization WorkloadAuthorization;
             internal WorkGiverReassignmentManager.WorkloadSpecificJobBatchRollback SpecificJobBatchRollback;
             internal bool SpecificJobBatchRolledBack;
-            internal IBWTWorkloadSettingsApplyWriter PresentationWriter;
-            internal BWTWorkloadSettingsSnapshot PresentationSnapshot;
+            internal WorkloadPresentationSettingsTransaction PresentationWriter;
+            internal WorkloadPresentationSettingsSnapshot PresentationSnapshot;
             internal bool HasChanges => ManualWasChanged ||
                 Priorities.Count > 0 ||
                 SpecificJobOverrides.Count > 0 ||

@@ -1,6 +1,7 @@
 using RimWorld;
 using System.Collections.Generic;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using UnityEngine;
 using Verse;
@@ -145,6 +146,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
             settings.sleekWorkTabUseMixedByDefault = useMixed;
             settings.Write();
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
             if (useMixed)
             {
                 FluffyWorkTabGateway.SwitchToBetterWorkTabWithSleek();
@@ -164,6 +166,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
             settings.sleekWorkTabChoicePromptDismissed = true;
             settings.Write();
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
         }
 
         internal static void DrawSettingsBannerIfNeeded(ref Rect inRect)

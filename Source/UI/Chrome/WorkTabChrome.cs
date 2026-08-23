@@ -148,12 +148,8 @@ namespace Better_Work_Tab.UI.Chrome
             {
                 return;
             }
-            bool showPawns = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.LayoutPawnCount,
-                settings.showPawnCountAtBottom);
-            bool showBeds = BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.LayoutBedCount,
-                settings.showBedCountAtBottom);
+            bool showPawns = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.LayoutPawnCount);
+            bool showBeds = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.LayoutBedCount);
             if (!showPawns && !showBeds)
             {
                 return;
@@ -213,9 +209,7 @@ namespace Better_Work_Tab.UI.Chrome
         internal void DrawContextSettingsHint(Rect inRect)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.UiContextSettingsHint,
-                    settings?.showContextSettingsHint ?? true))
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.UiContextSettingsHint))
             {
                 return;
             }
@@ -233,9 +227,7 @@ namespace Better_Work_Tab.UI.Chrome
         private void DrawManualPrioritiesCheckbox()
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.UiManualPriorities,
-                    settings?.showManualPrioritiesCheckbox ?? true))
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.UiManualPriorities))
             {
                 return;
             }
@@ -283,10 +275,7 @@ namespace Better_Work_Tab.UI.Chrome
         {
             WorkloadPreviewController preview = WorkloadPreviewController.Current;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.WorkloadsInspectionHighlights,
-                    settings?.enableWorkloadInspectionHighlights ??
-                        DefaultSettings.enableWorkloadInspectionHighlights) ||
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.WorkloadsInspectionHighlights) ||
                 preview == null ||
                 !WorkloadPreviewController.IsInspectionActiveForCurrentTab ||
                 !preview.HasManualModeInspectionChange)
@@ -294,10 +283,7 @@ namespace Better_Work_Tab.UI.Chrome
                 return;
             }
 
-            int opacity = BWTWorkTabEffectiveSettings.GetInt(
-                SettingIDs.WorkloadsInspectionOpacity,
-                settings?.workloadInspectionOpacity ??
-                    DefaultSettings.workloadInspectionOpacity);
+            int opacity = BWTWorkTabEffectiveSettings.GetInt(SettingIDs.WorkloadsInspectionOpacity);
             float normalizedOpacity = BetterWorkTabSettings.ClampWorkloadInspectionOpacity(opacity) / 100f;
             GUI.color = new Color(0.95f, 0.70f, 0.25f, 0.9f * normalizedOpacity);
             Widgets.DrawBox(checkboxRect.ExpandedBy(2f), 2);
@@ -310,9 +296,7 @@ namespace Better_Work_Tab.UI.Chrome
         private void DrawPriorityLegend(Rect rect)
         {
             var settings = BetterWorkTabMod.Settings;
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.UiPriorityLegend,
-                    settings?.showPriorityLegend ?? true))
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.UiPriorityLegend))
             {
                 return;
             }
@@ -321,9 +305,7 @@ namespace Better_Work_Tab.UI.Chrome
             Text.Anchor = TextAnchor.UpperCenter;
             Text.Font = GameFont.Tiny;
             EnsureUiTextCache(WorkPrioritySystem.GetMaxPriority());
-            Rect contextHintRect = BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.UiContextSettingsHint,
-                    settings?.showContextSettingsHint ?? true)
+            Rect contextHintRect = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.UiContextSettingsHint)
                 ? WorkTabChromeGeometry.GetContextSettingsHintRect(rect)
                 : Rect.zero;
             if (contextHintRect.width > 0f)
@@ -376,14 +358,10 @@ namespace Better_Work_Tab.UI.Chrome
             Text.Anchor = TextAnchor.LowerLeft;
 
             var settings = BetterWorkTabMod.Settings;
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.UiDragInstructions,
-                    settings?.showDragInstructions ?? DefaultSettings.showDragInstructions))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.UiDragInstructions))
             {
                 var instructions = new List<string>();
-                if (BWTWorkTabEffectiveSettings.GetBool(
-                        SettingIDs.FeaturesOverlay,
-                        settings?.enableSkillOverlayFeature ?? DefaultSettings.enableSkillOverlayFeature))
+                if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesOverlay))
                 {
                     instructions.Add(
                         ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted

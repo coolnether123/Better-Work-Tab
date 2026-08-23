@@ -247,9 +247,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
         private void ShowDividerContextMenu(PawnDivider divider)
         {
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.FeaturesDividers,
-                    BetterWorkTabMod.Settings?.enableDividers ?? DefaultSettings.enableDividers))
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesDividers))
             {
                 return;
             }
@@ -287,9 +285,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return;
             }
 
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.FeaturesDividers,
-                    BetterWorkTabMod.Settings?.enableDividers ?? DefaultSettings.enableDividers))
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesDividers))
             {
                 return;
             }
@@ -309,9 +305,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return;
             }
 
-            if (!BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.FeaturesDividers,
-                    BetterWorkTabMod.Settings?.enableDividers ?? DefaultSettings.enableDividers))
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesDividers))
             {
                 return;
             }

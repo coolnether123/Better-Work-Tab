@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Settings;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -97,6 +98,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
             settings.preferredWorkTabOwner = WorkTabOwnerPreference.BetterWorkTabWithSleekWorkPriorities;
             settings.Write();
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
         }
 
         internal static void ApplyColumnVisibility()
@@ -187,6 +189,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             settings.workTabOwnerSelectionMade = true;
             settings.preferredWorkTabOwner = WorkTabOwnerPreference.BetterWorkTab;
             settings.Write();
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
             PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             ApplyDesiredOwner(reopenIfOpen: true);
         }
@@ -202,6 +205,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             settings.workTabOwnerSelectionMade = true;
             settings.preferredWorkTabOwner = WorkTabOwnerPreference.FluffyWorkTab;
             settings.Write();
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
             PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             ApplyDesiredOwner(reopenIfOpen: true);
         }
@@ -217,6 +221,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             settings.workTabOwnerSelectionMade = true;
             settings.preferredWorkTabOwner = WorkTabOwnerPreference.BetterWorkTabWithSleekWorkPriorities;
             settings.Write();
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
             PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             ApplyDesiredOwner(reopenIfOpen: true);
         }
@@ -232,6 +237,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             settings.workTabOwnerSelectionMade = true;
             settings.preferredWorkTabOwner = WorkTabOwnerPreference.SleekWorkPriorities;
             settings.Write();
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
             PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             ApplyDesiredOwner(reopenIfOpen: true);
         }

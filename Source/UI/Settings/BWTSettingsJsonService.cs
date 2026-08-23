@@ -302,6 +302,7 @@ namespace Better_Work_Tab.UI.Settings
                 RecentColours.ReplaceAll(data.RecentColors, data.PinnedColors);
                 destination.Write();
                 settingsWriteSucceeded = true;
+                BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
                 if (workloadModeChanged)
                 {
                     // The settings commit is complete before the ownership

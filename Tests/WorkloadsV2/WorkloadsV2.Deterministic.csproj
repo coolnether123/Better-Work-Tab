@@ -42,6 +42,7 @@
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadValidation.cs" Link="Production\WorkloadValidation.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadSession.cs" Link="Production\WorkloadSession.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadBackendContracts.cs" Link="Production\WorkloadBackendContracts.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadPresentationSettingsTransaction.cs" Link="Production\WorkloadPresentationSettingsTransaction.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadV2Persistence.cs" Link="Production\WorkloadV2Persistence.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadV2RecordConverter.cs" Link="Production\WorkloadV2RecordConverter.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadLiveCapturePolicy.cs" Link="Production\WorkloadLiveCapturePolicy.cs" />
@@ -77,6 +78,7 @@
     <Compile Include="GatewayLifecycleTests.cs" />
     <Compile Include="BackendTransactionTests.cs" />
     <Compile Include="CapturePolicyTests.cs" />
+    <Compile Include="PresentationSettingsConsolidationTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
   <ItemGroup>

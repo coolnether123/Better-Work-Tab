@@ -67,7 +67,7 @@ namespace Better_Work_Tab.UI
                     {
                         BWTSettingsAdaptiveSearchAliases.Observe(drawer, settings);
                     }
-                    BWTWorkloadSettingsOwnershipPolicy.Refresh();
+                    BWTWorkloadSettingsOwnershipPolicy.EnsureFresh();
                     drawer.ShowResetIcons = !settings.hideSettingResetIcons;
                     drawer.FocusHighlightColor = settings.Color_SettingFocusHighlight;
                     bool bulkOperationsBlocked =

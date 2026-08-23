@@ -137,11 +137,8 @@ namespace Better_Work_Tab.UI.Settings
             ComplexJobsCompatibility.RegisterSettings();
             FluffyWorkTabGateway.RegisterSettings();
             ChronosPointerSupport.RegisterSettings();
-            Dictionary<string, Better_Work_Tab.Features.Workloads.V2.WorkloadScalarKind> supportedPresentationKinds =
-                RegisterAllSettings();
+            RegisterAllSettings();
             _hierarchy = new SettingsHierarchy(_schema.Definitions);
-            BWTWorkloadSettingsOwnershipPolicy.PublishSupportedPresentationKinds(
-                supportedPresentationKinds);
             _initialized = true;
             try
             {
@@ -153,14 +150,14 @@ namespace Better_Work_Tab.UI.Settings
                 _initialized = false;
                 _schema = null;
                 _hierarchy = null;
-                BWTWorkloadSettingsOwnershipPolicy.Invalidate();
+                BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
                 throw;
             }
         }
 
         public static void Invalidate()
         {
-            BWTWorkloadSettingsOwnershipPolicy.Invalidate();
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
             if (!_initialized)
             {
                 return;
@@ -172,9 +169,7 @@ namespace Better_Work_Tab.UI.Settings
             BetterWorkTabSettingsUI.NotifySettingsChanged();
         }
 
-        private static void PrepareDefinition(
-            SettingDefinition def,
-            IDictionary<string, Better_Work_Tab.Features.Workloads.V2.WorkloadScalarKind> supportedPresentationKinds)
+        private static void PrepareDefinition(SettingDefinition def)
         {
             ApplyScribeMetadata(def);
             Action<object> existingOnChanged = def?.OnChanged;
@@ -183,12 +178,9 @@ namespace Better_Work_Tab.UI.Settings
                 def.OnChanged = settingsObject =>
                 {
                     existingOnChanged?.Invoke(settingsObject);
-                    WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
-                        WorkTabDirtyFlags.SettingsThemeLanguageScale);
+                    BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged(def.Id);
                 };
-                BWTWorkloadSettingsOwnershipPolicy.PrepareDefinition(
-                    def,
-                    supportedPresentationKinds);
+                BWTWorkloadSettingsOwnershipPolicy.PrepareDefinition(def);
             }
         }
 
@@ -442,12 +434,10 @@ namespace Better_Work_Tab.UI.Settings
         /// <summary>
         /// Adds all setting definitions with hierarchy relationships.
         /// </summary>
-        private static Dictionary<string, Better_Work_Tab.Features.Workloads.V2.WorkloadScalarKind> RegisterAllSettings()
+        private static void RegisterAllSettings()
         {
             _schema = new SettingsSchema<BetterWorkTabSettings>();
             SettingsSchema<BetterWorkTabSettings> schema = _schema;
-            var supportedPresentationKinds =
-                new Dictionary<string, Better_Work_Tab.Features.Workloads.V2.WorkloadScalarKind>(StringComparer.Ordinal);
 
             RegisterHiddenPreference(_schema.Root, "compat.settingsViewMode", settings => settings.settingsViewMode, SettingType.Enum, DefaultSettings.settingsViewMode);
             RegisterHiddenPreference(_schema.Root, "compat.persistColumnWidths", settings => settings.persistColumnWidths, SettingType.Bool, DefaultSettings.persistColumnWidths);
@@ -1741,10 +1731,8 @@ namespace Better_Work_Tab.UI.Settings
 
             foreach (SettingDefinition definition in schema.Definitions)
             {
-                PrepareDefinition(definition, supportedPresentationKinds);
+                PrepareDefinition(definition);
             }
-
-            return supportedPresentationKinds;
         }
     }
     }

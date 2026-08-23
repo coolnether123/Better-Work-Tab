@@ -163,22 +163,16 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         private static void DrawLabel(Rect textRect, string text, bool showMarker, float alpha)
         {
             // Text Color: Apply moved marker color only if color tint is enabled
-            GUI.color = (showMarker && BWTWorkTabEffectiveSettings.GetBool(
-                "columns.showMovedColorTint",
-                BetterWorkTabMod.Settings?.showMovedColumnColorTint ?? true))
+            GUI.color = (showMarker && BWTWorkTabEffectiveSettings.GetBool("columns.showMovedColorTint"))
                 ? HeaderUtility.Colors.MovedMarkerColor
-                : BWTWorkTabEffectiveSettings.GetColor(
-                    "headers.angledColor",
-                    BetterWorkTabMod.Settings?.angledHeaderColor ?? DefaultSettings.Color_AngledHeaderText);
+                : BWTWorkTabEffectiveSettings.GetColor("headers.angledColor");
             GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * Mathf.Clamp01(alpha));
             Widgets.Label(textRect, text);
         }
 
         private void DrawStemLine(Rect textRect, float headerBottom, float alpha = 1f)
         {
-            if (BWTWorkTabEffectiveSettings.GetBool(
-                    SettingIDs.DragdropRemoveHeaderUnderline,
-                    BetterWorkTabMod.Settings?.removeHeaderUnderline ?? false))
+            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DragdropRemoveHeaderUnderline))
                 return;
 
             // Calculate which level this is based on distance from headerBottom

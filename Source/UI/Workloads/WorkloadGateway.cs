@@ -328,6 +328,7 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 settings.Write();
             }
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
 
             return WorkloadOperationResult.Ok();
         }
@@ -1678,6 +1679,7 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             _session = result.Value;
+            BWTWorkloadSettingsOwnershipPolicy.ObservePreviewSession(_session);
             if (!_session.ProjectedState.SemanticallyEquals(
                     projected,
                     WorkloadOwnershipDimensions.All))
@@ -2662,6 +2664,7 @@ namespace Better_Work_Tab.UI.Workloads
 
         private void RebuildProjection(WorkloadProjectedState projectedState)
         {
+            BWTWorkloadSettingsOwnershipPolicy.ObservePreviewSession(_session);
             if (_session == null)
             {
                 _projectedProvider = null;
@@ -2688,6 +2691,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             WorkTabEffectiveStateRuntime.ClearPreviewCacheResidue();
             WorkloadSurfaceCoordinator.NotifyPreviewClosed();
+            BWTWorkloadSettingsOwnershipPolicy.ObservePreviewSession(null);
             InvalidateMembershipSnapshot();
             _session = null;
             _projectedProvider = null;

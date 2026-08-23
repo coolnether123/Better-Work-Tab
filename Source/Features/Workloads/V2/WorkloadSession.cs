@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Better_Work_Tab.Features.Workloads.V2
 {
@@ -590,6 +591,17 @@ namespace Better_Work_Tab.Features.Workloads.V2
         internal string PreviewSessionId { get; private set; }
         internal long SessionRevision { get; private set; }
         internal long MembershipRevision { get; private set; }
+        /// <summary>
+        /// Length-prefixed source, session, and revision identity for caches
+        /// that must distinguish an edit, rebase, fork, or replacement preview
+        /// even when the saved workload ID is unchanged.
+        /// </summary>
+        internal string PreviewStamp => WorkloadCanonical.Pair(
+            WorkloadCanonical.Triple(
+                SourceTemplate.StableId,
+                SourceIdentity,
+                PreviewSessionId),
+            SessionRevision.ToString(CultureInfo.InvariantCulture));
 
         /// <summary>
         /// Pawns excluded from this session but not excluded by the saved
@@ -944,7 +956,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadSemanticDiff diff = kind == WorkloadDecisionKind.Apply
                 ? LiveDiff
                 : TemplateDiff;
-            return new WorkloadPreviewPlan(kind, SourceTemplate, before, after, diff, validation);
+            return new WorkloadPreviewPlan(
+                kind,
+                SourceTemplate,
+                before,
+                after,
+                diff,
+                validation);
         }
 
         private WorkloadSessionDecision Rejected(

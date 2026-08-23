@@ -23,10 +23,7 @@ namespace Better_Work_Tab.DragDrop
         internal static bool IsActive => FromPositions.Count > 0 && UseAnimation;
 
         private static bool UseAnimation =>
-            BWTWorkTabEffectiveSettings.GetBool(
-                SettingIDs.SubWorkTransitionAnimation,
-                BetterWorkTabMod.Settings?.enableSubWorkTransitionAnimation ??
-                    DefaultSettings.enableSubWorkTransitionAnimation);
+            BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkTransitionAnimation);
 
         internal static void Start(IReadOnlyList<WorkTabLayoutColumn> columns)
         {
