@@ -564,10 +564,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (PriorityOverrideRing.InnerRect(boxRect).Contains(evt.mousePosition))
             {
                 bool accepted = WorkTabEffectiveStateRuntime.IsPreviewActive
-                    ? WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
+                    ? WorkPriorityCommandGateway.TrySetPreviewParentPriority(
                         pawn,
                         workType,
-                        WorkPrioritySystem.GetDefaultEnabledPriority()))
+                        WorkPrioritySystem.GetDefaultEnabledPriority())
                     : EnableParentWorkTypeLive(pawn, workType);
                 if (!accepted)
                 {
@@ -632,14 +632,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     accepted = WorkPriorityCommandGateway.TryClearPreviewSpecificJobOverrides(
                         pawn,
                         workType) &&
-                        WorkPriorityCommandGateway.Execute(new SetPriorityCommand(
+                        WorkPriorityCommandGateway.TrySetPreviewParentPriority(
                             pawn,
                             workType,
-                            WorkPrioritySystem.GetDefaultEnabledPriority())) &&
-                        WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+                            WorkPrioritySystem.GetDefaultEnabledPriority()) &&
+                        WorkPriorityCommandGateway.SetWorkGiverPriority(
                             pawn.thingIDNumber,
                             wg.def,
-                            newPriority));
+                            newPriority);
                 }
                 else
                 {
@@ -704,7 +704,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             if (evt.button == 0 &&
-                WorkPriorityCommandGateway.Execute(new OpenScheduleCommand(target, boxRect, fallbackPriority)))
+                WorkPriorityCommandGateway.OpenSchedule(target, boxRect, fallbackPriority))
             {
                 SoundDefOf.Tick_High.PlayOneShotOnCamera();
             }
@@ -928,10 +928,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         {
             if (WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
-                return WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+                return WorkPriorityCommandGateway.SetWorkGiverPriority(
                     pawnId,
                     workGiverDef,
-                    priority));
+                    priority);
             }
 
             if (FluffyTimeScheduleAssigner.ApplyWorkGiverPriority(
@@ -942,10 +942,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return true;
             }
 
-            return WorkPriorityCommandGateway.Execute(new SetWorkGiverPriorityCommand(
+            return WorkPriorityCommandGateway.SetWorkGiverPriority(
                 pawnId,
                 workGiverDef,
-                priority));
+                priority);
         }
 
         private static int ToggleNonManualPriority(int currentPriority)

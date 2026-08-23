@@ -48,26 +48,26 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
 
             if (TryGetPriorityCellTarget(layout, evt.mousePosition, out WorkTypeDef workType, out WorkGiverDef workGiver, out Pawn pawn, out int priority, out Rect priorityBoxRect))
             {
-                WorkPriorityCommandGateway.Execute(new SelectRuleTargetCommand(
+                WorkPriorityCommandGateway.SelectRuleTarget(
                     workType,
                     workGiver,
                     pawn,
                     priority,
                     priorityBoxRect,
-                    header: false));
+                    header: false);
                 evt.Use();
                 return true;
             }
 
             if (TryGetHeaderTarget(layout, evt.mousePosition, out workType, out workGiver, out Rect headerBounds))
             {
-                WorkPriorityCommandGateway.Execute(new SelectRuleTargetCommand(
+                WorkPriorityCommandGateway.SelectRuleTarget(
                     workType,
                     workGiver,
                     pawn: null,
                     priority: WorkPrioritySystem.DisabledPriority,
-                    headerBounds,
-                    header: true));
+                    bounds: headerBounds,
+                    header: true);
                 evt.Use();
                 return true;
             }

@@ -579,7 +579,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 return true;
             }
 
-            return SetPriorityAtHour(target, hour, priority, fallbackPriority);
+            return ApplyPriorityAtHour(target, hour, priority, fallbackPriority);
         }
 
         internal static bool ClearPriorityAtHourSynced(TimePriorityTarget target, int hour)
@@ -1260,7 +1260,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 ? (TimePriorityTargetKind)kindValue
                 : TimePriorityTargetKind.WorkType;
             var target = TimePriorityTarget.FromRaw(pawnId, kind, workTypeDefName, targetDefName);
-            SetPriorityAtHour(target, hour, priority, fallbackPriority);
+            ApplyPriorityAtHour(target, hour, priority, fallbackPriority);
         }
 
         [SyncMethod]
@@ -1294,11 +1294,47 @@ namespace Better_Work_Tab.Features.TimePriority
             SetPriorities(target, priorities, fallbackPriority);
         }
 
-        private static bool SetPriorityAtHour(TimePriorityTarget target, int hour, int priority, int fallbackPriority)
+        internal static bool ApplyPriorityAtHour(TimePriorityTarget target, int hour, int priority, int fallbackPriority) =>
+            ApplyPriorityAtHour(target, hour, priority, fallbackPriority, null, null, null) !=
+            PriorityMutationOutcome.Rejected;
+
+        internal static PriorityMutationOutcome ApplyPriorityAtHour(
+            TimePriorityTarget target,
+            int hour,
+            int priority,
+            int fallbackPriority,
+            ParentPriorityCommandExpectation expectation,
+            Pawn_WorkSettings expectedWorkSettings,
+            WorkTypeDef expectedWorkType)
         {
-            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision))
+            if (expectation == null
+                ? !WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision)
+                : !WorkPrioritySystem.TryCaptureExpectedStoredState(
+                    expectedWorkSettings,
+                    expectedWorkType,
+                    expectation,
+                    out authorityRevision))
             {
-                return false;
+                return PriorityMutationOutcome.Rejected;
+            }
+
+            if (expectation != null &&
+                (!expectation.IsPinnedHour(hour) ||
+                 authorityRevision != expectation.AuthorityRevision ||
+                 CurrentVersion != expectation.ScheduleVersion ||
+                 !TryCaptureLiveScheduleSnapshot(
+                     target,
+                     expectation.ScheduleFallbackPriority,
+                     out TimePriorityLiveScheduleSnapshot current,
+                     out _) ||
+                 !current.HadSchedule ||
+                 !expectation.MatchesSchedule(
+                     current.AuthorityRevision,
+                     current.FallbackPriority,
+                     current.ServiceVersion,
+                     current.Payload)))
+            {
+                return PriorityMutationOutcome.Rejected;
             }
 
             priority = WorkPrioritySystem.ClampPriority(priority);
@@ -1307,32 +1343,36 @@ namespace Better_Work_Tab.Features.TimePriority
             // No early-out when the chosen number matches the box. Pinning an
             // hour to the default is a real instruction -- it means "stay here
             // when the box moves" -- and it is only expressible as an override.
-            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision) ||
+                (expectation != null &&
+                 (!WorkPrioritySystem.TryCaptureExpectedStoredState(
+                      expectedWorkSettings,
+                      expectedWorkType,
+                      expectation,
+                      out authorityRevision) ||
+                  CurrentVersion != expectation.ScheduleVersion)))
             {
-                return false;
+                return PriorityMutationOutcome.Rejected;
             }
 
             var schedule = GetOrCreateSchedule(target, fallbackPriority);
             hour = Mathf.Clamp(hour, 0, HoursPerDay - 1);
             if (schedule.IsUnlinked(hour) && schedule.HourlyPriorities[hour] == priority)
             {
-                return true;
-            }
-
-            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
-            {
-                return false;
+                return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision)
+                    ? PriorityMutationOutcome.Applied
+                    : PriorityMutationOutcome.Rejected;
             }
 
             schedule.SetOverride(hour, priority);
-            if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
+            if (WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
             {
-                return false;
+                MirrorTargetToExternalWorkTab(target);
             }
 
-            MirrorTargetToExternalWorkTab(target);
             NotifyChanged();
-            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
+            return PriorityMutationOutcomePolicy.AfterWrite(
+                WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision));
         }
 
         /// <summary>
