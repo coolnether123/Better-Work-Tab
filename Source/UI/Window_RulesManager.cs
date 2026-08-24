@@ -101,8 +101,6 @@ namespace Better_Work_Tab.UI
         public override Vector2 InitialSize => new Vector2(800f, 600f);
 
         private BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
-        private readonly QuickSearchWidget quickSearch = new QuickSearchWidget();
-        private Vector2 leftScroll;
         private Vector2 midScroll;
         private Vector2 rightScroll;
         private string ruleNameBuffer = "";
@@ -843,44 +841,6 @@ namespace Better_Work_Tab.UI
                 ruleToRemove = currentRule;
                 SelectedRule = null;
             }
-        }
-
-        /// <summary>
-        /// Deletes the specified ruleset and reassigns CurrentRuleset if needed.
-        /// </summary>
-        private void DeleteRuleset(WorkAssignmentRuleset rulesetToDelete)
-        {
-            var rulesets = Settings.SavedRulesets;
-            if (rulesetToDelete == null || rulesets == null || !rulesets.Contains(rulesetToDelete))
-            {
-                return;
-            }
-
-            int currentIndex = rulesets.IndexOf(rulesetToDelete);
-            rulesets.RemoveAt(currentIndex);
-
-            // Reassign CurrentRuleset if we deleted it
-            if (Settings.CurrentRuleset == rulesetToDelete)
-            {
-                if (currentIndex < rulesets.Count)
-                {
-                    // Move to the next ruleset
-                    Settings.SetCurrentRuleset(rulesets[currentIndex], writeSettings: false);
-                }
-                else if (rulesets.Count > 0)
-                {
-                    // Move to the last ruleset
-                    Settings.SetCurrentRuleset(rulesets.Last(), writeSettings: false);
-                }
-                else
-                {
-                    // No rulesets left
-                    Settings.SetCurrentRuleset(null, writeSettings: false);
-                }
-            }
-
-            ruleNameBuffer = Settings.CurrentRuleset?.Name ?? "";
-            SelectedRule = Settings.CurrentRuleset?.Rules?.FirstOrDefault() ?? null;
         }
 
         public override void PostClose()

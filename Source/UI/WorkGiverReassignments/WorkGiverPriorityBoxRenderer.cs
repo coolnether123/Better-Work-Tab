@@ -3,6 +3,7 @@ using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Headers.Angled;
@@ -56,6 +57,37 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
+            WorkGiverCellPresentationCache.CellPresentation presentation =
+                WorkGiverCellPresentationCache.Resolve(wg, workType, pawn, knownParentPriority);
+            DrawPreparedPriorityBox(
+                wg,
+                workType,
+                pawn,
+                boxRect,
+                presentation,
+                visualAlpha,
+                visualScale);
+        }
+
+        /// <summary>
+        /// Draws a BWT-owned sub-work cell from the presentation prepared for
+        /// the current finished view. Callers without that view use
+        /// <see cref="DrawPriorityBox"/> and retain the native live fallback.
+        /// </summary>
+        internal static void DrawPreparedPriorityBox(
+            WorkGiver wg,
+            WorkTypeDef workType,
+            Pawn pawn,
+            Rect boxRect,
+            WorkGiverCellPresentationCache.CellPresentation presentation,
+            float visualAlpha = 1f,
+            float visualScale = 1f)
+        {
+            if (wg?.def == null || presentation == null)
+            {
+                return;
+            }
+
             if (WorkTabEffectiveStateRuntime.IsPreviewActive &&
                 FluffyTimeScheduleAssigner.IsOpen)
             {
@@ -77,41 +109,39 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             try
             {
-            WorkGiverCellPresentationCache.CellPresentation presentation =
-                WorkGiverCellPresentationCache.Resolve(wg, workType, pawn, knownParentPriority);
-            int workGiverPriority = FluffyTimeScheduleAssigner.IsOpen
-                ? FluffyTimeScheduleAssigner.GetDisplayPriority(
-                    TimePriorityTarget.ForWorkGiver(pawn, wg.def),
-                    presentation.BasePriority,
-                    pawn)
-                : presentation.EffectivePriority;
+                int workGiverPriority = FluffyTimeScheduleAssigner.IsOpen
+                    ? FluffyTimeScheduleAssigner.GetDisplayPriority(
+                        TimePriorityTarget.ForWorkGiver(pawn, wg.def),
+                        presentation.BasePriority,
+                        pawn)
+                    : presentation.EffectivePriority;
 
-            if (pawn != null &&
-                !presentation.WorkTypeDisabled &&
-                presentation.ParentPriority <= WorkPrioritySystem.DisabledPriority)
-            {
-                if (presentation.HasPawnOverride && !presentation.LockedOverrides)
+                if (pawn != null &&
+                    !presentation.WorkTypeDisabled &&
+                    presentation.ParentPriority <= WorkPrioritySystem.DisabledPriority)
                 {
-                    DrawParentDisabledOverrideBox(wg, workType, pawn, boxRect, workGiverPriority, presentation);
+                    if (presentation.HasPawnOverride && !presentation.LockedOverrides)
+                    {
+                        DrawParentDisabledOverrideBox(wg, workType, pawn, boxRect, workGiverPriority, presentation);
+                        return;
+                    }
+
+                    DrawInheritedDisabledPriorityBox(wg, workType, pawn, boxRect);
+                    DrawOverrideResetAnimation(pawn.thingIDNumber, wg.def, boxRect);
+                    TooltipHandler.TipRegion(boxRect, wg.def.LabelCap);
                     return;
                 }
 
-                DrawInheritedDisabledPriorityBox(wg, workType, pawn, boxRect);
-                DrawOverrideResetAnimation(pawn.thingIDNumber, wg.def, boxRect);
-                TooltipHandler.TipRegion(boxRect, wg.def.LabelCap);
-                return;
-            }
+                if (pawn != null)
+                {
+                    DrawPawnPriorityBox(wg, workType, pawn, boxRect, workGiverPriority, presentation);
+                }
+                else
+                {
+                    DrawGlobalPriorityBox(wg, boxRect, workGiverPriority, presentation);
+                }
 
-            if (pawn != null)
-            {
-                DrawPawnPriorityBox(wg, workType, pawn, boxRect, workGiverPriority, presentation);
-            }
-            else
-            {
-                DrawGlobalPriorityBox(wg, boxRect, workGiverPriority, presentation);
-            }
-            
-            TooltipHandler.TipRegion(boxRect, wg.def.LabelCap);
+                TooltipHandler.TipRegion(boxRect, wg.def.LabelCap);
             }
             finally
             {
@@ -638,15 +668,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 }
                 else
                 {
-                    accepted = PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData;
-                    if (accepted)
-                    {
-                        WorkGiverReassignmentManager.EnableParentAndSetOnlySubOverrideSynced(
-                            pawn.thingIDNumber,
-                            workType.defName,
-                            wg.def.defName,
-                            newPriority);
-                    }
+                    accepted = WorkTabApplication.Current?
+                        .EnableParentFromSpecific(
+                            pawn,
+                            wg.def,
+                            newPriority).Accepted == true;
                 }
 
                 if (!accepted)
@@ -1031,11 +1057,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            WorkGiverReassignmentManager.EnableParentWorkTypeSynced(
-                pawn.thingIDNumber,
-                workType.defName,
-                workGiver.defName);
-            return true;
+            return WorkTabApplication.Current?
+                .EnableParentFromSpecific(pawn, workGiver, null).Accepted == true;
         }
 
         private static bool ClearPawnOverrideLive(Pawn pawn, WorkGiverDef workGiverDef)
@@ -1045,10 +1068,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            WorkGiverReassignmentManager.ClearPawnOverrideSynced(
-                pawn.thingIDNumber,
-                workGiverDef.defName);
-            return true;
+            return WorkTabApplication.Current?
+                .RemoveSpecificPriority(
+                    pawn.thingIDNumber,
+                    workGiverDef).Accepted == true;
         }
 
         private static Pawn ResolvePawn(int pawnId)

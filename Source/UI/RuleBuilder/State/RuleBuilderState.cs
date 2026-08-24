@@ -384,23 +384,6 @@ namespace Better_Work_Tab.UI.RuleBuilder.State
         }
 
         /// <summary>
-        /// Duplicates the specified rule.
-        /// </summary>
-        public WorkAssignmentRule DuplicateRule(WorkAssignmentRule rule)
-        {
-            if (SelectedRuleset == null || rule == null || IsRulesetReadOnly)
-                return null;
-
-            var copy = rule.Copy();
-
-            SelectedRuleset.Rules.Add(copy);
-            SelectedRule = copy;
-            NotifyRulesModified();
-
-            return copy;
-        }
-
-        /// <summary>
         /// Notifies listeners that rules have been modified.
         /// Call after any rule changes.
         /// </summary>

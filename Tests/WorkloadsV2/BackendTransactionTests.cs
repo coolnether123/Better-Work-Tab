@@ -25,6 +25,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
             PrepareIsReadOnlyAndExecuteIsCapabilityBound(backend, authorization);
             SpecificJobMutationIsOneAtomicBatch(backend, manager, data);
+            SpecificJobPublicationUsesTheCanonicalBatchReceipt(backend);
             SettingsAreRegisteredBeforeWrite(backend);
             RollbackLeaseCannotBecomeSuccessAfterFailure(backend, contracts);
             TemplateWritesUseTheSameTransactionBoundary(backend);
@@ -33,6 +34,68 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             SaveRebaseAndForkCurrentIdentityAreTransactional(backend);
             ReceiptRecoveryIsReadOnlyAndFailClosed(backend);
             CurrentScopeBaselineSkipsStaleEntries(backend);
+            LegacyWorkloadApplicationCompilesOneAtomicPlan(root);
+        }
+
+        private static void LegacyWorkloadApplicationCompilesOneAtomicPlan(string root)
+        {
+            string worklist = Read(root, "Source", "Features", "Workloads", "Worklist.cs");
+            string pawnWorkload = Read(root, "Source", "Features", "Workloads", "PawnWorkload.cs");
+            string legacyBackend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "LegacyWorkloadBackend.cs");
+            string atomicPlan = Read(root, "Source", "Features", "Application", "WorkTabAtomicMutationPlan.cs");
+
+            TestAssert.Contains(
+                atomicPlan,
+                "internal bool? ManualPrioritiesTarget { get; set; }",
+                "the shared atomic plan must represent an explicit manual-priority target, including false");
+            TestAssert.Contains(
+                worklist,
+                "TryBuildAtomicMutationPlan(",
+                "legacy workload application must compile through one named atomic-plan boundary");
+            TestAssert.Contains(
+                worklist,
+                "TryApplyAtomicMutation(",
+                "legacy callers must share one atomic application entry point");
+            TestAssert.Contains(
+                worklist,
+                "mutation.ManualPrioritiesTarget = UseAdvancedMode;",
+                "legacy workloads must preserve their explicit manual-priority value, including false");
+            TestAssert.Contains(
+                worklist,
+                ".OrderBy(workload => workload.OwningPawn.thingIDNumber)",
+                "legacy workload compilation must order pawn targets deterministically");
+            TestAssert.Contains(
+                worklist,
+                ".OrderBy(workType => workType.defName, StringComparer.Ordinal)",
+                "legacy workload compilation must order work types deterministically");
+            TestAssert.Contains(
+                worklist,
+                "WorkTabAtomicMutationPlan.Capture(",
+                "legacy workload baselines must be captured through the shared plan");
+            TestAssert.Contains(
+                worklist,
+                "WorkTabApplication.Current?.ApplyAtomicMutationPlan(mutation)",
+                "legacy Worklist.Apply must publish one compiled application mutation");
+            TestAssert.Contains(
+                pawnWorkload,
+                "PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(",
+                "legacy workload capture must use the authoritative stored-priority broker");
+            TestAssert.Contains(
+                pawnWorkload,
+                "TryCompileParentPriorities(",
+                "legacy entries must add values to the shared plan instead of writing live cells");
+            TestAssert.False(
+                pawnWorkload.IndexOf("Paste(", StringComparison.Ordinal) >= 0 ||
+                pawnWorkload.IndexOf("SetStoredParentPriority(", StringComparison.Ordinal) >= 0,
+                "legacy workload entries must not retain a per-cell live priority pipeline");
+            TestAssert.Contains(
+                legacyBackend,
+                "worklist.TryApplyAtomicMutation(",
+                "the legacy backend must delegate selected workloads to the shared atomic entry point");
+            TestAssert.False(
+                legacyBackend.IndexOf("_component.ApplyWorklist(", StringComparison.Ordinal) >= 0 ||
+                legacyBackend.IndexOf("TryCaptureBwtMutationAuthority(", StringComparison.Ordinal) >= 0,
+                "the legacy backend must not retain the component or authority preflight write pipeline");
         }
 
         private static void CurrentScopeBaselineSkipsStaleEntries(string backend)
@@ -87,7 +150,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "ValidateOnly must never call ApplyLive");
             TestAssert.Contains(
                 backend,
-                "TryCreateForWorkload(",
+                "WorkTabMutationAuthorization.TryCreate(",
                 "execute must mint the opaque capability through the workload backend only");
             TestAssert.Contains(
                 backend,
@@ -95,7 +158,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "execute must revalidate the prepared capability inside the synchronized operation");
             TestAssert.Contains(
                 authorization,
-                "ReferenceEquals(_requestIdentity, requestIdentity)",
+                "ReferenceEquals(_request, request)",
                 "capability validation must bind object identity, not only copied strings");
             TestAssert.Contains(
                 authorization,
@@ -122,7 +185,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the workload backend must enter the canonical specific-job batch seam");
             TestAssert.Contains(
                 manager,
-                "TryApplyWorkloadSpecificJobBatch(",
+                "TryApplySpecificJobBatch(",
                 "the manager must expose one batch API for shared and pawn-local specific-job state");
             TestAssert.Contains(
                 manager,
@@ -146,7 +209,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the batch must publish one canonical revision for all specific-job dimensions");
             TestAssert.Contains(
                 manager,
-                "TryRestoreWorkloadSpecificJobBatch(",
+                "TryRestoreSpecificJobBatch(",
                 "rollback must restore the complete specific-job batch, not individual legacy sync entries");
             TestAssert.False(
                 backend.IndexOf("SetPawnOverrideSynced(", StringComparison.Ordinal) >= 0 ||
@@ -162,6 +225,24 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 data,
                 "GlobalWorkGiverPriorityClears",
                 "specific-job batch fingerprints must retain explicit global clear state");
+        }
+
+        private static void SpecificJobPublicationUsesTheCanonicalBatchReceipt(string backend)
+        {
+            TestAssert.Contains(
+                backend,
+                "live?.SpecificJobsChanged == true",
+                "the transaction receipt must preserve specific-job publication truth across apply and rollback");
+            TestAssert.Contains(
+                backend,
+                "WorkTabApplicationDimensions.SpecificPriority |\n                    WorkTabApplicationDimensions.SpecificOrder |\n                    WorkTabApplicationDimensions.ExecutionOrder",
+                "a canonical specific-job batch must publish every affected Work-tab dimension");
+            TestAssert.False(
+                backend.IndexOf("AppliedSpecificJobOverrideMutation", StringComparison.Ordinal) >= 0 ||
+                backend.IndexOf("AppliedSpecificJobOrderMutation", StringComparison.Ordinal) >= 0 ||
+                backend.IndexOf("AppliedTypedSpecificPriorityMutation", StringComparison.Ordinal) >= 0 ||
+                backend.IndexOf("AppliedTypedWorkTypeOrderMutation", StringComparison.Ordinal) >= 0,
+                "specific-job rollback must retain only the manager-owned atomic batch receipt");
         }
 
         private static void SettingsAreRegisteredBeforeWrite(string backend)
@@ -346,8 +427,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "authority drift must block Update/Fork persistence without handoff");
             TestAssert.Contains(
                 backend,
-                "BWTWorkloadSettingsOwnershipPolicy.TryGetStageableDefinition(",
-                "settings ownership must be checked against the live stageable registry");
+                "WorkloadPresentationServices.TryGetScalarKind(",
+                "settings ownership must be checked through the neutral live metadata service");
             TestAssert.False(
                 helper.IndexOf("ApplyLive(", StringComparison.Ordinal) >= 0,
                 "Update/Fork runtime revalidation must not mutate the live colony");

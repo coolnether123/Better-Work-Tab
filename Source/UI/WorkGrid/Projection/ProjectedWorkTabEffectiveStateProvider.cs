@@ -13,9 +13,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
     /// </summary>
     public sealed class ProjectedWorkTabEffectiveStateProvider :
         IWorkTabEffectiveStateProvider,
-        IWorkTabEffectiveStateEditor,
         IWorkTabEffectiveStateV2Provider,
-        IWorkTabEffectiveStateV2Editor
+        IWorkTabEffectiveStateV2Editor,
+        IWorkTabComposedEffectiveStateProvider,
+        IWorkTabPreviewOwnership,
+        IWorkTabEffectiveStatePassParticipant,
+        IWorkTabEffectiveStateViewSource
     {
         private static long NextProviderGeneration;
         private readonly WorkloadDraft _draft;
@@ -23,26 +26,22 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         private readonly WorkloadOwnershipDimensions _ownedDimensions;
         private readonly string _providerId;
         private readonly WorkloadScope _scope;
-        private readonly HashSet<PawnKey> _editablePawnIds;
+        private HashSet<PawnKey> _editablePawnIds;
         private bool _hasEditablePawnBoundary;
 
-        private readonly Dictionary<PawnKey, ScheduleKey> _schedules =
-            new Dictionary<PawnKey, ScheduleKey>();
-        private readonly Dictionary<WorkloadSpecificJobKey, WorkloadScalarValue> _specificJobOverrides =
+        private Dictionary<WorkloadSpecificJobKey, WorkloadScalarValue> _specificJobOverrides =
             new Dictionary<WorkloadSpecificJobKey, WorkloadScalarValue>();
-        private readonly Dictionary<WorkloadSpecificJobKey, int> _specificJobOrder =
-            new Dictionary<WorkloadSpecificJobKey, int>();
-        private readonly Dictionary<string, WorkloadScalarValue> _presentationSettings =
+        private Dictionary<string, WorkloadScalarValue> _presentationSettings =
             new Dictionary<string, WorkloadScalarValue>(StringComparer.Ordinal);
-        private readonly Dictionary<WorkloadScheduleTargetKey, WorkloadIntent<WorkloadSchedulePayload>> _scheduleIntents =
+        private Dictionary<WorkloadScheduleTargetKey, WorkloadIntent<WorkloadSchedulePayload>> _scheduleIntents =
             new Dictionary<WorkloadScheduleTargetKey, WorkloadIntent<WorkloadSchedulePayload>>();
-        private readonly Dictionary<WorkloadSpecificJobTargetKey, WorkloadIntent<WorkloadSpecificPriorityPayload>> _specificPriorityIntents =
+        private Dictionary<WorkloadSpecificJobTargetKey, WorkloadIntent<WorkloadSpecificPriorityPayload>> _specificPriorityIntents =
             new Dictionary<WorkloadSpecificJobTargetKey, WorkloadIntent<WorkloadSpecificPriorityPayload>>();
-        private readonly Dictionary<WorkloadWorkTypeOrderKey, WorkloadIntent<WorkloadWorkTypeOrderPayload>> _workTypeOrderIntents =
+        private Dictionary<WorkloadWorkTypeOrderKey, WorkloadIntent<WorkloadWorkTypeOrderPayload>> _workTypeOrderIntents =
             new Dictionary<WorkloadWorkTypeOrderKey, WorkloadIntent<WorkloadWorkTypeOrderPayload>>();
-        private readonly Dictionary<string, WorkloadIntent<WorkloadSettingValue>> _presentationSettingIntents =
+        private Dictionary<string, WorkloadIntent<WorkloadSettingValue>> _presentationSettingIntents =
             new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(StringComparer.Ordinal);
-        private readonly HashSet<string> _presentationOwnershipKeys =
+        private HashSet<string> _presentationOwnershipKeys =
             new HashSet<string>(StringComparer.Ordinal);
         private bool _presentationOwnershipTouched;
 
@@ -65,6 +64,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         private long _specificRevision;
         private long _settingsRevision;
         private long _membershipRevision;
+        private readonly bool _isCapturedView;
+        private readonly WorkTabEffectiveStateRevision _capturedViewRevision;
 
         public ProjectedWorkTabEffectiveStateProvider(
             WorkloadDraft draft,
@@ -95,6 +96,49 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             RefreshProjection();
         }
 
+        private ProjectedWorkTabEffectiveStateProvider(
+            ProjectedWorkTabEffectiveStateProvider source,
+            IWorkTabEffectiveStateProvider baseProvider,
+            WorkTabEffectiveStateRevision revision)
+        {
+            _draft = source._draft;
+            _baseProvider = baseProvider;
+            _ownedDimensions = source._ownedDimensions;
+            _providerId = source._providerId;
+            _scope = source._scope;
+            _editablePawnIds = source._editablePawnIds;
+            _hasEditablePawnBoundary = source._hasEditablePawnBoundary;
+            _specificJobOverrides = source._specificJobOverrides;
+            _presentationSettings = source._presentationSettings;
+            _scheduleIntents = source._scheduleIntents;
+            _specificPriorityIntents = source._specificPriorityIntents;
+            _workTypeOrderIntents = source._workTypeOrderIntents;
+            _presentationSettingIntents = source._presentationSettingIntents;
+            _presentationOwnershipKeys = source._presentationOwnershipKeys;
+            _presentationOwnershipTouched = source._presentationOwnershipTouched;
+            _projectedState = source._projectedState;
+            _semanticFingerprint = source._semanticFingerprint;
+            _baseRevision = source._baseRevision;
+            _draftRevision = source._draftRevision;
+            _observedDraftRevision = source._observedDraftRevision;
+            _revision = source._revision;
+            _hasProjection = source._hasProjection;
+            _capturedBaseRevision = source._capturedBaseRevision;
+            _capturedBaseRevisionVector = source._capturedBaseRevisionVector;
+            _capturedBasePassId = source._capturedBasePassId;
+            _hasCapturedBaseRevision = source._hasCapturedBaseRevision;
+            _hasCapturedBaseRevisionVector = source._hasCapturedBaseRevisionVector;
+            _baseRevisionVector = source._baseRevisionVector;
+            _hasBaseRevisionVector = source._hasBaseRevisionVector;
+            _providerGeneration = source._providerGeneration;
+            _scheduleRevision = source._scheduleRevision;
+            _specificRevision = source._specificRevision;
+            _settingsRevision = source._settingsRevision;
+            _membershipRevision = source._membershipRevision;
+            _isCapturedView = true;
+            _capturedViewRevision = revision;
+        }
+
         public ProjectedWorkTabEffectiveStateProvider(
             WorkloadTemplate template,
             IWorkTabEffectiveStateProvider baseProvider = null,
@@ -114,6 +158,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         {
             get
             {
+                if (_isCapturedView)
+                {
+                    return _capturedViewRevision.Revision;
+                }
+
                 RefreshProjection();
                 return _revision;
             }
@@ -143,6 +192,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         {
             get
             {
+                if (_isCapturedView)
+                {
+                    return _capturedViewRevision.RevisionVector;
+                }
+
                 RefreshProjection();
                 WorkTabEffectiveStateRevisionVector baseVector = ReadBaseRevisionVector();
                 return new WorkTabEffectiveStateRevisionVector(
@@ -158,8 +212,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             }
         }
         public WorkTabEffectiveStateRevision RevisionToken =>
-            new WorkTabEffectiveStateRevision(ProviderId, Revision, Source, RevisionVector);
-        public IWorkTabEffectiveStateEditor Editor => this;
+            _isCapturedView
+                ? _capturedViewRevision
+                : new WorkTabEffectiveStateRevision(ProviderId, Revision, Source, RevisionVector);
+
+        public IWorkTabEffectiveStateProvider CaptureEffectiveStateView(
+            WorkTabEffectiveStateRevision revision)
+        {
+            RefreshProjection();
+            IWorkTabEffectiveStateProvider capturedBase =
+                _baseProvider is IWorkTabEffectiveStateViewSource source
+                    ? source.CaptureEffectiveStateView(_baseProvider.RevisionToken)
+                    : _baseProvider;
+            return new ProjectedWorkTabEffectiveStateProvider(this, capturedBase, revision);
+        }
 
         /// <summary>
         /// Returns whether a pawn is a legal target for a projected mutation.
@@ -181,6 +247,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         /// </summary>
         public void InvalidateDraft()
         {
+            if (_isCapturedView)
+            {
+                return;
+            }
+
             _draftRevision = unchecked(_draftRevision + 1L);
             WorkTabEffectiveStateRuntime.InvalidateRenderPass();
         }
@@ -194,6 +265,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         /// </summary>
         public bool ReplaceEditablePawnBoundary(IEnumerable<PawnKey> editablePawnIds)
         {
+            if (_isCapturedView)
+            {
+                return false;
+            }
+
             RefreshProjection();
             var replacement = new HashSet<PawnKey>();
             if (editablePawnIds != null)
@@ -212,12 +288,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return false;
             }
 
-            _editablePawnIds.Clear();
-            foreach (PawnKey pawn in replacement)
-            {
-                _editablePawnIds.Add(pawn);
-            }
-
+            _editablePawnIds = replacement;
             _hasEditablePawnBoundary = true;
             _membershipRevision = unchecked(_membershipRevision + 1L);
             RebuildIndexes();
@@ -233,11 +304,42 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         /// </summary>
         internal void CaptureBaseRevisionForRenderPass(long passId)
         {
+            if (_isCapturedView)
+            {
+                return;
+            }
+
             _capturedBasePassId = passId;
             _capturedBaseRevision = _baseProvider?.Revision ?? 0L;
             _capturedBaseRevisionVector = ReadBaseRevisionVectorUncaptured();
             _hasCapturedBaseRevision = true;
             _hasCapturedBaseRevisionVector = true;
+        }
+
+        void IWorkTabEffectiveStatePassParticipant.PrepareRenderPass(long passId)
+        {
+            CaptureBaseRevisionForRenderPass(passId);
+        }
+
+        bool IWorkTabPreviewOwnership.OwnsDimension(WorkTabEffectiveStateDimension dimension)
+        {
+            switch (dimension)
+            {
+                case WorkTabEffectiveStateDimension.ManualMode:
+                    return (_ownedDimensions & WorkloadOwnershipDimensions.ManualModes) != 0;
+                case WorkTabEffectiveStateDimension.Schedule:
+                    return (_ownedDimensions & WorkloadOwnershipDimensions.Schedules) != 0;
+                case WorkTabEffectiveStateDimension.SpecificJobOverride:
+                    return (_ownedDimensions & WorkloadOwnershipDimensions.SpecificJobOverrides) != 0;
+                case WorkTabEffectiveStateDimension.SpecificJobOrder:
+                    return (_ownedDimensions & WorkloadOwnershipDimensions.SpecificJobOrder) != 0;
+                case WorkTabEffectiveStateDimension.PresentationSetting:
+                    return (_ownedDimensions & WorkloadOwnershipDimensions.PresentationSettings) != 0 ||
+                           _presentationOwnershipTouched ||
+                           HasProjectedPresentationSettings(_projectedState);
+                default:
+                    return true;
+            }
         }
 
         public WorkTabEffectiveStateResolution<WorkloadSchedulePayload> ResolveSchedule(
@@ -491,13 +593,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 }
             }
 
-            if (_baseProvider != null &&
-                _baseProvider.TryGetPresentationSetting(key, out WorkloadScalarValue scalar))
-            {
-                return WorkTabEffectiveStateResolution<WorkloadSettingValue>.Set(
-                    WorkloadSettingValue.Global(scalar));
-            }
-
             return WorkTabEffectiveStateResolution<WorkloadSettingValue>.NoOpinion;
         }
 
@@ -552,16 +647,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 }
             }
 
-            if (_baseProvider != null &&
-                _baseProvider.TryGetSpecificJobOverride(
-                    key.ToLegacyKey(),
-                    out WorkloadScalarValue scalar) &&
-                scalar.Kind == WorkloadScalarKind.Integer)
-            {
-                return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.Set(
-                    new WorkloadSpecificPriorityPayload(scalar.IntegerValue));
-            }
-
             return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
         }
 
@@ -604,171 +689,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             return WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion;
         }
 
-        private bool TryResolveEffectiveSpecificJobOrder(
-            WorkloadSpecificJobKey key,
-            out int order,
-            out bool explicitClear)
-        {
-            order = 0;
-            explicitClear = false;
-            if (key == null || !key.IsValid ||
-                !Owns(WorkloadStateDimension.SpecificJobOrder))
-            {
-                return false;
-            }
-
-            WorkloadWorkTypeOrderKey local = new WorkloadWorkTypeOrderKey(
-                key.Scope,
-                key.Pawn,
-                key.WorkType);
-            if (key.IsGlobal)
-            {
-                local = WorkloadWorkTypeOrderKey.Global(key.WorkType);
-            }
-
-            WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload> effective =
-                ResolveEffectiveWorkTypeOrder(local);
-            if (effective.IsClear)
-            {
-                // Do not let the legacy per-WorkGiver fallback resurrect an
-                // order explicitly cleared by the preview.
-                explicitClear = true;
-                return false;
-            }
-
-            if (effective.IsSet &&
-                TryGetOrderIndex(effective.Value, key.WorkGiver, out order))
-            {
-                return true;
-            }
-
-            if (_baseProvider != null &&
-                _baseProvider.TryGetSpecificJobOrder(key, out order))
-            {
-                return true;
-            }
-
-            return !key.IsGlobal &&
-                   _baseProvider != null &&
-                   _baseProvider.TryGetSpecificJobOrder(
-                       new WorkloadSpecificJobKey(
-                           WorkloadTargetScope.GlobalShared,
-                           null,
-                           key.WorkType,
-                           key.WorkGiver),
-                       out order);
-        }
-
-        private static bool TryGetOrderIndex(
-            WorkloadWorkTypeOrderPayload payload,
-            WorkGiverKey workGiver,
-            out int order)
-        {
-            order = 0;
-            if (payload == null || workGiver == null || !payload.IsValid)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < payload.OrderedWorkGivers.Count; i++)
-            {
-                if (payload.OrderedWorkGivers[i].Equals(workGiver))
-                {
-                    order = i;
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public ScheduleKey GetSchedule(PawnKey key, ScheduleKey fallbackSchedule)
-        {
-            return TryGetSchedule(key, out ScheduleKey schedule) ? schedule : fallbackSchedule;
-        }
-
-        public bool TryGetSchedule(PawnKey key, out ScheduleKey schedule)
-        {
-            schedule = null;
-            RefreshProjection();
-            if (Owns(WorkloadStateDimension.Schedules) &&
-                key != null && key.IsValid &&
-                IsEditablePawn(key, _projectedState) &&
-                _schedules.TryGetValue(key, out schedule))
-            {
-                return true;
-            }
-
-            return _baseProvider != null && _baseProvider.TryGetSchedule(key, out schedule);
-        }
-
-        public WorkloadScalarValue GetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            WorkloadScalarValue fallbackValue)
-        {
-            return TryGetSpecificJobOverride(key, out WorkloadScalarValue value)
-                ? value
-                : fallbackValue;
-        }
-
-        public bool TryGetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            out WorkloadScalarValue value)
-        {
-            value = WorkloadScalarValue.Empty;
-            WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload> projected =
-                ResolveEffectiveSpecificJobPriority(key == null ? null : key.ToTargetKey());
-            if (projected.IsSet)
-            {
-                value = WorkloadScalarValue.FromInteger(projected.Value.Priority);
-                return true;
-            }
-            return false;
-        }
-
-        public int GetSpecificJobOrder(WorkloadSpecificJobKey key, int fallbackOrder)
-        {
-            return TryGetSpecificJobOrder(key, out int order) ? order : fallbackOrder;
-        }
-
-        public bool TryGetSpecificJobOrder(WorkloadSpecificJobKey key, out int order)
-        {
-            order = 0;
-            if (TryResolveEffectiveSpecificJobOrder(key, out order, out bool explicitClear))
-            {
-                return true;
-            }
-
-            if (explicitClear)
-            {
-                return false;
-            }
-
-            return _baseProvider != null && _baseProvider.TryGetSpecificJobOrder(key, out order);
-        }
-
-        public WorkloadScalarValue GetPresentationSetting(
-            string key,
-            WorkloadScalarValue fallbackValue)
-        {
-            return TryGetPresentationSetting(key, out WorkloadScalarValue value)
-                ? value
-                : fallbackValue;
-        }
-
-        public bool TryGetPresentationSetting(string key, out WorkloadScalarValue value)
-        {
-            value = WorkloadScalarValue.Empty;
-            WorkTabEffectiveStateResolution<WorkloadSettingValue> projected =
-                ResolveEffectivePresentationSetting(key);
-            if (projected.IsSet)
-            {
-                value = projected.Value.Scalar;
-                return true;
-            }
-            return false;
-        }
-
         /// <summary>
         /// Applies a global-mode preview change as one draft mutation so the
         /// projection is rebuilt and fingerprinted once for the whole scope.
@@ -777,6 +697,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             IReadOnlyList<WorkloadParentPriorityKey> keys,
             bool manualMode)
         {
+            if (_isCapturedView)
+            {
+                return CapturedViewMutationBlocked(WorkTabEffectiveStateDimension.ManualMode);
+            }
+
             RefreshProjection();
             if (keys == null || keys.Count == 0)
             {
@@ -819,84 +744,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                         draft.SetManualMode(keys[i], manualMode);
                     }
                 });
-        }
-
-        public WorkTabEffectiveStateMutationResult SetSchedule(
-            PawnKey key,
-            ScheduleKey schedule)
-        {
-            return Apply(
-                WorkTabEffectiveStateDimension.Schedule,
-                WorkloadOwnershipDimensions.Schedules,
-                key,
-                key != null && key.IsValid && schedule != null && schedule.IsValid,
-                "Valid pawn and schedule keys are required.",
-                draft => draft.SetSchedule(key, schedule));
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearSchedule(PawnKey key)
-        {
-            return RejectClear(
-                WorkTabEffectiveStateDimension.Schedule,
-                "A typed schedule target is required to clear a projected schedule.");
-        }
-
-        public WorkTabEffectiveStateMutationResult SetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            WorkloadScalarValue value)
-        {
-            return Apply(
-                WorkTabEffectiveStateDimension.SpecificJobOverride,
-                WorkloadOwnershipDimensions.SpecificJobOverrides,
-                key?.Pawn,
-                key != null && key.IsValid,
-                "A valid specific-job key is required.",
-                draft => draft.SetSpecificJobOverride(key, value));
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearSpecificJobOverride(
-            WorkloadSpecificJobKey key)
-        {
-            return ClearSpecificJobPriority(key == null ? null : key.ToTargetKey());
-        }
-
-        public WorkTabEffectiveStateMutationResult SetSpecificJobOrder(
-            WorkloadSpecificJobKey key,
-            int order)
-        {
-            return Apply(
-                WorkTabEffectiveStateDimension.SpecificJobOrder,
-                WorkloadOwnershipDimensions.SpecificJobOrder,
-                key?.Pawn,
-                key != null && key.IsValid,
-                "A valid specific-job key is required.",
-                draft => draft.SetSpecificJobOrder(key, order));
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearSpecificJobOrder(
-            WorkloadSpecificJobKey key)
-        {
-            return ClearWorkTypeOrder(key == null
-                ? null
-                : new WorkloadWorkTypeOrderKey(key.Scope, key.Pawn, key.WorkType));
-        }
-
-        public WorkTabEffectiveStateMutationResult SetPresentationSetting(
-            string key,
-            WorkloadScalarValue value)
-        {
-            return Apply(
-                WorkTabEffectiveStateDimension.PresentationSetting,
-                WorkloadOwnershipDimensions.PresentationSettings,
-                null,
-                !string.IsNullOrWhiteSpace(key),
-                "A non-empty presentation-setting key is required.",
-                draft => draft.SetPresentationSetting(key, value));
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearPresentationSetting(string key)
-        {
-            return ClearPresentationSettingV2(key);
         }
 
         public WorkTabEffectiveStateMutationResult SetSchedule(
@@ -1013,6 +860,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             string key,
             WorkloadScalarValue value)
         {
+            if (_isCapturedView)
+            {
+                return CapturedViewMutationBlocked(
+                    WorkTabEffectiveStateDimension.PresentationSetting);
+            }
+
             RefreshProjection();
             if (string.IsNullOrWhiteSpace(key) || value.Kind == WorkloadScalarKind.Empty)
             {
@@ -1023,7 +876,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             }
 
             bool alreadyOwned = OwnsPresentationSetting(key);
-            bool added = _presentationOwnershipKeys.Add(key);
+            bool added = SetPresentationOwnershipKey(key, owned: true);
             _presentationOwnershipTouched = true;
             WorkTabEffectiveStateMutationResult result = Apply(
                 WorkTabEffectiveStateDimension.PresentationSetting,
@@ -1038,7 +891,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 allowPresentationOwnershipAcquisition: true);
             if (result.IsBlocked && added && !alreadyOwned)
             {
-                _presentationOwnershipKeys.Remove(key);
+                SetPresentationOwnershipKey(key, owned: false);
             }
 
             return result;
@@ -1051,6 +904,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         public WorkTabEffectiveStateMutationResult ReleasePresentationSetting(
             string key)
         {
+            if (_isCapturedView)
+            {
+                return CapturedViewMutationBlocked(
+                    WorkTabEffectiveStateDimension.PresentationSetting);
+            }
+
             RefreshProjection();
             if (!OwnsPresentationSetting(key))
             {
@@ -1060,7 +919,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     "The presentation setting is not owned by this workload preview.");
             }
 
-            bool hadKey = _presentationOwnershipKeys.Remove(key);
+            bool hadKey = SetPresentationOwnershipKey(key, owned: false);
             _presentationOwnershipTouched = true;
             WorkTabEffectiveStateMutationResult result = Apply(
                 WorkTabEffectiveStateDimension.PresentationSetting,
@@ -1072,7 +931,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 allowPresentationOwnershipAcquisition: true);
             if (result.IsBlocked && hadKey)
             {
-                _presentationOwnershipKeys.Add(key);
+                SetPresentationOwnershipKey(key, owned: true);
             }
 
             return result;
@@ -1098,6 +957,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             Action<WorkloadDraft> mutation,
             bool allowPresentationOwnershipAcquisition = false)
         {
+            if (_isCapturedView)
+            {
+                return CapturedViewMutationBlocked(dimension);
+            }
+
             RefreshProjection();
             long previousRevision = _revision;
             bool ownsDimension = (_ownedDimensions & ownership) == ownership;
@@ -1168,21 +1032,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     _settingsRevision = unchecked(_settingsRevision + 1L);
                     break;
             }
-        }
-
-        private WorkTabEffectiveStateMutationResult RejectClear(
-            WorkTabEffectiveStateDimension dimension,
-            string reason)
-        {
-            // A clear is a tombstone operation, not the same as omitting a
-            // projected entry. Until tombstones are represented by the
-            // projection/commit contract, reject every clear so a live fallback
-            // can never be mistaken for an intentional projected clear.
-            RefreshProjection();
-            return WorkTabEffectiveStateMutationResult.Blocked(
-                dimension,
-                _revision,
-                reason);
         }
 
         private bool Owns(WorkloadStateDimension dimension)
@@ -1334,6 +1183,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
         private void RefreshProjection()
         {
+            if (_isCapturedView)
+            {
+                return;
+            }
+
             long baseRevision = ReadBaseRevision();
             WorkTabEffectiveStateRevisionVector baseRevisionVector = ReadBaseRevisionVector();
             bool firstProjection = !_hasProjection;
@@ -1433,13 +1287,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
         private WorkTabEffectiveStateRevisionVector ReadBaseRevisionVectorUncaptured()
         {
-            if (_baseProvider is IWorkTabEffectiveStateV2Provider v2)
-            {
-                return v2.RevisionVector;
-            }
-
-            return WorkTabEffectiveStateRevisionVector.FromRevision(
-                _baseProvider?.Revision ?? 0L);
+            return _baseProvider?.RevisionVector ??
+                WorkTabEffectiveStateRevisionVector.FromRevision(0L);
         }
 
         private static long CombineRevisions(long left, long right)
@@ -1452,28 +1301,58 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             }
         }
 
+        private WorkTabEffectiveStateMutationResult CapturedViewMutationBlocked(
+            WorkTabEffectiveStateDimension dimension)
+        {
+            return WorkTabEffectiveStateMutationResult.Blocked(
+                dimension,
+                _capturedViewRevision.Revision,
+                "The completed Work-tab view is read-only.");
+        }
+
+        private bool SetPresentationOwnershipKey(string key, bool owned)
+        {
+            bool contained = _presentationOwnershipKeys.Contains(key);
+            if (contained == owned)
+            {
+                return false;
+            }
+
+            var replacement = new HashSet<string>(
+                _presentationOwnershipKeys,
+                StringComparer.Ordinal);
+            if (owned)
+            {
+                replacement.Add(key);
+            }
+            else
+            {
+                replacement.Remove(key);
+            }
+
+            _presentationOwnershipKeys = replacement;
+            return true;
+        }
+
         private void RebuildIndexes()
         {
-            _schedules.Clear();
-            _specificJobOverrides.Clear();
-            _specificJobOrder.Clear();
-            _presentationSettings.Clear();
-            _scheduleIntents.Clear();
-            _specificPriorityIntents.Clear();
-            _workTypeOrderIntents.Clear();
-            _presentationSettingIntents.Clear();
-
-            if (Owns(WorkloadStateDimension.Schedules))
-            {
-                for (int i = 0; i < _projectedState.Schedules.Count; i++)
-                {
-                    WorkloadScheduleEntry entry = _projectedState.Schedules[i];
-                    if (entry != null && IsEditablePawn(entry.Pawn, _projectedState))
-                    {
-                        _schedules[entry.Pawn] = entry.Schedule;
-                    }
-                }
-            }
+            // A completed WorkTabView may still hold the prior index set while
+            // input edits this provider. Build replacement indexes and publish
+            // them together so that view remains allocation-free and stable.
+            var specificJobOverrides =
+                new Dictionary<WorkloadSpecificJobKey, WorkloadScalarValue>();
+            var presentationSettings =
+                new Dictionary<string, WorkloadScalarValue>(StringComparer.Ordinal);
+            var scheduleIntents =
+                new Dictionary<WorkloadScheduleTargetKey, WorkloadIntent<WorkloadSchedulePayload>>();
+            var specificPriorityIntents =
+                new Dictionary<WorkloadSpecificJobTargetKey, WorkloadIntent<WorkloadSpecificPriorityPayload>>();
+            var workTypeOrderIntents =
+                new Dictionary<WorkloadWorkTypeOrderKey, WorkloadIntent<WorkloadWorkTypeOrderPayload>>();
+            var presentationSettingIntents =
+                new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(StringComparer.Ordinal);
+            var presentationOwnershipKeys =
+                new HashSet<string>(_presentationOwnershipKeys, StringComparer.Ordinal);
 
             if (Owns(WorkloadStateDimension.SpecificJobOverrides))
             {
@@ -1483,20 +1362,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     if (entry != null &&
                         IsEditableSpecificTarget(entry.Key.ToTargetKey(), _projectedState))
                     {
-                        _specificJobOverrides[entry.Key] = entry.Value;
-                    }
-                }
-            }
-
-            if (Owns(WorkloadStateDimension.SpecificJobOrder))
-            {
-                for (int i = 0; i < _projectedState.SpecificJobOrder.Count; i++)
-                {
-                    WorkloadSpecificJobOrderEntry entry = _projectedState.SpecificJobOrder[i];
-                    if (entry != null &&
-                        IsEditableSpecificTarget(entry.Key.ToTargetKey(), _projectedState))
-                    {
-                        _specificJobOrder[entry.Key] = entry.Order;
+                        specificJobOverrides[entry.Key] = entry.Value;
                     }
                 }
             }
@@ -1509,8 +1375,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     WorkloadPresentationSettingEntry entry = _projectedState.PresentationSettings[i];
                     if (entry != null)
                     {
-                        _presentationOwnershipKeys.Add(entry.Key);
-                        _presentationSettings[entry.Key] = entry.Value;
+                        presentationOwnershipKeys.Add(entry.Key);
+                        presentationSettings[entry.Key] = entry.Value;
                     }
                 }
 
@@ -1520,7 +1386,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                         _projectedState.PresentationSettingIntents[i];
                     if (entry != null && !entry.Intent.IsNoOpinion)
                     {
-                        _presentationOwnershipKeys.Add(entry.Key);
+                        presentationOwnershipKeys.Add(entry.Key);
                     }
                 }
             }
@@ -1532,7 +1398,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     WorkloadScheduleIntentEntry entry = _projectedState.ScheduleIntents[i];
                     if (entry != null && IsEditableScheduleTarget(entry.Key, _projectedState))
                     {
-                        _scheduleIntents[entry.Key] = entry.Intent;
+                        scheduleIntents[entry.Key] = entry.Intent;
                     }
                 }
             }
@@ -1544,7 +1410,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     WorkloadSpecificPriorityIntentEntry entry = _projectedState.SpecificPriorityIntents[i];
                     if (entry != null && IsEditableSpecificTarget(entry.Key, _projectedState))
                     {
-                        _specificPriorityIntents[entry.Key] = entry.Intent;
+                        specificPriorityIntents[entry.Key] = entry.Intent;
                     }
                 }
             }
@@ -1556,7 +1422,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     WorkloadWorkTypeOrderIntentEntry entry = _projectedState.WorkTypeOrderIntents[i];
                     if (entry != null && IsEditableOrderTarget(entry.Key, _projectedState))
                     {
-                        _workTypeOrderIntents[entry.Key] = entry.Intent;
+                        workTypeOrderIntents[entry.Key] = entry.Intent;
                     }
                 }
             }
@@ -1569,10 +1435,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     WorkloadPresentationSettingIntentEntry entry = _projectedState.PresentationSettingIntents[i];
                     if (entry != null)
                     {
-                        _presentationSettingIntents[entry.Key] = entry.Intent;
+                        presentationSettingIntents[entry.Key] = entry.Intent;
                     }
                 }
             }
+
+            _specificJobOverrides = specificJobOverrides;
+            _presentationSettings = presentationSettings;
+            _scheduleIntents = scheduleIntents;
+            _specificPriorityIntents = specificPriorityIntents;
+            _workTypeOrderIntents = workTypeOrderIntents;
+            _presentationSettingIntents = presentationSettingIntents;
+            _presentationOwnershipKeys = presentationOwnershipKeys;
         }
     }
 }

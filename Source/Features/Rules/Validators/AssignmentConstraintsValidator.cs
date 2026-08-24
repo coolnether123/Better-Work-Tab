@@ -36,7 +36,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                     if (other == pawn || other?.workSettings == null) 
                         continue;
 
-                    if (other.workSettings.GetPriority(wt) == p.SkipIfPriorityForThisWorktypeAreadyAssigned)
+                    if (RuleApplicationPlanningScope.GetPriority(other, wt) == p.SkipIfPriorityForThisWorktypeAreadyAssigned)
                         return new AssignmentValidationResult(false, false);
                 }
             }
@@ -49,7 +49,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                     if (other == pawn || other?.workSettings == null)  
                         continue;
 
-                    if (other.workSettings.GetPriority(wt) > 0)
+                    if (RuleApplicationPlanningScope.GetPriority(other, wt) > 0)
                         return new AssignmentValidationResult(false, false);
                 }
             }
@@ -68,7 +68,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                         continue;
 
                     int count = allWorkTypes
-                        .Count(w => pp.workSettings.GetPriority(w) > 0);
+                        .Count(w => RuleApplicationPlanningScope.GetPriority(pp, w) > 0);
 
                     if (count < fewest && !pp.WorkTypeIsDisabled(wt))
                     {

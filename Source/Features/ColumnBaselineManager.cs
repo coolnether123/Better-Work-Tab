@@ -115,35 +115,6 @@ namespace Better_Work_Tab.Features
             return result;
         }
 
-        /// <summary>
-        /// Returns true if the column is currently sitting at its baseline position.
-        /// Baseline comparison is used to decide whether to mark a column as "moved" by the player.
-        /// </summary>
-        public static bool IsInBaselinePosition(WorkTypeDef workType, GameComponent_BWTWorldSettings worldSettings)
-        {
-            if (workType?.defName == null)
-            {
-                return true;
-            }
-
-            var baselineOrder = GetBaselineOrder(worldSettings);
-            if (baselineOrder.Count == 0)
-            {
-                return true;
-            }
-
-            var currentOrder = CaptureCurrentOrder();
-            int baselinePos = baselineOrder.IndexOf(workType.defName);
-            int currentPos = currentOrder.IndexOf(workType.defName);
-
-            if (baselinePos < 0 || currentPos < 0)
-            {
-                return true;
-            }
-
-            return baselinePos == currentPos;
-        }
-
         private static void EnsureTrueVanillaOrder()
         {
             if (_trueVanillaOrder != null && _trueVanillaOrder.Count > 0)

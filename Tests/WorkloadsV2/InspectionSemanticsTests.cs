@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.UI.WorkGrid.Rendering;
 
 namespace BetterWorkTab.WorkloadsV2.Deterministic
 {
@@ -14,7 +15,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static void DirectColumnIndexesPreserveDuplicates()
         {
-            var index = new WorkloadInspectionColumnIndex();
+            var index = new WorkGridInspectionColumnIndex();
             index.Add(2, "PlantWork", null, true);
             index.Add(7, "PlantWork", "PlantCut", true);
             index.Add(11, "PlantWork", "PlantCut", true);
@@ -41,22 +42,22 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static void CompoundMasksComposeAndDeduplicate()
         {
-            var masks = new WorkloadInspectionCellMasks();
-            masks.Add(3, 9, WorkloadInspectionCellKind.ParentPriority);
-            masks.Add(3, 9, WorkloadInspectionCellKind.Schedule);
-            masks.Add(3, 9, WorkloadInspectionCellKind.Ordering);
-            masks.Add(3, 9, WorkloadInspectionCellKind.SpecificPriority);
-            masks.Add(3, 9, WorkloadInspectionCellKind.Schedule);
+            var masks = new WorkGridInspectionCellMasks();
+            masks.Add(3, 9, WorkGridInspectionCellKind.ParentPriority);
+            masks.Add(3, 9, WorkGridInspectionCellKind.Schedule);
+            masks.Add(3, 9, WorkGridInspectionCellKind.Ordering);
+            masks.Add(3, 9, WorkGridInspectionCellKind.SpecificPriority);
+            masks.Add(3, 9, WorkGridInspectionCellKind.Schedule);
 
-            WorkloadInspectionCellKind kind;
+            WorkGridInspectionCellKind kind;
             TestAssert.True(
                 masks.TryGet(3, 9, out kind),
                 "A composed inspection cell should be present.");
             TestAssert.Equal(
-                WorkloadInspectionCellKind.ParentPriority |
-                    WorkloadInspectionCellKind.SpecificPriority |
-                    WorkloadInspectionCellKind.Schedule |
-                    WorkloadInspectionCellKind.Ordering,
+                WorkGridInspectionCellKind.ParentPriority |
+                    WorkGridInspectionCellKind.SpecificPriority |
+                    WorkGridInspectionCellKind.Schedule |
+                    WorkGridInspectionCellKind.Ordering,
                 kind,
                 "All semantic flags should compose on one cell.");
             TestAssert.Equal(
@@ -96,13 +97,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     new WorkloadManualModeEntry(addedKey, false)
                 });
 
-            TestAssert.False(
-                WorkloadInspectionSemantics.HasEffectiveManualModeChange(
-                    before,
-                    sameEffectiveModeAfterMembershipChurn),
+            TestAssert.True(
+                WorkloadManualModeSemantics.TryGetGlobalMode(before, out bool beforeMode, out _, out _) &&
+                WorkloadManualModeSemantics.TryGetGlobalMode(
+                    sameEffectiveModeAfterMembershipChurn, out bool sameMode, out _, out _) &&
+                beforeMode == sameMode,
                 "Membership key churn with the same effective mode is not a global change.");
             TestAssert.True(
-                WorkloadInspectionSemantics.HasEffectiveManualModeChange(before, changed),
+                WorkloadManualModeSemantics.TryGetGlobalMode(changed, out bool changedMode, out _, out _) &&
+                beforeMode != changedMode,
                 "A changed effective manual mode should produce one global semantic marker.");
         }
 

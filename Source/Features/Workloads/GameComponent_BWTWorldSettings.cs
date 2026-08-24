@@ -56,7 +56,9 @@ namespace Better_Work_Tab.Features.Workloads
 
         internal void SetColumnCurrentOrder(List<string> order)
         {
-            ColumnCurrentOrder = order ?? new List<string>();
+            List<string> next = order ?? new List<string>();
+            if (ColumnCurrentOrder != null && ColumnCurrentOrder.SequenceEqual(next)) return;
+            ColumnCurrentOrder = new List<string>(next);
             ColumnOrderGeneration++;
         }
 

@@ -33,8 +33,6 @@ namespace Better_Work_Tab.UI.RuleBuilder
         private PrioritySelectorPanel _priorityPanel;
         private ConditionEditorPanel _conditionPanel;
 
-        private float _lastRulesetClickTime;
-        private string _lastRulesetClickedName;
         private const float DoubleClickTimeWindow = 0.3f;
 
         // ═══════════════════════════════════════════════════════════════

@@ -6,6 +6,7 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.RuleBuilderV2;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using UnityEngine;
@@ -62,7 +63,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             return _contextSettingsInteractionController.TryHandleFooterInput(inRect, evt);
         }
 
-        internal void Route(Rect inRect, PawnOrganizerSystem organizer, Event evt)
+        internal void Route(in WorkTabView view, PawnOrganizerSystem organizer, Event evt)
         {
             if (evt == null)
             {
@@ -70,8 +71,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             }
 
             UpdateSessionState(evt);
-            IWorkTabLayoutController layout = organizer?.Layout;
-            if (TryHandleHistoryShortcut(evt))
+            IWorkTabLayoutController layout = view.Layout;
+            if (TryHandleHistoryShortcut(view.Preview, evt))
             {
                 return;
             }
@@ -80,7 +81,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             // It must still run on Repaint so Spine can register the binding
             // lease before the corresponding MouseDown arrives.
             bool handledContextSettings =
-                _contextSettingsInteractionController.TryHandleInput(inRect, layout, evt);
+                _contextSettingsInteractionController.TryHandleInput(in view, evt);
 
             if (evt.type == EventType.Repaint)
             {
@@ -90,29 +91,29 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             }
 
             bool handledTutorial = !handledContextSettings &&
-                _tutorialInteractionController.TryHandleInput(inRect, layout, evt);
+                _tutorialInteractionController.TryHandleInput(in view, evt);
             if (!handledTutorial)
             {
-                _tutorialInteractionController.ReportInteraction(inRect, layout, evt);
+                _tutorialInteractionController.ReportInteraction(in view, evt);
             }
 
             // This order is the compatibility contract for Work-tab input.
             bool handled = handledContextSettings
                 || handledTutorial
-                || _priorityInputHandler.TryHandlePriorityCellInput(layout, evt)
-                || HeaderButtons.TryHandleTopRightFluffyStyleInput(layout, inRect, evt)
+                || _priorityInputHandler.TryHandlePriorityCellInput(in view, evt)
+                || HeaderButtons.TryHandleTopRightFluffyStyleInput(layout, view.Viewport, evt)
                 || FluffyTimeScheduleAssigner.TryHandleInput(evt)
-                || _ruleBuilder2InteractionController.TryHandleInput(layout, evt)
-                || TimePriorityScheduleEditor.TryHandleInput(layout, evt)
-                || _subWorkInteractionController.TryHandleSubWorkBackButtonClick(layout)
-                || _subWorkInteractionController.TryHandleSubWorkExitGesture(layout)
-                || _subWorkInteractionController.TryHandleSubWorkHeaderOpen(layout);
+                || _ruleBuilder2InteractionController.TryHandleInput(in view, evt)
+                || TimePriorityScheduleEditor.TryHandleInput(in view, evt)
+                || _subWorkInteractionController.TryHandleSubWorkBackButtonClick(in view)
+                || _subWorkInteractionController.TryHandleSubWorkExitGesture(in view)
+                || _subWorkInteractionController.TryHandleSubWorkHeaderOpen(in view);
             if (handled)
             {
                 return;
             }
 
-            _contextActionController.ProcessRightClicks(layout);
+            _contextActionController.ProcessRightClicks(in view);
             if (evt.type != EventType.Used)
             {
                 organizer?.HandleInput(evt);
@@ -140,7 +141,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             }
         }
 
-        private static bool TryHandleHistoryShortcut(Event evt)
+        private static bool TryHandleHistoryShortcut(
+            IWorkGridPreviewPort preview,
+            Event evt)
         {
             if (evt.type != EventType.KeyDown ||
                 !evt.control ||
@@ -148,6 +151,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 BetterWorkTabLocalState.IsHeaderDragging)
             {
                 return false;
+            }
+
+            bool redo = evt.keyCode == KeyCode.Y || (evt.keyCode == KeyCode.Z && evt.shift);
+            bool undo = evt.keyCode == KeyCode.Z && !evt.shift;
+            if (!undo && !redo)
+            {
+                return false;
+            }
+
+            if (preview?.TryHandleHistoryShortcut(evt) == true)
+            {
+                return true;
             }
 
             if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
@@ -159,8 +174,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return true;
             }
 
-            bool redo = evt.keyCode == KeyCode.Y || (evt.keyCode == KeyCode.Z && evt.shift);
-            bool undo = evt.keyCode == KeyCode.Z && !evt.shift;
             bool changed = redo
                 ? WorkGiverReassignmentManager.TryRedoWorkGiverLayout()
                 : undo && WorkGiverReassignmentManager.TryUndoWorkGiverLayout();

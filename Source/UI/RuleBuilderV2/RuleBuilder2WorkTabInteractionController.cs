@@ -10,6 +10,7 @@ using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Commands;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
 using RimWorld;
@@ -30,7 +31,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             _bodyRenderer = bodyRenderer ?? throw new ArgumentNullException(nameof(bodyRenderer));
         }
 
-        internal bool TryHandleInput(IWorkTabLayoutController layout, Event evt)
+        internal bool TryHandleInput(in WorkTabView view, Event evt)
         {
             if (SubWorkDrilldownInput.MatchesGesture(evt))
             {
@@ -38,7 +39,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
 
             if (!RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab ||
-                layout == null ||
+                view.Layout == null ||
                 evt == null ||
                 evt.type != EventType.MouseDown ||
                 evt.button != 0)
@@ -46,7 +47,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return false;
             }
 
-            if (TryGetPriorityCellTarget(layout, evt.mousePosition, out WorkTypeDef workType, out WorkGiverDef workGiver, out Pawn pawn, out int priority, out Rect priorityBoxRect))
+            if (TryGetPriorityCellTarget(in view, evt.mousePosition, out WorkTypeDef workType, out WorkGiverDef workGiver, out Pawn pawn, out int priority, out Rect priorityBoxRect))
             {
                 WorkPriorityCommandGateway.SelectRuleTarget(
                     workType,
@@ -59,7 +60,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return true;
             }
 
-            if (TryGetHeaderTarget(layout, evt.mousePosition, out workType, out workGiver, out Rect headerBounds))
+            if (TryGetHeaderTarget(in view, evt.mousePosition, out workType, out workGiver, out Rect headerBounds))
             {
                 WorkPriorityCommandGateway.SelectRuleTarget(
                     workType,
@@ -75,12 +76,12 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             return false;
         }
 
-        internal void UpdateHover(IWorkTabLayoutController layout, Rect inRect)
+        internal void UpdateHover(in WorkTabView view)
         {
             if (!RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab ||
-                layout == null ||
+                view.Layout == null ||
                 TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
-                !Mouse.IsOver(inRect) ||
+                !Mouse.IsOver(view.WindowRect) ||
                 BWTWorkTabTutorial.OwnsCurrentPointer ||
                 RuleBuilderGateway.RuleBuilder2BlocksWorkTabHover())
             {
@@ -89,7 +90,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             }
 
             Vector2 mousePosition = Event.current.mousePosition;
-            if (TryGetPriorityCellTarget(layout, mousePosition, out WorkTypeDef workType, out WorkGiverDef workGiver, out Pawn pawn, out int priority, out Rect priorityBoxRect))
+            if (TryGetPriorityCellTarget(in view, mousePosition, out WorkTypeDef workType, out WorkGiverDef workGiver, out Pawn pawn, out int priority, out Rect priorityBoxRect))
             {
                 RuleBuilderGateway.PreviewPriorityCellForRuleBuilder2(
                     workType,
@@ -100,7 +101,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
                 return;
             }
 
-            if (TryGetHeaderTarget(layout, mousePosition, out workType, out workGiver, out Rect headerBounds))
+            if (TryGetHeaderTarget(in view, mousePosition, out workType, out workGiver, out Rect headerBounds))
             {
                 RuleBuilderGateway.PreviewHeaderForRuleBuilder2(workType, workGiver, headerBounds);
                 return;
@@ -110,7 +111,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         }
 
         private bool TryGetPriorityCellTarget(
-            IWorkTabLayoutController layout,
+            in WorkTabView view,
             Vector2 mousePosition,
             out WorkTypeDef workType,
             out WorkGiverDef workGiver,
@@ -124,11 +125,11 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             priority = WorkPrioritySystem.DisabledPriority;
             priorityBoxRect = Rect.zero;
 
-            if (!_bodyRenderer.TryGetRowAt(layout, mousePosition, out WorkTabLayoutRow row) ||
+            if (!_bodyRenderer.TryGetRowAt(in view, mousePosition, out WorkTabLayoutRow row) ||
                 row.Pawn == null ||
-                !_bodyRenderer.TryGetBodyColumnAt(layout, mousePosition, out WorkTabLayoutColumn bodyColumn) ||
+                !_bodyRenderer.TryGetBodyColumnAt(in view, mousePosition, out WorkTabLayoutColumn bodyColumn) ||
                 !(bodyColumn.Column?.Worker is PawnColumnWorker_WorkPriority) ||
-                !_bodyRenderer.TryGetPriorityBoxHit(layout, row, bodyColumn, mousePosition, out priorityBoxRect))
+                !_bodyRenderer.TryGetPriorityBoxHit(in view, row, bodyColumn, mousePosition, out priorityBoxRect))
             {
                 return false;
             }
@@ -146,7 +147,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         }
 
         private bool TryGetHeaderTarget(
-            IWorkTabLayoutController layout,
+            in WorkTabView view,
             Vector2 mousePosition,
             out WorkTypeDef workType,
             out WorkGiverDef workGiver,
@@ -156,6 +157,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             workGiver = null;
             headerBounds = Rect.zero;
 
+            IWorkTabLayoutController layout = view.Layout;
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 WorkTabLayoutColumn column = layout.Columns[i];

@@ -27,19 +27,19 @@ Harmony patches may use a small patch-safe facade when RimWorld does not provide
 
 | System | Current owner or convergence point | Target owner | Target read port | Target command owner | Persistence owner | Migration state |
 | --- | --- | --- | --- | --- | --- | --- |
-| Application core | Per-game `WorkTabApplication` composed by `GameComponent_BWTWorldSettings` | Per-game composition and small application coordinator | Canonical effective-state reader | Explicit typed operations and domain plans | Domain repositories coordinated by the game component | Parent-priority and schedule operations implemented; remaining domains pending |
-| Priority and authority | `WorkPrioritySystem`, `PriorityAuthorityBroker`, `ParentPriorityRead`, and `WorkTabActionability` | Authority-aware priority domain | `ParentPriorityRead` plus the canonical state view | `WorkTabApplication` for normal parent writes | Priority owner or external adapter | Parent reads and normal writes centralized; rule/API batches remain |
-| Schedules | Per-game `TimePriorityScheduleRuntime` behind `TimePriorityService` | Schedule domain | Immutable `TimePriorityScheduleValue` reads | `WorkTabApplication` schedule operations | Deterministic projection owned by the game component | Live state, editor, import, workload adapter, mirror, and MP replay centralized |
-| Specific jobs | `WorkGiverReassignmentManager` plus shared `WorkTabActionability` | Specific-job domain | Override and inheritance reader | Specific-job command handler | Specific-job record owner | Identity and actionability centralized; general command migration pending |
-| Execution order | Reassignment, layout, and patch paths | Execution-order service | Execution-order reader | Explicit display, execution, or coupled reorder commands | Execution-order record owner | Mapped; migration pending |
-| Settings and presentation | Settings registry, fallback-free effective-settings cache, contextual router, and workload projection | Global preference store plus presentation domain | Concrete pass snapshot through the existing effective-settings facade | Receipt-bearing workload settings writer | Each store owns its record | First centralization slice implemented; broader preference writes pending |
-| WorkGrid and layout | Snapshot, projection, invalidation, renderer, and layout services | Existing snapshot evolved into a pass-stable finished view plus UI-only frame state | Immutable pass view | Application operations for game state, UI commands for frame state | No game-state persistence | Mapped; migration pending |
-| Rules | Classic apply paths and Rule Builder 2.0 apply service | Pure evaluators and command compiler | Canonical state view | Canonical command batches | Rule format owners and import adapters | Mapped; migration pending |
-| Workloads | Backend, session, gateway, converter, and multiplayer callbacks | Template repository, capture service, planner, and patch projection | Canonical live or projected state view | Canonical command batches plus repository actions | Workload repository and converters | Mapped; migration pending |
-| Persistence | Game component plus feature converters | Per-domain record owners | Current canonical models | Domain migration entry points | Game component coordinates Scribe only | Mapped; migration pending |
-| Multiplayer | `MultiplayerBridge` and workload protocol paths | Command transport and transaction coordinator | Canonical state fingerprints and revisions | Local domain handlers through synchronized transport | Transport records only | Mapped; migration pending |
-| External compatibility | Registry, mirror, and per-mod gateways | Small detection, authority, import, mirror, and coexistence ports | Core-facing compatibility reads | Canonical commands or narrow authority adapters | Integration-owned migration records | Mapped; migration pending |
-| Harmony and Spine | Patch entry points and mirrored Spine code | Integration edge and standalone Spine owner | Patch-safe facade only where required | Normal application services when BWT owns the call chain | Existing owners | Mapped; migration pending |
+| Application core | Per-game `WorkTabApplication` composed by `GameComponent_BWTWorldSettings` | Per-game composition and application transaction coordinator | Canonical effective-state reader | Typed operations and `WorkTabAtomicMutationPlan` | Domain repositories coordinated by the game component | Complete for Work tab game-state mutations |
+| Priority and authority | `WorkPrioritySystem`, `PriorityAuthorityBroker`, `ParentPriorityRead`, and `WorkTabActionability` | Authority-aware priority domain | `ParentPriorityRead` plus the finished view | `WorkTabApplication` parent and displayed-priority batches | Priority owner or external adapter | Complete; root-header multi-pawn changes use one batch |
+| Schedules | Per-game `TimePriorityScheduleRuntime` behind `TimePriorityService` | Schedule domain | Immutable `TimePriorityScheduleValue` reads | `WorkTabApplication` schedule operations and atomic plans | Deterministic projection owned by the game component | Complete for live, preview, import, workload, mirror, and synchronized replay paths |
+| Specific jobs | `WorkGiverReassignmentManager` behind `WorkTabMutationScope` | Specific-job domain | Canonical override and inheritance reader | One validated specific-job batch in the application transaction | Specific-job record owner | Complete; UI, rules, workloads, and layout retargets share the batch port |
+| Execution order | `WorkColumnOrderManager` and reassignment records behind the application boundary | Execution-order domain | Canonical effective order reader | Explicit reorder or atomic layout command | Execution-order record owner | Complete for BWT-owned callers; legacy display/execution coupling is explicit |
+| Settings and presentation | Global settings owner plus workload presentation projection | Preference and presentation domains | Finished-view settings snapshot | Context router and receipt-bearing workload writer | Each domain owns its record | Complete for Work tab reads, previews, persistence, and compensation |
+| WorkGrid and layout | `WorkTabView`, snapshot provider, renderer facade, and staged layout transaction | Pass-stable finished view plus UI-only frame state | Immutable `WorkTabView` and neutral preview contracts | Application operations for game state; UI commands for transient state | No game-state persistence in WorkGrid | Complete; BWT-owned drawing does not resolve live workload state |
+| Rules | Classic and Rule Builder 2 evaluators plus `RuleApplicationPlanningScope` | Pure evaluators and atomic-plan compiler | Canonical state view | One application mutation plan | Rule format owners and import adapters | Complete for both rule systems |
+| Workloads | Repository backends, session controller, planner, and projection | Template repository, session projection, and plan compiler | Canonical live or projected state view | One atomic plan plus repository actions | Workload repositories and converters | Complete; legacy and V2 paths share the same application transaction |
+| Persistence | Game component plus domain converters | Per-domain record owners | Current canonical models | Domain migration and repository entry points | Game component coordinates Scribe only | Complete for the migrated Work tab domains |
+| Multiplayer | `MultiplayerBridge` and typed synchronized entry points | Transport around the same local handlers | Canonical fingerprints and revisions | Synchronized replay enters the application boundary | Transport records only | Complete for migrated commands; submitted and applied results remain distinct |
+| External compatibility | Registry and narrow Sleek/import gateways | Detection, authority, import, mirror, and coexistence ports | Core-facing compatibility reads | Canonical commands or narrow authority adapters | Integration-owned records | Complete; trusted import remains fail-closed in active multiplayer |
+| Harmony and Spine | Patch entry points and mirrored Spine source | Integration edge and standalone Spine owner | Patch-safe facade only where injection is unavailable | Application services for BWT-owned call chains | Existing owners | Complete; live fallback is restricted to native/Harmony drawing edges |
 
 ## Application operations
 
@@ -166,9 +166,11 @@ Centralization must reduce production code and ownership paths. It is not permis
 
 At the `ad01eed4` baseline, `Source` contains 443 C# files and 152,346 physical lines. The highest-cost areas are Workloads at 21,804 lines, WorkGrid at 12,816 lines, settings UI at 10,356 lines, Time Priority at 6,735 lines, specific-job reassignment at 5,704 lines, and rules at 4,796 lines.
 
-After the schedule/application batch, `Source` contains 454 C# files, 151,629 physical lines, and 134,681 nonblank lines. This is 717 physical lines below the mission baseline and 159 physical plus 91 nonblank lines below the immediately preceding `Dev` baseline. The added files are active application, actionability, immutable schedule, projection, and workload-boundary types; the superseded parent application, schedule authorization owner, mutable editor semantics, duplicate import preflights, and verified dead helpers were removed.
+At completion, `Source` contains 459 C# files, 151,998 physical lines, and 135,229 nonblank lines. This is 348 physical lines below the mission baseline while also adding canceled-draft recovery, workload-local undo and redo, application-level atomic rollback, staged layout history, and finished-view contracts. The file count increased because the retained boundaries have separate responsibilities; the larger superseded implementations and forwarding surfaces were removed rather than kept beside them.
 
-For settings and presentation, the first accepted target is at least 337 fewer production lines: at least 252 from the effective presentation mechanism and its 120 fallback call spans, and at least 85 from the existing workload settings writer's duplicated apply, rollback, persistence, and invalidation scaffolding. This slice reuses the existing effective-settings facade and writer interface; it does not add a presentation-reader interface, a generic settings command service, or a second workload writer.
+The completed batch removed 6,663 tracked production lines and added 5,351 tracked lines plus 1,693 lines in new production files relative to `e5987800`. Across the full mission history, earlier centralized schedule and priority deletions keep the final tree below the 152,346-line mission baseline. Deleted owners include the duplicate workload inspection policy, separate multiplayer column-order synchronizer, header-positioning manager, settings-visibility contract, name dialog, revision shim, geometry shell, and manager-owned single-write and diagnostic surfaces.
+
+The remaining one-caller abstractions are intentional integration boundaries: `IWorkGridSubWorkPresentationLayer` separates a prepared snapshot from the BWT renderer, and the presentation preview port keeps session-local edits outside persistent settings. They should be inlined only if their native/Harmony edge disappears; adding parallel implementations is not allowed.
 
 Every implementation batch must report:
 
@@ -181,7 +183,14 @@ A migration batch does not merge when it only adds contracts, forwarding classes
 
 ## Pass-stable view
 
-The existing `WorkGridSnapshot` and geometry/context types evolve into the finished pass view. The migration does not add a parallel `WorkTabView` object graph.
+The existing snapshot and geometry/context types feed one finished `WorkTabView`. The view is a small pass envelope around those existing values, not a second snapshot object graph.
+
+The BWT-owned ExpandBeside path reads its `CellPresentation` from the completed
+snapshot through `IWorkGridSubWorkPresentationLayer`. `WorkGridSnapshotProvider`
+prepares that value before drawing, and the adapter has one caller and one
+implementation. Native and Harmony paths keep their live renderer fallback when
+no completed optimized snapshot is available; remove the adapter when those
+paths receive the same finished view.
 
 For each IMGUI pass:
 

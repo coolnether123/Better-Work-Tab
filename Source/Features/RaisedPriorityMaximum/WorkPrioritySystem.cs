@@ -79,9 +79,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
                 }
             }
 
-            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
-                UI.WorkGrid.Contracts.WorkTabDirtyFlags.Priority |
-                UI.WorkGrid.Contracts.WorkTabDirtyFlags.Presentation);
         }
 
         internal static int GetMaxPriority()
@@ -112,11 +109,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal static int ClampPriority(int priority, int maxPriority)
         {
             return Mathf.Clamp(priority, DisabledPriority, NormalizeMaxPriority(maxPriority));
-        }
-
-        internal static int OffsetPriorityNumber(int priority, int amount)
-        {
-            return ClampPriority(priority + amount);
         }
 
         internal static int GetDefaultEnabledPriority()

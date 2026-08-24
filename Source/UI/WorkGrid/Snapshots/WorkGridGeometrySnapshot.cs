@@ -126,46 +126,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             return false;
         }
 
-        public bool TryGetHeaderColumnIndex(Vector2 screenPosition, float horizontalScroll, out int columnIndex)
-        {
-            columnIndex = -1;
-            for (int i = 0; i < Columns.Count; i++)
-            {
-                if (GetHeaderRect(i, horizontalScroll).Contains(screenPosition))
-                {
-                    columnIndex = i;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        public bool TryGetBodyColumnIndex(Vector2 screenPosition, Vector2 scrollPosition, out int columnIndex)
-        {
-            columnIndex = -1;
-            if (screenPosition.y < BodyTop || screenPosition.y > BodyBottom)
-            {
-                return false;
-            }
-
-            float localX = screenPosition.x - TableOrigin.x + scrollPosition.x;
-            if (localX < 0f)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < Columns.Count; i++)
-            {
-                WorkGridColumnGeometry column = Columns[i];
-                if (localX >= column.OffsetX && localX <= column.OffsetX + column.Width)
-                {
-                    columnIndex = i;
-                    return true;
-                }
-            }
-            return false;
-        }
-
         public WorkGridIndexRange GetVisibleRowRange(Rect viewport, float verticalScroll)
         {
             return GetVisibleRowRange(viewport, verticalScroll, 0f);

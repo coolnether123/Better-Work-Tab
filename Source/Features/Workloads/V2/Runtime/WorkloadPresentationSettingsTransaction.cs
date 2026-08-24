@@ -3,34 +3,46 @@ using System.Collections.Generic;
 
 namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 {
-    internal sealed class WorkloadPresentationSnapshotToken
-    {
-        private string _value = string.Empty;
-        private long _refreshedRevision = long.MinValue;
-
-        internal string Value => _value;
-
-        internal bool Observe(WorkloadSession session)
-        {
-            string value = session?.PreviewStamp ?? string.Empty;
-            if (StringComparer.Ordinal.Equals(_value, value))
-            {
-                return false;
-            }
-
-            _value = value;
-            _refreshedRevision = long.MinValue;
-            return true;
-        }
-
-        internal bool NeedsRefresh(long revision) => _refreshedRevision != revision;
-
-        internal void MarkRefreshed(long revision) => _refreshedRevision = revision;
-    }
-
     internal delegate bool WorkloadPresentationScalarReader(
         string settingId,
         out WorkloadScalarValue value);
+
+    internal delegate bool WorkloadPresentationKindResolver(
+        string settingId,
+        out WorkloadScalarKind kind);
+
+    /// <summary>
+    /// Neutral composition seam for the selected presentation store and its
+    /// workload-owned scalar metadata.
+    /// </summary>
+    internal static class WorkloadPresentationServices
+    {
+        private static Func<WorkloadPresentationSettingsTransaction> _transactionFactory;
+        private static WorkloadPresentationKindResolver _kindResolver;
+        private static Action _globalSettingsChanged;
+
+        internal static void Register(
+            Func<WorkloadPresentationSettingsTransaction> transactionFactory,
+            WorkloadPresentationKindResolver kindResolver,
+            Action globalSettingsChanged)
+        {
+            _transactionFactory = transactionFactory;
+            _kindResolver = kindResolver;
+            _globalSettingsChanged = globalSettingsChanged;
+        }
+
+        internal static WorkloadPresentationSettingsTransaction CreateTransaction() =>
+            _transactionFactory?.Invoke();
+
+        internal static bool TryGetScalarKind(string settingId, out WorkloadScalarKind kind)
+        {
+            kind = WorkloadScalarKind.Empty;
+            return _kindResolver != null && _kindResolver(settingId, out kind);
+        }
+
+        internal static void NotifyGlobalSettingsChanged() =>
+            _globalSettingsChanged?.Invoke();
+    }
 
     internal static class WorkloadPresentationValueCache
     {

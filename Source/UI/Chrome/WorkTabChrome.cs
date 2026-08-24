@@ -15,6 +15,7 @@ using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Workloads;
 using RimWorld;
@@ -100,14 +101,16 @@ namespace Better_Work_Tab.UI.Chrome
             DrawPriorityLegend(rect);
         }
 
-        internal void DrawBottomControls(IWorkTabLayoutController layout, Rect inRect)
+        internal void DrawBottomControls(in WorkTabView view)
         {
+            IWorkTabLayoutController layout = view.Layout;
+            Rect inRect = view.WindowRect;
             WorkManagerCompatibility.DrawControls(inRect);
             WorkTabColorPreviewRenderer.Draw(layout, inRect);
 
             bool mouseInside = !BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(inRect);
             Rect infoRect = WorkTabChromeGeometry.GetInfoIconRect(inRect);
-            DrawBottomRightButtons(layout, inRect, infoRect);
+            DrawBottomRightButtons(in view, infoRect);
             if (mouseInside)
             {
                 DrawInfoButton(infoRect);
@@ -346,10 +349,11 @@ namespace Better_Work_Tab.UI.Chrome
         }
 
         private void DrawBottomRightButtons(
-            IWorkTabLayoutController layout,
-            Rect inRect,
+            in WorkTabView view,
             Rect gearRect)
         {
+            IWorkTabLayoutController layout = view.Layout;
+            Rect inRect = view.WindowRect;
             HeaderButtons.DrawBottomRightGrouped(inRect, gearRect);
             Text.Font = GameFont.Tiny;
             GUI.color = new Color(1f, 1f, 1f, 0.72f);
@@ -389,7 +393,7 @@ namespace Better_Work_Tab.UI.Chrome
                         if (SubWorkDrilldownState.IsActive)
                         {
                             hasDrilldownAction = _subWorkInteractionController.TryGetSubWorkExitTarget(
-                                layout,
+                                in view,
                                 mousePosition,
                                 out _,
                                 out _);
@@ -398,7 +402,7 @@ namespace Better_Work_Tab.UI.Chrome
                         else
                         {
                             hasDrilldownAction = _subWorkInteractionController.TryGetSubWorkOpenTarget(
-                                layout,
+                                in view,
                                 mousePosition,
                                 out _,
                                 out _,

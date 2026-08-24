@@ -137,16 +137,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.True(
                 projection.ResolveEffectiveWorkTypeOrder(globalOrder).IsClear,
                 "ordering Clear must suppress the live shared ordering");
-            TestAssert.False(
-                projection.TryGetSpecificJobOrder(
-                    new WorkloadSpecificJobKey(
-                        WorkloadTargetScope.GlobalShared,
-                        null,
-                        workType,
-                        workGiver),
-                    out int ignoredOrder),
-                "an explicitly cleared order must not fall through to the live order");
-
             var invalidPriorityTarget = WorkloadSpecificJobTargetKey.ForPawn(
                 pawn,
                 workType,

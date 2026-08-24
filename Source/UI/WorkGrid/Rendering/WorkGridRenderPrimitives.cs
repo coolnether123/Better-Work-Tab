@@ -1,46 +1,7 @@
 using System;
-using Better_Work_Tab.UI.WorkGrid.Invalidation;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
-    internal enum WorkGridRenderLayer : byte
-    {
-        RowBackground,
-        BasePriority,
-        SkillBackground,
-        PassionWarningOverlay,
-        FeatureOverlay
-    }
-
-    internal static class WorkGridLayerDependencies
-    {
-        internal static WorkGridInvalidationCategory GetDependencies(WorkGridRenderLayer layer)
-        {
-            switch (layer)
-            {
-                case WorkGridRenderLayer.RowBackground:
-                    return WorkGridInvalidationCategory.PawnListOrder |
-                           WorkGridInvalidationCategory.SettingsThemeLanguageScale;
-                case WorkGridRenderLayer.BasePriority:
-                    return WorkGridInvalidationCategory.Priority |
-                           WorkGridInvalidationCategory.CapabilitySkill |
-                           WorkGridInvalidationCategory.SettingsThemeLanguageScale;
-                case WorkGridRenderLayer.SkillBackground:
-                case WorkGridRenderLayer.PassionWarningOverlay:
-                    return WorkGridInvalidationCategory.CapabilitySkill |
-                           WorkGridInvalidationCategory.SettingsThemeLanguageScale;
-                case WorkGridRenderLayer.FeatureOverlay:
-                    return WorkGridInvalidationCategory.Priority |
-                           WorkGridInvalidationCategory.CapabilitySkill |
-                           WorkGridInvalidationCategory.SubWorkOverride |
-                           WorkGridInvalidationCategory.HoverInteraction |
-                           WorkGridInvalidationCategory.Animation;
-                default:
-                    return 0;
-            }
-        }
-    }
-
     internal static class WorkGridCullingMath
     {
         internal static void ResolveVisibleBounds(

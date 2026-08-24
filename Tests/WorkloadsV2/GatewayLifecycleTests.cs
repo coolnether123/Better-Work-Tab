@@ -25,6 +25,34 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string settingIds = Read(root, "Source", "UI", "Settings", "SettingIDs.cs");
             string settingsTranslations = Read(root, "Languages", "English", "Keyed", "BWT_Settings.xml");
             string mainWindow = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
+            string effectiveStateContracts = Read(
+                root,
+                "Source",
+                "UI",
+                "WorkGrid",
+                "Projection",
+                "WorkTabEffectiveStateContracts.cs");
+            string effectiveStateRuntime = Read(
+                root,
+                "Source",
+                "UI",
+                "WorkGrid",
+                "Projection",
+                "WorkTabEffectiveStateRuntime.cs");
+            string effectiveStateScope = Read(
+                root,
+                "Source",
+                "UI",
+                "WorkGrid",
+                "Projection",
+                "WorkTabEffectiveStateScope.cs");
+            string projectedProvider = Read(
+                root,
+                "Source",
+                "UI",
+                "WorkGrid",
+                "Projection",
+                "ProjectedWorkTabEffectiveStateProvider.cs");
             string interactionRouter = Read(root, "Source", "UI", "WorkGrid", "Interaction", "WorkGridInteractionRouter.cs");
             string footerContextController = Read(
                 root,
@@ -36,10 +64,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string inspectionSemantics = Read(
                 root,
                 "Source",
-                "Features",
-                "Workloads",
-                "V2",
-                "WorkloadInspectionSemantics.cs");
+                "UI",
+                "WorkGrid",
+                "Rendering",
+                "WorkGridInspectionSemantics.cs");
             string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
             string session = Read(root, "Source", "Features", "Workloads", "V2", "WorkloadSession.cs");
             string english = Read(root, "Languages", "English", "Keyed", "English.xml");
@@ -72,6 +100,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 renderer,
                 chrome,
                 inspectionSemantics);
+            WorkTabViewCapturesEffectiveStateBeforeInput(
+                mainWindow,
+                effectiveStateContracts,
+                effectiveStateRuntime,
+                effectiveStateScope,
+                projectedProvider);
             DynamicOwnershipReachesCommitPayload(backend, session);
             IncludeUsesTheAuthoritativeBaselineAndApplyPath(gateway, backend);
             LegacyPayloadsRemainFailClosed(gateway, backend, session);
@@ -80,6 +114,57 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 gateway,
                 backend,
                 session);
+        }
+
+        private static void WorkTabViewCapturesEffectiveStateBeforeInput(
+            string mainWindow,
+            string effectiveStateContracts,
+            string effectiveStateRuntime,
+            string effectiveStateScope,
+            string projectedProvider)
+        {
+            TestAssert.Contains(
+                effectiveStateContracts,
+                "interface IWorkTabEffectiveStateViewSource",
+                "effective-state providers must expose one optional generalized capture seam");
+            TestAssert.Contains(
+                effectiveStateRuntime,
+                "CaptureCurrentView(",
+                "the runtime must capture an optional provider view without naming a concrete provider");
+            TestAssert.False(
+                effectiveStateRuntime.IndexOf(
+                    "ProjectedWorkTabEffectiveStateProvider",
+                    StringComparison.Ordinal) >= 0,
+                "the runtime must not depend on the projected provider implementation");
+            TestAssert.Contains(
+                projectedProvider,
+                "IWorkTabEffectiveStateViewSource",
+                "the projected provider must supply the generalized capture capability");
+            TestAssert.Contains(
+                projectedProvider,
+                "Build replacement indexes and publish",
+                "projected indexes must be copy-on-write while captured views are still rendering");
+
+            string frame = MethodBody(mainWindow, "private void DoWindowContentsProfiledCoreScoped(");
+            int build = frame.IndexOf("BuildWorkTabView(", StringComparison.Ordinal);
+            int capturedScope = frame.IndexOf(
+                "WorkTabEffectiveStateScope.PushCapturedView(",
+                StringComparison.Ordinal);
+            int input = frame.IndexOf("RouteFrameInput(in view", StringComparison.Ordinal);
+            int render = frame.IndexOf("RenderWorkGrid(in view", StringComparison.Ordinal);
+            int overlays = frame.IndexOf("DrawFrameOverlaysAndChrome(in view", StringComparison.Ordinal);
+            TestAssert.True(
+                build >= 0 && capturedScope > build && input > capturedScope &&
+                render > input && overlays > render,
+                "one captured WorkTabView scope must own input, rendering, and overlays for the full pass");
+            TestAssert.Contains(
+                effectiveStateScope,
+                "internal static System.IDisposable PushCapturedView(",
+                "the scope must distinguish immutable render reads from the mutable input scope");
+            TestAssert.Contains(
+                effectiveStateScope,
+                "if (FollowsPreview && Provider != null && Provider.IsPreview",
+                "disposing a captured view must not clear the live preview cache as though it were replaced");
         }
 
         private static void InspectionUsesRevisionCachesAndContext(
@@ -119,11 +204,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "Save As hover and scroll must select the template inspection context");
             TestAssert.Contains(
                 gateway,
-                "internal bool HasInspectionRowLevelChanges",
+                "public bool HasInspectionRowLevelChanges",
                 "legacy schedule-only inspection must expose the cached row-level change index");
             TestAssert.Contains(
                 gateway,
-                "return _changedSchedulePawnIds.Count > 0",
+                "return _inspectionReadState.HasRowLevelChanges;",
                 "row-level inspection must reuse the cached schedule pawn index");
             TestAssert.Contains(
                 gateway,
@@ -207,7 +292,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "inspection semantic kinds must compose rather than use precedence");
             TestAssert.Contains(
                 gateway,
-                "_hasManualModeInspectionChange",
+                "HasManualModeChange",
                 "manual mode inspection must remain a single global semantic marker");
             TestAssert.Contains(
                 chrome,
@@ -608,9 +693,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 header,
                 "evt.Use();",
                 "footer cancellation must consume the click before lower Work-tab controls see it");
-            TestAssert.Contains(
-                mainWindow,
-                "TryHandleFooterContextSettings(\n                    inRect,",
+            int contextualFooter = mainWindow.IndexOf(
+                "_workGridInteractionRouter.TryHandleFooterContextSettings(\n                    view.WindowRect,",
+                StringComparison.Ordinal);
+            int normalFooter = mainWindow.IndexOf(
+                "HeaderButtons.TryHandleWorkloadFooterInput(\n                view.WindowRect,",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                contextualFooter >= 0 && normalFooter > contextualFooter,
                 "the window must give contextual settings first refusal before normal footer actions");
             TestAssert.Contains(
                 interactionRouter,
@@ -816,12 +906,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the shared capture path must retain manual-mode baselines");
             TestAssert.Contains(
                 backend,
-                "liveProvider.GetSpecificJobOverride(",
-                "include must capture the current specific-job value before planning a commit");
+                "WorkloadScalarValue.FromInteger(inheritedPriority)",
+                "include must capture the already-derived effective specific-job value before planning a commit");
             TestAssert.Contains(
                 backend,
-                "draft.SetSpecificJobOrder(",
-                "include must retain the current specific-job ordering baseline");
+                "draft.SetSpecificJobOrder(specificKey, workGiverIndex)",
+                "include must retain the display-order specific-job baseline");
             int pawnCapture = backend.IndexOf(
                 "for (int pawnIndex = 0; pawns != null && pawnIndex < pawns.Count; pawnIndex++)",
                 StringComparison.Ordinal);

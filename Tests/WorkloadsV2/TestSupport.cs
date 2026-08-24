@@ -160,11 +160,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             {
                 Revision = () => 10L,
                 RevisionVector = () => WorkTabEffectiveStateRevisionVector.FromRevision(10L),
-                PresentationSetting = delegate(string key, out WorkloadScalarValue value)
-                {
-                    value = globalSetting;
-                    return string.Equals(key, "ui.angled", StringComparison.Ordinal);
-                },
                 PresentationSettingV2 = delegate(string key)
                 {
                     return string.Equals(key, "ui.angled", StringComparison.Ordinal)

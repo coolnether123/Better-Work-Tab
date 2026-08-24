@@ -36,17 +36,6 @@ namespace Better_Work_Tab.Features.Workloads
 
         private bool focusedRenameField;
 
-        private int startAcceptingInputAtFrame;
-
-
-        private bool AcceptsInput
-        {
-            get
-            {
-                return startAcceptingInputAtFrame <= Time.frameCount;
-            }
-        }
-
         public override Vector2 InitialSize
         {
             get
@@ -72,13 +61,9 @@ namespace Better_Work_Tab.Features.Workloads
             Text.Font = GameFont.Small;
             GUI.SetNextControlName("RenameField");
             string text = Widgets.TextField(new Rect(0f, rect.height, inRect.width, 35f), curName);
-            if (AcceptsInput && text.Length < MaxNameLength)
+            if (text.Length < MaxNameLength)
             {
                 curName = text;
-            }
-            else if (!AcceptsInput)
-            {
-                ((TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl)).SelectAll();
             }
             if (!focusedRenameField)
             {

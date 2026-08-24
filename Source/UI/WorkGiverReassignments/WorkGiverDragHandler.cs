@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Workloads;
@@ -103,7 +105,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                         else
                         {
                             // Dragged out onto another work type header: reassign to that work type.
-                            if (!WorkGiverReassignmentManager.TryReassignWorkGiver(draggedWg.def.defName, hoveredWorkType.defName, null, out var error))
+                            int targetIndex = WorkGiverReassignmentManager
+                                .GetDisplayWorkGiversForWorkType(hoveredWorkType).Count;
+                            if (!WorkGiverReassignmentManager.TryMoveWorkGiverLayout(
+                                    draggedWg.def.defName,
+                                    hoveredWorkType.defName,
+                                    targetIndex,
+                                    out var error))
                             {
                                 if (!error.NullOrEmpty())
                                 {
@@ -249,10 +257,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             workGivers.Clear();
             workGivers.AddRange(reordered);
-            WorkGiverReassignmentManager.SetPawnWorkGiverOrderSynced(
-                _window.Pawn?.thingIDNumber ?? -1,
-                _window.WorkType.defName,
-                reordered.Select(wg => wg.def.defName).ToList());
+            if (WorkTabApplication.Current?
+                    .SubmitSpecificOrder(
+                        _window.Pawn,
+                        _window.WorkType,
+                        reordered.Select(wg => wg.def.defName).ToList()).Accepted != true)
+            {
+                RestoreOriginalOrder(workGivers);
+                return;
+            }
             
             _window.NotifyDragCompleted();
             SoundDefOf.Tick_High.PlayOneShotOnCamera();

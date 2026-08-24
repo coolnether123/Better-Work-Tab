@@ -1,6 +1,5 @@
 using Better_Work_Tab.Features;
-using Better_Work_Tab.Mod_Support.Multiplayer.Sync;
-using Better_Work_Tab.Mod_Support.Multiplayer;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
@@ -455,70 +454,20 @@ namespace Better_Work_Tab.DragDrop
 
                 ColumnReorderAnimationState.Start(Layout.Columns);
 
-                if (MultiplayerBridge.Active)
+                var finalOrder = reorderedWorkCols
+                    .Where(c => c.workType != null)
+                    .Select(c => c.workType.defName)
+                    .ToList();
+                var movedNames = toRemove
+                    .Where(c => c.workType != null)
+                    .Select(c => c.workType.defName)
+                    .ToList();
+                WorkTabApplicationResult result = WorkTabApplication.Current?.SubmitColumnOrder(
+                    finalOrder,
+                    movedNames) ?? default;
+                if (!result.Accepted)
                 {
-                    // Sync the entire resulting order for multiplayer consistency
-                    var finalOrder = reorderedWorkCols
-                        .Where(c => c.workType != null)
-                        .Select(c => c.workType.defName)
-                        .ToList();
-
-                    var movedNames = toRemove
-                        .Where(c => c.workType != null)
-                        .Select(c => c.workType.defName)
-                        .ToList();
-
-                    WorkColumnOrderSync.ApplyWorkColumnOrder(finalOrder, movedNames);
                     return;
-                }
-
-                // Reconstruct table def columns
-                var original = def.columns.ToList();
-                var pre = new List<PawnColumnDef>();
-                var post = new List<PawnColumnDef>();
-                bool inWork = false;
-
-                foreach (var col in original)
-                {
-                    bool isWork = col.Worker is PawnColumnWorker_WorkPriority && col.workType != null;
-                    if (isWork) inWork = true;
-                    else if (!inWork) pre.Add(col);
-                    else post.Add(col);
-                }
-
-                def.columns.Clear();
-                def.columns.AddRange(pre);
-                def.columns.AddRange(reorderedWorkCols);
-                def.columns.AddRange(post);
-
-                WorkColumnOrderManager.CaptureCurrent(def);
-
-                // Record that ALL dragged columns were directly moved by the player
-                foreach (var col in _draggedColumns)
-                {
-                    if (col.workType != null)
-                    {
-                        WorkColumnCustomizationService.MarkColumnMoved(col.workType);
-                    }
-                }
-
-                // Invalidate the solver solution to force recalculation with new column order
-                // (preserves max level to prevent header height jumps)
-                UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(UI.WorkGrid.Contracts.WorkTabDirtyFlags.Columns | UI.WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
-
-                // Force layout to rebuild with new column order
-                var layout = PawnOrganizerSystem.Instance?.Layout;
-                if (layout is WorkTabLayoutController workLayout)
-                {
-                    workLayout.InvalidateRowDescriptors();
-                }
-
-                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-
-                if (MultiplayerBridge.Active)
-                {
-                    Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts.LayoutSharingManager.NotifyLayoutChanged();
                 }
 
                 // Clear selection after successful drop unless Shift is still held
@@ -629,14 +578,12 @@ namespace Better_Work_Tab.DragDrop
                 }
 
                 ColumnReorderAnimationState.Start(Layout.Columns);
-                WorkGiverReassignmentManager.MoveWithinWorkTypeSynced(
-                    _subWorkType.defName,
+                WorkGiverReassignmentManager.TryMoveWorkGiverLayout(
                     _subWorkGiver.defName,
-                    insertIndex);
+                    _subWorkType.defName,
+                    insertIndex,
+                    out _);
 
-                UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(UI.WorkGrid.Contracts.WorkTabDirtyFlags.Columns | UI.WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
-                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             }
             finally
             {
@@ -708,10 +655,12 @@ namespace Better_Work_Tab.DragDrop
                 return true;
             }
 
-            if (!WorkGiverReassignmentManager.TryReassignWorkGiver(
+            int targetIndex = WorkGiverReassignmentManager
+                .GetDisplayWorkGiversForWorkType(_crossWorkDropTarget).Count;
+            if (!WorkGiverReassignmentManager.TryMoveWorkGiverLayout(
                 _subWorkGiver.defName,
                 _crossWorkDropTarget.defName,
-                null,
+                targetIndex,
                 out string errorMsg))
             {
                 string message = errorMsg.NullOrEmpty()
@@ -728,9 +677,6 @@ namespace Better_Work_Tab.DragDrop
                 _originRect,
                 _crossWorkDropTargetRect);
             SoundDefOf.Tick_High.PlayOneShotOnCamera();
-            UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(UI.WorkGrid.Contracts.WorkTabDirtyFlags.Columns | UI.WorkGrid.Contracts.WorkTabDirtyFlags.HeaderGeometry);
-            WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             return true;
         }
 

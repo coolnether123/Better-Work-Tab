@@ -375,12 +375,18 @@ namespace Better_Work_Tab.UI.Columns
         /// <summary>
         /// Clears all column markers. Called when resetting to vanilla order.
         /// </summary>
-        internal static void ClearAllColumnMarkers()
+        internal static bool ClearAllColumnMarkers(bool persist = true)
         {
             var settings = BetterWorkTabMod.Settings;
-            settings?.ClearPlayerDraggedColumns();
-            settings?.Write();
+            if (settings?.playerDraggedColumns == null || settings.playerDraggedColumns.Count == 0)
+            {
+                return false;
+            }
+
+            settings.ClearPlayerDraggedColumns();
+            if (persist) settings.Write();
             ClearColumnMarkerCache();
+            return true;
         }
     }
 }

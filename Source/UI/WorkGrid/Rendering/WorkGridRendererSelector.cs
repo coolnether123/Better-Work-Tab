@@ -40,7 +40,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
     public interface IWorkGridRendererCapabilityCheck
     {
-        bool IsSupported(IWorkGridRenderer renderer, in WorkGridRenderContext context, out string detail);
+        bool IsSupported(IWorkGridRenderer renderer, in WorkTabView context, out string detail);
     }
 
     internal readonly struct WorkGridRendererSelection
@@ -107,7 +107,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             public bool IsSupported(
                 IWorkGridRenderer renderer,
-                in WorkGridRenderContext context,
+                in WorkTabView context,
                 out string detail)
             {
                 detail = null;
@@ -193,7 +193,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             IWorkGridRenderer vanilla,
             WorkGridRendererMode userMode,
             WorkGridForcedRendererMode forcedMode,
-            in WorkGridRenderContext context)
+            in WorkTabView context)
         {
             if (forcedMode == WorkGridForcedRendererMode.ForceVanilla)
             {

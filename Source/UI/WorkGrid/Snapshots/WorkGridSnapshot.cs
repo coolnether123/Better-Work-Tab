@@ -1,6 +1,7 @@
 using System;
 using RimWorld;
 using Spine.Collections;
+using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Verse;
 
@@ -105,7 +106,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
 
     public readonly struct WorkCellVisualState
     {
-        public WorkCellVisualState(
+        private readonly WorkGiverCellPresentationCache.CellPresentation _subWorkPresentation;
+
+        internal WorkCellVisualState(
             Pawn pawn,
             WorkTypeDef workType,
             int pawnId,
@@ -116,7 +119,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             byte passion,
             uint priorityColor,
             WorkCellVisualFlags flags,
-            uint revision)
+            uint revision,
+            WorkGiverCellPresentationCache.CellPresentation subWorkPresentation = null)
         {
             Pawn = pawn;
             WorkType = workType;
@@ -129,6 +133,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             PriorityColor = priorityColor;
             Flags = flags;
             Revision = revision;
+            _subWorkPresentation = subWorkPresentation;
         }
 
         public Pawn Pawn { get; }
@@ -142,6 +147,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         public uint PriorityColor { get; }
         public WorkCellVisualFlags Flags { get; }
         public uint Revision { get; }
+
+        internal bool TryGetSubWorkPresentation(
+            out WorkGiverCellPresentationCache.CellPresentation presentation)
+        {
+            presentation = _subWorkPresentation;
+            return presentation != null;
+        }
     }
 
     public sealed class WorkGridSnapshot
@@ -186,5 +198,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         public int UiScaleRevision { get; }
         public int FontThemeRevision { get; }
         public int PriorityRangeRevision { get; }
+
     }
 }

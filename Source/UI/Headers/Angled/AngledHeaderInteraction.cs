@@ -6,6 +6,7 @@ using Verse.Sound;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Projection;
@@ -447,15 +448,15 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 true);
 
             bool changed = false;
+            var livePawns = new List<Pawn>();
+            var livePriorities = new List<int>();
             for (int i = 0; i < pawns.Count; i++)
             {
                 Pawn pawn = pawns[i];
                 if (!WorkTabActionability.CanApplyParent(pawn, workType))
                     continue;
 
-                int curPriority = WorkTabEffectiveStateRuntime.IsPreviewActive
-                    ? ParentPriorityRead.GetObserved(pawn, workType)
-                    : pawn.workSettings.GetPriority(workType);
+                int curPriority = ParentPriorityRead.GetObserved(pawn, workType);
                 int nextPriority;
 
                 if (useWorkPriorities)
@@ -485,11 +486,19 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
                 else
                 {
-                    changed |= WorkTabApplication.Current?.SetStoredParentPriority(
-                        pawn,
-                        workType,
-                        nextPriority) == true;
+                    livePawns.Add(pawn);
+                    livePriorities.Add(nextPriority);
                 }
+            }
+
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive && livePawns.Count > 0)
+            {
+                WorkTabApplicationResult result =
+                    WorkTabApplication.Current?.SubmitDisplayedParentPriorityBatch(
+                        livePawns,
+                        workType,
+                        livePriorities) ?? default;
+                changed = result.Accepted && result.Outcome != WorkTabApplicationOutcome.NoOp;
             }
 
             if (changed)
@@ -581,9 +590,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
                     int parentPriority = ParentPriorityRead.GetObserved(pawn, workType);
                     int currentPriority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
-                        pawn,
-                        workType,
-                        workGiverDef,
+                        WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiverDef),
                         out int projectedPriority)
                         ? WorkPrioritySystem.ClampPriority(projectedPriority)
                         : WorkGiverReassignmentManager.GetWorkGiverPriority(
@@ -660,7 +667,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             if (changed)
             {
-                WorkGiverReassignmentManager.SetPawnOverridesBatchSynced(workGiverDef.defName, pawnIds, priorities);
+                if (WorkTabApplication.Current?
+                        .SubmitSpecificPriorityBatch(
+                            workGiverDef,
+                            pawnIds,
+                            priorities).Accepted != true)
+                {
+                    return;
+                }
 
                 if (useWorkPriorities)
                 {

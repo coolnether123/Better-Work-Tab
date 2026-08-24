@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Better_Work_Tab.Features.Workloads.V2;
 
 namespace Better_Work_Tab.UI.WorkGrid.Projection
@@ -19,10 +20,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         public Func<long> Revision { get; set; }
         public Func<WorkTabEffectiveStateRevisionVector> RevisionVector { get; set; }
 
-        public WorkTabEffectiveStateResolver<PawnKey, ScheduleKey> Schedule { get; set; }
-        public WorkTabEffectiveStateResolver<WorkloadSpecificJobKey, WorkloadScalarValue> SpecificJobOverride { get; set; }
-        public WorkTabEffectiveStateResolver<WorkloadSpecificJobKey, int> SpecificJobOrder { get; set; }
-        public WorkTabEffectiveStateResolver<string, WorkloadScalarValue> PresentationSetting { get; set; }
         public Func<WorkloadScheduleTargetKey, WorkTabEffectiveStateResolution<WorkloadSchedulePayload>> ScheduleV2 { get; set; }
         public Func<WorkloadSpecificJobTargetKey, WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>> SpecificJobPriorityV2 { get; set; }
         public Func<WorkloadWorkTypeOrderKey, WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>> WorkTypeOrderV2 { get; set; }
@@ -37,18 +34,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
     public sealed class LiveWorkTabEffectiveStateProvider :
         IWorkTabEffectiveStateProvider,
         IWorkTabEffectiveStateV2Provider,
-        IWorkTabEffectiveStateEditor
+        IWorkTabEffectiveStateViewSource
     {
         private readonly LiveWorkTabEffectiveStateCallbacks _callbacks;
-        private readonly IWorkTabEffectiveStateEditor _editor;
 
         public LiveWorkTabEffectiveStateProvider(
-            LiveWorkTabEffectiveStateCallbacks callbacks,
-            IWorkTabEffectiveStateEditor editor = null)
+            LiveWorkTabEffectiveStateCallbacks callbacks)
         {
             _callbacks = callbacks ?? new LiveWorkTabEffectiveStateCallbacks();
-            _editor = editor ?? new BlockedWorkTabEffectiveStateEditor(
-                () => Revision);
         }
 
         public string ProviderId => _callbacks.ProviderId;
@@ -67,68 +60,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         public WorkTabEffectiveStateRevision RevisionToken =>
             new WorkTabEffectiveStateRevision(ProviderId, Revision, Source, RevisionVector);
 
-        public IWorkTabEffectiveStateEditor Editor => _editor;
-
-        public ScheduleKey GetSchedule(PawnKey key, ScheduleKey fallbackSchedule)
+        /// <summary>
+        /// Captures the live callbacks behind a pass-local read cache. A
+        /// finished WorkTabView therefore cannot observe a different value for
+        /// the same target after input has changed the live state mid-pass.
+        /// The view owns the supplied revision token; live revision callbacks
+        /// are intentionally never consulted by the captured provider.
+        /// </summary>
+        public IWorkTabEffectiveStateProvider CaptureEffectiveStateView(
+            WorkTabEffectiveStateRevision revision)
         {
-            return TryGetSchedule(key, out ScheduleKey schedule) ? schedule : fallbackSchedule;
-        }
-
-        public bool TryGetSchedule(PawnKey key, out ScheduleKey schedule)
-        {
-            schedule = null;
-            return key != null && key.IsValid &&
-                   _callbacks.Schedule != null &&
-                   _callbacks.Schedule(key, out schedule);
-        }
-
-        public WorkloadScalarValue GetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            WorkloadScalarValue fallbackValue)
-        {
-            return TryGetSpecificJobOverride(key, out WorkloadScalarValue value)
-                ? value
-                : fallbackValue;
-        }
-
-        public bool TryGetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            out WorkloadScalarValue value)
-        {
-            value = WorkloadScalarValue.Empty;
-            return key != null && key.IsValid &&
-                   _callbacks.SpecificJobOverride != null &&
-                   _callbacks.SpecificJobOverride(key, out value);
-        }
-
-        public int GetSpecificJobOrder(WorkloadSpecificJobKey key, int fallbackOrder)
-        {
-            return TryGetSpecificJobOrder(key, out int order) ? order : fallbackOrder;
-        }
-
-        public bool TryGetSpecificJobOrder(WorkloadSpecificJobKey key, out int order)
-        {
-            order = 0;
-            return key != null && key.IsValid &&
-                   _callbacks.SpecificJobOrder != null &&
-                   _callbacks.SpecificJobOrder(key, out order);
-        }
-
-        public WorkloadScalarValue GetPresentationSetting(
-            string key,
-            WorkloadScalarValue fallbackValue)
-        {
-            return TryGetPresentationSetting(key, out WorkloadScalarValue value)
-                ? value
-                : fallbackValue;
-        }
-
-        public bool TryGetPresentationSetting(string key, out WorkloadScalarValue value)
-        {
-            value = WorkloadScalarValue.Empty;
-            return !string.IsNullOrWhiteSpace(key) &&
-                   _callbacks.PresentationSetting != null &&
-                   _callbacks.PresentationSetting(key, out value);
+            return new CapturedLiveWorkTabEffectiveStateProvider(this, revision);
         }
 
         public WorkTabEffectiveStateResolution<WorkloadSchedulePayload> ResolveSchedule(
@@ -150,17 +92,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
             }
 
-            if (_callbacks.SpecificJobPriorityV2 != null)
-            {
-                return _callbacks.SpecificJobPriorityV2(key);
-            }
-
-            WorkloadScalarValue value;
-            return _callbacks.SpecificJobOverride != null &&
-                   _callbacks.SpecificJobOverride(key.ToLegacyKey(), out value) &&
-                   value.Kind == WorkloadScalarKind.Integer
-                ? WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.Set(
-                    new WorkloadSpecificPriorityPayload(value.IntegerValue))
+            return _callbacks.SpecificJobPriorityV2 != null
+                ? _callbacks.SpecificJobPriorityV2(key)
                 : WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
         }
 
@@ -183,203 +116,126 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return WorkTabEffectiveStateResolution<WorkloadSettingValue>.NoOpinion;
             }
 
-            if (_callbacks.PresentationSettingV2 != null)
-            {
-                return _callbacks.PresentationSettingV2(key);
-            }
-
-            return _callbacks.PresentationSetting != null &&
-                   _callbacks.PresentationSetting(key, out WorkloadScalarValue value)
-                ? WorkTabEffectiveStateResolution<WorkloadSettingValue>.Set(
-                    WorkloadSettingValue.Global(value))
+            return _callbacks.PresentationSettingV2 != null
+                ? _callbacks.PresentationSettingV2(key)
                 : WorkTabEffectiveStateResolution<WorkloadSettingValue>.NoOpinion;
         }
 
-        public WorkTabEffectiveStateMutationResult SetSchedule(
-            PawnKey key,
-            ScheduleKey schedule)
-        {
-            return _editor.SetSchedule(key, schedule);
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearSchedule(PawnKey key)
-        {
-            return _editor.ClearSchedule(key);
-        }
-
-        public WorkTabEffectiveStateMutationResult SetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            WorkloadScalarValue value)
-        {
-            return _editor.SetSpecificJobOverride(key, value);
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearSpecificJobOverride(
-            WorkloadSpecificJobKey key)
-        {
-            return _editor.ClearSpecificJobOverride(key);
-        }
-
-        public WorkTabEffectiveStateMutationResult SetSpecificJobOrder(
-            WorkloadSpecificJobKey key,
-            int order)
-        {
-            return _editor.SetSpecificJobOrder(key, order);
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearSpecificJobOrder(
-            WorkloadSpecificJobKey key)
-        {
-            return _editor.ClearSpecificJobOrder(key);
-        }
-
-        public WorkTabEffectiveStateMutationResult SetPresentationSetting(
-            string key,
-            WorkloadScalarValue value)
-        {
-            return _editor.SetPresentationSetting(key, value);
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearPresentationSetting(string key)
-        {
-            return _editor.ClearPresentationSetting(key);
-        }
-    }
-
-    public sealed class LiveWorkTabEffectiveStateEditorCallbacks
-    {
-        public Func<PawnKey, ScheduleKey, WorkTabEffectiveStateMutationResult> SetSchedule { get; set; }
-        public Func<PawnKey, WorkTabEffectiveStateMutationResult> ClearSchedule { get; set; }
-        public Func<WorkloadSpecificJobKey, WorkloadScalarValue, WorkTabEffectiveStateMutationResult> SetSpecificJobOverride { get; set; }
-        public Func<WorkloadSpecificJobKey, WorkTabEffectiveStateMutationResult> ClearSpecificJobOverride { get; set; }
-        public Func<WorkloadSpecificJobKey, int, WorkTabEffectiveStateMutationResult> SetSpecificJobOrder { get; set; }
-        public Func<WorkloadSpecificJobKey, WorkTabEffectiveStateMutationResult> ClearSpecificJobOrder { get; set; }
-        public Func<string, WorkloadScalarValue, WorkTabEffectiveStateMutationResult> SetPresentationSetting { get; set; }
-        public Func<string, WorkTabEffectiveStateMutationResult> ClearPresentationSetting { get; set; }
     }
 
     /// <summary>
-    /// Adapts mutation callbacks owned by the live authority. Missing callbacks
-    /// fail closed as Blocked, which keeps a read-only live provider from
-    /// silently pretending that a virtual write was applied.
+    /// Immutable-revision pass view over a live provider. The effective-state
+    /// surface is key based, so snapshots are memoized by semantic key instead
+    /// of copying unbounded game state that no pass will read.
     /// </summary>
-    public sealed class CallbackWorkTabEffectiveStateEditor : IWorkTabEffectiveStateEditor
+    internal sealed class CapturedLiveWorkTabEffectiveStateProvider :
+        IWorkTabEffectiveStateProvider,
+        IWorkTabEffectiveStateV2Provider
     {
-        private readonly LiveWorkTabEffectiveStateEditorCallbacks _callbacks;
-        private readonly Func<long> _revision;
+        private readonly LiveWorkTabEffectiveStateProvider _live;
+        private readonly WorkTabEffectiveStateRevision _revision;
+        private readonly Dictionary<WorkloadScheduleTargetKey,
+            WorkTabEffectiveStateResolution<WorkloadSchedulePayload>> _schedules =
+            new Dictionary<WorkloadScheduleTargetKey,
+                WorkTabEffectiveStateResolution<WorkloadSchedulePayload>>();
+        private readonly Dictionary<WorkloadSpecificJobTargetKey,
+            WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>> _specificPriorities =
+            new Dictionary<WorkloadSpecificJobTargetKey,
+                WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>>();
+        private readonly Dictionary<WorkloadWorkTypeOrderKey,
+            WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>> _orders =
+            new Dictionary<WorkloadWorkTypeOrderKey,
+                WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>>();
+        private readonly Dictionary<string,
+            WorkTabEffectiveStateResolution<WorkloadSettingValue>> _settings =
+            new Dictionary<string, WorkTabEffectiveStateResolution<WorkloadSettingValue>>(
+                StringComparer.Ordinal);
 
-        public CallbackWorkTabEffectiveStateEditor(
-            LiveWorkTabEffectiveStateEditorCallbacks callbacks,
-            Func<long> revision = null)
+        internal CapturedLiveWorkTabEffectiveStateProvider(
+            LiveWorkTabEffectiveStateProvider live,
+            WorkTabEffectiveStateRevision revision)
         {
-            _callbacks = callbacks ?? new LiveWorkTabEffectiveStateEditorCallbacks();
+            _live = live ?? throw new ArgumentNullException(nameof(live));
             _revision = revision;
         }
 
-        public WorkTabEffectiveStateMutationResult SetSchedule(PawnKey key, ScheduleKey schedule)
+        public string ProviderId => _revision.ProviderId;
+        public long Revision => _revision.Revision;
+        public WorkTabEffectiveStateRevisionVector RevisionVector => _revision.RevisionVector;
+        public WorkTabEffectiveStateSource Source => _revision.Source;
+        public bool IsLive => true;
+        public bool IsPreview => false;
+        public WorkTabEffectiveStateRevision RevisionToken => _revision;
+
+        public WorkTabEffectiveStateResolution<WorkloadSchedulePayload> ResolveSchedule(
+            WorkloadScheduleTargetKey key)
         {
-            return Invoke(WorkTabEffectiveStateDimension.Schedule, _callbacks.SetSchedule, key, schedule);
+            if (key == null || !key.IsValid)
+            {
+                return WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion;
+            }
+
+            if (!_schedules.TryGetValue(key, out WorkTabEffectiveStateResolution<WorkloadSchedulePayload> value))
+            {
+                value = _live.ResolveSchedule(key);
+                _schedules.Add(key, value);
+            }
+
+            return value;
         }
 
-        public WorkTabEffectiveStateMutationResult ClearSchedule(PawnKey key)
+        public WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>
+            ResolveSpecificJobPriority(WorkloadSpecificJobTargetKey key)
         {
-            return Invoke(WorkTabEffectiveStateDimension.Schedule, _callbacks.ClearSchedule, key);
+            if (key == null || !key.IsValid)
+            {
+                return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
+            }
+
+            if (!_specificPriorities.TryGetValue(
+                    key,
+                    out WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload> value))
+            {
+                value = _live.ResolveSpecificJobPriority(key);
+                _specificPriorities.Add(key, value);
+            }
+
+            return value;
         }
 
-        public WorkTabEffectiveStateMutationResult SetSpecificJobOverride(WorkloadSpecificJobKey key, WorkloadScalarValue value)
+        public WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload> ResolveWorkTypeOrder(
+            WorkloadWorkTypeOrderKey key)
         {
-            return Invoke(WorkTabEffectiveStateDimension.SpecificJobOverride, _callbacks.SetSpecificJobOverride, key, value);
+            if (key == null || !key.IsValid)
+            {
+                return WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion;
+            }
+
+            if (!_orders.TryGetValue(key, out WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload> value))
+            {
+                value = _live.ResolveWorkTypeOrder(key);
+                _orders.Add(key, value);
+            }
+
+            return value;
         }
 
-        public WorkTabEffectiveStateMutationResult ClearSpecificJobOverride(WorkloadSpecificJobKey key)
+        public WorkTabEffectiveStateResolution<WorkloadSettingValue> ResolvePresentationSetting(
+            string key)
         {
-            return Invoke(WorkTabEffectiveStateDimension.SpecificJobOverride, _callbacks.ClearSpecificJobOverride, key);
-        }
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return WorkTabEffectiveStateResolution<WorkloadSettingValue>.NoOpinion;
+            }
 
-        public WorkTabEffectiveStateMutationResult SetSpecificJobOrder(WorkloadSpecificJobKey key, int order)
-        {
-            return Invoke(WorkTabEffectiveStateDimension.SpecificJobOrder, _callbacks.SetSpecificJobOrder, key, order);
-        }
+            if (!_settings.TryGetValue(key, out WorkTabEffectiveStateResolution<WorkloadSettingValue> value))
+            {
+                value = _live.ResolvePresentationSetting(key);
+                _settings.Add(key, value);
+            }
 
-        public WorkTabEffectiveStateMutationResult ClearSpecificJobOrder(WorkloadSpecificJobKey key)
-        {
-            return Invoke(WorkTabEffectiveStateDimension.SpecificJobOrder, _callbacks.ClearSpecificJobOrder, key);
-        }
-
-        public WorkTabEffectiveStateMutationResult SetPresentationSetting(string key, WorkloadScalarValue value)
-        {
-            return Invoke(WorkTabEffectiveStateDimension.PresentationSetting, _callbacks.SetPresentationSetting, key, value);
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearPresentationSetting(string key)
-        {
-            return Invoke(WorkTabEffectiveStateDimension.PresentationSetting, _callbacks.ClearPresentationSetting, key);
-        }
-
-        private WorkTabEffectiveStateMutationResult Invoke<TKey, TValue>(
-            WorkTabEffectiveStateDimension dimension,
-            Func<TKey, TValue, WorkTabEffectiveStateMutationResult> callback,
-            TKey key,
-            TValue value)
-        {
-            return callback == null
-                ? Blocked(dimension, "The live authority did not provide this mutation.")
-                : callback(key, value);
-        }
-
-        private WorkTabEffectiveStateMutationResult Invoke<TKey>(
-            WorkTabEffectiveStateDimension dimension,
-            Func<TKey, WorkTabEffectiveStateMutationResult> callback,
-            TKey key)
-        {
-            return callback == null
-                ? Blocked(dimension, "The live authority did not provide this mutation.")
-                : callback(key);
-        }
-
-        private WorkTabEffectiveStateMutationResult Blocked(
-            WorkTabEffectiveStateDimension dimension,
-            string reason)
-        {
-            return WorkTabEffectiveStateMutationResult.Blocked(
-                dimension,
-                _revision?.Invoke() ?? 0L,
-                reason);
-        }
-    }
-
-    public sealed class BlockedWorkTabEffectiveStateEditor : IWorkTabEffectiveStateEditor
-    {
-        private readonly Func<long> _revision;
-
-        public BlockedWorkTabEffectiveStateEditor(Func<long> revision = null)
-        {
-            _revision = revision;
-        }
-
-        public WorkTabEffectiveStateMutationResult SetSchedule(PawnKey key, ScheduleKey schedule) =>
-            Blocked(WorkTabEffectiveStateDimension.Schedule);
-        public WorkTabEffectiveStateMutationResult ClearSchedule(PawnKey key) =>
-            Blocked(WorkTabEffectiveStateDimension.Schedule);
-        public WorkTabEffectiveStateMutationResult SetSpecificJobOverride(WorkloadSpecificJobKey key, WorkloadScalarValue value) =>
-            Blocked(WorkTabEffectiveStateDimension.SpecificJobOverride);
-        public WorkTabEffectiveStateMutationResult ClearSpecificJobOverride(WorkloadSpecificJobKey key) =>
-            Blocked(WorkTabEffectiveStateDimension.SpecificJobOverride);
-        public WorkTabEffectiveStateMutationResult SetSpecificJobOrder(WorkloadSpecificJobKey key, int order) =>
-            Blocked(WorkTabEffectiveStateDimension.SpecificJobOrder);
-        public WorkTabEffectiveStateMutationResult ClearSpecificJobOrder(WorkloadSpecificJobKey key) =>
-            Blocked(WorkTabEffectiveStateDimension.SpecificJobOrder);
-        public WorkTabEffectiveStateMutationResult SetPresentationSetting(string key, WorkloadScalarValue value) =>
-            Blocked(WorkTabEffectiveStateDimension.PresentationSetting);
-        public WorkTabEffectiveStateMutationResult ClearPresentationSetting(string key) =>
-            Blocked(WorkTabEffectiveStateDimension.PresentationSetting);
-
-        private WorkTabEffectiveStateMutationResult Blocked(WorkTabEffectiveStateDimension dimension)
-        {
-            return WorkTabEffectiveStateMutationResult.Blocked(
-                dimension,
-                _revision?.Invoke() ?? 0L,
-                "This effective-state source is read-only.");
+            return value;
         }
     }
+
 }

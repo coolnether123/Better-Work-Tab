@@ -3,6 +3,7 @@ using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
@@ -95,7 +96,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
 
             if (accepted)
             {
-                WorkGiverReassignmentManager.SetPawnOverrideSynced(pawnId, workGiver.defName, priority);
+                accepted = WorkTabApplication.Current?
+                    .SubmitSpecificPriority(pawnId, workGiver, priority).Accepted == true;
             }
 
             return accepted;
@@ -162,10 +164,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
 
             if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
-                WorkGiverReassignmentManager.ClearPawnOverridesForWorkTypeSynced(
-                    pawn.thingIDNumber,
-                    workType.defName);
-                return true;
+                return WorkTabApplication.Current?
+                    .ClearSpecificPriorities(pawn, workType).Accepted == true;
             }
 
             var seen = new HashSet<string>(System.StringComparer.Ordinal);

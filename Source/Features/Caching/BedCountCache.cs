@@ -19,7 +19,6 @@ namespace Better_Work_Tab.Features.Caching
 
         // Configuration
         private const float CacheValiditySeconds = 4f; // Recalculate every 4 seconds max
-        private static bool _initialized;
 
         /// <summary>
         /// Gets the current colonist bed count for a map.
@@ -88,7 +87,6 @@ namespace Better_Work_Tab.Features.Caching
         public static void Clear()
         {
             _bedCountCache.Clear();
-            _initialized = false;
         }
 
         /// <summary>
@@ -133,12 +131,5 @@ namespace Better_Work_Tab.Features.Caching
             return totalSlots;
         }
 
-        /// <summary>
-        /// Gets cache statistics for debugging (how many maps cached, cache hit rate).
-        /// </summary>
-        public static string GetCacheStats()
-        {
-            return $"BedCountCache: {_bedCountCache.Count} maps cached";
-        }
     }
 }

@@ -1,6 +1,5 @@
 using System.Threading;
-using Better_Work_Tab.Features.Workloads.V2;
-using Better_Work_Tab.UI.Workloads;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 
 namespace Better_Work_Tab.UI.WorkGrid.Projection
 {
@@ -26,17 +25,45 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         public static IWorkTabEffectiveStateProvider CurrentOrDefault =>
             Current ?? EmptyWorkTabEffectiveStateProvider.Instance;
 
+        internal static IWorkGridPreviewPort CurrentPreview =>
+            CurrentFrame.Value?.ResolvePreview();
+
         public static System.IDisposable Push(IWorkTabEffectiveStateProvider provider)
+        {
+            return Push(provider, null);
+        }
+
+        internal static System.IDisposable Push(
+            IWorkTabEffectiveStateProvider provider,
+            IWorkGridPreviewPort preview)
         {
             IWorkTabEffectiveStateProvider actualProvider =
                 provider ?? EmptyWorkTabEffectiveStateProvider.Instance;
-            WorkloadPreviewController previewController =
-                WorkloadPreviewController.Current;
             var frame = new ScopeFrame(
                 actualProvider,
                 CurrentFrame.Value,
-                previewController != null &&
-                ReferenceEquals(previewController.ProjectedProvider, actualProvider));
+                preview,
+                preview != null &&
+                ReferenceEquals(preview.ScopedProvider, actualProvider));
+            CurrentFrame.Value = frame;
+            return frame;
+        }
+
+        /// <summary>
+        /// Installs the immutable provider captured by a WorkTabView for a
+        /// render-only segment. The preview port remains available for visual
+        /// consumers, but this frame never follows its mutable provider or
+        /// clears cache residue on disposal.
+        /// </summary>
+        internal static System.IDisposable PushCapturedView(
+            IWorkTabEffectiveStateProvider provider,
+            IWorkGridPreviewPort preview)
+        {
+            var frame = new ScopeFrame(
+                provider ?? EmptyWorkTabEffectiveStateProvider.Instance,
+                CurrentFrame.Value,
+                preview,
+                followsPreview: false);
             CurrentFrame.Value = frame;
             return frame;
         }
@@ -53,28 +80,36 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             internal ScopeFrame(
                 IWorkTabEffectiveStateProvider provider,
                 ScopeFrame parent,
-                bool followsPreviewController)
+                IWorkGridPreviewPort preview,
+                bool followsPreview)
             {
                 Provider = provider;
                 Parent = parent;
-                FollowsPreviewController = followsPreviewController;
+                Preview = preview;
+                FollowsPreview = followsPreview;
             }
 
             internal IWorkTabEffectiveStateProvider Provider { get; }
             internal ScopeFrame Parent { get; }
-            private bool FollowsPreviewController { get; }
+            private IWorkGridPreviewPort Preview { get; }
+            private bool FollowsPreview { get; }
 
             internal IWorkTabEffectiveStateProvider ResolveProvider()
             {
-                if (!FollowsPreviewController)
+                if (!FollowsPreview)
                 {
                     return Provider;
                 }
 
-                WorkloadPreviewController previewController =
-                    WorkloadPreviewController.Current;
-                return previewController?.ScopedProvider ??
+                return Preview?.ScopedProvider ??
                        EmptyWorkTabEffectiveStateProvider.Instance;
+            }
+
+            internal IWorkGridPreviewPort ResolvePreview()
+            {
+                // Command-port lifetime is independent of active preview
+                // reads. Consumers that require an open preview check IsActive.
+                return Preview;
             }
 
             public void Dispose()
@@ -93,11 +128,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 // Retain the active preview snapshot between Layout, input,
                 // and Repaint. Clear only when this pass's projected provider
                 // was replaced or cancelled while the pass was running.
-                WorkloadPreviewController previewController =
-                    WorkloadPreviewController.Current;
-                if (Provider != null && Provider.IsPreview &&
-                    (previewController == null ||
-                     !ReferenceEquals(previewController.ProjectedProvider, Provider)))
+                if (FollowsPreview && Provider != null && Provider.IsPreview &&
+                    (Preview == null ||
+                     !ReferenceEquals(Preview.ScopedProvider, Provider)))
                 {
                     WorkTabEffectiveStateRuntime.ClearPreviewCacheResidue();
                 }
@@ -133,60 +166,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
         public string ProviderId => "bwt.none";
         public long Revision => 0;
+        public WorkTabEffectiveStateRevisionVector RevisionVector =>
+            WorkTabEffectiveStateRevisionVector.FromRevision(Revision);
         public WorkTabEffectiveStateSource Source => WorkTabEffectiveStateSource.Live;
         public bool IsLive => true;
         public bool IsPreview => false;
         public WorkTabEffectiveStateRevision RevisionToken =>
             new WorkTabEffectiveStateRevision(ProviderId, Revision, Source);
 
-        public ScheduleKey GetSchedule(PawnKey key, ScheduleKey fallbackSchedule)
-        {
-            return fallbackSchedule;
-        }
-
-        public bool TryGetSchedule(PawnKey key, out ScheduleKey schedule)
-        {
-            schedule = null;
-            return false;
-        }
-
-        public WorkloadScalarValue GetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            WorkloadScalarValue fallbackValue)
-        {
-            return fallbackValue;
-        }
-
-        public bool TryGetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            out WorkloadScalarValue value)
-        {
-            value = WorkloadScalarValue.Empty;
-            return false;
-        }
-
-        public int GetSpecificJobOrder(WorkloadSpecificJobKey key, int fallbackOrder)
-        {
-            return fallbackOrder;
-        }
-
-        public bool TryGetSpecificJobOrder(WorkloadSpecificJobKey key, out int order)
-        {
-            order = 0;
-            return false;
-        }
-
-        public WorkloadScalarValue GetPresentationSetting(
-            string key,
-            WorkloadScalarValue fallbackValue)
-        {
-            return fallbackValue;
-        }
-
-        public bool TryGetPresentationSetting(string key, out WorkloadScalarValue value)
-        {
-            value = WorkloadScalarValue.Empty;
-            return false;
-        }
     }
 }

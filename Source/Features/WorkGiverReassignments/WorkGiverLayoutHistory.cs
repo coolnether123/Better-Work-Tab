@@ -1,8 +1,5 @@
-using Better_Work_Tab.Mod_Support.Multiplayer;
-using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.TimePriority;
-using Multiplayer.API;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -11,101 +8,142 @@ using Verse;
 
 namespace Better_Work_Tab.Features.WorkGiverReassignments
 {
-    internal sealed class WorkGiverLayoutSnapshot
+    internal sealed class WorkGiverLayoutOrderSnapshot
     {
-        internal WorkGiverLayoutSnapshot(string targetWorkTypeDefName, IDictionary<string, List<string>> orders)
-            : this(targetWorkTypeDefName, orders.ToDictionary(
-                pair => pair.Key, pair => (IEnumerable<string>)pair.Value, StringComparer.Ordinal))
+        internal WorkGiverLayoutOrderSnapshot(
+            WorkGiverReassignmentManager.ExactGlobalStateKind state,
+            IEnumerable<string> storedOrder,
+            IEnumerable<string> effectiveOrder)
         {
+            State = state;
+            StoredOrder = (storedOrder ?? Enumerable.Empty<string>()).ToList().AsReadOnly();
+            EffectiveOrder = (effectiveOrder ?? Enumerable.Empty<string>()).ToList().AsReadOnly();
         }
 
-        internal WorkGiverLayoutSnapshot(string targetWorkTypeDefName, IDictionary<string, IEnumerable<string>> orders)
+        internal WorkGiverReassignmentManager.ExactGlobalStateKind State { get; }
+        internal IReadOnlyList<string> StoredOrder { get; }
+        internal IReadOnlyList<string> EffectiveOrder { get; }
+    }
+
+    internal sealed class WorkGiverLayoutPawnOrderSnapshot
+    {
+        internal WorkGiverLayoutPawnOrderSnapshot(
+            int pawnId,
+            string workTypeDefName,
+            bool hadOrder,
+            IEnumerable<string> order)
+        {
+            PawnId = pawnId;
+            WorkTypeDefName = workTypeDefName ?? string.Empty;
+            HadOrder = hadOrder;
+            Order = (order ?? Enumerable.Empty<string>()).ToList().AsReadOnly();
+        }
+
+        internal int PawnId { get; }
+        internal string WorkTypeDefName { get; }
+        internal bool HadOrder { get; }
+        internal IReadOnlyList<string> Order { get; }
+    }
+
+    internal sealed class WorkGiverLayoutSnapshot
+    {
+        internal WorkGiverLayoutSnapshot(
+            string targetWorkTypeDefName,
+            IDictionary<string, WorkGiverLayoutOrderSnapshot> orders,
+            IEnumerable<WorkGiverLayoutPawnOrderSnapshot> pawnOrders)
         {
             TargetWorkTypeDefName = targetWorkTypeDefName;
             Orders = orders.ToDictionary(
                 pair => pair.Key,
-                pair => (IReadOnlyList<string>)pair.Value.ToList().AsReadOnly(),
+                pair => new WorkGiverLayoutOrderSnapshot(
+                    pair.Value.State,
+                    pair.Value.StoredOrder,
+                    pair.Value.EffectiveOrder),
                 StringComparer.Ordinal);
+            PawnOrders = (pawnOrders ?? Enumerable.Empty<WorkGiverLayoutPawnOrderSnapshot>())
+                .Select(order => new WorkGiverLayoutPawnOrderSnapshot(
+                    order.PawnId,
+                    order.WorkTypeDefName,
+                    order.HadOrder,
+                    order.Order))
+                .OrderBy(order => order.PawnId)
+                .ThenBy(order => order.WorkTypeDefName, StringComparer.Ordinal)
+                .ToList()
+                .AsReadOnly();
         }
 
         internal string TargetWorkTypeDefName { get; }
-        internal IReadOnlyDictionary<string, IReadOnlyList<string>> Orders { get; }
+        internal IReadOnlyDictionary<string, WorkGiverLayoutOrderSnapshot> Orders { get; }
+        internal IReadOnlyList<WorkGiverLayoutPawnOrderSnapshot> PawnOrders { get; }
     }
 
     internal sealed class WorkGiverLayoutCommand
     {
-        internal WorkGiverLayoutCommand(long id, string workGiverDefName, int expectedVersion,
+        internal WorkGiverLayoutCommand(long id, string workGiverDefName,
             WorkGiverLayoutSnapshot before, WorkGiverLayoutSnapshot after)
         {
             Id = id;
             WorkGiverDefName = workGiverDefName;
-            ExpectedVersion = expectedVersion;
             Before = before;
             After = after;
         }
 
         internal long Id { get; }
         internal string WorkGiverDefName { get; }
-        internal int ExpectedVersion { get; }
         internal WorkGiverLayoutSnapshot Before { get; }
         internal WorkGiverLayoutSnapshot After { get; }
     }
 
     internal static class WorkGiverLayoutHistory
     {
-        private const int Capacity = 64;
-        private static readonly List<WorkGiverLayoutCommand> UndoCommands = new List<WorkGiverLayoutCommand>();
-        private static readonly List<WorkGiverLayoutCommand> RedoCommands = new List<WorkGiverLayoutCommand>();
+        private static readonly BoundedUndoRedoHistory<WorkGiverLayoutCommand> Commands =
+            new BoundedUndoRedoHistory<WorkGiverLayoutCommand>(64);
         private static long _nextId;
 
         internal static long NextId() => ++_nextId;
-        internal static bool CanUndo => UndoCommands.Count > 0;
-        internal static bool CanRedo => RedoCommands.Count > 0;
 
         internal static void RecordForward(WorkGiverLayoutCommand command)
         {
-            UndoCommands.Add(command);
-            if (UndoCommands.Count > Capacity) UndoCommands.RemoveAt(0);
-            RedoCommands.Clear();
+            if (command == null) return;
+            _nextId = Math.Max(_nextId, command.Id);
+            Commands.Record(command);
         }
 
-        internal static WorkGiverLayoutCommand PeekUndo() => CanUndo ? UndoCommands[UndoCommands.Count - 1] : null;
-        internal static WorkGiverLayoutCommand PeekRedo() => CanRedo ? RedoCommands[RedoCommands.Count - 1] : null;
+        internal static WorkGiverLayoutCommand PeekUndo() => Commands.PeekUndo;
+        internal static WorkGiverLayoutCommand PeekRedo() => Commands.PeekRedo;
 
         internal static void CompleteUndo(WorkGiverLayoutCommand command)
         {
-            if (!ReferenceEquals(PeekUndo(), command)) return;
-            UndoCommands.RemoveAt(UndoCommands.Count - 1);
-            RedoCommands.Add(command);
+            if (command == null) return;
+            _nextId = Math.Max(_nextId, command.Id);
+            if (!Commands.CompleteUndo(candidate => candidate.Id == command.Id))
+            {
+                Commands.Restore(null, new[] { command });
+            }
         }
 
         internal static void CompleteRedo(WorkGiverLayoutCommand command)
         {
-            if (!ReferenceEquals(PeekRedo(), command)) return;
-            RedoCommands.RemoveAt(RedoCommands.Count - 1);
-            UndoCommands.Add(command);
+            if (command == null) return;
+            _nextId = Math.Max(_nextId, command.Id);
+            if (!Commands.CompleteRedo(candidate => candidate.Id == command.Id))
+            {
+                Commands.Restore(new[] { command }, null);
+            }
         }
 
-        internal static void Clear()
-        {
-            UndoCommands.Clear();
-            RedoCommands.Clear();
-        }
+        internal static void Clear() => Commands.Clear();
     }
 
     internal static partial class WorkGiverReassignmentManager
     {
-        internal static bool CanUndoWorkGiverLayout => WorkGiverLayoutHistory.CanUndo;
-        internal static bool CanRedoWorkGiverLayout => WorkGiverLayoutHistory.CanRedo;
-
         internal static bool TryMoveWorkGiverLayout(string workGiverDefName, string targetWorkTypeDefName,
             int insertIndex, out string errorMessage)
         {
             if (!TryCreateLayoutCommand(workGiverDefName, targetWorkTypeDefName, insertIndex, out var command, out errorMessage))
                 return false;
 
-            SubmitLayoutCommand(command, command.After, 0);
-            return true;
+            return SubmitLayoutCommand(command, command.After, 0);
         }
 
         internal static bool TryRestoreWorkGiverToBaseline(string workGiverDefName, out string errorMessage)
@@ -125,54 +163,45 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             var command = WorkGiverLayoutHistory.PeekUndo();
             if (command == null) return false;
-            SubmitLayoutCommand(command, command.Before, 1);
-            return true;
+            return SubmitLayoutCommand(command, command.Before, 1);
         }
 
         internal static bool TryRedoWorkGiverLayout()
         {
             var command = WorkGiverLayoutHistory.PeekRedo();
             if (command == null) return false;
-            SubmitLayoutCommand(command, command.After, 2);
-            return true;
+            return SubmitLayoutCommand(command, command.After, 2);
         }
 
-        private static void SubmitLayoutCommand(WorkGiverLayoutCommand command, WorkGiverLayoutSnapshot snapshot, int historyAction)
-        {
-            var encoded = EncodeOrders(snapshot.Orders);
-            if (MultiplayerBridge.Active)
-            {
-                SyncApplyWorkGiverLayout(command.Id, command.WorkGiverDefName, CurrentSyncVersion,
-                    snapshot.TargetWorkTypeDefName, encoded, historyAction);
-                return;
-            }
+        private static bool SubmitLayoutCommand(
+            WorkGiverLayoutCommand command, WorkGiverLayoutSnapshot snapshot, int historyAction) =>
+            WorkTabApplication.Current?.SubmitSpecificLayout(command, snapshot, historyAction).Accepted == true;
 
-            ApplySynchronizedLayout(command.Id, command.WorkGiverDefName, CurrentSyncVersion,
-                snapshot.TargetWorkTypeDefName, encoded, historyAction, command);
-        }
-
-        [SyncMethod]
-        public static void SyncApplyWorkGiverLayout(long commandId, string workGiverDefName, int expectedVersion,
-            string targetWorkTypeDefName, List<string> encodedOrders, int historyAction)
+        internal static bool ApplySpecificLayout(long commandId, string workGiverDefName, int expectedVersion,
+            string expectedTargetWorkTypeDefName, List<string> encodedExpectedOrders,
+            string targetWorkTypeDefName, List<string> encodedOrders, int historyAction,
+            WorkGiverLayoutCommand localCommand, out bool schedulesChanged)
         {
-            ApplySynchronizedLayout(commandId, workGiverDefName, expectedVersion,
-                targetWorkTypeDefName, encodedOrders, historyAction, null);
-        }
-
-        private static void ApplySynchronizedLayout(long commandId, string workGiverDefName, int expectedVersion,
-            string targetWorkTypeDefName, List<string> encodedOrders, int historyAction, WorkGiverLayoutCommand localCommand)
-        {
+            schedulesChanged = false;
             var data = Data;
             var giver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-            if (data == null || giver == null) return;
+            if (data == null || giver == null) return false;
             if (expectedVersion != CurrentSyncVersion)
             {
                 WorkGiverLayoutHistory.Clear();
-                return;
+                return false;
             }
 
-            var orders = DecodeOrders(encodedOrders);
-            if (orders.Count == 0) return;
+            WorkGiverLayoutSnapshot expected = DecodeSnapshot(
+                expectedTargetWorkTypeDefName, encodedExpectedOrders);
+            WorkGiverLayoutSnapshot desired = DecodeSnapshot(
+                targetWorkTypeDefName, encodedOrders);
+            if (expected == null || desired == null ||
+                !MatchesLayoutSnapshot(giver, expected))
+            {
+                WorkGiverLayoutHistory.Clear();
+                return false;
+            }
 
             WorkTypeDef targetWorkType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(targetWorkTypeDefName);
             WorkTypeDef sourceWorkType = GetTargetWorkType(giver);
@@ -180,51 +209,163 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 !TimePriorityService.TryPrepareWorkGiverScheduleRetarget(
                     giver, sourceWorkType, targetWorkType, out TimePriorityService.WorkGiverScheduleRetargetPlan schedulePlan, out _))
             {
+                return false;
+            }
+
+            WorkGiverLayoutCommand command = localCommand ??
+                new WorkGiverLayoutCommand(
+                    commandId,
+                    workGiverDefName,
+                    historyAction == 1 ? desired : expected,
+                    historyAction == 1 ? expected : desired);
+
+            WorkGiverReassignmentData previousData = data.Clone();
+            WorkGiverReassignmentData stagedData = previousData.Clone();
+            bool layoutWriteStarted = false;
+            bool scheduleRetargetApplied = false;
+            bool scheduleBatchCommitted = false;
+            bool transactionCompleted = false;
+            IDisposable scheduleBatch = null;
+            try
+            {
+                stagedData.EnsureCollections();
+                if (targetWorkTypeDefName == giver.workType?.defName)
+                    stagedData.WorkGiverToWorkTypeMap.Remove(giver.defName);
+                else
+                    stagedData.WorkGiverToWorkTypeMap[giver.defName] = targetWorkTypeDefName;
+
+                foreach (var pair in desired.Orders)
+                {
+                    ApplyGlobalWorkTypeOrderState(
+                        stagedData,
+                        pair.Key,
+                        pair.Value.State,
+                        pair.Value.StoredOrder,
+                        advanceRevision: false);
+                }
+
+                ApplyPawnOrderStates(stagedData, desired.PawnOrders);
+                foreach (var moved in stagedData.PlayerMovedWorkGiversByWorkType.Values)
+                    moved?.Remove(giver.defName);
+                stagedData.SyncVersion++;
+
+                if (schedulePlan.Changed)
+                {
+                    if (TimePriorityService.HasActiveMutationBatch)
+                    {
+                        return false;
+                    }
+
+                    scheduleBatch = TimePriorityService.BeginMutationBatch();
+                    if (!TimePriorityService.CommitWorkGiverScheduleRetarget(schedulePlan))
+                    {
+                        return false;
+                    }
+
+                    scheduleRetargetApplied = true;
+                }
+
+                layoutWriteStarted = true;
+                data.CopyFrom(stagedData, stagedData.SyncVersion);
+                InvalidateCaches();
+
+                if (targetWorkType != null &&
+                    (targetWorkType != giver.workType ||
+                     IsWorkGiverOutOfBaselinePosition(targetWorkType, giver)))
+                {
+                    RecordPlayerMovedWorkGiver(targetWorkType, giver);
+                }
+
+                if (scheduleBatch != null)
+                {
+                    scheduleBatch.Dispose();
+                    scheduleBatch = null;
+                    schedulesChanged = TimePriorityService.CommitMutationBatch();
+                    if (!schedulesChanged)
+                    {
+                        return false;
+                    }
+
+                    scheduleBatchCommitted = true;
+                }
+
+                if (historyAction == 0) WorkGiverLayoutHistory.RecordForward(command);
+                else if (historyAction == 1) WorkGiverLayoutHistory.CompleteUndo(command);
+                else WorkGiverLayoutHistory.CompleteRedo(command);
+
+                transactionCompleted = true;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                if (!transactionCompleted)
+                {
+                    if (scheduleRetargetApplied)
+                    {
+                        RestoreScheduleRetargetAfterFailedLayout(
+                            schedulePlan,
+                            ref scheduleBatch,
+                            scheduleBatchCommitted);
+                    }
+                    else
+                    {
+                        scheduleBatch?.Dispose();
+                    }
+
+                    if (layoutWriteStarted)
+                    {
+                        data.CopyFrom(previousData, previousData.SyncVersion);
+                        InvalidateCaches();
+                    }
+
+                    schedulesChanged = false;
+                }
+            }
+        }
+
+        private static void RestoreScheduleRetargetAfterFailedLayout(
+            TimePriorityService.WorkGiverScheduleRetargetPlan schedulePlan,
+            ref IDisposable scheduleBatch,
+            bool scheduleBatchCommitted)
+        {
+            if (scheduleBatch != null)
+            {
+                try
+                {
+                    TimePriorityService.RestoreUnpublishedWorkGiverScheduleRetarget(schedulePlan);
+                }
+                finally
+                {
+                    scheduleBatch.Dispose();
+                    scheduleBatch = null;
+                    TimePriorityService.DiscardMutationBatch();
+                }
+
                 return;
             }
 
-            WorkGiverLayoutCommand command = localCommand;
-            if (command == null)
+            try
             {
-                var before = CaptureSnapshot(giver, orders.Keys);
-                var after = new WorkGiverLayoutSnapshot(targetWorkTypeDefName, orders);
-                command = new WorkGiverLayoutCommand(commandId, workGiverDefName, expectedVersion, before, after);
+                using (IDisposable rollbackBatch = TimePriorityService.BeginMutationBatch())
+                {
+                    TimePriorityService.RestoreUnpublishedWorkGiverScheduleRetarget(schedulePlan);
+                }
             }
-
-            data.EnsureCollections();
-            if (targetWorkTypeDefName == giver.workType?.defName)
-                data.WorkGiverToWorkTypeMap.Remove(giver.defName);
-            else
-                data.WorkGiverToWorkTypeMap[giver.defName] = targetWorkTypeDefName;
-
-            foreach (var pair in orders)
-                data.WorkTypeWorkGiverOrder[pair.Key] = pair.Value.Distinct().ToList();
-
-            RemoveWorkGiverFromPawnOrders(data, giver.defName);
-            foreach (var moved in data.PlayerMovedWorkGiversByWorkType.Values) moved?.Remove(giver.defName);
-            data.SyncVersion++;
-            InvalidateCaches();
-
-            bool schedulesChanged = TimePriorityService.CommitWorkGiverScheduleRetarget(schedulePlan);
-            if (schedulesChanged && TimePriorityService.CommitMutationBatch())
+            finally
             {
-                WorkTabApplication.PublishCompletedScheduleMutation(
-                    true,
-                    broadScope: true,
-                    dimensions: WorkTabApplicationDimensions.Schedule |
-                        WorkTabApplicationDimensions.ExecutionOrder);
+                if (scheduleBatchCommitted)
+                {
+                    TimePriorityService.CommitMutationBatch();
+                }
+                else
+                {
+                    TimePriorityService.DiscardMutationBatch();
+                }
             }
-
-            var target = targetWorkType;
-            if (target != null && (target != giver.workType || IsWorkGiverOutOfBaselinePosition(target, giver)))
-                RecordPlayerMovedWorkGiver(target, giver);
-
-            if (historyAction == 0) WorkGiverLayoutHistory.RecordForward(command);
-            else if (historyAction == 1) WorkGiverLayoutHistory.CompleteUndo(WorkGiverLayoutHistory.PeekUndo());
-            else WorkGiverLayoutHistory.CompleteRedo(WorkGiverLayoutHistory.PeekRedo());
-
-            NotifySubWorkDataChanged();
-            ExternalPriorityMirror.NotifyWorkGiverChangedForAllPawns(giver);
         }
 
         private static bool TryCreateLayoutCommand(string giverName, string targetName, int insertIndex,
@@ -249,27 +390,100 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             var affected = new HashSet<string>(StringComparer.Ordinal) { target.defName };
             if (source != null) affected.Add(source.defName);
             var before = CaptureSnapshot(giver, affected);
-            var afterOrders = before.Orders.ToDictionary(p => p.Key, p => p.Value.ToList(), StringComparer.Ordinal);
+            var afterOrders = before.Orders.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.EffectiveOrder.ToList(),
+                StringComparer.Ordinal);
             foreach (var list in afterOrders.Values) list.Remove(giver.defName);
             var targetOrder = afterOrders[target.defName];
             targetOrder.Insert(Math.Max(0, Math.Min(insertIndex, targetOrder.Count)), giver.defName);
-            var after = new WorkGiverLayoutSnapshot(target.defName, afterOrders);
-            if (before.TargetWorkTypeDefName == after.TargetWorkTypeDefName && OrdersEqual(before.Orders, after.Orders))
+            var after = new WorkGiverLayoutSnapshot(
+                target.defName,
+                afterOrders.ToDictionary(
+                    pair => pair.Key,
+                    pair => new WorkGiverLayoutOrderSnapshot(
+                        ExactGlobalStateKind.Set,
+                        pair.Value,
+                        pair.Value),
+                    StringComparer.Ordinal),
+                before.PawnOrders.Select(order =>
+                    new WorkGiverLayoutPawnOrderSnapshot(
+                        order.PawnId,
+                        order.WorkTypeDefName,
+                        order.HadOrder,
+                        order.Order.Where(name => name != giver.defName))));
+            if (SnapshotsEqual(before, after))
                 return false;
-            command = new WorkGiverLayoutCommand(WorkGiverLayoutHistory.NextId(), giver.defName, CurrentSyncVersion, before, after);
+            command = new WorkGiverLayoutCommand(WorkGiverLayoutHistory.NextId(), giver.defName, before, after);
             return true;
         }
 
-        private static WorkGiverLayoutSnapshot CaptureSnapshot(WorkGiverDef giver, IEnumerable<string> workTypes)
+        private static WorkGiverLayoutSnapshot CaptureSnapshot(
+            WorkGiverDef giver,
+            IEnumerable<string> workTypes,
+            IEnumerable<WorkGiverLayoutPawnOrderSnapshot> pawnFootprint = null)
         {
-            var orders = new Dictionary<string, IEnumerable<string>>(StringComparer.Ordinal);
+            var orders = new Dictionary<string, WorkGiverLayoutOrderSnapshot>(StringComparer.Ordinal);
             foreach (string name in workTypes.Distinct())
             {
                 var type = DefDatabase<WorkTypeDef>.GetNamedSilentFail(name);
-                orders[name] = type == null ? Enumerable.Empty<string>() :
-                    GetDisplayWorkGiversForWorkType(type).Where(w => w?.def != null).Select(w => w.def.defName).ToList();
+                GlobalWorkTypeOrderSnapshot exact = CaptureGlobalWorkTypeOrderSnapshot(name);
+                List<string> effective = type == null
+                    ? new List<string>()
+                    : GetDisplayWorkGiversForWorkType(type)
+                        .Where(worker => worker?.def != null)
+                        .Select(worker => worker.def.defName)
+                        .ToList();
+                orders[name] = new WorkGiverLayoutOrderSnapshot(
+                    exact.State,
+                    exact.OrderedWorkGiverNames,
+                    effective);
             }
-            return new WorkGiverLayoutSnapshot((GetTargetWorkType(giver) ?? giver.workType)?.defName, orders);
+            var pawnOrders = new List<WorkGiverLayoutPawnOrderSnapshot>();
+            WorkGiverReassignmentData data = ExistingData;
+            var capturedPawnOrders = new HashSet<string>(StringComparer.Ordinal);
+            if (pawnFootprint != null)
+            {
+                foreach (WorkGiverLayoutPawnOrderSnapshot key in pawnFootprint)
+                {
+                    List<string> order = null;
+                    bool hadOrder = data?.PawnWorkGiverOrdering != null &&
+                        data.PawnWorkGiverOrdering.TryGetValue(key.PawnId, out var pawn) &&
+                        pawn != null &&
+                        pawn.TryGetValue(key.WorkTypeDefName, out order);
+                    pawnOrders.Add(new WorkGiverLayoutPawnOrderSnapshot(
+                        key.PawnId,
+                        key.WorkTypeDefName,
+                        hadOrder,
+                        hadOrder ? order : null));
+                    capturedPawnOrders.Add(key.PawnId + "\u001f" + key.WorkTypeDefName);
+                }
+            }
+
+            if (data?.PawnWorkGiverOrdering != null)
+            {
+                foreach (var pawn in data.PawnWorkGiverOrdering)
+                {
+                    if (pawn.Value == null) continue;
+                    foreach (var order in pawn.Value)
+                    {
+                        string key = pawn.Key + "\u001f" + order.Key;
+                        if (order.Value?.Contains(giver.defName) == true &&
+                            capturedPawnOrders.Add(key))
+                        {
+                            pawnOrders.Add(new WorkGiverLayoutPawnOrderSnapshot(
+                                pawn.Key,
+                                order.Key,
+                                true,
+                                order.Value));
+                        }
+                    }
+                }
+            }
+            return new WorkGiverLayoutSnapshot(
+                (GetTargetWorkType(giver) ?? giver.workType)?.defName,
+                orders,
+                pawnOrders);
         }
 
         private static int CalculateOriginalBaselineTargetIndex(WorkGiverDef giver)
@@ -288,33 +502,139 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return index;
         }
 
-        private static List<string> EncodeOrders(IReadOnlyDictionary<string, IReadOnlyList<string>> orders)
+        internal static List<string> EncodeSnapshot(WorkGiverLayoutSnapshot snapshot)
         {
-            var result = new List<string>();
-            foreach (var pair in orders.OrderBy(p => p.Key, StringComparer.Ordinal))
+            var result = new List<string> { snapshot.Orders.Count.ToString() };
+            foreach (var pair in snapshot.Orders.OrderBy(p => p.Key, StringComparer.Ordinal))
             {
                 result.Add(pair.Key);
-                result.Add(pair.Value.Count.ToString());
-                result.AddRange(pair.Value);
+                result.Add(((int)pair.Value.State).ToString());
+                result.Add(pair.Value.StoredOrder.Count.ToString());
+                result.AddRange(pair.Value.StoredOrder);
+                result.Add(pair.Value.EffectiveOrder.Count.ToString());
+                result.AddRange(pair.Value.EffectiveOrder);
             }
-            return result;
-        }
-
-        private static Dictionary<string, List<string>> DecodeOrders(List<string> encoded)
-        {
-            var result = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-            for (int i = 0; encoded != null && i + 1 < encoded.Count;)
+            result.Add(snapshot.PawnOrders.Count.ToString());
+            foreach (WorkGiverLayoutPawnOrderSnapshot order in snapshot.PawnOrders)
             {
-                string key = encoded[i++];
-                if (!int.TryParse(encoded[i++], out int count) || count < 0 || i + count > encoded.Count) return new Dictionary<string, List<string>>();
-                result[key] = encoded.GetRange(i, count);
-                i += count;
+                result.Add(order.PawnId.ToString());
+                result.Add(order.WorkTypeDefName);
+                result.Add(order.HadOrder ? "1" : "0");
+                result.Add(order.Order.Count.ToString());
+                result.AddRange(order.Order);
             }
             return result;
         }
 
-        private static bool OrdersEqual(IReadOnlyDictionary<string, IReadOnlyList<string>> a,
-            IReadOnlyDictionary<string, IReadOnlyList<string>> b) =>
-            a.Count == b.Count && a.All(pair => b.TryGetValue(pair.Key, out var value) && pair.Value.SequenceEqual(value));
+        private static WorkGiverLayoutSnapshot DecodeSnapshot(string targetWorkTypeDefName, List<string> encoded)
+        {
+            var result = new Dictionary<string, WorkGiverLayoutOrderSnapshot>(StringComparer.Ordinal);
+            int i = 0;
+            if (encoded == null || encoded.Count == 0 ||
+                !int.TryParse(encoded[i++], out int globalCount) || globalCount <= 0)
+            {
+                return null;
+            }
+            for (int entry = 0; entry < globalCount; entry++)
+            {
+                if (i + 3 >= encoded.Count) return null;
+                string key = encoded[i++];
+                if (!int.TryParse(encoded[i++], out int stateValue) ||
+                    !Enum.IsDefined(typeof(ExactGlobalStateKind), stateValue) ||
+                    !int.TryParse(encoded[i++], out int storedCount) ||
+                    storedCount < 0 || i + storedCount >= encoded.Count)
+                {
+                    return null;
+                }
+                List<string> stored = encoded.GetRange(i, storedCount);
+                i += storedCount;
+                if (!int.TryParse(encoded[i++], out int effectiveCount) ||
+                    effectiveCount < 0 || i + effectiveCount > encoded.Count)
+                {
+                    return null;
+                }
+                List<string> effective = encoded.GetRange(i, effectiveCount);
+                i += effectiveCount;
+                result[key] = new WorkGiverLayoutOrderSnapshot(
+                    (ExactGlobalStateKind)stateValue,
+                    stored,
+                    effective);
+            }
+            if (i >= encoded.Count ||
+                !int.TryParse(encoded[i++], out int pawnCount) || pawnCount < 0)
+            {
+                return null;
+            }
+            var pawnOrders = new List<WorkGiverLayoutPawnOrderSnapshot>(pawnCount);
+            for (int entry = 0; entry < pawnCount; entry++)
+            {
+                if (i + 3 >= encoded.Count ||
+                    !int.TryParse(encoded[i++], out int pawnId)) return null;
+                string workType = encoded[i++];
+                string hadOrderValue = encoded[i++];
+                if ((hadOrderValue != "0" && hadOrderValue != "1") ||
+                    !int.TryParse(encoded[i++], out int count) ||
+                    count < 0 || i + count > encoded.Count)
+                {
+                    return null;
+                }
+                List<string> order = encoded.GetRange(i, count);
+                i += count;
+                pawnOrders.Add(new WorkGiverLayoutPawnOrderSnapshot(
+                    pawnId,
+                    workType,
+                    hadOrderValue == "1",
+                    order));
+            }
+            return i == encoded.Count
+                ? new WorkGiverLayoutSnapshot(targetWorkTypeDefName, result, pawnOrders)
+                : null;
+        }
+
+        private static bool MatchesLayoutSnapshot(
+            WorkGiverDef giver,
+            WorkGiverLayoutSnapshot expected) =>
+            SnapshotsEqual(
+                CaptureSnapshot(giver, expected.Orders.Keys, expected.PawnOrders),
+                expected);
+
+        private static void ApplyPawnOrderStates(
+            WorkGiverReassignmentData data,
+            IReadOnlyList<WorkGiverLayoutPawnOrderSnapshot> states)
+        {
+            for (int i = 0; i < states.Count; i++)
+            {
+                WorkGiverLayoutPawnOrderSnapshot state = states[i];
+                data.PawnWorkGiverOrdering.TryGetValue(state.PawnId, out var pawn);
+                if (!state.HadOrder)
+                {
+                    pawn?.Remove(state.WorkTypeDefName);
+                    if (pawn?.Count == 0) data.PawnWorkGiverOrdering.Remove(state.PawnId);
+                    continue;
+                }
+
+                if (pawn == null)
+                {
+                    pawn = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+                    data.PawnWorkGiverOrdering[state.PawnId] = pawn;
+                }
+                pawn[state.WorkTypeDefName] = state.Order.ToList();
+            }
+        }
+
+        private static bool SnapshotsEqual(WorkGiverLayoutSnapshot a, WorkGiverLayoutSnapshot b) =>
+            string.Equals(a?.TargetWorkTypeDefName, b?.TargetWorkTypeDefName, StringComparison.Ordinal) &&
+            a.Orders.Count == b.Orders.Count &&
+            a.Orders.All(pair =>
+                b.Orders.TryGetValue(pair.Key, out WorkGiverLayoutOrderSnapshot value) &&
+                pair.Value.State == value.State &&
+                pair.Value.StoredOrder.SequenceEqual(value.StoredOrder) &&
+                pair.Value.EffectiveOrder.SequenceEqual(value.EffectiveOrder)) &&
+            a.PawnOrders.Count == b.PawnOrders.Count &&
+            a.PawnOrders.All(order => b.PawnOrders.Any(value =>
+                order.PawnId == value.PawnId &&
+                string.Equals(order.WorkTypeDefName, value.WorkTypeDefName, StringComparison.Ordinal) &&
+                order.HadOrder == value.HadOrder &&
+                order.Order.SequenceEqual(value.Order)));
     }
 }

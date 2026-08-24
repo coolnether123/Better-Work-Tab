@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Better_Work_Tab.Features.Tutorial;
-using Better_Work_Tab.Features.Workloads;
-using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.PawnOrganizer;
@@ -10,8 +8,7 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
-using Better_Work_Tab.UI.Workloads;
-using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
 using RimWorld;
 using Spine.UI.ColourPicker;
@@ -29,19 +26,22 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
         private readonly WorkTabBodyRenderer _bodyRenderer;
         private readonly Action _markWindowDirty;
         private readonly Action _resizeWindowIfRequestedSizeChanged;
+        private readonly Func<bool> _canEditDividers;
 
         internal WorkGridContextActionController(
             WorkTabBodyRenderer bodyRenderer,
             Action markWindowDirty,
-            Action resizeWindowIfRequestedSizeChanged)
+            Action resizeWindowIfRequestedSizeChanged,
+            Func<bool> canEditDividers)
         {
             _bodyRenderer = bodyRenderer ?? throw new ArgumentNullException(nameof(bodyRenderer));
             _markWindowDirty = markWindowDirty ?? throw new ArgumentNullException(nameof(markWindowDirty));
             _resizeWindowIfRequestedSizeChanged = resizeWindowIfRequestedSizeChanged ??
                 throw new ArgumentNullException(nameof(resizeWindowIfRequestedSizeChanged));
+            _canEditDividers = canEditDividers ?? throw new ArgumentNullException(nameof(canEditDividers));
         }
 
-        internal void ProcessRightClicks(IWorkTabLayoutController layout)
+        internal void ProcessRightClicks(in WorkTabView view)
         {
             var settings = BetterWorkTabMod.Settings;
             if (!(settings?.enableContextMenuOnRightClick ?? true))
@@ -49,7 +49,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return;
             }
 
-            if (layout == null)
+            if (!view.HasMatchingLayoutRevision)
             {
                 return;
             }
@@ -67,7 +67,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 PawnOrganizerSystem.Instance?.CancelActiveDrag();
             }
 
-            if (!_bodyRenderer.TryGetRowAt(layout, evt.mousePosition, out var row))
+            if (!_bodyRenderer.TryGetRowAt(in view, evt.mousePosition, out var row))
             {
                 return;
             }
@@ -88,20 +88,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return;
             }
 
-            bool overWorkPriorityColumn = _bodyRenderer.TryGetBodyColumnAt(layout, evt.mousePosition, out var column) &&
+            bool overWorkPriorityColumn = _bodyRenderer.TryGetBodyColumnAt(in view, evt.mousePosition, out var column) &&
                 column.Column?.Worker is PawnColumnWorker_WorkPriority;
             if (!overWorkPriorityColumn)
             {
                 if (rightMouseDown)
                 {
-                    ShowPawnContextMenu(row.Pawn);
+                    ShowPawnContextMenu(row.Pawn, view.Preview);
                 }
 
                 evt.Use();
             }
         }
 
-        private void ShowPawnContextMenu(Pawn pawn)
+        private void ShowPawnContextMenu(Pawn pawn, IWorkGridPreviewPort preview)
         {
             var options = new List<FloatMenuOption>
             {
@@ -149,7 +149,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 }));
             }
 
-            AddWorkloadPreviewMembershipOption(options, pawn);
+            AddWorkloadPreviewMembershipOption(options, pawn, preview);
 
             // Multiplayer follow mode: Copy this pawn row
             if (LayoutSharingManager.IsFollowing)
@@ -164,73 +164,54 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
         private void AddWorkloadPreviewMembershipOption(
             List<FloatMenuOption> options,
-            Pawn pawn)
+            Pawn pawn,
+            IWorkGridPreviewPort preview)
         {
-            WorkloadPreviewController preview = WorkloadPreviewController.Current;
             if (preview?.IsActive != true)
             {
                 return;
             }
 
-            PawnKey pawnKey = WorkTabEffectiveStateIds.ForPawn(pawn);
-            WorkloadMembershipRecord record = pawnKey.IsValid
-                ? preview.GetMembershipSnapshot().Find(pawnKey)
-                : null;
-            WorkloadScope scope = preview.Session?.SourceTemplate?.Definition?.Scope ??
-                                  WorkloadScope.Empty;
-
-            if (pawnKey.IsValid && scope.IsExplicitlyExcluded(pawnKey))
+            switch (preview.GetMembershipAction(pawn))
             {
-                options.Add(new FloatMenuOption(
-                    "BWT_Context_MembershipExcluded".Translate(),
-                    null));
-                return;
+                case WorkGridPreviewMembershipAction.ExplicitlyExcluded:
+                    options.Add(new FloatMenuOption(
+                        "BWT_Context_MembershipExcluded".Translate(),
+                        null));
+                    return;
+                case WorkGridPreviewMembershipAction.PawnUnavailable:
+                    options.Add(new FloatMenuOption(
+                        "BWT_Context_MembershipPawnUnavailable".Translate(),
+                        null));
+                    return;
+                case WorkGridPreviewMembershipAction.Include:
+                    options.Add(new FloatMenuOption(
+                        "BWT_Context_IncludeInApplication".Translate(),
+                        () => TogglePreviewMembership(preview, pawn)));
+                    return;
+                case WorkGridPreviewMembershipAction.Exclude:
+                    options.Add(new FloatMenuOption(
+                        "BWT_Context_ExcludeFromApplication".Translate(),
+                        () => TogglePreviewMembership(preview, pawn)));
+                    return;
+                case WorkGridPreviewMembershipAction.OutsideScope:
+                    options.Add(new FloatMenuOption(
+                        "BWT_Context_MembershipOutsideScope".Translate(),
+                        null));
+                    return;
+                case WorkGridPreviewMembershipAction.Unavailable:
+                    options.Add(new FloatMenuOption(
+                        "BWT_Context_MembershipUnavailable".Translate(),
+                        null));
+                    return;
             }
-
-            if (!pawnKey.IsValid || record == null || !record.IsAvailable)
-            {
-                options.Add(new FloatMenuOption(
-                    "BWT_Context_MembershipPawnUnavailable".Translate(),
-                    null));
-                return;
-            }
-
-            if (preview.Session.ProjectedState.IsExcluded(pawnKey) ||
-                record.Classification == WorkloadMembershipClassification.UnrepresentedNew)
-            {
-                options.Add(new FloatMenuOption(
-                    "BWT_Context_IncludeInApplication".Translate(),
-                    () => TogglePreviewMembership(preview, pawnKey)));
-                return;
-            }
-
-            if (record.Classification == WorkloadMembershipClassification.Included &&
-                record.IsRepresented)
-            {
-                options.Add(new FloatMenuOption(
-                    "BWT_Context_ExcludeFromApplication".Translate(),
-                    () => TogglePreviewMembership(preview, pawnKey)));
-                return;
-            }
-
-            if (record.Classification == WorkloadMembershipClassification.UnchangedOutsideScope)
-            {
-                options.Add(new FloatMenuOption(
-                    "BWT_Context_MembershipOutsideScope".Translate(),
-                    null));
-                return;
-            }
-
-            options.Add(new FloatMenuOption(
-                "BWT_Context_MembershipUnavailable".Translate(),
-                null));
         }
 
         private void TogglePreviewMembership(
-            WorkloadPreviewController preview,
-            PawnKey pawnKey)
+            IWorkGridPreviewPort preview,
+            Pawn pawn)
         {
-            if (preview.ToggleMembership(pawnKey))
+            if (preview.ToggleMembership(pawn))
             {
                 SoundDefOf.Tick_Low.PlayOneShotOnCamera();
                 _markWindowDirty();
@@ -278,9 +259,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
         private void InsertDividerAbove(Pawn pawn)
         {
-            var worklist = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist;
             var layout = PawnOrganizerSystem.Instance?.Layout;
-            if (layout == null || pawn == null || worklist == null)
+            if (layout == null || pawn == null || !_canEditDividers())
             {
                 return;
             }
@@ -298,9 +278,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
         private void InsertDividerBelow(Pawn pawn)
         {
-            var worklist = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist;
             var layout = PawnOrganizerSystem.Instance?.Layout;
-            if (layout == null || pawn == null || worklist == null)
+            if (layout == null || pawn == null || !_canEditDividers())
             {
                 return;
             }

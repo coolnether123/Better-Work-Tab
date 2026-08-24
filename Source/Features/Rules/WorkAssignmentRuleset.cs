@@ -4,6 +4,7 @@ using System.Reflection;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.UI.WorkGrid.Projection;
@@ -117,19 +118,6 @@ namespace Better_Work_Tab.Features
             EnsurePriorityOrder();
         }
 
-        public static bool SetAllToZero()
-        {
-            if (!CanApplyLiveRuleset(out string rejectionReason))
-            {
-                RejectLiveRulesetApplication(rejectionReason);
-                return false;
-            }
-
-            return new WorkAssignmentRuleset("Reset", new List<WorkAssignmentRule> {
-                        new WorkAssignmentRule(new WorkAssignmentParameters("Reset", 0, allowOverwritingHigherPriority: true))
-                    }).ApplyAutoAssignments();
-        }
-
         /// <summary>
         /// Applies all configured auto-assignment rules to the free colonists on the current map.
         /// </summary>
@@ -144,103 +132,111 @@ namespace Better_Work_Tab.Features
             var map = Find.CurrentMap;
             if (map == null) return false;
 
-            if (!WorkPrioritySystem.SetManualPriorities(true))
-            {
-                RejectLiveRulesetApplication(LiveRulesetManualPriorityBlockedReason);
-                return false;
-            }
-
             var pawns = map.mapPawns.FreeColonists.ToList();
-            if (pawns.Count == 0) return true;
-
             var allWorkTypes = CachedWorkTypes;
+            WorkTabAtomicMutationPlan mutation = WorkTabAtomicMutationPlan.Capture(pawns, allWorkTypes);
+            mutation.RequiresManualPriorities = true;
 
-
-            foreach (var rule in GetRulesInPriorityOrder())
+            using (new RuleApplicationPlanningScope(mutation))
             {
-                foreach (var worktype in allWorkTypes)
+                if (ResetBeforeApplying)
                 {
+                    foreach (Pawn pawn in pawns)
+                    {
+                        foreach (WorkTypeDef workType in allWorkTypes)
+                        {
+                            mutation.SetPriority(pawn, workType, WorkPrioritySystem.DisabledPriority);
+                        }
+                    }
+                }
 
-                    if (rule.Parameters.Worktype != null)
+                foreach (var rule in GetRulesInPriorityOrder())
+                {
+                    foreach (var worktype in allWorkTypes)
                     {
 
-                        //if there's a rule that applies to only one worktype, skip all others.
-                        if (rule.Parameters.Worktype != worktype)
-                            continue;
-                    }
-                    if (rule.Parameters.IgnoreIfWorktypeNonexistent)
-                    {
-                        //if there's a rule that applies to only one ignorable worktype, skip all others.
-                        if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.Worktype?.defName ?? rule.Parameters.WorktypeString)))
-                            continue;
-                    }
-                    List<Pawn> pawnsForThisWorktype = new List<Pawn>();
+                        if (rule.Parameters.Worktype != null)
+                        {
+
+                            //if there's a rule that applies to only one worktype, skip all others.
+                            if (rule.Parameters.Worktype != worktype)
+                                continue;
+                        }
+                        if (rule.Parameters.IgnoreIfWorktypeNonexistent)
+                        {
+                            //if there's a rule that applies to only one ignorable worktype, skip all others.
+                            if (!DefDatabase<WorkTypeDef>.AllDefs.Contains(DefDatabase<WorkTypeDef>.GetNamedSilentFail(rule.Parameters.Worktype?.defName ?? rule.Parameters.WorktypeString)))
+                                continue;
+                        }
+                        List<Pawn> pawnsForThisWorktype = new List<Pawn>();
 
                     //Log.Message($"Auto-assigning work type: {worktype.defName}");
-                    foreach (var pawn in pawns)
-                    {
-                        if (pawn.workSettings == null) continue;
-                        int originalPriority = pawn.workSettings.GetPriority(worktype);
-                        bool pawnAlreadyAssigned = originalPriority > 0;
+                        foreach (var pawn in pawns)
+                        {
+                            if (pawn.workSettings == null) continue;
+                            int originalPriority = RuleApplicationPlanningScope.GetPriority(pawn, worktype);
+                            bool pawnAlreadyAssigned = originalPriority > 0;
                         //// Apply all rules
-                        bool shouldSkipRemainingPawns = rule.Apply(
-                            pawn,
-                            pawns,
-                            worktype,
-                            out bool mutationFailed);
-                        if (mutationFailed)
-                        {
-                            RejectLiveRulesetWriteFailure();
-                            return false;
-                        }
-
-                        if (shouldSkipRemainingPawns)
-                        {
-                            //Log.Message("assigned " + worktype.defName +" to " + pawn.NameShortColored +". Skipping remaining pawns.");
-                            //Apply returns true if the rest of the pawns should be skipped for this worktype
-                            break;
-                        }
-                        if (rule.Parameters.RandomIfMultiple)
-                        {
-                            int updatedPriority = pawn.workSettings.GetPriority(worktype);
-                            if (updatedPriority > 0 && !pawnAlreadyAssigned)
-                            {
-                                //this was assigned. add to list for potential randomization later.
-                                pawnsForThisWorktype.Add(pawn);
-                            }
-                        }
-                    }
-
-                    if (rule.Parameters.RandomIfMultiple && pawnsForThisWorktype.Count > 0)
-                    {
-                        //copy the list so we can sort it
-                        //filter to only those with a priority that has been set
-
-                        //reset before reassigning for randomization
-                        foreach (var p in pawnsForThisWorktype)
-                        {
-                            BetterWorkTabMod.DebugLog($"Resetting {worktype.defName} for {p.NameShortColored} before random assignment.", DebugFeature.Rules);
-                            //if (p.workSettings.GetPriority(worktype) == rule.Parameters.Priority)
-                            if (!WorkPrioritySystem.SetPriority(p.workSettings, worktype, 0))
+                            bool shouldSkipRemainingPawns = rule.Apply(
+                                pawn,
+                                pawns,
+                                worktype,
+                                out bool mutationFailed);
+                            if (mutationFailed)
                             {
                                 RejectLiveRulesetWriteFailure();
                                 return false;
                             }
-                        }
-                        // Mirrors vanilla RimWorld's selection logic for picking one pawn among eligible candidates.
-                        List<Pawn> eligiblePawns = new List<Pawn>();
-                        foreach (var pawn in pawnsForThisWorktype)
-                        {
-                            if (!pawn.WorkTypeIsDisabled(worktype))
+
+                            if (shouldSkipRemainingPawns)
                             {
-                                eligiblePawns.Add(pawn);
+                            //Log.Message("assigned " + worktype.defName +" to " + pawn.NameShortColored +". Skipping remaining pawns.");
+                            //Apply returns true if the rest of the pawns should be skipped for this worktype
+                                break;
+                            }
+                            if (rule.Parameters.RandomIfMultiple)
+                            {
+                                int updatedPriority = RuleApplicationPlanningScope.GetPriority(pawn, worktype);
+                                if (updatedPriority > 0 && !pawnAlreadyAssigned)
+                                {
+                                    //this was assigned. add to list for potential randomization later.
+                                    pawnsForThisWorktype.Add(pawn);
+                                }
                             }
                         }
 
-                        if (eligiblePawns.Count > 0)
+                        if (rule.Parameters.RandomIfMultiple && pawnsForThisWorktype.Count > 0)
                         {
-                            if (!WorkPrioritySystem.SetPriority(
-                                    eligiblePawns.RandomElement().workSettings,
+                        //copy the list so we can sort it
+                        //filter to only those with a priority that has been set
+
+                        //reset before reassigning for randomization
+                            foreach (var p in pawnsForThisWorktype)
+                            {
+                            BetterWorkTabMod.DebugLog($"Resetting {worktype.defName} for {p.NameShortColored} before random assignment.", DebugFeature.Rules);
+                            //if (p.workSettings.GetPriority(worktype) == rule.Parameters.Priority)
+                                if (!RuleApplicationPlanningScope.SetPriority(
+                                        p,
+                                        worktype,
+                                        WorkPrioritySystem.DisabledPriority))
+                                {
+                                    RejectLiveRulesetWriteFailure();
+                                    return false;
+                                }
+                            }
+                            // Mirrors vanilla RimWorld's selection logic for picking one pawn among eligible candidates.
+                            List<Pawn> eligiblePawns = new List<Pawn>();
+                            foreach (var pawn in pawnsForThisWorktype)
+                            {
+                                if (!pawn.WorkTypeIsDisabled(worktype))
+                                {
+                                    eligiblePawns.Add(pawn);
+                                }
+                            }
+
+                            if (eligiblePawns.Count > 0 &&
+                                !RuleApplicationPlanningScope.SetPriority(
+                                    eligiblePawns.RandomElement(),
                                     worktype,
                                     rule.Parameters.Priority))
                             {
@@ -248,7 +244,6 @@ namespace Better_Work_Tab.Features
                                 return false;
                             }
                         }
-                    }
 
                     //if (rule.Parameters.FailedToApplyFallback != null && !pawns.Where(p => { return p.workSettings.GetPriority(worktype) > 0; }).Any())
                     //{
@@ -257,10 +252,17 @@ namespace Better_Work_Tab.Features
                     //        new WorkAssignmentRule(rule.Parameters.FailedToApplyFallback).Apply(pawn, pawns, worktype);
                     //}
 
+                    }
                 }
             }
 
-            return true;
+            WorkTabApplicationResult result = WorkTabApplication.Current?.ApplyAtomicMutationPlan(mutation) ??
+                WorkTabApplicationResult.Rejected(LiveRulesetPriorityWriteFailedReason, default);
+            if (!result.Accepted)
+            {
+                RejectLiveRulesetApplication(result.Reason ?? LiveRulesetPriorityWriteFailedReason);
+            }
+            return result.Accepted;
         }
 
         public void ExposeData()

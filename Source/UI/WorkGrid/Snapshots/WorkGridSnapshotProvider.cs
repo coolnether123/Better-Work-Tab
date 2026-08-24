@@ -727,10 +727,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             bool ageDisabled = pawn.IsWorkTypeDisabledByAge(workType, out _);
             bool disabled = pawn.WorkTypeIsDisabled(workType);
             bool overrideRing;
+            WorkGiverCellPresentationCache.CellPresentation subWorkPresentation = null;
             if (workGiver != null)
             {
                 WorkGiverCellPresentationCache.CellPresentation presentation =
                     WorkGiverCellPresentationCache.Resolve(workGiver.Worker, workType, pawn);
+                subWorkPresentation = presentation;
                 priority = presentation.EffectivePriority;
                 incapable = presentation.Incapable;
                 ageDisabled = presentation.DisabledByAge;
@@ -794,7 +796,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 (byte)Mathf.Clamp(passion, 0, byte.MaxValue),
                 PackColor(WorkPrioritySystem.GetPriorityColor(priority)),
                 flags,
-                revision);
+                revision,
+                subWorkPresentation);
         }
 
         private static int FindBestPawnId(

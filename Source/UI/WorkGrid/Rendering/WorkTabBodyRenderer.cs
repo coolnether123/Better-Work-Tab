@@ -7,7 +7,6 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -20,10 +19,10 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
-using Better_Work_Tab.UI.Workloads;
 using RimWorld;
 using Spine.Profiling;
 using UnityEngine;
@@ -46,17 +45,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private readonly List<WorkTabLayoutColumn> _visibleRenderColumns = new List<WorkTabLayoutColumn>(64);
         private readonly List<InspectionColumnBinding> _inspectionColumnBindings =
             new List<InspectionColumnBinding>(64);
-        private readonly WorkloadInspectionColumnIndex _inspectionColumnIndex =
-            new WorkloadInspectionColumnIndex();
+        private readonly WorkGridInspectionColumnIndex _inspectionColumnIndex =
+            new WorkGridInspectionColumnIndex();
         private readonly Dictionary<int, int> _inspectionVisibleRows =
             new Dictionary<int, int>();
         private readonly List<int> _inspectionVisiblePawnRows = new List<int>(32);
         private readonly Dictionary<int, float> _inspectionVisibleRowOffsets =
             new Dictionary<int, float>();
-        private readonly Dictionary<int, WorkloadInspectionCellKind> _inspectionGlobalColumns =
-            new Dictionary<int, WorkloadInspectionCellKind>();
-        private readonly WorkloadInspectionCellMasks _inspectionCellMasks =
-            new WorkloadInspectionCellMasks();
+        private readonly Dictionary<int, WorkGridInspectionCellKind> _inspectionGlobalColumns =
+            new Dictionary<int, WorkGridInspectionCellKind>();
+        private readonly WorkGridInspectionCellMasks _inspectionCellMasks =
+            new WorkGridInspectionCellMasks();
         private IReadOnlyList<WorkTabLayoutColumn> _inspectionBindingColumns;
         private int _inspectionBindingLayoutRevision = int.MinValue;
         private int _inspectionBindingSubWorkRevision = int.MinValue;
@@ -89,11 +88,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         }
 
         internal void DrawRows(
-            PawnTable table,
-            IWorkTabLayoutController layout,
+            in WorkTabView view,
             WorkTabViewport viewport,
             IWorkGridSnapshotLayer snapshotLayer)
         {
+            PawnTable table = view.Table;
+            IWorkTabLayoutController layout = view.Layout;
+            IWorkGridPreviewPort preview = view.Preview;
             if (layout == null)
             {
                 return;
@@ -185,6 +186,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     visibleStart,
                     visibleEnd - visibleStart);
 
+                WorkGridIndexRange visibleColumns =
+                    new WorkGridIndexRange(0, renderColumns.Count);
+                if (snapshotLayer is IWorkGridVisibleColumnRangeProvider rangeProvider)
+                {
+                    visibleColumns = ClampRange(
+                        rangeProvider.VisibleColumnRange,
+                        columns.Count);
+                }
+
                 // Calculate dimensions once for all highlight operations.
                 float totalWidth = CalculateTotalColumnWidth(columns);
                 float totalHeight = layout.ContentHeight;
@@ -205,7 +215,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         nameColumn,
                         snapshotLayer,
                         rowGeometry,
-                        visibleRows));
+                        visibleRows,
+                        visibleColumns));
                     SpineTiming.Time("WorkTab.Rows.DrawRowSeparators", () => DrawRowSeparators(
                         rowDescriptors,
                         viewport.ViewRect.width,
@@ -215,7 +226,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         rowDescriptors,
                         totalWidth,
                         rowGeometry,
-                        visibleRows));
+                        visibleRows,
+                        preview));
                     SpineTiming.Time("WorkTab.Rows.DrawWorkloadInspection", () => DrawWorkloadInspectionHighlights(
                         rowDescriptors,
                         columns,
@@ -224,7 +236,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         visibleRows,
                         layout.LayoutRevision,
                         table.scrollPosition.x,
-                        viewport.OutRect.width));
+                        viewport.OutRect.width,
+                        preview));
                 }
                 else
                 {
@@ -245,7 +258,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         nameColumn,
                         snapshotLayer,
                         rowGeometry,
-                        visibleRows);
+                        visibleRows,
+                        visibleColumns);
 
                     // Phase 3: Draw separator lines between rows.
                     DrawRowSeparators(
@@ -258,7 +272,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         rowDescriptors,
                         totalWidth,
                         rowGeometry,
-                        visibleRows);
+                        visibleRows,
+                        preview);
 
                     // Inspection is a contextual overlay, not one of the
                     // optional normal highlight features. Paint it after row
@@ -273,7 +288,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         visibleRows,
                         layout.LayoutRevision,
                         table.scrollPosition.x,
-                        viewport.OutRect.width);
+                        viewport.OutRect.width,
+                        preview);
                 }
             }
             finally
@@ -286,32 +302,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             List<RowDescriptor> rowDescriptors,
             float totalWidth,
             WorkGridGeometrySnapshot rowGeometry,
-            WorkGridIndexRange visibleRows)
+            WorkGridIndexRange visibleRows,
+            IWorkGridPreviewPort preview)
         {
-            WorkloadPreviewController preview = WorkloadPreviewController.Current;
             if (preview == null || !preview.IsActive)
             {
-                return;
-            }
-
-            WorkloadMembershipSnapshot snapshot;
-            try
-            {
-                snapshot = preview.GetMembershipSnapshot();
-                if (snapshot == null)
-                {
-                    return;
-                }
-            }
-            catch (Exception exception)
-            {
-                // Membership presentation is an optional preview affordance.
-                // It must not quarantine the optimized renderer if a transient
-                // pawn-scope lookup fails during a frame.
-                Log.ErrorOnce(
-                    "[BWT] Workload membership row presentation failed; continuing without scope accents.\n" +
-                    exception,
-                    0x4257544D);
                 return;
             }
 
@@ -324,17 +319,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
 
                 RowDescriptor descriptor = rowDescriptors[rowIndex];
-                if (descriptor?.Pawn != null)
+                if (descriptor?.Pawn != null &&
+                    preview.TryGetMembershipPresentation(
+                        descriptor.Pawn,
+                        out WorkGridPreviewMembershipState state))
                 {
-                    PawnKey pawnKey = WorkTabEffectiveStateIds.ForPawn(descriptor.Pawn);
-                    if (pawnKey.IsValid && snapshot.TryGetClassification(
-                            pawnKey,
-                            out WorkloadMembershipClassification classification))
-                    {
-                        DrawWorkloadMembershipIndicator(
-                            new Rect(0f, currentY, totalWidth, descriptor.Height),
-                            classification);
-                    }
+                    DrawWorkloadMembershipIndicator(
+                        new Rect(0f, currentY, totalWidth, descriptor.Height),
+                        state);
                 }
 
                 if (rowGeometry == null)
@@ -346,33 +338,33 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         private static void DrawWorkloadMembershipIndicator(
             Rect rowRect,
-            WorkloadMembershipClassification classification)
+            WorkGridPreviewMembershipState state)
         {
             Color accent;
             Color fill = Color.clear;
             string tooltip;
-            switch (classification)
+            switch (state)
             {
-                case WorkloadMembershipClassification.Included:
+                case WorkGridPreviewMembershipState.Included:
                     accent = new Color(0.30f, 0.74f, 0.66f, 0.88f);
                     tooltip = "BWT_Workload_PawnIncludedTooltip".Translate();
                     break;
-                case WorkloadMembershipClassification.UnrepresentedNew:
+                case WorkGridPreviewMembershipState.New:
                     accent = new Color(0.95f, 0.72f, 0.28f, 0.92f);
                     fill = new Color(0.95f, 0.72f, 0.28f, 0.055f);
                     tooltip = "BWT_Workload_PawnNewTooltip".Translate();
                     break;
-                case WorkloadMembershipClassification.UnchangedOutsideScope:
+                case WorkGridPreviewMembershipState.OutsideScope:
                     accent = new Color(0.55f, 0.58f, 0.60f, 0.78f);
                     fill = new Color(0f, 0f, 0f, 0.09f);
                     tooltip = "BWT_Workload_PawnOutsideTooltip".Translate();
                     break;
-                case WorkloadMembershipClassification.ExplicitlyExcluded:
+                case WorkGridPreviewMembershipState.ExplicitlyExcluded:
                     accent = new Color(0.82f, 0.36f, 0.36f, 0.92f);
                     fill = new Color(0.70f, 0.16f, 0.16f, 0.07f);
                     tooltip = "BWT_Workload_PawnExcludedTooltip".Translate();
                     break;
-                case WorkloadMembershipClassification.StaleMissing:
+                case WorkGridPreviewMembershipState.Missing:
                     accent = new Color(0.68f, 0.38f, 0.38f, 0.82f);
                     fill = new Color(0f, 0f, 0f, 0.08f);
                     tooltip = "BWT_Workload_PawnMissingTooltip".Translate();
@@ -399,39 +391,49 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         }
 
         internal bool TryGetRowAt(
-            IWorkTabLayoutController layout,
+            in WorkTabView view,
             Vector2 mousePosition,
             out WorkTabLayoutRow row)
         {
             row = default;
-            return layout?.GeometrySnapshot != null && layout.TryGetRowAt(mousePosition, out row);
+            IWorkTabLayoutController layout = view.Layout;
+            return view.HasMatchingLayoutRevision &&
+                   layout != null &&
+                   layout.TryGetRowAt(mousePosition, out row);
         }
 
         internal bool TryGetBodyColumnAt(
-            IWorkTabLayoutController layout,
+            in WorkTabView view,
             Vector2 mousePosition,
             out WorkTabLayoutColumn column)
         {
             column = default;
-            return layout?.GeometrySnapshot != null && layout.TryGetBodyColumnAt(mousePosition, out column);
+            IWorkTabLayoutController layout = view.Layout;
+            return view.HasMatchingLayoutRevision &&
+                   layout != null &&
+                   layout.TryGetBodyColumnAt(mousePosition, out column);
         }
 
         internal bool TryGetPriorityBoxHit(
-            IWorkTabLayoutController layout,
+            in WorkTabView view,
             WorkTabLayoutRow row,
             WorkTabLayoutColumn column,
             Vector2 mousePosition,
             out Rect priorityBoxRect)
         {
             priorityBoxRect = default;
-            if (layout == null ||
+            if (!view.HasMatchingLayoutRevision ||
                 row.Pawn == null ||
+                row.VisualIndex < 0 ||
+                row.VisualIndex >= view.Geometry.Rows.Count ||
                 !(column.Column?.Worker is PawnColumnWorker_WorkPriority))
             {
                 return false;
             }
 
-            Rect rowRect = layout.GetScreenRect(row);
+            Rect rowRect = view.Geometry.GetRowScreenRect(
+                row.VisualIndex,
+                view.Table.scrollPosition);
             Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(column, rowRect);
             priorityBoxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
             return priorityBoxRect.Contains(mousePosition);
@@ -644,17 +646,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridIndexRange visibleRows,
             int layoutRevision,
             float horizontalScrollX,
-            float horizontalViewportWidth)
+            float horizontalViewportWidth,
+            IWorkGridPreviewPort preview)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.WorkloadsInspectionHighlights) ||
-                !WorkloadPreviewController.IsInspectionActiveForCurrentTab)
-            {
-                return;
-            }
-
-            WorkloadPreviewController preview = WorkloadPreviewController.Current;
-            if (preview == null)
+                preview?.IsInspectionActive != true)
             {
                 return;
             }
@@ -686,7 +683,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
-            IReadOnlyList<WorkloadInspectionTarget> targets = preview.InspectionTargets;
+            IReadOnlyList<WorkGridInspectionTarget> targets = preview.InspectionTargets;
             if (targets == null || targets.Count == 0)
             {
                 return;
@@ -722,15 +719,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             for (int targetIndex = 0; targetIndex < targets.Count; targetIndex++)
             {
-                WorkloadInspectionTarget target = targets[targetIndex];
+                WorkGridInspectionTarget target = targets[targetIndex];
                 IReadOnlyList<int> matchingColumns = GetInspectionColumns(target);
-                WorkloadInspectionCellKind kind = GetInspectionCellKind(target.Kind);
-                if (matchingColumns.Count == 0 || kind == WorkloadInspectionCellKind.None)
+                WorkGridInspectionCellKind kind = GetInspectionCellKind(target.Kind);
+                if (matchingColumns.Count == 0 || kind == WorkGridInspectionCellKind.None)
                 {
                     continue;
                 }
 
-                if (target.Scope == WorkloadTargetScope.GlobalShared)
+                if (target.IsGlobal)
                 {
                     for (int columnIndex = 0; columnIndex < matchingColumns.Count; columnIndex++)
                     {
@@ -744,7 +741,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                             continue;
                         }
 
-                        WorkloadInspectionCellKind existing;
+                        WorkGridInspectionCellKind existing;
                         _inspectionGlobalColumns.TryGetValue(index, out existing);
                         _inspectionGlobalColumns[index] = existing | kind;
                     }
@@ -761,7 +758,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
             }
 
-            foreach (KeyValuePair<int, WorkloadInspectionCellKind> globalColumn in _inspectionGlobalColumns)
+            foreach (KeyValuePair<int, WorkGridInspectionCellKind> globalColumn in _inspectionGlobalColumns)
             {
                 for (int rowIndex = 0; rowIndex < _inspectionVisiblePawnRows.Count; rowIndex++)
                 {
@@ -772,7 +769,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
             }
 
-            foreach (KeyValuePair<WorkloadInspectionCellKey, WorkloadInspectionCellKind> cell in
+            foreach (KeyValuePair<WorkGridInspectionCellKey, WorkGridInspectionCellKind> cell in
                      _inspectionCellMasks.Entries)
             {
                 int rowIndex = cell.Key.RowIndex;
@@ -805,7 +802,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private void AddInspectionColumnsForRow(
             int rowIndex,
             IReadOnlyList<int> matchingColumns,
-            WorkloadInspectionCellKind kind,
+            WorkGridInspectionCellKind kind,
             IReadOnlyList<WorkTabLayoutColumn> columns,
             float horizontalScrollX,
             float horizontalViewportWidth)
@@ -825,7 +822,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private void AddInspectionCell(
             int rowIndex,
             int columnIndex,
-            WorkloadInspectionCellKind kind,
+            WorkGridInspectionCellKind kind,
             IReadOnlyList<WorkTabLayoutColumn> columns,
             float horizontalScrollX,
             float horizontalViewportWidth)
@@ -843,42 +840,42 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             _inspectionCellMasks.Add(rowIndex, columnIndex, kind);
         }
 
-        private IReadOnlyList<int> GetInspectionColumns(WorkloadInspectionTarget target)
+        private IReadOnlyList<int> GetInspectionColumns(WorkGridInspectionTarget target)
         {
             switch (target.Kind)
             {
-                case WorkloadInspectionTargetKind.ParentPriority:
+                case WorkGridInspectionTargetKind.ParentPriority:
                     return _inspectionColumnIndex.GetParentColumns(target.WorkType);
-                case WorkloadInspectionTargetKind.SpecificPriority:
+                case WorkGridInspectionTargetKind.SpecificPriority:
                     return _inspectionColumnIndex.GetSpecificColumns(target.WorkType, target.WorkGiver);
-                case WorkloadInspectionTargetKind.Schedule:
-                    if (target.ScheduleKind == (int)WorkloadScheduleTargetKind.ParentWorkType)
+                case WorkGridInspectionTargetKind.Schedule:
+                    if (!target.IsSpecificSchedule)
                     {
                         return _inspectionColumnIndex.GetParentColumns(target.WorkType);
                     }
                     return _inspectionColumnIndex.GetSpecificColumns(target.WorkType, target.WorkGiver);
-                case WorkloadInspectionTargetKind.Ordering:
+                case WorkGridInspectionTargetKind.Ordering:
                     return _inspectionColumnIndex.GetOrderingColumns(target.WorkType);
                 default:
                     return new int[0];
             }
         }
 
-        private static WorkloadInspectionCellKind GetInspectionCellKind(
-            WorkloadInspectionTargetKind kind)
+        private static WorkGridInspectionCellKind GetInspectionCellKind(
+            WorkGridInspectionTargetKind kind)
         {
             switch (kind)
             {
-                case WorkloadInspectionTargetKind.ParentPriority:
-                    return WorkloadInspectionCellKind.ParentPriority;
-                case WorkloadInspectionTargetKind.SpecificPriority:
-                    return WorkloadInspectionCellKind.SpecificPriority;
-                case WorkloadInspectionTargetKind.Schedule:
-                    return WorkloadInspectionCellKind.Schedule;
-                case WorkloadInspectionTargetKind.Ordering:
-                    return WorkloadInspectionCellKind.Ordering;
+                case WorkGridInspectionTargetKind.ParentPriority:
+                    return WorkGridInspectionCellKind.ParentPriority;
+                case WorkGridInspectionTargetKind.SpecificPriority:
+                    return WorkGridInspectionCellKind.SpecificPriority;
+                case WorkGridInspectionTargetKind.Schedule:
+                    return WorkGridInspectionCellKind.Schedule;
+                case WorkGridInspectionTargetKind.Ordering:
+                    return WorkGridInspectionCellKind.Ordering;
                 default:
-                    return WorkloadInspectionCellKind.None;
+                    return WorkGridInspectionCellKind.None;
             }
         }
 
@@ -905,7 +902,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             float totalWidth,
             WorkGridGeometrySnapshot rowGeometry,
             WorkGridIndexRange visibleRows,
-            WorkloadPreviewController preview,
+            IWorkGridPreviewPort preview,
             float opacity)
         {
             float currentY = 0f;
@@ -997,13 +994,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private static void DrawInspectionCell(
             Rect cellRect,
             bool isExpandBesideChild,
-            WorkloadInspectionCellKind kind,
+            WorkGridInspectionCellKind kind,
             float opacity)
         {
             Rect priorityRect = WorkPriorityCellGeometry.GetDrawnPriorityBoxRect(
                 cellRect,
                 isExpandBesideChild);
-            if ((kind & WorkloadInspectionCellKind.ParentPriority) != 0)
+            if ((kind & WorkGridInspectionCellKind.ParentPriority) != 0)
             {
                 HighlightDrawer.DrawHighlight(
                     priorityRect,
@@ -1011,7 +1008,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         new Color(0.30f, 0.75f, 0.68f, 0.32f),
                         opacity));
             }
-            if ((kind & WorkloadInspectionCellKind.SpecificPriority) != 0)
+            if ((kind & WorkGridInspectionCellKind.SpecificPriority) != 0)
             {
                 Rect specificRect = priorityRect.ContractedBy(2f);
                 if (specificRect.width > 0f && specificRect.height > 0f)
@@ -1023,7 +1020,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                             opacity));
                 }
             }
-            if ((kind & WorkloadInspectionCellKind.Schedule) != 0)
+            if ((kind & WorkGridInspectionCellKind.Schedule) != 0)
             {
                 DrawInspectionStripe(
                     cellRect,
@@ -1032,7 +1029,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         opacity),
                     right: false);
             }
-            if ((kind & WorkloadInspectionCellKind.Ordering) != 0)
+            if ((kind & WorkGridInspectionCellKind.Ordering) != 0)
             {
                 DrawInspectionStripe(
                     cellRect,
@@ -1110,7 +1107,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkTabLayoutColumn? nameColumn,
             IWorkGridSnapshotLayer snapshotLayer,
             WorkGridGeometrySnapshot rowGeometry,
-            WorkGridIndexRange visibleRows)
+            WorkGridIndexRange visibleRows,
+            WorkGridIndexRange visibleColumns)
         {
             float currentY = 0f;
             for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
@@ -1122,7 +1120,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
                 var descriptor = rowDescriptors[i];
                 Rect rowRect = new Rect(0f, currentY, viewWidth, descriptor.Height);
-                DrawSingleRowContent(table, descriptor, columns, rowRect, nameColumn, i, snapshotLayer);
+                DrawSingleRowContent(
+                    table,
+                    descriptor,
+                    columns,
+                    rowRect,
+                    nameColumn,
+                    i,
+                    snapshotLayer,
+                    visibleColumns);
                 if (rowGeometry == null)
                 {
                     currentY += descriptor.Height;
@@ -1137,17 +1143,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Rect rowRect,
             WorkTabLayoutColumn? nameColumn,
             int rowIndex,
-            IWorkGridSnapshotLayer snapshotLayer)
+            IWorkGridSnapshotLayer snapshotLayer,
+            WorkGridIndexRange visibleColumns)
         {
             if (descriptor.IsPawn)
             {
                 if (SpineTiming.Enabled)
                 {
-                    SpineTiming.Time("WorkTab.Rows.DrawPawnRowContent", () => DrawPawnRowContent(table, descriptor, columns, rowRect, rowIndex, snapshotLayer));
+                    SpineTiming.Time("WorkTab.Rows.DrawPawnRowContent", () => DrawPawnRowContent(
+                        table, descriptor, columns, rowRect, rowIndex, snapshotLayer, visibleColumns));
                 }
                 else
                 {
-                    DrawPawnRowContent(table, descriptor, columns, rowRect, rowIndex, snapshotLayer);
+                    DrawPawnRowContent(
+                        table, descriptor, columns, rowRect, rowIndex, snapshotLayer, visibleColumns);
                 }
             }
             else if (descriptor.IsDivider)
@@ -1169,7 +1178,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             IReadOnlyList<WorkTabLayoutColumn> columns,
             Rect rowRect,
             int rowIndex,
-            IWorkGridSnapshotLayer snapshotLayer)
+            IWorkGridSnapshotLayer snapshotLayer,
+            WorkGridIndexRange visibleColumns)
         {
             if (rowRect.height <= 0.5f)
             {
@@ -1182,7 +1192,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 try
                 {
                     Rect clippedRowRect = new Rect(0f, 0f, rowRect.width, MinimumPawnRenderHeight);
-                    DrawPawnRowContentUnclipped(table, descriptor, columns, clippedRowRect, rowIndex, snapshotLayer);
+                    DrawPawnRowContentUnclipped(
+                        table, descriptor, columns, clippedRowRect, rowIndex,
+                        snapshotLayer, visibleColumns);
                 }
                 finally
                 {
@@ -1192,7 +1204,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
-            DrawPawnRowContentUnclipped(table, descriptor, columns, rowRect, rowIndex, snapshotLayer);
+            DrawPawnRowContentUnclipped(
+                table, descriptor, columns, rowRect, rowIndex,
+                snapshotLayer, visibleColumns);
         }
 
         private static void DrawPawnRowContentUnclipped(
@@ -1201,7 +1215,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             IReadOnlyList<WorkTabLayoutColumn> columns,
             Rect rowRect,
             int rowIndex,
-            IWorkGridSnapshotLayer snapshotLayer)
+            IWorkGridSnapshotLayer snapshotLayer,
+            WorkGridIndexRange visibleColumns)
         {
             Color snapshotTextColor;
             if (snapshotLayer == null ||
@@ -1214,7 +1229,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 CurrentRowTextColor = snapshotTextColor;
             }
 
-            DrawPawnRow(table, descriptor.Pawn, rowRect, columns, rowIndex, snapshotLayer);
+            DrawPawnRow(
+                table, descriptor.Pawn, rowRect, columns, rowIndex,
+                snapshotLayer, visibleColumns);
             DrawPawnRowOverlay(descriptor.Pawn, rowRect);
         }
 
@@ -1392,7 +1409,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Rect rowRect,
             IReadOnlyList<WorkTabLayoutColumn> columns,
             int rowIndex,
-            IWorkGridSnapshotLayer snapshotLayer)
+            IWorkGridSnapshotLayer snapshotLayer,
+            WorkGridIndexRange visibleColumns)
         {
             bool scheduleOpen = FluffyTimeScheduleAssigner.IsOpen;
             WorkTypeDef expandedParentPriorityWorkType = null;
@@ -1400,7 +1418,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             snapshotLayer?.BeginRow();
             try
             {
-                for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
+                for (int columnIndex = visibleColumns.Start;
+                     columnIndex < visibleColumns.EndExclusive;
+                     columnIndex++)
                 {
                     WorkTabLayoutColumn column = columns[columnIndex];
                     if (snapshotLayer != null && !snapshotLayer.ShouldVisitCell(rowIndex, columnIndex))
@@ -1445,20 +1465,40 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                             out WorkTypeDef expandedParentWorkType,
                             out _))
                     {
-                        if (expandedParentPriorityWorkType != expandedParentWorkType)
+                        Rect priorityBoxRect =
+                            WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect);
+                        if (snapshotLayer is IWorkGridSubWorkPresentationLayer presentationLayer &&
+                            presentationLayer.TryGetSubWorkPresentation(
+                                rowIndex,
+                                columnIndex,
+                                out WorkGiverCellPresentationCache.CellPresentation presentation))
                         {
-                            expandedParentPriorityWorkType = expandedParentWorkType;
-                            expandedParentPriority = ParentPriorityRead.GetObserved(
+                            WorkGiverPriorityBoxRenderer.DrawPreparedPriorityBox(
+                                expandedWorkGiver,
+                                expandedParentWorkType,
                                 pawn,
-                                expandedParentWorkType);
+                                priorityBoxRect,
+                                presentation);
                         }
+                        else
+                        {
+                            if (expandedParentPriorityWorkType != expandedParentWorkType)
+                            {
+                                expandedParentPriorityWorkType = expandedParentWorkType;
+                                expandedParentPriority = ParentPriorityRead.GetObserved(
+                                    pawn,
+                                    expandedParentWorkType);
+                            }
 
-                        WorkGiverPriorityBoxRenderer.DrawPriorityBox(
-                            expandedWorkGiver,
-                            expandedParentWorkType,
-                            pawn,
-                            WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect),
-                            knownParentPriority: expandedParentPriority);
+                            // Vanilla/Harmony fallback has no completed BWT
+                            // snapshot layer. Preserve its live renderer path.
+                            WorkGiverPriorityBoxRenderer.DrawPriorityBox(
+                                expandedWorkGiver,
+                                expandedParentWorkType,
+                                pawn,
+                                priorityBoxRect,
+                                knownParentPriority: expandedParentPriority);
+                        }
                         continue;
                     }
 
@@ -1478,6 +1518,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 snapshotLayer?.EndRow();
             }
+        }
+
+        private static WorkGridIndexRange ClampRange(WorkGridIndexRange range, int count)
+        {
+            int start = Math.Max(0, Math.Min(count, range.Start));
+            long requestedEnd = (long)range.Start + range.Count;
+            int end = requestedEnd <= start
+                ? start
+                : requestedEnd >= count
+                    ? count
+                    : (int)requestedEnd;
+            return new WorkGridIndexRange(start, end - start);
         }
 
         private static void DrawPawnRowOverlay(Pawn pawn, Rect rowRect)

@@ -388,14 +388,6 @@ namespace Better_Work_Tab.UI.RuleBuilder
                     return;
                 }
 
-                if (ruleset.ResetBeforeApplying)
-                {
-                    if (!WorkAssignmentRuleset.SetAllToZero())
-                    {
-                        return;
-                    }
-                }
-
                 if (!ruleset.ApplyAutoAssignments())
                 {
                     return;

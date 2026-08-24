@@ -19,26 +19,22 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         public string Id => RendererId;
         public int Priority => int.MinValue;
 
-        public bool IsAvailable(in WorkGridRenderContext context) => true;
+        public bool IsAvailable(in WorkTabView context) => true;
 
-        public void Prepare(in WorkGridRenderContext context)
+        public void Prepare(in WorkTabView context)
         {
         }
 
-        public void Draw(in WorkGridRenderContext context)
+        public void Draw(in WorkTabView context)
         {
-            _drawingSurface.DrawBody(
-                context.Presentation.Table,
-                context.Layout,
-                context.WindowRect,
-                null);
+            _drawingSurface.DrawBody(in context, null);
         }
 
-        public void HandleEvent(in WorkGridRenderContext context)
+        public void HandleEvent(in WorkTabView context)
         {
         }
 
-        public void ReleaseTransient(in WorkGridRenderContext context)
+        public void ReleaseTransient(in WorkTabView context)
         {
         }
     }

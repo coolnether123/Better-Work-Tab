@@ -8,6 +8,7 @@ using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Layout;
+using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using RimWorld;
 using Spine.Profiling;
 using UnityEngine;
@@ -15,6 +16,16 @@ using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
+    /// <summary>
+    /// Optional optimized-layer capability. The body uses the prepared range
+    /// to avoid visiting every off-screen column while keeping the public
+    /// drawing and snapshot-layer contracts unchanged.
+    /// </summary>
+    internal interface IWorkGridVisibleColumnRangeProvider
+    {
+        WorkGridIndexRange VisibleColumnRange { get; }
+    }
+
     public interface IWorkGridSnapshotLayer
     {
         void BeginRow();
@@ -22,6 +33,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         bool TryDrawRowBackground(int rowIndex, Rect rowRect, out Color textColor);
         bool ShouldVisitCell(int rowIndex, int columnIndex);
         bool TryDrawCell(int rowIndex, int columnIndex, Rect cellRect);
+    }
+
+    /// <summary>
+    /// Optional BWT-owned composition capability. It gives the direct
+    /// ExpandBeside renderer the already-finished sub-work presentation while
+    /// leaving the native/Harmony fallback on its established live path.
+    /// </summary>
+    internal interface IWorkGridSubWorkPresentationLayer
+    {
+        bool TryGetSubWorkPresentation(
+            int rowIndex,
+            int columnIndex,
+            out WorkGiverCellPresentationCache.CellPresentation presentation);
     }
 
     /// <summary>
@@ -38,17 +62,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     public interface IWorkGridDrawingSurface
     {
         /// <summary>Draws the BWT-owned header row, including vanilla-header routing.</summary>
-        void DrawHeaders(PawnTable table, IWorkTabLayoutController layout);
+        void DrawHeaders(in WorkTabView view);
 
         /// <summary>
         /// Draws the viewport, pinned body affordances, and body rows. A null
         /// snapshot layer selects the native body-cell path.
         /// </summary>
-        void DrawBody(
-            PawnTable table,
-            IWorkTabLayoutController layout,
-            Rect inRect,
-            IWorkGridSnapshotLayer snapshotLayer);
+        void DrawBody(in WorkTabView view, IWorkGridSnapshotLayer snapshotLayer);
     }
 
     /// <summary>
@@ -60,36 +80,29 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private readonly WorkTabViewportController _viewportController;
         private readonly WorkTabBodyRenderer _bodyRenderer;
         private readonly WorkTabHeaderRenderer _headerRenderer;
-        private readonly Func<Rect> _windowRectProvider;
-        private readonly Func<float> _extraBottomSpaceProvider;
-
         internal WorkGridDrawingSurface(
             WorkTabViewportController viewportController,
             WorkTabBodyRenderer bodyRenderer,
-            WorkTabHeaderRenderer headerRenderer,
-            Func<Rect> windowRectProvider,
-            Func<float> extraBottomSpaceProvider)
+            WorkTabHeaderRenderer headerRenderer)
         {
             _viewportController = viewportController ??
                 throw new ArgumentNullException(nameof(viewportController));
             _bodyRenderer = bodyRenderer ?? throw new ArgumentNullException(nameof(bodyRenderer));
             _headerRenderer = headerRenderer ?? throw new ArgumentNullException(nameof(headerRenderer));
-            _windowRectProvider = windowRectProvider ??
-                throw new ArgumentNullException(nameof(windowRectProvider));
-            _extraBottomSpaceProvider = extraBottomSpaceProvider ??
-                throw new ArgumentNullException(nameof(extraBottomSpaceProvider));
         }
 
-        public void DrawHeaders(PawnTable table, IWorkTabLayoutController layout)
+        public void DrawHeaders(in WorkTabView view)
         {
+            PawnTable table = view.Table;
+            IWorkTabLayoutController layout = view.Layout;
             if (layout == null || table == null)
             {
                 return;
             }
 
             WorkTabHeaderFrame headerFrame = new WorkTabHeaderFrame(
-                _windowRectProvider().height,
-                _extraBottomSpaceProvider(),
+                view.WindowRect.height,
+                view.ExtraBottomSpace,
                 WorkGridLayoutMetrics.GetInlineTimePriorityReservedHeight(layout),
                 WorkGridLayoutMetrics.GetPinnedRowsHeight(),
                 GetTableViewportWidth(layout),
@@ -111,12 +124,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
-        public void DrawBody(
-            PawnTable table,
-            IWorkTabLayoutController layout,
-            Rect inRect,
-            IWorkGridSnapshotLayer snapshotLayer)
+        public void DrawBody(in WorkTabView view, IWorkGridSnapshotLayer snapshotLayer)
         {
+            PawnTable table = view.Table;
+            IWorkTabLayoutController layout = view.Layout;
             if (layout == null || table == null)
             {
                 return;
@@ -124,9 +135,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             var viewportFrame = new WorkTabViewportFrame(
                 layout,
-                inRect,
-                _windowRectProvider(),
-                _extraBottomSpaceProvider(),
+                view.Viewport,
+                view.WindowRect,
+                view.ExtraBottomSpace,
                 WorkGridLayoutMetrics.GetInlineTimePriorityReservedHeight(layout),
                 WorkGridLayoutMetrics.GetPinnedRowsHeight(),
                 WorkGridLayoutMetrics.GetVisualTableScrollWidth(layout, layout.Table),
@@ -164,7 +175,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             if (SpineTiming.Enabled)
             {
-                SpineTiming.Time("WorkTab.DrawRows", () => _bodyRenderer.DrawRows(table, layout, viewport, snapshotLayer));
+                WorkTabView drawView = view;
+                SpineTiming.Time("WorkTab.DrawRows", () => _bodyRenderer.DrawRows(in drawView, viewport, snapshotLayer));
                 if (!layoutEvent)
                 {
                     SpineTiming.Time(
@@ -176,7 +188,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             else
             {
-                _bodyRenderer.DrawRows(table, layout, viewport, snapshotLayer);
+                _bodyRenderer.DrawRows(in view, viewport, snapshotLayer);
                 if (!layoutEvent)
                 {
                     SubWorkTransitionOverlay.DrawTransitionPixelWave(

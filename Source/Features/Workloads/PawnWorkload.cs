@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading.Tasks;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using RimWorld;
 using Verse;
@@ -90,15 +91,44 @@ namespace Better_Work_Tab.Features.Workloads
             return true;
         }
 
-        public bool Apply()
+        internal IEnumerable<WorkTypeDef> GetPriorityWorkTypes()
         {
-            if (!TryValidate(out string error))
+            return Priorities?.Keys ?? Enumerable.Empty<WorkTypeDef>();
+        }
+
+        /// <summary>
+        /// Adds this entry's desired parent priorities to a pre-captured
+        /// application plan. The plan captures every baseline through
+        /// PriorityAuthorityBroker before this method is called.
+        /// </summary>
+        internal bool TryCompileParentPriorities(
+            WorkTabAtomicMutationPlan mutation,
+            out string error)
+        {
+            error = string.Empty;
+            if (mutation == null)
             {
-                Log.Warning("[BWT] Skipping invalid legacy workload entry: " + error);
+                error = "The legacy workload has no atomic mutation plan.";
                 return false;
             }
 
-            return Paste();
+            foreach (KeyValuePair<WorkTypeDef, int> entry in Priorities
+                         .OrderBy(pair => pair.Key.defName, StringComparer.Ordinal))
+            {
+                WorkTypeDef workType = entry.Key;
+                if (owningPawn.WorkTypeIsDisabled(workType))
+                {
+                    continue;
+                }
+
+                if (!mutation.SetPriority(owningPawn, workType, entry.Value))
+                {
+                    error = "The legacy workload could not compile a parent-priority target.";
+                    return false;
+                }
+            }
+
+            return true;
         }
 
 
@@ -110,9 +140,11 @@ namespace Better_Work_Tab.Features.Workloads
             foreach (var w in DefDatabase<WorkTypeDef>.AllDefsListForReading)
             {
                 WorkTypeDef worktype = w;
-                int priority = owningPawn.workSettings.GetPriority(w);
+                int priority = PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
+                    owningPawn.workSettings,
+                    w);
                 //Log.Message("Saved " + owningPawn.Name + "'s " + worktype.defName + " priority of " + priority);
-                Priorities.Add(worktype, priority);
+                Priorities[worktype] = priority;
                 //Log.Message("Added " + owningPawn.Name + "'s " + Priorities.Last().Key + " priority of " + Priorities.Last().Value + " to Priorities");
             }
             //Log.Message("----------Stored Values-------");
@@ -123,37 +155,6 @@ namespace Better_Work_Tab.Features.Workloads
                 //Log.Message("Stored " + owningPawn.Name + "'s " + worktype.defName + " priority of " + priority);
             }
         }
-        bool Paste()
-        {
-            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision))
-            {
-                Log.Warning(
-                    "[BWT] Skipping legacy workload entry because Better Work Tab does not currently own coherent priority authority.");
-                return false;
-            }
-
-            foreach (var kvp in Priorities)
-            {
-                WorkTypeDef worktype = kvp.Key;
-                int priority = kvp.Value;
-                if (worktype != null && owningPawn != null && owningPawn.workSettings != null &&
-                    !owningPawn.WorkTypeIsDisabled(worktype))
-                {
-                    if (!WorkPrioritySystem.SetPriority(owningPawn.workSettings, worktype, priority) ||
-                        !WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
-                    {
-                        Log.Warning(
-                            "[BWT] Stopped legacy workload entry because priority authority changed during apply.");
-                        return false;
-                    }
-
-                    BetterWorkTabMod.DebugLog("Set " + owningPawn.Name + " " + worktype.defName + " to " + priority, DebugFeature.Workloads);
-                }
-            }
-
-            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
-        }
-
         public void ExposeData()
         {
             Scribe_References.Look(ref owningPawn, "owningPawn");

@@ -698,8 +698,16 @@ namespace Better_Work_Tab.Features.TimePriority
         /// Republishes an hourly schedule to any external work-tab mod backing the priority numbers.
         /// Hourly schedules live only in Better Work Tab, so nothing else propagates them.
         /// </summary>
-        internal static void NotifyExternalMirror(TimePriorityTarget target, bool broadScope)
+        internal static void NotifyExternalMirror(
+            TimePriorityTarget target,
+            bool broadScope,
+            bool scheduleOnly)
         {
+            if (scheduleOnly && !ExternalPriorityMirror.ShouldMirrorTimePrioritySchedules)
+            {
+                return;
+            }
+
             if (!broadScope)
             {
                 MirrorTargetToExternalWorkTab(target);
@@ -716,11 +724,6 @@ namespace Better_Work_Tab.Features.TimePriority
         private static void MirrorTargetToExternalWorkTab(TimePriorityTarget target)
         {
             if (ExternalPriorityMirror.IsSuspended)
-            {
-                return;
-            }
-
-            if (!ExternalPriorityMirror.ShouldMirrorTimePrioritySchedules)
             {
                 return;
             }
@@ -1034,14 +1037,20 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             internal WorkGiverScheduleRetargetPlan(
                 Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> runtime,
-                Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> legacy)
+                Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> legacy,
+                Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> previousRuntime,
+                Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> previousLegacy)
             {
                 Runtime = runtime;
                 Legacy = legacy;
+                PreviousRuntime = previousRuntime;
+                PreviousLegacy = previousLegacy;
             }
 
             internal Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> Runtime { get; }
             internal Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> Legacy { get; }
+            internal Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> PreviousRuntime { get; }
+            internal Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> PreviousLegacy { get; }
             internal bool Changed => Runtime != null;
         }
 
@@ -1061,7 +1070,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             if (string.Equals(sourceWorkType.defName, targetWorkType.defName, StringComparison.Ordinal))
             {
-                plan = new WorkGiverScheduleRetargetPlan(null, null);
+                plan = new WorkGiverScheduleRetargetPlan(null, null, null, null);
                 reason = null;
                 return true;
             }
@@ -1087,6 +1096,30 @@ namespace Better_Work_Tab.Features.TimePriority
             return ApplyWorkGiverScheduleRetarget(plan, recordMutation: true);
         }
 
+        /// <summary>
+        /// Restores the exact runtime and compatibility maps captured by a
+        /// retarget plan while its owning mutation batch remains unpublished.
+        /// </summary>
+        internal static bool RestoreUnpublishedWorkGiverScheduleRetarget(
+            WorkGiverScheduleRetargetPlan plan)
+        {
+            if (plan == null || !plan.Changed || !HasActiveMutationBatch ||
+                plan.PreviousRuntime == null || plan.PreviousLegacy == null)
+            {
+                return false;
+            }
+
+            if (ScheduleMapsEqual(plan.PreviousRuntime, plan.PreviousLegacy))
+            {
+                return true;
+            }
+
+            ReplaceSchedules(RuntimeSchedules, plan.PreviousRuntime);
+            ReplaceSchedules(LegacySchedules, plan.PreviousLegacy);
+            RecordMutation();
+            return true;
+        }
+
         private static bool MigrateWorkGiverScheduleKeys()
         {
             TryBuildWorkGiverScheduleRetarget(null, null, null, preserveConflicts: true, out WorkGiverScheduleRetargetPlan plan);
@@ -1100,8 +1133,10 @@ namespace Better_Work_Tab.Features.TimePriority
             bool preserveConflicts,
             out WorkGiverScheduleRetargetPlan plan)
         {
-            var runtime = new Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue>(RuntimeSchedules);
-            var legacy = new Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue>(LegacySchedules);
+            var previousRuntime = new Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue>(RuntimeSchedules);
+            var previousLegacy = new Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue>(LegacySchedules);
+            var runtime = new Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue>(previousRuntime);
+            var legacy = new Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue>(previousLegacy);
             bool changed = false;
             if (!MoveWorkGiverScheduleKeys(runtime, legacy, runtime, workGiverName, sourceWorkTypeName,
                     targetWorkTypeName, preserveConflicts, ref changed) ||
@@ -1112,7 +1147,11 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            plan = new WorkGiverScheduleRetargetPlan(changed ? runtime : null, changed ? legacy : null);
+            plan = new WorkGiverScheduleRetargetPlan(
+                changed ? runtime : null,
+                changed ? legacy : null,
+                changed ? previousRuntime : null,
+                changed ? previousLegacy : null);
             return true;
         }
 

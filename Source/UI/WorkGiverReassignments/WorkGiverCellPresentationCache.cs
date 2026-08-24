@@ -80,10 +80,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 pawn,
                 parentPriority,
                 hour,
-                lockedOverrides,
-                cached);
+                lockedOverrides);
 
-            if (!_externalPriorityAuthority && !hasCached)
+            if (!_externalPriorityAuthority)
             {
                 Entries[key] = resolved;
             }
@@ -96,8 +95,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Pawn pawn,
             int parentPriority,
             int hour,
-            bool lockedOverrides,
-            CellPresentation presentation)
+            bool lockedOverrides)
         {
             WorkGiverDef workGiverDef = workGiver?.def;
             WorkloadSpecificJobTargetKey specificTarget = pawn == null
@@ -135,9 +133,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 !hasProjectedFallbackOverride && !hasProjectedClear)
             {
                 hasProjectedOverride = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
-                    pawn,
-                    workType,
-                    workGiverDef,
+                    WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiverDef),
                     out projectedPriority);
             }
             bool hasPawnOverride = pawn != null &&
@@ -259,7 +255,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                         parentPriority);
             }
 
-            presentation ??= new CellPresentation();
+            // A finished Work-grid snapshot can retain this presentation for
+            // the rest of its pass. Never mutate a cache entry after it has
+            // been returned, or a later live lookup could rewrite that view.
+            var presentation = new CellPresentation();
             presentation.SubWorkVersion = _subWorkVersion;
             presentation.ScheduleVersion = _scheduleVersion;
             presentation.EffectiveStateRevision = _effectiveStateRevision;

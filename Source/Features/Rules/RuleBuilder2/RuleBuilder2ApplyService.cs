@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using RimWorld;
 using Verse;
 
@@ -38,21 +38,21 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
             RuleBuilder2SleekPriorityTranslation.AddApplyWarningIfNeeded(ruleset, warnings);
 
-            if (!WorkPrioritySystem.SetManualPriorities(true))
-            {
-                warnings.Add(WorkAssignmentRuleset.LiveRulesetManualPriorityBlockedReason);
-                WorkAssignmentRuleset.RejectLiveRulesetApplication(
-                    WorkAssignmentRuleset.LiveRulesetManualPriorityBlockedReason);
-                return 0;
-            }
             List<Pawn> pawns = RuleBuilder2Evaluator.GetCurrentPawns();
+            WorkTabAtomicMutationPlan mutation = WorkTabAtomicMutationPlan.Capture(
+                pawns,
+                DefDatabase<WorkTypeDef>.AllDefsListForReading);
+            mutation.RequiresManualPriorities = true;
             int changed = 0;
 
             if (ruleset.ResetBeforeApplying)
             {
-                if (!WorkAssignmentRuleset.SetAllToZero())
+                foreach (Pawn pawn in pawns)
                 {
-                    return 0;
+                    foreach (WorkTypeDef workType in DefDatabase<WorkTypeDef>.AllDefsListForReading)
+                    {
+                        mutation.SetPriority(pawn, workType, WorkPrioritySystem.DisabledPriority);
+                    }
                 }
             }
 
@@ -85,7 +85,12 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                             continue;
                         }
 
-                        int currentPriority = RuleBuilder2Evaluator.GetCurrentPriority(pawn, workType, workGiver);
+                        int currentPriority = workGiver == null
+                            ? mutation.GetPriority(pawn, workType)
+                            : mutation.GetSpecificPriority(
+                                pawn,
+                                workGiver,
+                                RuleBuilder2Evaluator.GetCurrentPriority(pawn, workType, workGiver));
                         bool matched = evaluator.MatchesConditions(card, pawn, workType, workGiver, currentPriority);
 
                         if (!matched)
@@ -93,12 +98,13 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                             continue;
                         }
 
-                        ApplyResult result = ApplyCardToPawn(
+                        ApplyResult result = CompileCardToMutation(
                             card,
                             pawn,
                             workType,
                             workGiver,
                             currentPriority,
+                            mutation,
                             warnings);
                         if (result == ApplyResult.Failed)
                         {
@@ -113,22 +119,34 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 }
             }
 
+            WorkTabApplicationResult applicationResult =
+                WorkTabApplication.Current?.ApplyAtomicMutationPlan(mutation) ??
+                WorkTabApplicationResult.Rejected(
+                    "Rule Builder 2.0 could not apply its atomic ruleset mutation.", default);
+            if (!applicationResult.Accepted)
+            {
+                AddWarningOnce(warnings, applicationResult.Reason ??
+                    "Rule Builder 2.0 could not apply its atomic ruleset mutation.");
+                WorkAssignmentRuleset.RejectLiveRulesetApplication(warnings.Last());
+                return 0;
+            }
+
             if (persistRuleset)
             {
                 RuleBuilder2RulesetStore.SaveOrReplace(BetterWorkTabMod.Settings, ruleset, makeCurrent: true, writeSettings: false);
                 LoadedModManager.GetMod<BetterWorkTabMod>()?.WriteSettings();
             }
 
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             return changed;
         }
 
-        private static ApplyResult ApplyCardToPawn(
+        private static ApplyResult CompileCardToMutation(
             RuleBuilder2Card card,
             Pawn pawn,
             WorkTypeDef workType,
             WorkGiverDef workGiver,
             int currentPriority,
+            WorkTabAtomicMutationPlan mutation,
             List<string> warnings)
         {
             int targetPriority = RuleBuilder2Evaluator.GetActionPriority(card.Action);
@@ -151,14 +169,15 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return ApplyResult.NoChange;
                 case RuleBuilder2ActionKind.SetTimeSchedule:
                 case RuleBuilder2ActionKind.SetSubWorkSchedule:
-                    ApplyResult baseResult = ApplyBasePriority(
+                    ApplyResult baseResult = CompileBasePriority(
                         pawn,
                         workType,
                         workGiver,
                         targetPriority,
                         currentPriority,
+                        mutation,
                         warnings);
-                    if (baseResult == ApplyResult.Failed || !TryRecheckWriterAuthority(warnings))
+                    if (baseResult == ApplyResult.Failed)
                     {
                         return ApplyResult.Failed;
                     }
@@ -167,27 +186,24 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     TimePriorityTarget scheduleTarget = workGiver == null
                         ? TimePriorityTarget.ForWorkType(pawn, workType)
                         : TimePriorityTarget.ForWorkGiver(pawn, workGiver);
-                    if (!TimePriorityService.SubmitSchedule(
+                    if (!mutation.SetSchedule(
                             scheduleTarget,
                             TimePriorityService.CreateAllHoursPinnedValue(
                                 card.Action.HourlyPriorities.ToArray(),
                                 targetPriority),
-                            targetPriority).Accepted)
+                            targetPriority))
                     {
-                        return RejectWriteFailure(
+                        AddWarningOnce(
                             warnings,
-                            "Rule Builder 2.0 could not write a work-priority schedule.");
-                    }
-
-                    if (!TryRecheckWriterAuthority(warnings))
-                    {
+                            "Rule Builder 2.0 could not capture a work-priority schedule baseline.");
                         return ApplyResult.Failed;
                     }
 
                     return ApplyResult.Changed;
                 case RuleBuilder2ActionKind.Disable:
                 case RuleBuilder2ActionKind.SetPriority:
-                    return ApplyBasePriority(pawn, workType, workGiver, targetPriority, currentPriority, warnings);
+                    return CompileBasePriority(
+                        pawn, workType, workGiver, targetPriority, currentPriority, mutation, warnings);
                 default:
                     AddWarningOnce(
                         warnings,
@@ -196,12 +212,13 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
         }
 
-        private static ApplyResult ApplyBasePriority(
+        private static ApplyResult CompileBasePriority(
             Pawn pawn,
             WorkTypeDef workType,
             WorkGiverDef workGiver,
             int targetPriority,
             int currentPriority,
+            WorkTabAtomicMutationPlan mutation,
             List<string> warnings)
         {
             targetPriority = RuleBuilder2SleekPriorityTranslation.TranslatePriority(targetPriority);
@@ -210,71 +227,26 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 return ApplyResult.NoChange;
             }
 
-            if (!TryRecheckWriterAuthority(warnings))
-            {
-                return ApplyResult.Failed;
-            }
-
             if (workGiver != null)
             {
-                if (SleekWorkTabGateway.SleekCodeRuns)
+                if (!mutation.SetSpecificPriority(pawn, workGiver, targetPriority))
                 {
-                    if (!SleekWorkTabGateway.TrySetSleekWorkGiverOverride(pawn, workGiver, targetPriority))
-                    {
-                        AddWarningOnce(
-                            warnings,
-                            "Sleek Work Priorities' per-job store was unavailable; this sub-work rule was not applied.");
-                        return RejectWriteFailure(
-                            warnings,
-                            "Rule Builder 2.0 could not write a specific-job priority.");
-                    }
-                }
-                else
-                {
-                    WorkGiverReassignmentManager.SetPawnOverrideSynced(
-                        pawn.thingIDNumber,
-                        workGiver.defName,
-                        targetPriority);
-                }
-
-                if (!TryRecheckWriterAuthority(warnings))
-                {
+                    AddWarningOnce(warnings,
+                        "Rule Builder 2.0 could not capture a specific-job priority baseline.");
                     return ApplyResult.Failed;
                 }
             }
             else
             {
-                if (!WorkPrioritySystem.SetPriority(pawn.workSettings, workType, targetPriority))
+                if (!mutation.SetPriority(pawn, workType, targetPriority))
                 {
-                    return RejectWriteFailure(
-                        warnings,
-                        "Rule Builder 2.0 could not write a work-type priority.");
+                    AddWarningOnce(warnings,
+                        "Rule Builder 2.0 could not capture a work-type priority baseline.");
+                    return ApplyResult.Failed;
                 }
             }
 
             return ApplyResult.Changed;
-        }
-
-        private static bool TryRecheckWriterAuthority(List<string> warnings)
-        {
-            if (WorkAssignmentRuleset.CanApplyLiveRuleset(out string rejectionReason))
-            {
-                return true;
-            }
-
-            AddWarningOnce(warnings, rejectionReason);
-            WorkAssignmentRuleset.RejectLiveRulesetApplication(rejectionReason);
-            return false;
-        }
-
-        private static ApplyResult RejectWriteFailure(List<string> warnings, string fallbackReason)
-        {
-            string rejectionReason = WorkAssignmentRuleset.CanApplyLiveRuleset(out string authorityReason)
-                ? fallbackReason
-                : authorityReason;
-            AddWarningOnce(warnings, rejectionReason);
-            WorkAssignmentRuleset.RejectLiveRulesetApplication(rejectionReason);
-            return ApplyResult.Failed;
         }
 
         private static void AddWarningOnce(List<string> warnings, string warning)

@@ -104,48 +104,6 @@ namespace Better_Work_Tab.Features.Tutorial
             return WorkPriorityCellGeometry.GetDrawnPriorityBoxRect(cellRect, expandBesideChild);
         }
 
-        internal static Rect GetVisibleWorkTabBounds(Rect inRect, IWorkTabLayoutController layout)
-        {
-            if (layout?.Columns == null || layout.Columns.Count == 0)
-            {
-                return inRect;
-            }
-
-            float minX = float.MaxValue;
-            float maxX = float.MinValue;
-            float minY = float.MaxValue;
-            float maxY = float.MinValue;
-            for (int i = 0; i < layout.Columns.Count; i++)
-            {
-                Rect header = WorkGridInteractionGeometry.GetAnimatedHeaderRect(layout.Columns[i]);
-                if (!IntersectsHorizontally(header, inRect))
-                {
-                    continue;
-                }
-
-                minX = Mathf.Min(minX, header.xMin);
-                maxX = Mathf.Max(maxX, header.xMax);
-                minY = Mathf.Min(minY, header.yMin);
-                maxY = Mathf.Max(maxY, header.yMax);
-            }
-
-            for (int i = 0; i < layout.Rows.Count; i++)
-            {
-                Rect row = layout.GetScreenRect(layout.Rows[i]);
-                if (!IntersectsVertically(row, inRect))
-                {
-                    continue;
-                }
-
-                minY = Mathf.Min(minY, row.yMin);
-                maxY = Mathf.Max(maxY, row.yMax);
-            }
-
-            return minX <= maxX && minY <= maxY
-                ? Rect.MinMaxRect(minX, minY, maxX, maxY)
-                : inRect;
-        }
-
         internal static bool TryResolveAnchorAt(
             Rect inRect,
             IWorkTabLayoutController layout,

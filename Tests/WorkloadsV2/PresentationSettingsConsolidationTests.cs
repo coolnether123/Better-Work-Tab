@@ -25,6 +25,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string registry = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
             string settingIds = Read(root, "Source", "UI", "Settings", "SettingIDs.cs");
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
+            string previewPort = Read(root, "Source", "UI", "Settings", "WorkTabPresentationPreviewPort.cs");
             string workloadState = Read(root, "Source", "Features", "Workloads", "V2", "WorkloadState.cs");
             string chronos = Read(root, "Source", "Mod Support", "Mods", "Chronos Pointer", "ChronosPointerSupport.cs");
             string fluffy = Read(root, "Source", "Mod Support", "Mods", "Fluffy WorkTab", "FluffyWorkTabGateway.cs");
@@ -36,10 +37,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 ReadFacadeUsage(root, idsByName), registry, chronos, fluffy, idsByName);
             PreviewStampTracksStartEditRebaseForkAndSwitch();
             FirstRefreshAndPerFieldFallbackAreBehavioral();
-            RefreshGateRebuildsOnlyOnSemanticChange();
             SetClearAndReleaseAreBehavioral();
             WriterBehaviorIsTransactional();
-            PreviewLifecycleAndFirstRefreshAreGuarded(router, gateway);
+            PreviewLifecycleAndFirstRefreshAreGuarded(router, gateway, previewPort);
             CachedFacadeUsesPreparedSnapshot(router);
             SteadySettingsDrawerPathIsTokenGated(router, Read(
                 root, "Source", "UI", "BetterWorkTabSettingsUI.cs"));
@@ -62,18 +62,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string openedStamp = opened.PreviewStamp;
             TestAssert.True(!string.IsNullOrWhiteSpace(openedStamp),
                 "opening a preview must create an exact cache stamp");
-            var token = new WorkloadPresentationSnapshotToken();
-            TestAssert.True(token.Observe(opened),
-                "the first active preview must invalidate the empty snapshot token");
-            TestAssert.Equal(openedStamp, token.Value,
-                "the token must retain the exact opened session stamp");
-
             WorkloadSession edited = opened.Edit(draft => draft.SetPresentationSetting(
                 "ui.angled", WorkloadScalarValue.FromBoolean(true)));
             TestAssert.False(string.Equals(openedStamp, edited.PreviewStamp, StringComparison.Ordinal),
                 "a staged presentation edit must replace the preview cache stamp");
-            TestAssert.True(token.Observe(edited),
-                "a staged edit must refresh the production snapshot token");
 
             WorkloadSession switched = WorkloadSession.OpenCaptured(
                 source,
@@ -81,8 +73,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 WorkloadSession.GetSourceIdentity(source));
             TestAssert.False(string.Equals(openedStamp, switched.PreviewStamp, StringComparison.Ordinal),
                 "a replacement preview with the same saved workload must not reuse a stamp");
-            TestAssert.True(token.Observe(switched),
-                "a preview switch must refresh the production snapshot token");
 
             WorkloadSessionDecision update = edited.Update();
             TestAssert.True(update.Accepted, "the edited preview must be saveable for rebase coverage");
@@ -90,8 +80,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.NotNull(rebased, "a matching update receipt must retain the open preview");
             TestAssert.False(string.Equals(edited.PreviewStamp, rebased.PreviewStamp, StringComparison.Ordinal),
                 "a persistence rebase must replace the preview cache stamp");
-            TestAssert.True(token.Observe(rebased),
-                "a rebase must refresh the production snapshot token");
 
             WorkloadSessionDecision fork = rebased.Fork("presentation-fork", "Presentation Fork");
             TestAssert.True(fork.Accepted, "the rebased preview must be forkable for source-switch coverage");
@@ -101,12 +89,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "a fork rebase must replace the preview cache stamp");
             TestAssert.Equal("presentation-fork", forked.SourceTemplate.StableId,
                 "the forked stamp must be rooted in the active target source");
-            TestAssert.True(token.Observe(forked),
-                "a fork must refresh the production snapshot token");
-            TestAssert.True(token.Observe((WorkloadSession)null),
-                "closing a preview must clear the production snapshot token");
-            TestAssert.Equal(string.Empty, token.Value,
-                "a closed preview must not retain stale token state");
         }
 
         private static WorkloadSession Rebase(
@@ -181,70 +163,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "a failed field refresh must preserve its prior live scalar");
             TestAssert.Equal(80, refreshed["opacity"].IntegerValue,
                 "an exception in one field must not default the other cached scalars");
-        }
-
-        private static void RefreshGateRebuildsOnlyOnSemanticChange()
-        {
-            var token = new WorkloadPresentationSnapshotToken();
-            int captures = 0;
-            int fieldReads = 0;
-            int visibleColorReads = 0;
-            int resetValueReads = 0;
-            long revision = 0;
-            IDictionary<string, WorkloadScalarValue> cachedValues = null;
-            WorkloadScalarValue preparedDefault = WorkloadScalarValue.FromString("#11223344");
-
-            Action prepareDrawer = () =>
-            {
-                if (!token.NeedsRefresh(revision))
-                {
-                    return;
-                }
-
-                captures++;
-                cachedValues = WorkloadPresentationValueCache.Capture(
-                    new[] { "color" },
-                    null,
-                    (string _, out WorkloadScalarValue value) =>
-                    {
-                        fieldReads++;
-                        value = WorkloadScalarValue.FromString("#01020304");
-                        return true;
-                    },
-                    null);
-                token.MarkRefreshed(revision);
-            };
-
-            Action drawVisibleColorAndReset = () =>
-            {
-                WorkloadScalarValue color = cachedValues["color"];
-                WorkloadScalarValue reset = preparedDefault;
-                visibleColorReads += color.StringValue.Length;
-                resetValueReads += reset.StringValue.Length;
-            };
-
-            prepareDrawer();
-            drawVisibleColorAndReset();
-            prepareDrawer();
-            drawVisibleColorAndReset();
-            TestAssert.Equal(1, captures,
-                "steady Layout/Repaint passes must not rebuild the presentation snapshot");
-            TestAssert.Equal(1, fieldReads,
-                "steady Layout/Repaint passes must not re-read reflected setting fields");
-            TestAssert.Equal(18, visibleColorReads,
-                "visible color rows must read the prepared scalar without formatting a new default");
-            TestAssert.Equal(18, resetValueReads,
-                "reset rows must reuse the prepared scalar default on every pass");
-
-            revision++;
-            prepareDrawer();
-            drawVisibleColorAndReset();
-            prepareDrawer();
-            drawVisibleColorAndReset();
-            TestAssert.Equal(2, captures,
-                "one semantic invalidation must cause exactly one refresh");
-            TestAssert.Equal(2, fieldReads,
-                "the refresh after invalidation must read each cached scalar once");
         }
 
         private static void SetClearAndReleaseAreBehavioral()
@@ -492,13 +410,16 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             return Regex.IsMatch(source, @"\.(?:" + builder + @")\s*\(\s*" + argument);
         }
 
-        private static void PreviewLifecycleAndFirstRefreshAreGuarded(string router, string gateway)
+        private static void PreviewLifecycleAndFirstRefreshAreGuarded(
+            string router,
+            string gateway,
+            string previewPort)
         {
             string refresh = MethodBody(router, "internal static void Refresh()");
             foreach (string fragment in new[]
             {
-                "WorkloadGateway.GetV2PreviewPlan()",
-                "string.IsNullOrEmpty(PreviewToken.Value)",
+                "IWorkTabPresentationPreviewPort previewPort = _previewPort;",
+                "previewPort.TryReadPresentationPreview(",
                 "BWTWorkloadPresentationSnapshot.Failed("
             })
             {
@@ -506,23 +427,51 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     "first active refresh must fail closed through " + fragment);
             }
 
-            string observe = MethodBody(router, "internal static void ObservePreviewSession(");
-            TestAssert.Contains(observe, "PreviewToken.Observe(session)",
-                "preview observation must use the exact session stamp and a close sentinel");
+            foreach (string forbidden in new[]
+            {
+                "WorkloadPreviewController",
+                "ProjectedWorkTabEffectiveStateProvider",
+                "WorkloadSession",
+                "WorkloadGateway",
+                "SynchronizeAfterInput"
+            })
+            {
+                TestAssert.False(router.Contains(forbidden),
+                    "contextual settings must not own workload implementation detail " + forbidden);
+            }
+            TestAssert.Contains(previewPort, "interface IWorkTabPresentationPreviewPort",
+                "settings must depend on one neutral optional presentation-preview boundary");
+            TestAssert.Contains(gateway, "IWorkTabPresentationPreviewPort",
+                "the workload preview must implement the settings boundary");
+            TestAssert.Contains(gateway, "TryMutatePresentation(",
+                "preview mutation and synchronization must remain behind the workload boundary");
+
+            string observe = MethodBody(router, "internal static void ObservePreviewIdentity(");
+            TestAssert.Contains(observe, "_observedPreviewIdentity",
+                "preview observation must use the exact opaque identity and a close sentinel");
             TestAssert.Contains(observe, "InvalidateWorkTabPresentationCore(",
                 "a new stamp must invalidate the cached presentation snapshot");
 
             string open = MethodBody(gateway, "private void OpenSession(");
             string synchronize = MethodBody(gateway, "internal bool SynchronizeAfterInput()");
+            string acceptDraft = MethodBody(gateway, "private void AcceptDraftReplacement(");
             string rebuild = MethodBody(gateway, "private void RebuildProjection(");
             string close = MethodBody(gateway, "private void ClearLocalSession()");
             TestAssert.Contains(open, "RebuildProjection(_session.ProjectedState)",
                 "preview start must cross the observed projection boundary");
-            TestAssert.Contains(synchronize, "ObservePreviewSession(_session)",
-                "accepted staged edits must replace the observed session stamp");
-            TestAssert.Contains(rebuild, "ObservePreviewSession(_session)",
+            TestAssert.Contains(synchronize, "AcceptDraftReplacement(",
+                "synchronized staged edits must cross the shared accepted-draft boundary");
+            TestAssert.Contains(acceptDraft, "_session = accepted",
+                "the shared accepted-draft boundary must install the accepted session");
+            TestAssert.Contains(acceptDraft, "ObservePreviewIdentity(\n                _session?.PreviewStamp)",
+                "the shared accepted-draft boundary must replace the observed session stamp");
+            TestAssert.True(
+                acceptDraft.IndexOf("_session = accepted", StringComparison.Ordinal) <
+                acceptDraft.IndexOf("ObservePreviewIdentity(", StringComparison.Ordinal),
+                "the accepted session must be installed before its preview stamp is observed");
+            TestAssert.Contains(rebuild, "ObservePreviewIdentity(\n                _session?.PreviewStamp)",
                 "preview switches and rebases must replace the observed session stamp");
-            TestAssert.Contains(close, "ObservePreviewSession(null)",
+            TestAssert.Contains(close, "ObservePreviewIdentity(null)",
                 "preview close must discard the observed session stamp");
         }
 
@@ -557,7 +506,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the complete settings drawer path must not rebuild every Layout/Repaint");
 
             string ensureFresh = MethodBody(router, "internal static void EnsureFresh()");
-            TestAssert.Contains(ensureFresh, "PreviewToken.NeedsRefresh(_globalSettingsRevision)",
+            TestAssert.Contains(ensureFresh, "_snapshotSettingsRevision != _globalSettingsRevision",
                 "the drawer refresh gate must use only the semantic session/revision token");
             TestAssert.False(ensureFresh.Contains("Capture") ||
                 ensureFresh.Contains("Field.GetValue") ||
@@ -615,10 +564,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string workloadState)
         {
             string copy = MethodBody(router,
-                "CopyPresentationIntents(WorkloadProjectedState state)");
-            TestAssert.Contains(copy, "state.PresentationSettingIntents",
-                "the snapshot must consume the model's normalized typed intents");
-            TestAssert.False(copy.Contains("state.PresentationSettings"),
+                "CopyPresentationIntents(\n                IReadOnlyList<WorkloadPresentationSettingIntentEntry> entries)");
+            TestAssert.Contains(copy, "entries[i]",
+                "the snapshot must consume presentation-only typed intent entries from its port");
+            TestAssert.False(copy.Contains("PresentationSettings"),
                 "the snapshot must not rebuild a second legacy presentation map");
             TestAssert.Contains(copy, "!entry.Intent.IsNoOpinion",
                 "the snapshot must retain effective Set and Clear intent semantics");

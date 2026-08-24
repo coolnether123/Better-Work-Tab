@@ -1834,7 +1834,6 @@ namespace Better_Work_Tab.UI
             }
 
             CloseWorkloadFooterPopover();
-            MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
         }
 
