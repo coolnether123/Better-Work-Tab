@@ -84,7 +84,7 @@ namespace Better_Work_Tab.API
 
         public static TimePriorityApiSnapshot GetWorkGiverSnapshot(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver)
         {
-            int parentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            int parentPriority = ParentPriorityRead.GetLive(pawn, workType);
             int basePriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
             return ToApiSnapshot(TimePriorityService.EvaluateWorkGiverPriority(pawn, workType, workGiver, basePriority));
         }

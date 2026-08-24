@@ -53,7 +53,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 return -1f;
             }
 
-            int parentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            int parentPriority = ParentPriorityRead.GetLive(pawn, workType);
             int priority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
             priority = TimePriorityService.GetEffectiveWorkGiverPriority(
                 pawn,

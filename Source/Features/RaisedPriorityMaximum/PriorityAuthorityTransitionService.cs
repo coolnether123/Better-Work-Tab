@@ -80,17 +80,18 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         }
 
         /// <summary>
-        /// Resolves an authority snapshot for observation only. This path never drains a pending
-        /// transition through <see cref="EnsureTransitionApplied"/> and suppresses registry
-        /// callbacks that would otherwise re-enter the handoff owner while the snapshot is being
-        /// assembled. Normal callers must continue to use <see cref="CurrentAuthority"/>.
+        /// Resolves a snapshot and its revision under one observational guard.
+        /// This path never drains a pending transition or runs a handoff.
         /// </summary>
-        internal static PriorityAuthoritySnapshot GetObservationalSnapshot()
+        internal static void CaptureObservationalAuthority(
+            out PriorityAuthoritySnapshot snapshot,
+            out long revision)
         {
             BeginAuthorityObservation();
             try
             {
-                return ResolveObservationalSnapshot();
+                snapshot = ResolveObservationalSnapshot();
+                revision = PriorityAuthorityResolver.CurrentAuthorityRevision;
             }
             finally
             {
@@ -105,35 +106,8 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         /// </summary>
         internal static long GetObservationalRevision()
         {
-            BeginAuthorityObservation();
-            try
-            {
-                ResolveObservationalSnapshot();
-                return PriorityAuthorityResolver.CurrentAuthorityRevision;
-            }
-            finally
-            {
-                EndAuthorityObservation();
-            }
-        }
-
-        /// <summary>
-        /// Reads the normal effective priority algorithm under the observational authority guard.
-        /// This keeps external-store and time-priority semantics identical while preventing a
-        /// projected provider fallback read from becoming a transition owner.
-        /// </summary>
-        internal static int GetObservationalEffectivePriority(Pawn pawn, WorkTypeDef workType)
-        {
-            BeginAuthorityObservation();
-            try
-            {
-                ResolveObservationalSnapshot();
-                return WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
-            }
-            finally
-            {
-                EndAuthorityObservation();
-            }
+            CaptureObservationalAuthority(out _, out long revision);
+            return revision;
         }
 
         internal static bool IsBetterWorkTabAuthority =>

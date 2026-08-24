@@ -1,5 +1,4 @@
 using System;
-using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.ModSupport;
 using RimWorld;
 using System.Reflection;
@@ -149,17 +148,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             if (workSettings?.priorities == null || workType == null) return false;
             priority = workSettings.priorities[workType];
             return true;
-        }
-
-        internal static int GetCurrentPriorityForPawnWorkType(Pawn pawn, WorkTypeDef workType)
-        {
-            if (PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority)
-            {
-                return GetPriorityForPawnWorkType(pawn, workType);
-            }
-
-            int basePriority = GetPriorityForPawnWorkType(pawn, workType);
-            return TimePriorityService.GetEffectiveWorkTypePriority(pawn, workType, basePriority);
         }
 
         /// <summary>

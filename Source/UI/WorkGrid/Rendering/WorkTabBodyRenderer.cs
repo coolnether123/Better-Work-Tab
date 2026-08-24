@@ -1448,12 +1448,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         if (expandedParentPriorityWorkType != expandedParentWorkType)
                         {
                             expandedParentPriorityWorkType = expandedParentWorkType;
-                            expandedParentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                            expandedParentPriority = ParentPriorityRead.GetObserved(
                                 pawn,
-                                expandedParentWorkType,
-                                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(
-                                    pawn,
-                                    expandedParentWorkType));
+                                expandedParentWorkType);
                         }
 
                         WorkGiverPriorityBoxRenderer.DrawPriorityBox(

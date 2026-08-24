@@ -143,6 +143,66 @@ namespace Better_Work_Tab.Features.Workloads.V2
         public WorkloadIntent<bool> Intent { get; private set; }
     }
 
+    // Legacy values form the base; typed Set/Clear replace it and NoOpinion removes it.
+    internal static class WorkloadManualModeSemantics
+    {
+        internal static Dictionary<WorkloadParentPriorityKey, WorkloadIntent<bool>> GetEffectiveEntries(
+            WorkloadProjectedState state)
+        {
+            var values = new Dictionary<WorkloadParentPriorityKey, WorkloadIntent<bool>>();
+            if (state == null) return values;
+            for (int i = 0; i < state.ManualModes.Count; i++)
+            {
+                WorkloadManualModeEntry entry = state.ManualModes[i];
+                if (entry?.Key != null && entry.Key.IsValid)
+                    values[entry.Key] = WorkloadIntent<bool>.CreateSet(entry.Manual);
+            }
+            for (int i = 0; i < state.ManualModeIntents.Count; i++)
+            {
+                WorkloadManualModeIntentEntry entry = state.ManualModeIntents[i];
+                if (entry?.Key == null || !entry.Key.IsValid) continue;
+                if (entry.Intent.IsNoOpinion) values.Remove(entry.Key);
+                else values[entry.Key] = entry.Intent;
+            }
+            return values;
+        }
+
+        internal static bool TryGetGlobalMode(
+            WorkloadProjectedState state,
+            out bool mode,
+            out bool hasEntries,
+            out bool conflict)
+        {
+            return TryGetGlobalMode(GetEffectiveEntries(state).Values, out mode, out hasEntries, out conflict);
+        }
+
+        internal static bool TryGetGlobalMode(
+            IEnumerable<WorkloadIntent<bool>> values,
+            out bool mode,
+            out bool hasEntries,
+            out bool conflict)
+        {
+            mode = false;
+            hasEntries = false;
+            conflict = false;
+            bool hasValue = false;
+            if (values == null) return false;
+            foreach (WorkloadIntent<bool> intent in values)
+            {
+                hasEntries = true;
+                if (!intent.HasValue) continue;
+                if (hasValue && mode != intent.Value)
+                {
+                    conflict = true;
+                    return false;
+                }
+                mode = intent.Value;
+                hasValue = true;
+            }
+            return hasValue;
+        }
+    }
+
     public sealed class WorkloadScheduleIntentEntry
     {
         public WorkloadScheduleIntentEntry(

@@ -344,7 +344,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                     return RuleBuilder2PriorityRange.ClampForActiveWorkTab(sleekPriority);
                 }
 
-                int parentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+                int parentPriority = ParentPriorityRead.GetLive(pawn, workType);
                 return RuleBuilder2PriorityRange.ClampForActiveWorkTab(
                     SleekWorkTabGateway.SleekCodeRuns
                         ? parentPriority
@@ -352,7 +352,7 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
 
             return RuleBuilder2PriorityRange.ClampForActiveWorkTab(
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+                ParentPriorityRead.GetLive(pawn, workType));
         }
 
         internal static int GetActionPriority(RuleBuilder2Action action)

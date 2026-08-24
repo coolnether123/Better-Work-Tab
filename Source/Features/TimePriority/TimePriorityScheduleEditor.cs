@@ -333,10 +333,7 @@ namespace Better_Work_Tab.Features.TimePriority
             TimePriorityTarget target;
             if (workGiver != null)
             {
-                int parentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                    pawn,
-                    workType,
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+                int parentPriority = ParentPriorityRead.GetObserved(pawn, workType);
                 currentPriority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
                     pawn,
                     workType,
@@ -352,10 +349,7 @@ namespace Better_Work_Tab.Features.TimePriority
             }
             else
             {
-                currentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                    pawn,
-                    workType,
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+                currentPriority = ParentPriorityRead.GetObserved(pawn, workType);
                 target = TimePriorityTarget.ForWorkType(pawn, workType);
             }
 
@@ -1254,10 +1248,7 @@ namespace Better_Work_Tab.Features.TimePriority
                     return false;
                 }
 
-                int fallback = WorkTabEffectiveStateRuntime.GetParentPriority(
-                    row.Pawn,
-                    parentWorkType,
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(row.Pawn, parentWorkType));
+                int fallback = ParentPriorityRead.GetObserved(row.Pawn, parentWorkType);
                 int currentPriority = GetEffectiveWorkGiverPriority(
                     row.Pawn,
                     parentWorkType,
@@ -1279,10 +1270,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            int priority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                row.Pawn,
-                workType,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(row.Pawn, workType));
+            int priority = ParentPriorityRead.GetObserved(row.Pawn, workType);
             target = TargetInfo.ForWorkType(
                 row.Pawn,
                 workType,
@@ -1376,10 +1364,7 @@ namespace Better_Work_Tab.Features.TimePriority
                     workGiver?.def != null &&
                     parentWorkType != null)
                 {
-                    int parentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                        row.Pawn,
-                        parentWorkType,
-                        WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(row.Pawn, parentWorkType));
+                    int parentPriority = ParentPriorityRead.GetObserved(row.Pawn, parentWorkType);
                     int workGiverPriority = GetEffectiveWorkGiverPriority(
                         row.Pawn,
                         parentWorkType,
@@ -1401,10 +1386,7 @@ namespace Better_Work_Tab.Features.TimePriority
                     return false;
                 }
 
-                int priority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                    row.Pawn,
-                    workType,
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(row.Pawn, workType));
+                int priority = ParentPriorityRead.GetObserved(row.Pawn, workType);
                 target = TargetInfo.ForWorkType(
                     row.Pawn,
                     workType,
@@ -2227,10 +2209,7 @@ namespace Better_Work_Tab.Features.TimePriority
                     return WorkPrioritySystem.GetDefaultEnabledPriority();
                 }
 
-                return WorkTabEffectiveStateRuntime.GetParentPriority(
-                    pawn,
-                    workType,
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+                return ParentPriorityRead.GetObserved(pawn, workType);
             }
 
             WorkTypeDef parent = DefDatabase<WorkTypeDef>.GetNamedSilentFail(_session.WorkTypeDefName);
@@ -2240,10 +2219,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 return WorkGiverReassignmentManager.GetWorkGiverPriority(null, giver, WorkPrioritySystem.GetDefaultEnabledPriority());
             }
 
-            int parentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                pawn,
-                parent,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, parent));
+            int parentPriority = ParentPriorityRead.GetObserved(pawn, parent);
             return GetEffectiveWorkGiverPriority(pawn, parent, giver, parentPriority);
         }
 
@@ -2270,10 +2246,10 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static bool GetSessionManualMode()
         {
-            bool fallback = Find.PlaySettings?.useWorkPriorities ?? true;
+            const bool fallback = true;
             if (_session == null)
             {
-                return fallback;
+                return ParentPriorityRead.GetLiveManualMode(fallback);
             }
 
             WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(
@@ -2281,7 +2257,7 @@ namespace Better_Work_Tab.Features.TimePriority
             Pawn pawn = _session.PawnIds.Count > 0
                 ? ResolvePawn(_session.PawnIds[0])
                 : null;
-            return WorkTabEffectiveStateRuntime.IsManualMode(pawn, workType, fallback);
+            return ParentPriorityRead.GetObservedManualMode(pawn, workType, fallback);
         }
 
         private static Pawn ResolvePawn(int pawnId)

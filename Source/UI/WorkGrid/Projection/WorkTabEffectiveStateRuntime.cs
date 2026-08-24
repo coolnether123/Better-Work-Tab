@@ -34,13 +34,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             return new WorkGiverKey(workGiver?.defName);
         }
 
-        public static WorkloadParentPriorityKey ForParentPriority(
-            Pawn pawn,
-            WorkTypeDef workType)
-        {
-            return new WorkloadParentPriorityKey(ForPawn(pawn), ForWorkType(workType));
-        }
-
         public static WorkloadSpecificJobKey ForSpecificJob(
             Pawn pawn,
             WorkTypeDef workType,
@@ -383,9 +376,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             WorkloadOwnershipDimensions ownership;
             switch (dimension)
             {
-                case WorkTabEffectiveStateDimension.ParentPriority:
-                    ownership = WorkloadOwnershipDimensions.ParentPriorities;
-                    break;
                 case WorkTabEffectiveStateDimension.ManualMode:
                     ownership = WorkloadOwnershipDimensions.ManualModes;
                     break;
@@ -423,24 +413,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             return CurrentProvider.TryGetSpecificJobIntegerOverride(
                 WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver),
                 out priority);
-        }
-
-        public static bool TrySetParentPriority(
-            Pawn pawn,
-            WorkTypeDef workType,
-            int priority,
-            out WorkTabEffectiveStateMutationResult result)
-        {
-            result = default(WorkTabEffectiveStateMutationResult);
-            if (!TryGetPreviewEditor(out IWorkTabEffectiveStateEditor editor))
-            {
-                return false;
-            }
-
-            result = editor.SetParentPriority(
-                WorkTabEffectiveStateIds.ForParentPriority(pawn, workType),
-                priority);
-            return AcceptPreviewMutation(result);
         }
 
         public static bool TrySetSpecificJobPriority(
@@ -653,14 +625,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return true;
             }
 
-            if (!TryGetPreviewEditor(out IWorkTabEffectiveStateEditor editor))
-            {
-                return false;
-            }
-
             ProjectedWorkTabEffectiveStateProvider projectedProvider =
                 CurrentProvider as ProjectedWorkTabEffectiveStateProvider;
-            if (projectedProvider != null &&
+            if (projectedProvider == null ||
                 (projectedProvider.OwnedDimensions & WorkloadOwnershipDimensions.ManualModes) == 0)
             {
                 ReportBlocked(
@@ -670,10 +637,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             }
 
             bool attempted = false;
-            List<WorkloadParentPriorityKey> projectedKeys =
-                projectedProvider != null
-                    ? new List<WorkloadParentPriorityKey>()
-                    : null;
+            var projectedKeys = new List<WorkloadParentPriorityKey>();
             IReadOnlyList<WorkTypeDef> workTypes =
                 DefDatabase<WorkTypeDef>.AllDefsListForReading;
             foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
@@ -684,8 +648,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 }
 
                 PawnKey pawnKey = WorkTabEffectiveStateIds.ForPawn(pawn);
-                if (projectedProvider != null &&
-                    !projectedProvider.CanEditPawn(pawnKey))
+                if (!projectedProvider.CanEditPawn(pawnKey))
                 {
                     // Manual priority mode is global in RimWorld, but the
                     // workload editor still records it through represented
@@ -704,20 +667,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     }
 
                     attempted = true;
-                    WorkloadParentPriorityKey key =
-                        WorkTabEffectiveStateIds.ForParentPriority(pawn, workType);
-                    if (projectedKeys != null)
-                    {
-                        projectedKeys.Add(key);
-                        continue;
-                    }
-
-                    WorkTabEffectiveStateMutationResult result =
-                        editor.SetManualMode(key, manualMode);
-                    if (!AcceptPreviewMutation(result))
-                    {
-                        return false;
-                    }
+                    projectedKeys.Add(new WorkloadParentPriorityKey(
+                        WorkTabEffectiveStateIds.ForPawn(pawn),
+                        WorkTabEffectiveStateIds.ForWorkType(workType)));
                 }
             }
 
@@ -729,13 +681,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return false;
             }
 
-            if (projectedProvider != null)
-            {
-                return AcceptPreviewMutation(
-                    projectedProvider.SetManualModes(projectedKeys, manualMode));
-            }
-
-            return true;
+            return AcceptPreviewMutation(projectedProvider.SetManualModes(projectedKeys, manualMode));
         }
 
         public static void ReportBlocked(
@@ -774,58 +720,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 dimension,
                 CurrentProvider.Revision,
                 reason);
-        }
-
-        public static int GetParentPriority(
-            Pawn pawn,
-            WorkTypeDef workType,
-            int fallbackPriority)
-        {
-            if (pawn == null || workType == null)
-            {
-                return fallbackPriority;
-            }
-
-            return CurrentProvider.GetParentPriority(
-                WorkTabEffectiveStateIds.ForParentPriority(pawn, workType),
-                fallbackPriority);
-        }
-
-        public static bool IsManualMode(
-            Pawn pawn,
-            WorkTypeDef workType,
-            bool fallbackManualMode)
-        {
-            if (pawn == null || workType == null)
-            {
-                return fallbackManualMode;
-            }
-
-            return CurrentProvider.IsManualMode(
-                WorkTabEffectiveStateIds.ForParentPriority(pawn, workType),
-                fallbackManualMode);
-        }
-
-        /// <summary>
-        /// Resolves the global manual-mode display value from the projected
-        /// provider's in-scope editable parent key. The effective-state
-        /// contract keys manual mode by parent even though RimWorld stores one
-        /// global flag; no arbitrary live pawn is consulted during preview.
-        /// </summary>
-        public static bool GetManualModeForDisplay(bool fallbackManualMode)
-        {
-            if (!IsPreviewActive)
-            {
-                return fallbackManualMode;
-            }
-
-            if (CurrentProvider is ProjectedWorkTabEffectiveStateProvider projected &&
-                projected.TryGetProjectedManualModeForDisplay(out bool manualMode))
-            {
-                return manualMode;
-            }
-
-            return fallbackManualMode;
         }
 
         public static ScheduleKey GetSchedule(

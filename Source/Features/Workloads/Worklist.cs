@@ -20,7 +20,7 @@ namespace Better_Work_Tab.Features.Workloads
             {
                 PawnWorklists.Add(new PawnWorkload(pawn));
             }
-            UseAdvancedMode = Current.Game.playSettings.useWorkPriorities;
+            UseAdvancedMode = ParentPriorityRead.GetLiveManualMode(true);
         }
 
         public Worklist()

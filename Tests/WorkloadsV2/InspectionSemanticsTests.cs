@@ -9,6 +9,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             DirectColumnIndexesPreserveDuplicates();
             CompoundMasksComposeAndDeduplicate();
             ManualModeUsesOneEffectiveGlobalValue();
+            ManualModeIntentsReplaceLegacyWithoutBreakingClearOnlyScope();
         }
 
         private static void DirectColumnIndexesPreserveDuplicates()
@@ -103,6 +104,68 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.True(
                 WorkloadInspectionSemantics.HasEffectiveManualModeChange(before, changed),
                 "A changed effective manual mode should produce one global semantic marker.");
+        }
+
+        private static void ManualModeIntentsReplaceLegacyWithoutBreakingClearOnlyScope()
+        {
+            WorkloadParentPriorityKey released = new WorkloadParentPriorityKey(
+                TestSupport.Pawn("p1"), TestSupport.WorkType("PlantWork"));
+            WorkloadParentPriorityKey set = new WorkloadParentPriorityKey(
+                TestSupport.Pawn("p2"), TestSupport.WorkType("Cook"));
+            var state = new WorkloadProjectedState(
+                manualModes: new[]
+                {
+                    new WorkloadManualModeEntry(released, true),
+                    new WorkloadManualModeEntry(set, true)
+                },
+                manualModeIntents: new[]
+                {
+                    new WorkloadManualModeIntentEntry(
+                        released, WorkloadIntent<bool>.Clear),
+                    new WorkloadManualModeIntentEntry(
+                        set, WorkloadIntent<bool>.CreateSet(false))
+                });
+
+            var effective = WorkloadManualModeSemantics.GetEffectiveEntries(state);
+            WorkloadIntent<bool> releasedIntent;
+            WorkloadIntent<bool> setIntent;
+            TestAssert.True(effective.TryGetValue(released, out releasedIntent) && releasedIntent.IsClear,
+                "Typed Clear must replace a legacy manual Set while remaining represented for per-cell fallback.");
+            TestAssert.True(effective.TryGetValue(set, out setIntent) && setIntent.HasValue && !setIntent.Value,
+                "Typed Set must replace the legacy manual value before aggregate validation.");
+
+            bool mode;
+            bool hasEntries;
+            bool conflict;
+            TestAssert.True(WorkloadManualModeSemantics.TryGetGlobalMode(
+                    effective.Values, out mode, out hasEntries, out conflict) && !mode && hasEntries && !conflict,
+                "Clear plus one effective Set must retain the one global display value.");
+
+            var clearOnly = new WorkloadProjectedState(
+                manualModeIntents: new[]
+                {
+                    new WorkloadManualModeIntentEntry(
+                        released, WorkloadIntent<bool>.Clear)
+                });
+            TestAssert.False(WorkloadManualModeSemantics.TryGetGlobalMode(
+                    clearOnly, out mode, out hasEntries, out conflict),
+                "Clear-only state must not demand a global manual-mode write.");
+            TestAssert.True(hasEntries && !conflict,
+                "Clear-only state remains represented without becoming an effective global Set.");
+
+            var conflicting = new WorkloadProjectedState(
+                manualModeIntents: new[]
+                {
+                    new WorkloadManualModeIntentEntry(
+                        released, WorkloadIntent<bool>.CreateSet(true)),
+                    new WorkloadManualModeIntentEntry(
+                        set, WorkloadIntent<bool>.CreateSet(false))
+                });
+            TestAssert.False(WorkloadManualModeSemantics.TryGetGlobalMode(
+                    conflicting, out mode, out hasEntries, out conflict),
+                "Conflicting effective manual Sets must fail closed for aggregate display.");
+            TestAssert.True(conflict,
+                "Conflicting typed intents must be visible to centralized validation.");
         }
     }
 }

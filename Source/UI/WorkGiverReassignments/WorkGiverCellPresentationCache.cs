@@ -371,10 +371,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return priority;
             }
 
-            priority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                pawn,
-                workType,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+            priority = ParentPriorityRead.GetObserved(pawn, workType);
             ParentPriorities[key] = priority;
             _lastParentPawnId = pawnId;
             _lastParentWorkTypeHash = workTypeHash;

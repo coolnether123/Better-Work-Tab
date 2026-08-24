@@ -433,10 +433,7 @@ namespace Better_Work_Tab.Patches
                 return;
             }
 
-            int priority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                pawn,
-                workType,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+            int priority = ParentPriorityRead.GetObserved(pawn, workType);
             int skillLevel = GetSkillLevel(pawn, workType);
             bool hoveringCell = !TimePriorityScheduleEditor.OwnsCurrentMousePosition &&
                                 !BWTWorkTabTutorial.OwnsCurrentPointer &&
@@ -549,10 +546,7 @@ namespace Better_Work_Tab.Patches
 
             Rect boxRect = GetWorkBoxRect(rect);
             int priority = WorkPrioritySystem.ClampPriority(
-                WorkTabEffectiveStateRuntime.GetParentPriority(
-                    pawn,
-                    workType,
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType)));
+                ParentPriorityRead.GetObserved(pawn, workType));
 
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
@@ -568,10 +562,10 @@ namespace Better_Work_Tab.Patches
                     : new Color(oldColor.r, oldColor.g, oldColor.b, oldColor.a * alpha);
                 WidgetsWork.DrawWorkBoxBackground(boxRect, pawn, workType);
 
-                if (WorkTabEffectiveStateRuntime.IsManualMode(
+                if (ParentPriorityRead.GetObservedManualMode(
                         pawn,
                         workType,
-                        Find.PlaySettings?.useWorkPriorities ?? true))
+                        true))
                 {
                     if (priority > WorkPrioritySystem.DisabledPriority)
                     {
@@ -738,14 +732,8 @@ namespace Better_Work_Tab.Patches
                 return worker.Compare(candidate, bestPawn) > 0;
             }
 
-            int candidatePriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                candidate,
-                workType,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(candidate, workType));
-            int bestPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                bestPawn,
-                workType,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(bestPawn, workType));
+            int candidatePriority = ParentPriorityRead.GetObserved(candidate, workType);
+            int bestPriority = ParentPriorityRead.GetObserved(bestPawn, workType);
             if (candidatePriority != bestPriority)
             {
                 return candidatePriority < bestPriority;
@@ -933,10 +921,7 @@ namespace Better_Work_Tab.Patches
                    pawn?.workSettings != null &&
                    workType != null &&
                    !pawn.WorkTypeIsDisabled(workType) &&
-                   WorkTabEffectiveStateRuntime.GetParentPriority(
-                       pawn,
-                       workType,
-                       WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType)) <=
+                   ParentPriorityRead.GetObserved(pawn, workType) <=
                        WorkPrioritySystem.DisabledPriority &&
                    HasEnabledEffectiveOverrideForWorkType(pawn, workType);
         }
@@ -1020,10 +1005,7 @@ namespace Better_Work_Tab.Patches
 
             return TimePriorityService.HasCustomSchedule(
                 TimePriorityTarget.ForRuntimeWorkType(pawn, workType),
-                WorkTabEffectiveStateRuntime.GetParentPriority(
-                    pawn,
-                    workType,
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType)));
+                ParentPriorityRead.GetObserved(pawn, workType));
         }
 
         private static void DrawScheduleIndicatorIfNeeded(Rect cellRect, Pawn pawn, WorkTypeDef workType)
@@ -1128,15 +1110,12 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            int currentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                pawn,
-                workType,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+            int currentPriority = ParentPriorityRead.GetObserved(pawn, workType);
             int direction = evt.delta.y > 0 ? -1 : 1;
-            int nextPriority = WorkTabEffectiveStateRuntime.IsManualMode(
+            int nextPriority = ParentPriorityRead.GetObservedManualMode(
                     pawn,
                     workType,
-                    Find.PlaySettings?.useWorkPriorities ?? true)
+                    true)
                 ? WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction)
                 : currentPriority > WorkPrioritySystem.DisabledPriority
                     ? WorkPrioritySystem.DisabledPriority
@@ -1186,10 +1165,10 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            bool manualPriorities = WorkTabEffectiveStateRuntime.IsManualMode(
+            bool manualPriorities = ParentPriorityRead.GetObservedManualMode(
                     pawn,
                     workType,
-                    Find.PlaySettings?.useWorkPriorities ?? true);
+                    true);
             if ((manualPriorities && evt.button != 0 && evt.button != 1) ||
                 (!manualPriorities && evt.button != 0))
             {
@@ -1197,10 +1176,7 @@ namespace Better_Work_Tab.Patches
             }
 
             bool wasActive = IsEffectiveWorkActive(pawn, workType);
-            int currentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                pawn,
-                workType,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+            int currentPriority = ParentPriorityRead.GetObserved(pawn, workType);
             int nextPriority = WorkPrioritySystem.GetPriorityAfterCellClick(
                 currentPriority,
                 evt.button,
@@ -1272,10 +1248,7 @@ namespace Better_Work_Tab.Patches
         {
             if (WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
-                return WorkTabEffectiveStateRuntime.GetParentPriority(
-                           pawn,
-                           workType,
-                           WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType)) >
+                return ParentPriorityRead.GetObserved(pawn, workType) >
                        WorkPrioritySystem.DisabledPriority;
             }
 

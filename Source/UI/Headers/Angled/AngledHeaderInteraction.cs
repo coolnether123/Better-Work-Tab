@@ -181,8 +181,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 {
                     tooltip += "\n" + "Shift + click: Select column for group dragging.".Colorize(ColoredText.SubtleGrayColor);
                 }
-                else if (WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                             Find.PlaySettings?.useWorkPriorities ?? true))
+                else if (ParentPriorityRead.GetObservedManualModeForDisplay(
+                             true))
                 {
                     tooltip += "\n" + "WorkPriorityShiftClickTip".Translate().Colorize(ColoredText.SubtleGrayColor);
                 }
@@ -233,8 +233,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 tooltip.Append("\n").Append("Shift + click: Select column for group dragging.".Colorize(ColoredText.SubtleGrayColor));
             }
-            else if (WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                         Find.PlaySettings?.useWorkPriorities ?? true))
+            else if (ParentPriorityRead.GetObservedManualModeForDisplay(
+                         true))
             {
                 tooltip.Append("\n").Append("WorkPriorityShiftClickTip".Translate().Colorize(ColoredText.SubtleGrayColor));
             }
@@ -442,8 +442,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             var workType = worker.def.workType;
             List<Pawn> pawns = table.PawnsListForReading;
-            bool useWorkPriorities = WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                Find.PlaySettings?.useWorkPriorities ?? true);
+            bool useWorkPriorities = ParentPriorityRead.GetObservedManualModeForDisplay(
+                true);
 
             bool changed = false;
             for (int i = 0; i < pawns.Count; i++)
@@ -453,10 +453,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     continue;
 
                 int curPriority = WorkTabEffectiveStateRuntime.IsPreviewActive
-                    ? WorkTabEffectiveStateRuntime.GetParentPriority(
-                        pawn,
-                        workType,
-                        WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType))
+                    ? ParentPriorityRead.GetObserved(pawn, workType)
                     : pawn.workSettings.GetPriority(workType);
                 int nextPriority;
 
@@ -566,8 +563,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             List<Pawn> pawns = table.PawnsListForReading;
-            bool useWorkPriorities = WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                Find.PlaySettings?.useWorkPriorities ?? true);
+            bool useWorkPriorities = ParentPriorityRead.GetObservedManualModeForDisplay(
+                true);
 
             if (WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
@@ -581,10 +578,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                         continue;
                     }
 
-                    int parentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                        pawn,
-                        workType,
-                        WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+                    int parentPriority = ParentPriorityRead.GetObserved(pawn, workType);
                     int currentPriority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
                         pawn,
                         workType,

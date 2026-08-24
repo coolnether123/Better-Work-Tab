@@ -298,8 +298,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 previous.Columns,
                 previous.Cells.WithReplacements(replacements),
                 previous.RetainedCapacityBytes,
-                WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                    Find.PlaySettings?.useWorkPriorities ?? previous.ManualPriorities),
+                ParentPriorityRead.GetObservedManualModeForDisplay(
+                    previous.ManualPriorities),
                 previous.MaxPriority,
                 previous.UiScaleRevision,
                 previous.FontThemeRevision,
@@ -561,8 +561,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 _columns.ToSnapshot(),
                 _cells.ToSnapshot(),
                 retainedBytes,
-                WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                    Find.PlaySettings?.useWorkPriorities ?? true),
+                ParentPriorityRead.GetObservedManualModeForDisplay(
+                    true),
                 maxPriority,
                 Mathf.RoundToInt(Prefs.UIScale * 1000f),
                 presentationRevision,
@@ -641,10 +641,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 return false;
             }
 
-            int priority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                pawn,
-                workType,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+            int priority = ParentPriorityRead.GetObserved(pawn, workType);
             if (previous.Priority != priority)
             {
                 return false;
@@ -656,10 +653,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             {
                 flags |= WorkCellVisualFlags.BestPawn;
             }
-            if (WorkTabEffectiveStateRuntime.IsManualMode(
+            if (ParentPriorityRead.GetObservedManualMode(
                     pawn,
                     workType,
-                    Find.PlaySettings?.useWorkPriorities ?? true))
+                    true))
             {
                 flags |= WorkCellVisualFlags.ManualPriorityMode;
             }
@@ -740,10 +737,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
             else
             {
-                priority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                    pawn,
-                    workType,
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType));
+                priority = ParentPriorityRead.GetObserved(pawn, workType);
                 incapable = IsIncapable(pawn, workType);
                 overrideRing = WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent() &&
                                !disabled &&
@@ -776,10 +770,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             if (ageDisabled) flags |= WorkCellVisualFlags.AgeDisabled;
             if (overrideRing) flags |= WorkCellVisualFlags.OverrideRing;
             if (passion > 0) flags |= WorkCellVisualFlags.HasPassion;
-            if (WorkTabEffectiveStateRuntime.IsManualMode(
+            if (ParentPriorityRead.GetObservedManualMode(
                     pawn,
                     workType,
-                    Find.PlaySettings?.useWorkPriorities ?? true))
+                    true))
                 flags |= WorkCellVisualFlags.ManualPriorityMode;
             if (pawn.thingIDNumber == bestPawnId) flags |= WorkCellVisualFlags.BestPawn;
             if (pawn.Ideo != null && pawn.Ideo.IsWorkTypeConsideredDangerous(workType))
@@ -1027,14 +1021,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 return worker.Compare(candidate, bestPawn) > 0;
             }
 
-            int candidatePriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                candidate,
-                workType,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(candidate, workType));
-            int bestPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                bestPawn,
-                workType,
-                WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(bestPawn, workType));
+            int candidatePriority = ParentPriorityRead.GetObserved(candidate, workType);
+            int bestPriority = ParentPriorityRead.GetObserved(bestPawn, workType);
             if (candidatePriority != bestPriority)
             {
                 // RimWorld's Work-priority comparison treats the smallest

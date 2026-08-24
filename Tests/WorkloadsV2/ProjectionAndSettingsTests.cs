@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 
@@ -7,6 +9,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
     {
         public static void Run()
         {
+            ParentPriorityReadPolicyKeepsTruthAndIdentity();
             var pawn = TestSupport.Pawn("p1");
             var workType = TestSupport.WorkType("PlantWork");
             var workGiver = TestSupport.WorkGiver("PlantCut");
@@ -38,14 +41,20 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 true);
             TestAssert.True(manualBatch.Accepted,
                 "a scoped manual-mode change must be accepted as one projected mutation");
+            var projectedManual = WorkloadManualModeSemantics.GetEffectiveEntries(
+                projection.ProjectedState);
+            WorkloadIntent<bool> firstManual;
+            WorkloadIntent<bool> secondManual;
             TestAssert.True(
-                projection.ResolveManualMode(
-                    new WorkloadParentPriorityKey(pawn, workType)).Value,
-                "the batched manual-mode change must update the first work type");
+                projectedManual.TryGetValue(
+                    new WorkloadParentPriorityKey(pawn, workType), out firstManual) &&
+                firstManual.HasValue && firstManual.Value,
+                "the batched manual-mode change must update the first work type in the neutral projection.");
             TestAssert.True(
-                projection.ResolveManualMode(
-                    new WorkloadParentPriorityKey(pawn, secondWorkType)).Value,
-                "the batched manual-mode change must update every work type in scope");
+                projectedManual.TryGetValue(
+                    new WorkloadParentPriorityKey(pawn, secondWorkType), out secondManual) &&
+                secondManual.HasValue && secondManual.Value,
+                "the batched manual-mode change must update every work type in scope through the central reducer.");
 
             var settingResult = v2.SetPresentationSetting(
                 "ui.angled",
@@ -174,6 +183,65 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "presentation writes must advance the settings revision dimension");
             TestAssert.True(projection.RevisionVector.ScheduleRevision > 0,
                 "schedule writes must advance the schedule revision dimension");
+        }
+
+        private static void ParentPriorityReadPolicyKeepsTruthAndIdentity()
+        {
+            ParentProjectionValue<int> noOpinion = default(ParentProjectionValue<int>);
+            ParentProjectionValue<int> clear = ParentProjectionValue<int>.Clear;
+            ParentProjectionValue<int> set = ParentProjectionValue<int>.Set(7);
+            ParentProjectionValue<int> zero = ParentProjectionValue<int>.Set(0);
+
+            TestAssert.Equal(4, ParentPriorityReadPolicy.Resolve(false, noOpinion, 4, false, 2, 9),
+                "BWT NoOpinion with linked schedule must use stored base.");
+            TestAssert.Equal(2, ParentPriorityReadPolicy.Resolve(false, noOpinion, 4, true, 2, 9),
+                "BWT NoOpinion with a pinned hour must compose that hour once.");
+            TestAssert.Equal(4, ParentPriorityReadPolicy.Resolve(false, clear, 4, false, 2, 9),
+                "BWT Clear with a linked schedule must reveal stored base.");
+            TestAssert.Equal(2, ParentPriorityReadPolicy.Resolve(false, clear, 4, true, 2, 9),
+                "BWT Clear with a pinned hour must reveal then compose the live schedule.");
+            TestAssert.Equal(7, ParentPriorityReadPolicy.Resolve(false, set, 4, false, 2, 9),
+                "BWT Set with a linked schedule must use its projected base.");
+            TestAssert.Equal(2, ParentPriorityReadPolicy.Resolve(false, set, 4, true, 2, 9),
+                "BWT Set must compose a pinned hour exactly once.");
+            TestAssert.Equal(0, ParentPriorityReadPolicy.Resolve(false, zero, 4, true, 2, 9),
+                "A zero projected base must remain disabled even when an hour is pinned.");
+
+            TestAssert.Equal(9, ParentPriorityReadPolicy.Resolve(true, noOpinion, 4, true, 2, 9),
+                "External NoOpinion must use external effective priority directly.");
+            TestAssert.Equal(9, ParentPriorityReadPolicy.Resolve(true, clear, 4, true, 2, 9),
+                "External Clear must use external effective priority directly.");
+            TestAssert.Equal(7, ParentPriorityReadPolicy.Resolve(true, set, 4, true, 2, 9),
+                "External Set must replace external effective priority directly.");
+            TestAssert.Equal(0, ParentPriorityReadPolicy.Resolve(true, zero, 4, true, 2, 9),
+                "External zero Set must remain disabled.");
+            TestAssert.Equal(ParentPriorityOverlayState.Clear, clear.State,
+                "Clear must remain distinct from NoOpinion even when their effective value matches.");
+
+            TestAssert.Equal(PriorityConstants.VanillaDefaultEnabled,
+                ParentPriorityReadPolicy.NormalizeForDisplay(true, 1, false),
+                "Checkbox-mode display must normalize raw enabled priority 1.");
+            TestAssert.Equal(PriorityConstants.VanillaDefaultEnabled,
+                ParentPriorityReadPolicy.NormalizeForDisplay(true, 2, false),
+                "Checkbox-mode display must normalize raw enabled priority 2.");
+            TestAssert.Equal(2, ParentPriorityReadPolicy.NormalizeForDisplay(true, 2, true),
+                "Manual-priority display must preserve its explicit raw priority.");
+            TestAssert.Equal(2, ParentPriorityReadPolicy.NormalizeForDisplay(true, 2, null),
+                "A missing PlaySettings snapshot must not consult or assume checkbox mode.");
+
+            var first = new ParentPriorityTarget(17, "PlantWork");
+            var same = new ParentPriorityTarget(17, "PlantWork");
+            var otherPawn = new ParentPriorityTarget(18, "PlantWork");
+            var values = new Dictionary<ParentPriorityTarget, int> { { first, 6 } };
+            TestAssert.True(first.Equals(same) && !first.Equals(otherPawn) && values.ContainsKey(same),
+                "Parent target identity must be stable pawn thing ID plus WorkType defName only.");
+
+            TestAssert.Equal(0, (int)WorkTabEffectiveStateDimension.ParentPriority,
+                "ParentPriority enum ABI value must remain reserved at zero.");
+            TestAssert.Equal(1, (int)WorkTabEffectiveStateDimension.ManualMode,
+                "ManualMode enum ABI value must not be renumbered.");
+            TestAssert.Equal(2, (int)WorkTabEffectiveStateDimension.Schedule,
+                "Schedule enum ABI value must not be renumbered.");
         }
     }
 }

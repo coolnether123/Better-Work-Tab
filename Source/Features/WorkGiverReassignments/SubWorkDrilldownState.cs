@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Better_Work_Tab.DragDrop;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Input;
 using Better_Work_Tab.UI.WorkGrid.Projection;
@@ -1205,12 +1206,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return -1f;
             }
 
-            int defaultPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
-                pawn,
-                _activeWorkType,
-                Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(
-                    pawn,
-                    _activeWorkType));
+            int defaultPriority = ParentPriorityRead.GetObserved(pawn, _activeWorkType);
             int priority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
                 pawn,
                 _activeWorkType,

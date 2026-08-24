@@ -125,7 +125,8 @@
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviderSnapshot.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityProviders.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\PriorityRangePolicy.cs" />
-    <Compile Include="Features\RaisedPriorityMaximum\PriorityValueResolver.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\ParentPriorityReadPolicy.cs" />
+    <Compile Include="Features\RaisedPriorityMaximum\ParentPriorityRead.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\ParentPriorityCommandExpectation.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\ParentPriorityApplication.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\WorkPrioritySystem.cs" />
@@ -470,6 +471,7 @@
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />
     <Compile Include="UI\Workloads\WorkloadGateway.cs" />
+    <Compile Include="UI\Workloads\WorkloadParentPriorityProjection.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderGateway.cs" />
     <Compile Include="UI\RuleBuilder\Window_PriorityNumberPicker.cs" />
     <Compile Include="UI\RuleBuilder\Window_RulesetBuilder.cs" />

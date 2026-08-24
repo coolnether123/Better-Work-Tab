@@ -26,10 +26,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         private readonly HashSet<PawnKey> _editablePawnIds;
         private bool _hasEditablePawnBoundary;
 
-        private readonly Dictionary<WorkloadParentPriorityKey, int> _parentPriorities =
-            new Dictionary<WorkloadParentPriorityKey, int>();
-        private readonly Dictionary<WorkloadParentPriorityKey, bool> _manualModes =
-            new Dictionary<WorkloadParentPriorityKey, bool>();
         private readonly Dictionary<PawnKey, ScheduleKey> _schedules =
             new Dictionary<PawnKey, ScheduleKey>();
         private readonly Dictionary<WorkloadSpecificJobKey, WorkloadScalarValue> _specificJobOverrides =
@@ -38,10 +34,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             new Dictionary<WorkloadSpecificJobKey, int>();
         private readonly Dictionary<string, WorkloadScalarValue> _presentationSettings =
             new Dictionary<string, WorkloadScalarValue>(StringComparer.Ordinal);
-        private readonly Dictionary<WorkloadParentPriorityKey, WorkloadIntent<WorkloadSpecificPriorityPayload>> _parentPriorityIntents =
-            new Dictionary<WorkloadParentPriorityKey, WorkloadIntent<WorkloadSpecificPriorityPayload>>();
-        private readonly Dictionary<WorkloadParentPriorityKey, WorkloadIntent<bool>> _manualModeIntents =
-            new Dictionary<WorkloadParentPriorityKey, WorkloadIntent<bool>>();
         private readonly Dictionary<WorkloadScheduleTargetKey, WorkloadIntent<WorkloadSchedulePayload>> _scheduleIntents =
             new Dictionary<WorkloadScheduleTargetKey, WorkloadIntent<WorkloadSchedulePayload>>();
         private readonly Dictionary<WorkloadSpecificJobTargetKey, WorkloadIntent<WorkloadSpecificPriorityPayload>> _specificPriorityIntents =
@@ -69,8 +61,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         private WorkTabEffectiveStateRevisionVector _baseRevisionVector;
         private bool _hasBaseRevisionVector;
         private readonly long _providerGeneration;
-        private long _parentPriorityRevision;
-        private long _manualModeRevision;
         private long _scheduleRevision;
         private long _specificRevision;
         private long _settingsRevision;
@@ -158,9 +148,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return new WorkTabEffectiveStateRevisionVector(
                     _providerGeneration,
                     CombineRevisions(baseVector.ProviderGeneration, baseVector.SourceRevision),
-                    CombineRevisions(
-                        _draftRevision,
-                        CombineRevisions(_parentPriorityRevision, _manualModeRevision)),
+                    _draftRevision,
                     baseVector.PersistenceRevision,
                     baseVector.AuthorityRevision,
                     CombineRevisions(baseVector.ScheduleRevision, _scheduleRevision),
@@ -183,38 +171,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         {
             RefreshProjection();
             return IsEditablePawn(pawn, _projectedState);
-        }
-
-        /// <summary>
-        /// Returns the projected global manual-priority value from a represented,
-        /// currently editable parent key. Manual mode is global in RimWorld, but
-        /// the preview model stores it on parent keys; never infer the display
-        /// value from an arbitrary live pawn outside this provider's boundary.
-        /// </summary>
-        public bool TryGetProjectedManualModeForDisplay(out bool manualMode)
-        {
-            manualMode = false;
-            RefreshProjection();
-            if (!Owns(WorkloadStateDimension.ManualModes))
-            {
-                return false;
-            }
-
-            IReadOnlyList<WorkloadManualModeEntry> entries =
-                _projectedState?.ManualModes;
-            for (int i = 0; entries != null && i < entries.Count; i++)
-            {
-                WorkloadManualModeEntry entry = entries[i];
-                if (entry != null &&
-                    entry.Key != null &&
-                    IsEditablePawn(entry.Key.Pawn, _projectedState) &&
-                    _manualModes.TryGetValue(entry.Key, out manualMode))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         /// <summary>
@@ -282,46 +238,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             _capturedBaseRevisionVector = ReadBaseRevisionVectorUncaptured();
             _hasCapturedBaseRevision = true;
             _hasCapturedBaseRevisionVector = true;
-        }
-
-        public WorkTabEffectiveStateResolution<int> ResolveParentPriority(
-            WorkloadParentPriorityKey key)
-        {
-            RefreshProjection();
-            if (!Owns(WorkloadStateDimension.ParentPriorities) || key == null || !key.IsValid ||
-                !IsEditablePawn(key.Pawn, _projectedState))
-            {
-                return WorkTabEffectiveStateResolution<int>.NoOpinion;
-            }
-
-            if (_parentPriorityIntents.TryGetValue(key, out WorkloadIntent<WorkloadSpecificPriorityPayload> intent))
-            {
-                return ToResolution(intent, value => value.Priority);
-            }
-
-            return _parentPriorities.TryGetValue(key, out int priority)
-                ? WorkTabEffectiveStateResolution<int>.Set(priority)
-                : WorkTabEffectiveStateResolution<int>.NoOpinion;
-        }
-
-        public WorkTabEffectiveStateResolution<bool> ResolveManualMode(
-            WorkloadParentPriorityKey key)
-        {
-            RefreshProjection();
-            if (!Owns(WorkloadStateDimension.ManualModes) || key == null || !key.IsValid ||
-                !IsEditablePawn(key.Pawn, _projectedState))
-            {
-                return WorkTabEffectiveStateResolution<bool>.NoOpinion;
-            }
-
-            if (_manualModeIntents.TryGetValue(key, out WorkloadIntent<bool> intent))
-            {
-                return ToResolution(intent, value => value);
-            }
-
-            return _manualModes.TryGetValue(key, out bool manual)
-                ? WorkTabEffectiveStateResolution<bool>.Set(manual)
-                : WorkTabEffectiveStateResolution<bool>.NoOpinion;
         }
 
         public WorkTabEffectiveStateResolution<WorkloadSchedulePayload> ResolveSchedule(
@@ -423,66 +339,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             }
 
             return WorkTabEffectiveStateResolution<TResult>.Set(selector(intent.Value));
-        }
-
-        /// <summary>
-        /// Composes the projected layer with the canonical provider. The
-        /// projected resolver above remains exact-layer-only; these helpers are
-        /// the only place where a NoOpinion/Clear result is allowed to fall
-        /// through to the lower provider.
-        /// </summary>
-        public WorkTabEffectiveStateResolution<int> ResolveEffectiveParentPriority(
-            WorkloadParentPriorityKey key)
-        {
-            WorkTabEffectiveStateResolution<int> projected = ResolveParentPriority(key);
-            if (projected.IsSet)
-            {
-                return projected;
-            }
-
-            if (_baseProvider is IWorkTabEffectiveStateV2Provider v2)
-            {
-                WorkTabEffectiveStateResolution<int> lower = v2.ResolveParentPriority(key);
-                if (lower.IsSet)
-                {
-                    return lower;
-                }
-            }
-
-            if (_baseProvider != null &&
-                _baseProvider.TryGetParentPriority(key, out int priority))
-            {
-                return WorkTabEffectiveStateResolution<int>.Set(priority);
-            }
-
-            return WorkTabEffectiveStateResolution<int>.NoOpinion;
-        }
-
-        public WorkTabEffectiveStateResolution<bool> ResolveEffectiveManualMode(
-            WorkloadParentPriorityKey key)
-        {
-            WorkTabEffectiveStateResolution<bool> projected = ResolveManualMode(key);
-            if (projected.IsSet)
-            {
-                return projected;
-            }
-
-            if (_baseProvider is IWorkTabEffectiveStateV2Provider v2)
-            {
-                WorkTabEffectiveStateResolution<bool> lower = v2.ResolveManualMode(key);
-                if (lower.IsSet)
-                {
-                    return lower;
-                }
-            }
-
-            if (_baseProvider != null &&
-                _baseProvider.TryGetManualMode(key, out bool manualMode))
-            {
-                return WorkTabEffectiveStateResolution<bool>.Set(manualMode);
-            }
-
-            return WorkTabEffectiveStateResolution<bool>.NoOpinion;
         }
 
         public WorkTabEffectiveStateResolution<WorkloadSchedulePayload> ResolveEffectiveSchedule(
@@ -826,44 +682,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             return false;
         }
 
-        public int GetParentPriority(WorkloadParentPriorityKey key, int fallbackPriority)
-        {
-            WorkTabEffectiveStateResolution<int> effective =
-                ResolveEffectiveParentPriority(key);
-            return effective.IsSet ? effective.Value : fallbackPriority;
-        }
-
-        public bool TryGetParentPriority(WorkloadParentPriorityKey key, out int priority)
-        {
-            priority = 0;
-            WorkTabEffectiveStateResolution<int> effective = ResolveEffectiveParentPriority(key);
-            if (!effective.IsSet)
-            {
-                return false;
-            }
-
-            priority = effective.Value;
-            return true;
-        }
-
-        public bool IsManualMode(WorkloadParentPriorityKey key, bool fallbackManualMode)
-        {
-            return TryGetManualMode(key, out bool manualMode) ? manualMode : fallbackManualMode;
-        }
-
-        public bool TryGetManualMode(WorkloadParentPriorityKey key, out bool manualMode)
-        {
-            manualMode = false;
-            WorkTabEffectiveStateResolution<bool> effective = ResolveEffectiveManualMode(key);
-            if (!effective.IsSet)
-            {
-                return false;
-            }
-
-            manualMode = effective.Value;
-            return true;
-        }
-
         public ScheduleKey GetSchedule(PawnKey key, ScheduleKey fallbackSchedule)
         {
             return TryGetSchedule(key, out ScheduleKey schedule) ? schedule : fallbackSchedule;
@@ -951,46 +769,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             return false;
         }
 
-        public WorkTabEffectiveStateMutationResult SetParentPriority(
-            WorkloadParentPriorityKey key,
-            int priority)
-        {
-            return Apply(
-                WorkTabEffectiveStateDimension.ParentPriority,
-                WorkloadOwnershipDimensions.ParentPriorities,
-                key?.Pawn,
-                key != null && key.IsValid,
-                "A valid parent-priority key is required.",
-                draft => draft.SetParentPriority(key, priority));
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearParentPriority(
-            WorkloadParentPriorityKey key)
-        {
-            return Apply(
-                WorkTabEffectiveStateDimension.ParentPriority,
-                WorkloadOwnershipDimensions.ParentPriorities,
-                key?.Pawn,
-                key != null && key.IsValid,
-                "A valid parent-priority key is required.",
-                draft => draft.SetParentPriorityIntent(
-                    key,
-                    WorkloadIntent<WorkloadSpecificPriorityPayload>.Clear));
-        }
-
-        public WorkTabEffectiveStateMutationResult SetManualMode(
-            WorkloadParentPriorityKey key,
-            bool manualMode)
-        {
-            return Apply(
-                WorkTabEffectiveStateDimension.ManualMode,
-                WorkloadOwnershipDimensions.ManualModes,
-                key?.Pawn,
-                key != null && key.IsValid,
-                "A valid manual-mode key is required.",
-                draft => draft.SetManualMode(key, manualMode));
-        }
-
         /// <summary>
         /// Applies a global-mode preview change as one draft mutation so the
         /// projection is rebuilt and fingerprinted once for the whole scope.
@@ -1041,20 +819,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                         draft.SetManualMode(keys[i], manualMode);
                     }
                 });
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearManualMode(
-            WorkloadParentPriorityKey key)
-        {
-            return Apply(
-                WorkTabEffectiveStateDimension.ManualMode,
-                WorkloadOwnershipDimensions.ManualModes,
-                key?.Pawn,
-                key != null && key.IsValid,
-                "A valid manual-mode key is required.",
-                draft => draft.SetManualModeIntent(
-                    key,
-                    WorkloadIntent<bool>.Clear));
         }
 
         public WorkTabEffectiveStateMutationResult SetSchedule(
@@ -1381,12 +1145,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         {
             switch (dimension)
             {
-                case WorkTabEffectiveStateDimension.ParentPriority:
-                    _parentPriorityRevision = unchecked(_parentPriorityRevision + 1L);
-                    break;
-                case WorkTabEffectiveStateDimension.ManualMode:
-                    _manualModeRevision = unchecked(_manualModeRevision + 1L);
-                    break;
                 case WorkTabEffectiveStateDimension.Schedule:
                     _scheduleRevision = unchecked(_scheduleRevision + 1L);
                     break;
@@ -1684,42 +1442,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
         private void RebuildIndexes()
         {
-            _parentPriorities.Clear();
-            _manualModes.Clear();
             _schedules.Clear();
             _specificJobOverrides.Clear();
             _specificJobOrder.Clear();
             _presentationSettings.Clear();
-            _parentPriorityIntents.Clear();
-            _manualModeIntents.Clear();
             _scheduleIntents.Clear();
             _specificPriorityIntents.Clear();
             _workTypeOrderIntents.Clear();
             _presentationSettingIntents.Clear();
-
-            if (Owns(WorkloadStateDimension.ParentPriorities))
-            {
-                for (int i = 0; i < _projectedState.ParentPriorities.Count; i++)
-                {
-                    WorkloadParentPriorityEntry entry = _projectedState.ParentPriorities[i];
-                    if (entry != null && IsEditablePawn(entry.Key.Pawn, _projectedState))
-                    {
-                        _parentPriorities[entry.Key] = entry.Priority;
-                    }
-                }
-            }
-
-            if (Owns(WorkloadStateDimension.ManualModes))
-            {
-                for (int i = 0; i < _projectedState.ManualModes.Count; i++)
-                {
-                    WorkloadManualModeEntry entry = _projectedState.ManualModes[i];
-                    if (entry != null && IsEditablePawn(entry.Key.Pawn, _projectedState))
-                    {
-                        _manualModes[entry.Key] = entry.Manual;
-                    }
-                }
-            }
 
             if (Owns(WorkloadStateDimension.Schedules))
             {
@@ -1779,30 +1509,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     if (entry != null && !entry.Intent.IsNoOpinion)
                     {
                         _presentationOwnershipKeys.Add(entry.Key);
-                    }
-                }
-            }
-
-            if (Owns(WorkloadStateDimension.ParentPriorities))
-            {
-                for (int i = 0; i < _projectedState.ParentPriorityIntents.Count; i++)
-                {
-                    WorkloadParentPriorityIntentEntry entry = _projectedState.ParentPriorityIntents[i];
-                    if (entry != null && IsEditablePawn(entry.Key.Pawn, _projectedState))
-                    {
-                        _parentPriorityIntents[entry.Key] = entry.Intent;
-                    }
-                }
-            }
-
-            if (Owns(WorkloadStateDimension.ManualModes))
-            {
-                for (int i = 0; i < _projectedState.ManualModeIntents.Count; i++)
-                {
-                    WorkloadManualModeIntentEntry entry = _projectedState.ManualModeIntents[i];
-                    if (entry != null && IsEditablePawn(entry.Key.Pawn, _projectedState))
-                    {
-                        _manualModeIntents[entry.Key] = entry.Intent;
                     }
                 }
             }
