@@ -9,11 +9,11 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI;
-using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Schedule;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -29,8 +29,6 @@ namespace Better_Work_Tab.Features.TimePriority
     {
         private const int HoursPerDay = 24;
         private const float AnimationSeconds = 0.20f;
-        private const float PanelPadding = 8f;
-        private const float HeaderHeight = 37f;
         private const float MaxPanelWidth = 780f;
         private const float InlineDividerFullHeight = 34f;
         private const float InlineChronosHeight = 10f;
@@ -38,7 +36,6 @@ namespace Better_Work_Tab.Features.TimePriority
         private const float InlineHourLabelHeight = 16f;
         private const float InlineTimelineHeight = 24f;
         private const float InlineTimelineVerticalInset = 3f;
-        private const float InlineMinimumHourWidth = 7f;
 
         private static readonly List<CellHit> LastCellHits = new List<CellHit>(HoursPerDay * 4);
         private static readonly List<CopyPasteHit> LastCopyPasteHits = new List<CopyPasteHit>(8);
@@ -331,6 +328,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             int currentPriority;
             TimePriorityTarget target;
+            string targetLabel;
             if (workGiver != null)
             {
                 int parentPriority = ParentPriorityRead.GetObserved(pawn, workType);
@@ -341,29 +339,24 @@ namespace Better_Work_Tab.Features.TimePriority
                     out int specificPriority)
                     ? WorkPrioritySystem.ClampPriority(specificPriority)
                     : WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
-                target = TimePriorityTarget.ForWorkGiver(
-                    pawn,
-                    workType,
-                    workGiver,
-                    WorkGiverDisplayNameService.HeaderLabel(workGiver));
+                target = TimePriorityTarget.ForWorkGiver(pawn, workGiver);
+                targetLabel = WorkGiverDisplayNameService.HeaderLabel(workGiver);
             }
             else
             {
                 currentPriority = ParentPriorityRead.GetObserved(pawn, workType);
                 target = TimePriorityTarget.ForWorkType(pawn, workType);
+                targetLabel = workType.labelShort?.CapitalizeFirst() ?? workType.LabelCap.ToString();
             }
 
-            if (!TimePriorityService.CanEditScheduleFromEditor(target, out string reason))
+            if (!ScheduleProjection.CanEditSchedule(target, out string reason))
             {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    reason);
+                ScheduleProjection.ReportScheduleBlocked(reason);
                 return;
             }
 
             Rect sourceRect = new Rect(Verse.UI.screenWidth / 2f - 12f, Verse.UI.screenHeight / 2f - 12f, 24f, 24f);
-            _session = new Session(new TargetInfo(target, sourceRect, currentPriority));
-            TimePriorityService.GetPrioritiesForDisplay(target, currentPriority);
+            _session = new Session(new TargetInfo(target, targetLabel, sourceRect, currentPriority));
             NotifyLayoutChanged();
             Find.MainTabsRoot.SetCurrentTab(DefDatabase<MainButtonDef>.GetNamedSilentFail("Work"));
         }
@@ -377,11 +370,9 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            if (!TimePriorityService.CanEditScheduleFromEditor(target, out string reason))
+            if (!ScheduleProjection.CanEditSchedule(target, out string reason))
             {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    reason);
+                ScheduleProjection.ReportScheduleBlocked(reason);
                 return false;
             }
 
@@ -399,7 +390,6 @@ namespace Better_Work_Tab.Features.TimePriority
 
                 _session.SourceBoxRect = priorityBoxRect;
                 _session.StartedAt = Time.realtimeSinceStartup;
-                TimePriorityService.GetPrioritiesForDisplay(target, currentPriority);
                 NotifyLayoutChanged();
                 return true;
             }
@@ -631,7 +621,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static bool TryHandleTimeCellInput(Event evt)
         {
-            if (!WorkTabEffectiveStateRuntime.IsPreviewActive &&
+            if (!ScheduleProjection.IsPreviewActive &&
                 !HasBetterWorkTabScheduleAuthority)
             {
                 evt.Use();
@@ -659,33 +649,23 @@ namespace Better_Work_Tab.Features.TimePriority
                     return true;
                 }
 
-                int current = TimePriorityService.GetPriorityAtHour(hit.Target, hit.FallbackPriority, hit.Hour);
-                bool pinned = TimePriorityService.IsCustomScheduledHour(hit.Target, hit.Hour, hit.FallbackPriority);
-                bool accepted;
-                string reason;
-                if (pinned && IsAtCycleEnd(current, evt))
-                {
-                    accepted = TimePriorityService.TryClearScheduleHourFromEditor(
-                        hit.Target,
-                        hit.Hour,
-                        hit.FallbackPriority,
-                        out reason);
-                }
-                else
-                {
-                    int next = GetNextPriorityForInput(current, evt);
-                    accepted = TimePriorityService.TrySetScheduleHourFromEditor(
-                        hit.Target,
-                        hit.Hour,
-                        next,
-                        hit.FallbackPriority,
-                        out reason);
-                }
+                TimePriorityScheduleValue schedule = ScheduleProjection.ReadSchedule(
+                    hit.Target,
+                    hit.FallbackPriority);
+                int current = schedule.PriorityAt(hit.Hour);
+                bool pinned = schedule.IsPinned(hit.Hour);
+                TimePriorityScheduleValue desired = pinned && IsAtCycleEnd(current, evt)
+                    ? schedule.WithoutPinnedHour(hit.Hour)
+                    : schedule.WithPinnedHour(hit.Hour, GetNextPriorityForInput(current, evt));
+                bool accepted = ScheduleProjection.TryWriteSchedule(
+                    hit.Target,
+                    desired,
+                    hit.FallbackPriority,
+                    out string reason);
 
                 if (!accepted)
                 {
-                    WorkTabEffectiveStateRuntime.ReportBlocked(
-                        WorkTabEffectiveStateDimension.Schedule,
+                    ScheduleProjection.ReportScheduleBlocked(
                         reason ?? "BWT_HourlyPriorities_WriteRejected".Translate());
                 }
 
@@ -764,8 +744,7 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             if (!HasBetterWorkTabScheduleAuthority)
             {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
+                ScheduleProjection.ReportScheduleBlocked(
                     "BWT_HourlyPriorities_CopyUnavailable".Translate());
                 return;
             }
@@ -779,8 +758,7 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             if (!HasBetterWorkTabScheduleAuthority)
             {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
+                ScheduleProjection.ReportScheduleBlocked(
                     "BWT_HourlyPriorities_PasteUnavailable".Translate());
                 return;
             }
@@ -790,18 +768,18 @@ namespace Better_Work_Tab.Features.TimePriority
                 return;
             }
 
-            int[] beforePriorities = TimePriorityService.GetPrioritiesForDisplay(hit.Target, hit.FallbackPriority);
-            int[] afterPriorities = snapshot.CopyPriorities();
-            EnsureTargetVisibleForTransfer(hit);
-            if (!TimePriorityService.TrySetScheduleFromEditor(
+            int[] beforePriorities = ScheduleProjection.ReadSchedule(
                 hit.Target,
-                afterPriorities,
-                snapshot.CopyUnlinkedHours(),
+                hit.FallbackPriority).CopyPriorities();
+            int[] afterPriorities = snapshot.Value.CopyPriorities();
+            EnsureTargetVisibleForTransfer(hit);
+            if (!ScheduleProjection.TryWriteSchedule(
+                hit.Target,
+                snapshot.Value,
                 hit.FallbackPriority,
                 out string reason))
             {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
+                ScheduleProjection.ReportScheduleBlocked(
                     reason ?? "BWT_HourlyPriorities_PasteRejected".Translate());
                 return;
             }
@@ -914,8 +892,7 @@ namespace Better_Work_Tab.Features.TimePriority
         {
             if (!HasBetterWorkTabScheduleAuthority)
             {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
+                ScheduleProjection.ReportScheduleBlocked(
                     "BWT_HourlyPriorities_OpenUnavailable".Translate());
                 return;
             }
@@ -941,7 +918,6 @@ namespace Better_Work_Tab.Features.TimePriority
                 }
 
                 _session.PawnIds.Add(target.PawnId);
-                TimePriorityService.GetPrioritiesForDisplay(target.TimeTarget, target.CurrentPriority);
                 _session.StartedAt = Time.realtimeSinceStartup;
                 _session.SourceBoxRect = target.PriorityBoxRect;
                 NotifyLayoutChanged();
@@ -1145,8 +1121,11 @@ namespace Better_Work_Tab.Features.TimePriority
             CellHit hit = LastCellHits[index];
             hour = hit.Hour;
             fallbackPriority = WorkPrioritySystem.ClampPriority(hit.FallbackPriority);
-            unlinked = TimePriorityService.IsCustomScheduledHour(hit.Target, hit.Hour, hit.FallbackPriority);
-            displayedPriority = TimePriorityService.GetPriorityAtHour(hit.Target, hit.FallbackPriority, hit.Hour);
+            TimePriorityScheduleValue schedule = ScheduleProjection.ReadSchedule(
+                hit.Target,
+                hit.FallbackPriority);
+            unlinked = schedule.IsPinned(hit.Hour);
+            displayedPriority = schedule.PriorityAt(hit.Hour);
             return true;
         }
 
@@ -1157,20 +1136,6 @@ namespace Better_Work_Tab.Features.TimePriority
         // work priority cell underneath. The two lists are compared against each
         // other by the hit-box quicktest.
         internal static int ScheduleCellHitCount => LastCellHits.Count;
-
-        internal static bool TryGetScheduleCellHit(int index, out Rect rect, out int hour)
-        {
-            if (index < 0 || index >= LastCellHits.Count)
-            {
-                rect = Rect.zero;
-                hour = -1;
-                return false;
-            }
-
-            rect = LastCellHits[index].Rect;
-            hour = LastCellHits[index].Hour;
-            return true;
-        }
 
         /// <summary>
         /// Resolves a point exactly as a click would, reporting the cell that
@@ -1529,66 +1494,6 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
-        private static void DrawHighlights(IWorkTabLayoutController layout, WorkTabLayoutColumn column, List<RowDrawInfo> rows, float progress)
-        {
-            Color columnColor = new Color(0.95f, 0.73f, 0.18f, 0.12f * progress);
-            Color boxColor = new Color(1f, 0.85f, 0.2f, 0.92f * progress);
-
-            Rect animatedHeaderRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
-            float yMin = animatedHeaderRect.yMax;
-            float yMax = yMin;
-            for (int i = 0; i < rows.Count; i++)
-            {
-                yMin = Mathf.Min(yMin, rows[i].RowRect.yMin);
-                yMax = Mathf.Max(yMax, rows[i].RowRect.yMax);
-            }
-
-            Rect columnRect = new Rect(
-                animatedHeaderRect.x,
-                yMin,
-                column.Width,
-                Mathf.Max(0f, yMax - yMin));
-            Widgets.DrawBoxSolid(columnRect, columnColor);
-
-            GUI.color = boxColor;
-            Widgets.DrawBox(GetHeaderHighlightRect(column), 2);
-            for (int i = 0; i < rows.Count; i++)
-            {
-                Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(
-                    column,
-                    rows[i].RowRect);
-                Widgets.DrawBox(GetPriorityBoxRect(cellRect).ExpandedBy(2f), 1);
-            }
-
-            Widgets.DrawBox(_session.SourceBoxRect.ExpandedBy(3f), 2);
-            GUI.color = Color.white;
-        }
-
-        private static Rect GetHeaderHighlightRect(WorkTabLayoutColumn column)
-        {
-            WorkTypeDef workType = column.Column?.workType;
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            bool angledHeaders = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
-            if (angledHeaders &&
-                workType != null &&
-                AngledHeaderCache.TryGetBounds(workType, out Rect angledBounds) &&
-                angledBounds.width > 1f &&
-                angledBounds.height > 1f)
-            {
-                return angledBounds.ExpandedBy(2f);
-            }
-
-            return WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
-        }
-
-        private static void DrawSpreadLine(Rect panelRect, float progress)
-        {
-            Vector2 start = _session.SourceBoxRect.center;
-            Vector2 end = new Vector2(panelRect.xMin + PanelPadding, panelRect.yMin + HeaderHeight - 8f);
-            Color color = new Color(1f, 0.86f, 0.22f, 0.8f * progress);
-            Widgets.DrawLine(start, Vector2.Lerp(start, end, progress), color, 2f);
-        }
-
         private static void DrawInlineEditor(IWorkTabLayoutController layout, WorkTabLayoutColumn sourceColumn, List<RowDrawInfo> rows, float progress)
         {
             LastCellHits.Clear();
@@ -1810,21 +1715,6 @@ namespace Better_Work_Tab.Features.TimePriority
             Text.WordWrap = oldWordWrap;
         }
 
-        private static void DrawInlineDaylightBand(Rect timelineRect, float progress)
-        {
-            Rect bandRect = new Rect(timelineRect.x, timelineRect.yMax - 7f, timelineRect.width, 5f);
-            float hourWidth = bandRect.width / HoursPerDay;
-            for (int hour = 0; hour < HoursPerDay; hour++)
-            {
-                Color color = hour >= 7 && hour <= 18
-                    ? new Color(0.95f, 0.72f, 0.22f, 0.72f * progress)
-                    : hour == 6 || hour == 19 || hour == 20
-                        ? new Color(0.48f, 0.43f, 0.64f, 0.62f * progress)
-                        : new Color(0.14f, 0.18f, 0.30f, 0.70f * progress);
-                Widgets.DrawBoxSolid(new Rect(bandRect.x + hour * hourWidth, bandRect.y, Mathf.Max(1f, hourWidth - 0.5f), bandRect.height), color);
-            }
-        }
-
         private static Rect GetInlineChronosRect(Rect timelineRect, float progress)
         {
             float height = InlineChronosHeight * Mathf.Clamp01(progress);
@@ -2005,7 +1895,10 @@ namespace Better_Work_Tab.Features.TimePriority
             Rect visibleTimelineRect,
             float progress)
         {
-            int[] priorities = TimePriorityService.GetPrioritiesForDisplay(target, currentPriority);
+            TimePriorityScheduleValue schedule = ScheduleProjection.ReadSchedule(
+                target,
+                currentPriority);
+            int[] priorities = schedule.CopyPriorities();
             float hourWidth = timelineRect.width / HoursPerDay;
             float sourceX = GetTimelineAnimationSource().center.x;
             float sourceNorm = Mathf.Clamp01((sourceX - timelineRect.xMin) / Mathf.Max(1f, timelineRect.width));
@@ -2032,7 +1925,7 @@ namespace Better_Work_Tab.Features.TimePriority
                     priority = displayPriority;
                 }
 
-                bool isCustomHour = TimePriorityService.IsCustomScheduledHour(target, hour, currentPriority);
+                bool isCustomHour = schedule.IsPinned(hour);
                 DrawSchedulePriorityCell(hourRect, target, priority, hour, cellProgress, isCustomHour);
 
                 // Registered at full row height, not at the height it is drawn.
@@ -2285,15 +2178,6 @@ namespace Better_Work_Tab.Features.TimePriority
             return _isClosing ? 1f - progress : progress;
         }
 
-        private static Rect LerpRect(Rect a, Rect b, float t)
-        {
-            return new Rect(
-                Mathf.Lerp(a.x, b.x, t),
-                Mathf.Lerp(a.y, b.y, t),
-                Mathf.Lerp(a.width, b.width, t),
-                Mathf.Lerp(a.height, b.height, t));
-        }
-
         private static string FormatRect(Rect rect)
         {
             return "(" + Format(rect.x) + "," + Format(rect.y) + "," + Format(rect.width) + "," + Format(rect.height) + ")";
@@ -2324,13 +2208,22 @@ namespace Better_Work_Tab.Features.TimePriority
             public readonly int CurrentPriority;
 
             public TargetInfo(TimePriorityTarget timeTarget, Rect priorityBoxRect, int currentPriority)
+                : this(timeTarget, null, priorityBoxRect, currentPriority)
+            {
+            }
+
+            public TargetInfo(
+                TimePriorityTarget timeTarget,
+                string targetLabel,
+                Rect priorityBoxRect,
+                int currentPriority)
             {
                 TimeTarget = timeTarget;
                 PawnId = timeTarget.PawnId;
                 Kind = timeTarget.Kind;
                 WorkTypeDefName = timeTarget.WorkTypeDefName;
                 TargetDefName = timeTarget.TargetDefName;
-                TargetLabel = timeTarget.Label;
+                TargetLabel = targetLabel ?? ResolveTargetLabel(timeTarget);
                 PriorityBoxRect = priorityBoxRect;
                 CurrentPriority = currentPriority;
             }
@@ -2338,7 +2231,8 @@ namespace Better_Work_Tab.Features.TimePriority
             public static TargetInfo ForWorkType(Pawn pawn, WorkTypeDef workType, string label, Rect priorityBoxRect, int currentPriority)
             {
                 return new TargetInfo(
-                    TimePriorityTarget.ForWorkType(pawn, workType, label),
+                    TimePriorityTarget.ForWorkType(pawn, workType),
+                    label,
                     priorityBoxRect,
                     currentPriority);
             }
@@ -2346,9 +2240,22 @@ namespace Better_Work_Tab.Features.TimePriority
             public static TargetInfo ForWorkGiver(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver, string label, Rect priorityBoxRect, int currentPriority)
             {
                 return new TargetInfo(
-                    TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver, label),
+                    TimePriorityTarget.ForWorkGiver(pawn, workGiver),
+                    label,
                     priorityBoxRect,
                     currentPriority);
+            }
+
+            private static string ResolveTargetLabel(TimePriorityTarget target)
+            {
+                if (target.Kind == TimePriorityTargetKind.WorkGiver)
+                {
+                    WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(target.TargetDefName);
+                    return workGiver?.LabelCap.ToString() ?? "Sub-work";
+                }
+
+                WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(target.WorkTypeDefName);
+                return workType?.labelShort?.CapitalizeFirst() ?? workType?.LabelCap.ToString() ?? "Work";
             }
         }
 
@@ -2371,7 +2278,6 @@ namespace Better_Work_Tab.Features.TimePriority
                 SourceBoxRect = target.PriorityBoxRect;
                 StartedAt = Time.realtimeSinceStartup;
                 PawnIds.Add(target.PawnId);
-                TimePriorityService.GetPrioritiesForDisplay(target.TimeTarget, target.CurrentPriority);
             }
 
             public bool IsGlobal => PawnIds.Count == 1 && PawnIds[0] == TimePriorityTarget.GlobalPawnId;
@@ -2395,11 +2301,11 @@ namespace Better_Work_Tab.Features.TimePriority
                 WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(WorkTypeDefName);
                 if (Kind == TimePriorityTargetKind.WorkType)
                 {
-                    return TimePriorityTarget.ForWorkType(pawn, workType, TargetLabel);
+                    return TimePriorityTarget.ForWorkType(pawn, workType);
                 }
 
                 WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(TargetDefName);
-                return TimePriorityTarget.ForWorkGiver(pawn, workType, workGiver, TargetLabel);
+                return TimePriorityTarget.ForWorkGiver(pawn, workGiver);
             }
         }
 

@@ -1,60 +1,18 @@
 using System;
+using Better_Work_Tab.UI.Schedule;
 
 namespace Better_Work_Tab.Features.TimePriority
 {
     internal sealed class TimePriorityScheduleSnapshot
     {
-        internal TimePriorityScheduleSnapshot(string label, int[] priorities, bool[] unlinkedHours)
+        internal TimePriorityScheduleSnapshot(string label, TimePriorityScheduleValue value)
         {
             Label = string.IsNullOrEmpty(label) ? "time priorities" : label;
-            Priorities = CopyPriorities(priorities);
-            UnlinkedHours = CopyUnlinked(unlinkedHours);
+            Value = value ?? TimePriorityScheduleValue.AllLinked;
         }
 
         internal string Label { get; }
-
-        internal int[] Priorities { get; }
-
-        /// <summary>
-        /// Which copied hours were pinned rather than following the priority
-        /// box. Carried so a paste can reproduce an hour pinned at the default,
-        /// which the numbers alone cannot describe.
-        /// </summary>
-        internal bool[] UnlinkedHours { get; }
-
-        internal int[] CopyPriorities()
-        {
-            return CopyPriorities(Priorities);
-        }
-
-        internal bool[] CopyUnlinkedHours()
-        {
-            return CopyUnlinked(UnlinkedHours);
-        }
-
-        private static int[] CopyPriorities(int[] priorities)
-        {
-            var copy = new int[TimePriorityService.HoursPerDay];
-            for (int i = 0; i < copy.Length; i++)
-            {
-                copy[i] = priorities != null && i < priorities.Length
-                    ? priorities[i]
-                    : 0;
-            }
-
-            return copy;
-        }
-
-        private static bool[] CopyUnlinked(bool[] unlinkedHours)
-        {
-            var copy = new bool[TimePriorityService.HoursPerDay];
-            for (int i = 0; i < copy.Length; i++)
-            {
-                copy[i] = unlinkedHours != null && i < unlinkedHours.Length && unlinkedHours[i];
-            }
-
-            return copy;
-        }
+        internal TimePriorityScheduleValue Value { get; }
     }
 
     internal static class TimePriorityScheduleClipboard
@@ -68,9 +26,12 @@ namespace Better_Work_Tab.Features.TimePriority
             int fallbackPriority,
             string label)
         {
-            int[] priorities = TimePriorityService.GetPrioritiesForDisplay(target, fallbackPriority);
-            bool[] unlinked = TimePriorityService.GetLinkStateForDisplay(target);
-            _snapshot = new TimePriorityScheduleSnapshot(label, priorities, unlinked);
+            TimePriorityScheduleValue schedule = ScheduleProjection.ReadSchedule(
+                target,
+                fallbackPriority);
+            _snapshot = new TimePriorityScheduleSnapshot(
+                label,
+                schedule);
             return _snapshot;
         }
 

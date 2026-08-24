@@ -91,7 +91,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             WorkloadScheduleTargetKey key)
         {
             if (key == null || !key.IsValid ||
-                !TimePriorityTarget.TryFromWorkloadScheduleTarget(
+                !WorkloadTimePriorityAdapter.TryGetTimePriorityTarget(
                     key,
                     out TimePriorityTarget target,
                     out _))
@@ -124,26 +124,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     WorkPrioritySystem.GetDefaultEnabledPriority());
             }
 
-            if (!TimePriorityService.HasCustomSchedule(target, fallbackPriority))
+            if (!TimePriorityService.HasLiveCustomSchedule(target))
             {
                 return WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion;
             }
 
-            int[] priorities = TimePriorityService.GetPrioritiesForDisplay(
+            TimePriorityScheduleValue schedule = TimePriorityService.ReadLiveSchedule(
                 target,
                 fallbackPriority);
-            bool[] pinned = TimePriorityService.GetLinkStateForDisplay(target);
-            int pinnedMask = 0;
-            for (int hour = 0; hour < pinned.Length && hour < WorkloadSchedulePayload.HourCount; hour++)
-            {
-                if (pinned[hour])
-                {
-                    pinnedMask |= 1 << hour;
-                }
-            }
 
             return WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.Set(
-                new WorkloadSchedulePayload(priorities, pinnedMask));
+                WorkloadTimePriorityAdapter.ToPayload(schedule));
         }
 
         private WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>

@@ -128,7 +128,6 @@
     <Compile Include="Features\RaisedPriorityMaximum\ParentPriorityReadPolicy.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\ParentPriorityRead.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\ParentPriorityCommandExpectation.cs" />
-    <Compile Include="Features\RaisedPriorityMaximum\ParentPriorityApplication.cs" />
     <Compile Include="Features\RaisedPriorityMaximum\WorkPrioritySystem.cs" />
     <Compile Include="Features\Patches\Patch_PawnTable_RecacheIfDirty.cs" />
     <Compile Include="Features\Patches\Patch_Pawn_WorkSettings_SetPriority.cs" />
@@ -189,6 +188,8 @@
     <Compile Include="Features\Workloads\V2\Runtime\WorkloadLiveCapturePolicy.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\LegacyWorkloadBackend.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\Workload2Backend.cs" />
+    <Compile Include="Features\Workloads\V2\Runtime\WorkloadMutationAuthorization.cs" />
+    <Compile Include="Features\Workloads\V2\Runtime\WorkloadTimePriorityAdapter.cs" />
     <Compile Include="Diagnostics\WorkTabDiagnostics.cs" />
     <Compile Include="Diagnostics\WorkTabUsageState.cs" />
     <Compile Include="UI\BWTBottomBarSelector.cs" />
@@ -199,11 +200,14 @@
     <Compile Include="Features\TimePriority\TimePriorityScheduleEditor.cs" />
     <Compile Include="Features\TimePriority\FluffyTimeScheduleAssigner.cs" />
     <Compile Include="Features\TimePriority\TimePriorityScheduleData.cs" />
-    <Compile Include="Features\TimePriority\TimePriorityMutationAuthorization.cs" />
+    <Compile Include="Features\TimePriority\TimePriorityScheduleValue.cs" />
     <Compile Include="Features\TimePriority\TimePriorityService.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTarget.cs" />
     <Compile Include="Features\TimePriority\TimePriorityCacheKey.cs" />
     <Compile Include="Features\TimePriority\TimePriorityTargetKind.cs" />
+    <Compile Include="UI\Schedule\ScheduleProjection.cs" />
+    <Compile Include="Features\Application\WorkTabActionability.cs" />
+    <Compile Include="Features\Application\WorkTabApplication.cs" />
     <Compile Include="Features\Tutorial\BWTConcepts.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialAnchor.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialSelector.cs" />

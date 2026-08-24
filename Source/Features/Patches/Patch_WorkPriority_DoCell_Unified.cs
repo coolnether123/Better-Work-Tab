@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
@@ -270,8 +271,27 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            // Vanilla blocks work types disabled by pawn restrictions, but a temporary
-            // capacity incapability only tints the box red and remains interactive.
+            Event priorityInput = Event.current;
+            if (priorityInput != null &&
+                (priorityInput.type == EventType.MouseDown ||
+                 priorityInput.type == EventType.ScrollWheel) &&
+                Mouse.IsOver(rect) &&
+                !WorkPriorityCommandGateway.CanHandleParentPriorityInput(pawn, workType))
+            {
+                // Keep vanilla's restricted and age-disabled cells responsible for
+                // their existing texture and rejection feedback.
+                if (pawn.WorkTypeIsDisabled(workType) ||
+                    pawn.IsWorkTypeDisabledByAge(workType, out _))
+                {
+                    return true;
+                }
+
+                priorityInput.Use();
+                return false;
+            }
+
+            // Vanilla remains responsible for restricted-cell rendering outside
+            // the input path above.
             if (pawn.WorkTypeIsDisabled(workType))
             {
                 return true;
@@ -605,43 +625,7 @@ namespace Better_Work_Tab.Patches
                 }
             }
 
-            // Asked of the work type's own givers, exactly as vanilla's
-            // PawnColumnWorker_WorkPriority.IsIncapableOfWholeWorkType asks it.
-            //
-            // This used to read BWT's reassigned, ordered giver list instead.
-            // That list answers a different question -- which givers this work
-            // type *displays*, after the player has moved things around -- and
-            // it can legitimately come back empty or short, because a giver
-            // reassigned to another work type drops out of it and only defs
-            // whose Worker instantiates are included. Both loops treat "no giver
-            // I can do" and "no givers at all" the same way, so a short list
-            // reported a perfectly healthy colonist as incapable, and vanilla
-            // then tinted the cell red over its skill band -- the olive
-            // background on Warden, Hunt and Plant cut.
-            //
-            // Whether a pawn's body can do the work does not depend on how the
-            // player has arranged the columns.
-            bool canDoAny = false;
-            List<WorkGiverDef> workGivers = work.workGiversByPriority;
-            for (int i = 0; workGivers != null && i < workGivers.Count; i++)
-            {
-                bool thisGiverOk = true;
-                var reqs = workGivers[i]?.requiredCapacities;
-                for (int j = 0; reqs != null && j < reqs.Count; j++)
-                {
-                    if (!p.health.capacities.CapableOf(reqs[j]))
-                    {
-                        thisGiverOk = false;
-                        break;
-                    }
-                }
-                if (thisGiverOk)
-                {
-                    canDoAny = true;
-                    break;
-                }
-            }
-            bool isIncapable = !canDoAny;
+            bool isIncapable = !WorkTabActionability.CanApplyAnyWorkGiver(p, work);
 
             _incapableCache[key] = (byte)(isIncapable ? 1 : 0);
             _incapableCacheTimestamps[key] = currentFrame;
@@ -853,22 +837,6 @@ namespace Better_Work_Tab.Patches
                 BetterWorkTabMod.Settings.bestPawnHighlightThickness);
         }
 
-        private static void DrawBestPawnBackground(Rect rect)
-        {
-            float x = rect.x + (rect.width - SkillBoxSize) / 2f;
-            float y = rect.y + SkillBoxVerticalPadding;
-            Rect boxRect = new Rect(x, y, SkillBoxSize, SkillBoxSize);
-
-            Color highlightColor = BetterWorkTabMod.Settings.Color_BestPawnForSkillSquare;
-            highlightColor.a = 0.5f; // Semi-transparent background
-            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
-            Color oldColor = GUI.color;
-            GUI.color = highlightColor;
-            GUI.DrawTexture(boxRect, BaseContent.WhiteTex);
-            GUI.color = oldColor;
-        }
-
-
         private static bool ShouldShowUI(BetterWorkTabSettings.ShowUIMode mode, BetterWorkTabSettings.ShowUIMode currentState)
         {
             return mode == BetterWorkTabSettings.ShowUIMode.Always || mode == currentState;
@@ -1003,9 +971,8 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            return TimePriorityService.HasCustomSchedule(
-                TimePriorityTarget.ForRuntimeWorkType(pawn, workType),
-                ParentPriorityRead.GetObserved(pawn, workType));
+            return TimePriorityService.HasLiveCustomSchedule(
+                TimePriorityTarget.ForWorkType(pawn, workType));
         }
 
         private static void DrawScheduleIndicatorIfNeeded(Rect cellRect, Pawn pawn, WorkTypeDef workType)
@@ -1078,10 +1045,7 @@ namespace Better_Work_Tab.Patches
 
         internal static bool TryHandleRootPriorityInput(Rect rootCellRect, Pawn pawn, WorkTypeDef workType)
         {
-            if (pawn == null ||
-                workType == null ||
-                pawn.workSettings == null ||
-                pawn.WorkTypeIsDisabled(workType))
+            if (!WorkPriorityCommandGateway.CanHandleParentPriorityInput(pawn, workType))
             {
                 Event.current?.Use();
                 return true;
@@ -1127,10 +1091,10 @@ namespace Better_Work_Tab.Patches
                         pawn,
                         workType,
                         nextPriority)
-                    : ParentPriorityApplication.SetDisplayedParentPriority(
+                    : WorkTabApplication.Current?.SetDisplayedParentPriority(
                         pawn,
                         workType,
-                        nextPriority))
+                        nextPriority) == true)
                 {
                     SoundDefOf.DragSlider.PlayOneShotOnCamera();
                 }
@@ -1188,10 +1152,10 @@ namespace Better_Work_Tab.Patches
                         pawn,
                         workType,
                         nextPriority)
-                    : ParentPriorityApplication.SetDisplayedParentPriority(
+                    : WorkTabApplication.Current?.SetDisplayedParentPriority(
                         pawn,
                         workType,
-                        nextPriority)))
+                        nextPriority) == true))
             {
                 if (manualPriorities)
                 {

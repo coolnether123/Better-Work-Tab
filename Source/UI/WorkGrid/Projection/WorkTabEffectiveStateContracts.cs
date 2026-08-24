@@ -369,6 +369,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
         WorkTabEffectiveStateMutationResult ClearSchedule(WorkloadScheduleTargetKey key);
 
+        WorkTabEffectiveStateMutationResult SetScheduleNoOpinion(WorkloadScheduleTargetKey key);
+
         WorkTabEffectiveStateMutationResult SetSpecificJobPriority(
             WorkloadSpecificJobTargetKey key,
             WorkloadSpecificPriorityPayload payload);

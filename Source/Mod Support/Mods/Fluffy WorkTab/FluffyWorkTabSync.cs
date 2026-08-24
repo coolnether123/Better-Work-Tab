@@ -173,14 +173,9 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         /// </summary>
         internal static int[] BuildWorkTypeSchedule(Pawn pawn, WorkTypeDef workType, int fallbackPriority)
         {
-            var priorities = new int[TimePriorityService.HoursPerDay];
-            TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkType(pawn, workType);
-            for (int hour = 0; hour < priorities.Length; hour++)
-            {
-                priorities[hour] = TimePriorityService.GetPriorityAtHour(target, fallbackPriority, hour);
-            }
-
-            return priorities;
+            TimePriorityTarget target = TimePriorityTarget.ForWorkType(pawn, workType);
+            return TimePriorityService.ReadLiveSchedule(target, fallbackPriority)
+                .CopyPriorities();
         }
 
         /// <summary>
@@ -194,14 +189,14 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             int[] parentSchedule)
         {
             var priorities = new int[TimePriorityService.HoursPerDay];
-            TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkGiver(pawn, workType, workGiver);
+            TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(pawn, workGiver);
             for (int hour = 0; hour < priorities.Length; hour++)
             {
                 int parentPriority = parentSchedule != null && hour < parentSchedule.Length
                     ? parentSchedule[hour]
                     : PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(pawn?.workSettings, workType);
                 int fallback = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
-                priorities[hour] = TimePriorityService.GetPriorityAtHour(target, fallback, hour);
+                priorities[hour] = TimePriorityService.GetLivePriorityAtHour(target, fallback, hour);
             }
 
             return priorities;

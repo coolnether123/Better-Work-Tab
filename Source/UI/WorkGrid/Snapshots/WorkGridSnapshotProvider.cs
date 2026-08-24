@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
@@ -738,7 +740,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             else
             {
                 priority = ParentPriorityRead.GetObserved(pawn, workType);
-                incapable = IsIncapable(pawn, workType);
+                incapable = !WorkTabActionability.CanApplyAnyWorkGiver(pawn, workType);
                 overrideRing = WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent() &&
                                !disabled &&
                                priority <= WorkPrioritySystem.DisabledPriority &&
@@ -793,39 +795,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 PackColor(WorkPrioritySystem.GetPriorityColor(priority)),
                 flags,
                 revision);
-        }
-
-        /// <summary>
-        /// Whether the pawn's body rules out every giver in this work type, as
-        /// vanilla's PawnColumnWorker_WorkPriority.IsIncapableOfWholeWorkType
-        /// decides it.
-        ///
-        /// Read from the work type's own giver list, not BWT's reassigned and
-        /// ordered one. That list describes how the player has arranged the
-        /// columns: a giver moved to another work type leaves it, and only defs
-        /// whose Worker instantiates appear in it. Since "no giver I can do" and
-        /// "no givers listed" both fall out of this loop as incapable, a short
-        /// list marked healthy colonists incapable, and vanilla's own renderer
-        /// then tinted those cells red over the skill band.
-        /// </summary>
-        private static bool IsIncapable(Pawn pawn, WorkTypeDef workType)
-        {
-            List<WorkGiverDef> workGivers = workType?.workGiversByPriority;
-            for (int i = 0; workGivers != null && i < workGivers.Count; i++)
-            {
-                bool capable = true;
-                var capacities = workGivers[i]?.requiredCapacities;
-                for (int j = 0; capacities != null && j < capacities.Count; j++)
-                {
-                    if (!pawn.health.capacities.CapableOf(capacities[j]))
-                    {
-                        capable = false;
-                        break;
-                    }
-                }
-                if (capable) return false;
-            }
-            return true;
         }
 
         private static int FindBestPawnId(
@@ -1007,7 +976,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                    pawn.workSettings != null &&
                    pawn.workSettings.EverWork &&
                    !pawn.WorkTypeIsDisabled(workType) &&
-                   !IsIncapable(pawn, workType);
+                   WorkTabActionability.CanApplyAnyWorkGiver(pawn, workType);
         }
 
         private static bool IsBetterPawn(

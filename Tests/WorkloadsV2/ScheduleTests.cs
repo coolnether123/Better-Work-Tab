@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.Features.TimePriority;
 
 namespace BetterWorkTab.WorkloadsV2.Deterministic
@@ -51,12 +52,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 pinnedAtBasePriority.Equals(linked),
                 "a pinned hour equal to the current base must remain distinct from a linked hour");
 
-            TimePriorityMutationAuthorization authorization;
+            WorkloadMutationAuthorization authorization;
             string authorizationReason;
             object requestIdentity = new object();
             object sessionIdentity = new object();
             TestAssert.True(
-                TimePriorityMutationAuthorization.TryCreateForWorkload(
+                WorkloadMutationAuthorization.TryCreateForWorkload(
                     requestIdentity,
                     sessionIdentity,
                     "schedule-transaction-1",
@@ -78,13 +79,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 authorization.IsBoundTo(7L) && !authorization.IsBoundTo(8L),
                 "a schedule authorization must reject a different authority revision");
             TestAssert.False(
-                TimePriorityMutationAuthorization.IsAcceptedFor(true, 7L, null),
-                "an ordinary synchronized schedule call without a token must fail closed");
-            TestAssert.False(
-                TimePriorityMutationAuthorization.IsAcceptedFor(true, 8L, authorization),
-                "a synchronized schedule call with a stale token must fail closed");
+                authorization.IsAcceptedForSchedule(true, 8L, 17),
+                "a synchronized schedule transaction with a stale authority must fail closed");
             TestAssert.True(
-                TimePriorityMutationAuthorization.IsAcceptedFor(true, 7L, authorization),
+                authorization.IsAcceptedForSchedule(true, 7L, 17),
                 "a synchronized schedule call with the bound token must be accepted");
             TestAssert.False(
                 authorization.IsBoundToTransaction(
@@ -104,12 +102,34 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     "roster-fingerprint"),
                 "a capability must reject a different request object even when strings match");
             TestAssert.True(
-                TimePriorityMutationAuthorization.IsAcceptedFor(false, 7L, null),
+                authorization.IsAcceptedForSchedule(false, 7L, 17),
                 "ordinary non-multiplayer schedule calls must retain legacy authorization behavior");
+            TestAssert.True(
+                authorization.IsAcceptedForScheduleRollback(true, 7L, 17),
+                "rollback authorization remains bound to the transaction's captured schedule revision");
+            TestAssert.False(
+                authorization.IsAcceptedForScheduleRollback(true, 7L, 18),
+                "rollback authorization must not infer ownership from a fixed revision window");
+            TestAssert.False(
+                authorization.IsAcceptedForScheduleRollback(true, 8L, 17),
+                "rollback must reject a different priority authority even at the expected schedule revision");
+
+            var revisionReceipt = new WorkloadScheduleRevisionReceipt(17);
+            TestAssert.True(revisionReceipt.Owns(17),
+                "a rollback revision receipt starts at the transaction's captured revision");
+            TestAssert.True(revisionReceipt.AcceptCommit(true, 18) && revisionReceipt.Owns(18),
+                "the provisional schedule publication advances exact transaction ownership once");
+            TestAssert.True(revisionReceipt.AcceptCommit(true, 19) && revisionReceipt.Owns(19),
+                "a partially successful rollback publication advances ownership for a recovery retry");
+            TestAssert.False(revisionReceipt.AcceptCommit(true, 21),
+                "a rollback receipt must reject a revision not produced by its next commit");
+            TestAssert.True(revisionReceipt.Owns(19),
+                "a rejected revision advance must preserve the last exact transaction-owned revision");
 
             AssertRollbackRegistrationContract();
             AssertObservedScheduleSnapshotContract();
             AssertObservedParentReadContract();
+            AssertApplicationScheduleCommitContract();
 
             var source = new WorkloadProjectedState(
                 scheduleIntents: new[]
@@ -183,11 +203,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 applyTypedLive,
                 StringComparison.Ordinal);
             int writer = backend.IndexOf(
-                "TimePriorityService.TryApplyLiveScheduleSnapshot(",
+                "WorkloadTimePriorityAdapter.TryApplyLiveScheduleSnapshot(",
                 registration,
                 StringComparison.Ordinal);
             int verification = backend.IndexOf(
-                "TimePriorityService.TryCaptureLiveScheduleSnapshot(",
+                "WorkloadTimePriorityAdapter.TryCaptureLiveScheduleSnapshot(",
                 writer,
                 StringComparison.Ordinal);
             int observedAssignment = backend.IndexOf(
@@ -204,7 +224,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "schedule rollback entries must be registered before writer and post-write verification");
 
             int restore = backend.IndexOf(
-                "TryRestoreLiveScheduleSnapshot(",
+                "WorkloadTimePriorityAdapter.TryRestoreLiveScheduleSnapshot(",
                 observedAssignment,
                 StringComparison.Ordinal);
             int authorizationUse = backend.IndexOf(
@@ -214,23 +234,53 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.True(
                 restore >= 0 && authorizationUse > restore,
                 "schedule rollback must carry the transaction-bound authorization");
+
+            int batchedRestore = backend.IndexOf(
+                "private static bool RestoreSchedules(",
+                StringComparison.Ordinal);
+            int rollbackBatch = backend.IndexOf(
+                "TimePriorityService.BeginMutationBatch()",
+                batchedRestore,
+                StringComparison.Ordinal);
+            int rollbackWriter = backend.IndexOf(
+                "RestoreSchedule(",
+                rollbackBatch,
+                StringComparison.Ordinal);
+            int rollbackCommit = backend.IndexOf(
+                "CommitAndPublishScheduleMutation(transaction, out bool revisionOwned)",
+                rollbackWriter,
+                StringComparison.Ordinal);
+            int rollbackPublish = backend.IndexOf(
+                "PublishScheduleMutation(",
+                rollbackWriter,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                batchedRestore >= 0 && rollbackBatch > batchedRestore &&
+                rollbackWriter > rollbackBatch && rollbackCommit > rollbackWriter &&
+                rollbackPublish > rollbackWriter,
+                "schedule rollback must batch, commit, and publish its restored state");
         }
 
         private static void AssertObservedScheduleSnapshotContract()
         {
             string service = File.ReadAllText(FindRepositoryFile(Path.Combine(
                 "Source", "Features", "TimePriority", "TimePriorityService.cs")));
+            string value = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "Features", "TimePriority", "TimePriorityScheduleValue.cs")));
             TestAssert.Contains(service,
-                "IDictionary<TimePriorityCacheKey, CapturedSchedule> _schedules",
+                "IDictionary<TimePriorityCacheKey, TimePriorityScheduleValue> _schedules",
                 "Observed schedule reads must not retain mutable TimePriorityScheduleData references.");
             TestAssert.Contains(service,
-                "_priorities = new int[HoursPerDay];",
-                "Observed schedule capture must own a private 24-hour value copy.");
-            TestAssert.Contains(service,
-                "captured[schedule.CacheKey] = new CapturedSchedule(schedule);",
+                "captured[entry.Key] = entry.Value;",
                 "Observed schedule capture must materialize immutable schedule values once per pass.");
+            TestAssert.Contains(value,
+                "_priorities = new int[HourCount];",
+                "The immutable schedule value must copy its source priorities before capture can share it.");
+            TestAssert.Contains(value,
+                "if (count < HourCount)",
+                "The immutable schedule value must keep a bounded private 24-hour copy.");
             TestAssert.Contains(service,
-                "_workTypeReadSnapshotVersion == version",
+                "WorkTypeReadSnapshotVersion == version",
                 "Observed schedule capture must reuse one immutable view while the service version is stable.");
             TestAssert.Contains(service,
                 "if (version != CurrentVersion) return WorkTypeScheduleReadSnapshot.Empty;",
@@ -279,6 +329,68 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(gateway,
                 "ExternalPriorityAuthorityReason",
                 "External parent-priority write rejection must retain its explanatory feedback.");
+        }
+
+        private static void AssertApplicationScheduleCommitContract()
+        {
+            string application = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "Features", "Application", "WorkTabApplication.cs")));
+            string service = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "Features", "TimePriority", "TimePriorityService.cs")));
+            string projection = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "UI", "Schedule", "ScheduleProjection.cs")));
+            string priorityPatch = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "Features", "Patches", "Patch_Pawn_WorkSettings_SetPriority.cs")));
+            int apply = application.IndexOf("private WorkTabApplicationResult ApplySchedule(", StringComparison.Ordinal);
+            int fullDay = application.IndexOf("private WorkTabApplicationResult SubmitFullDay(", apply, StringComparison.Ordinal);
+            string ordinaryWrite = apply >= 0 && fullDay > apply
+                ? application.Substring(apply, fullDay - apply)
+                : string.Empty;
+            int batch = ordinaryWrite.IndexOf("TimePriorityService.BeginMutationBatch()", StringComparison.Ordinal);
+            int commit = ordinaryWrite.IndexOf("TimePriorityService.CommitMutationBatch()", StringComparison.Ordinal);
+            int publish = ordinaryWrite.IndexOf("Publish(expected.Target, WorkTabApplicationDimensions.Schedule", StringComparison.Ordinal);
+            TestAssert.True(
+                batch >= 0 && commit > batch && publish > commit,
+                "an ordinary schedule write must batch, materialize/revise through commit, then publish once");
+
+            int complete = service.IndexOf("private static bool CompleteMutationBatch()", StringComparison.Ordinal);
+            int nextMember = service.IndexOf("/// <summary>", complete + 1, StringComparison.Ordinal);
+            string completion = complete >= 0 && nextMember > complete
+                ? service.Substring(complete, nextMember - complete)
+                : string.Empty;
+            int materialize = completion.IndexOf("MaterializeScheduleProjection();", StringComparison.Ordinal);
+            int revision = completion.IndexOf("AdvanceScheduleRevision();", StringComparison.Ordinal);
+            TestAssert.True(
+                materialize >= 0 && revision > materialize,
+                "schedule commit must materialize the save projection before advancing its revision");
+
+            TestAssert.False(application.Contains("ApplyPreview"),
+                "the live application must not own preview mutations");
+            TestAssert.Contains(projection, "ApplyFullDayPreviewParent(",
+                "the UI schedule projection must own preview full-day mutation composition");
+            TestAssert.Contains(application, "WorkTabApplicationChange Change",
+                "applied full-day results must carry a typed coherent application change");
+            TestAssert.Contains(application, "WorkTabApplicationRevision Revision",
+                "applied full-day results must carry the per-world application revision");
+            TestAssert.Contains(application, "WorkTabApplicationRevision(_epoch, _revision)",
+                "the application revision must use its component-provided epoch");
+            TestAssert.Contains(application, "using (ExternalPriorityMirror.Suspend())",
+                "application-owned parent writes must defer external mirroring to the application publication");
+            TestAssert.Contains(priorityPatch, "WorkTabApplication.OwnsCurrentParentPrioritySetter",
+                "the vanilla setter patch must defer application-owned invalidation to the coherent application publication");
+
+            int moveRuntime = service.IndexOf(
+                "MoveWorkGiverScheduleKeys(runtime, legacy, runtime",
+                StringComparison.Ordinal);
+            int moveLegacy = service.IndexOf(
+                "MoveWorkGiverScheduleKeys(runtime, legacy, legacy",
+                StringComparison.Ordinal);
+            TestAssert.True(moveRuntime >= 0 && moveLegacy > moveRuntime,
+                "reassignment rekeying must normalize the runtime map before legacy rows");
+            TestAssert.Contains(service, "source[key] = value;",
+                "a conflicting load rekey must retain the original row rather than overwrite it");
+            TestAssert.Contains(service, "ReplaceSchedules(RuntimeSchedules, plan.Runtime);",
+                "a prepared reassignment must atomically install its validated schedule maps");
         }
 
         private static string FindRepositoryFile(string relativePath)

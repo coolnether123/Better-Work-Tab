@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using RimWorld;
@@ -68,7 +69,10 @@ namespace Better_Work_Tab.API
         /// </summary>
         public static void NotifySavedScheduleDataChanged()
         {
-            TimePriorityService.ReconcileDirectMutationsFromAudit();
+            if (TimePriorityService.ReconcileDirectMutationsFromAudit())
+            {
+                WorkTabApplication.Current?.ReportObservedScheduleChange();
+            }
         }
 
         public static int GetCurrentHour(Pawn pawn = null)

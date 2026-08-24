@@ -10,6 +10,8 @@ using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
+using Better_Work_Tab.Features.Application;
+using Better_Work_Tab.UI.Schedule;
 using Multiplayer.API;
 using Spine.Profiling;
 using System;
@@ -43,9 +45,13 @@ namespace Better_Work_Tab.Features.Workloads
             !BWT20UpgradePolicy.CanPersistWorldSchema(BWTWorldSchemaVersion);
         private bool _worldSchemaMarkerMalformed;
         private int _lastTimePriorityHour = -1;
+        internal readonly TimePriorityScheduleRuntime ScheduleRuntime;
+        internal readonly WorkTabApplication Application;
 
         public GameComponent_BWTWorldSettings(Game game) : base()
         {
+            ScheduleRuntime = new TimePriorityScheduleRuntime(this);
+            Application = new WorkTabApplication(game, ScheduleRuntime);
         }
 
         internal void SetColumnCurrentOrder(List<string> order)
@@ -83,7 +89,11 @@ namespace Better_Work_Tab.Features.Workloads
             EnsureWorkGiverReassignmentData();
             WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
             ColumnBaselineManager.EnsureBaseline(this);
-            TimePriorityService.NotifyLoaded();
+            EnsureApplicationRevisionEpoch();
+            if (TimePriorityService.NotifyLoaded())
+            {
+                Application.ReportObservedScheduleChange();
+            }
             FluffyWorkTabGateway.MigratePriorityDataIfNeeded(this);
 
             SpineTiming.Configure(
@@ -136,6 +146,11 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Collections.Look(ref ColumnCurrentOrder, "columnCurrentOrder", LookMode.Value);
             Scribe_Deep.Look(ref WorkGiverReassignments, "workGiverReassignments");
             Scribe_Collections.Look(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                TimePriorityService.AcceptTrustedLoadedScheduleCollection(TimePrioritySchedules);
+            }
+
             Scribe_Values.Look(ref BWTWorldSchemaVersion, "bwtWorldSchemaVersion", 0);
             if (Scribe.mode == LoadSaveMode.LoadingVars && _worldSchemaMarkerMalformed)
             {
@@ -242,8 +257,18 @@ namespace Better_Work_Tab.Features.Workloads
 
                 EnsureWorkGiverReassignmentData();
                 WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
-                TimePriorityService.NotifyLoaded();
+                EnsureApplicationRevisionEpoch();
+                TimePriorityService.NotifyPostLoad();
             }
+        }
+
+        private void EnsureApplicationRevisionEpoch()
+        {
+            string seed = Find.World?.info?.seedString ?? string.Empty;
+            int epoch = 17;
+            for (int index = 0; index < seed.Length; index++)
+                epoch = unchecked(epoch * 31 + seed[index]);
+            Application.SetRevisionEpoch(epoch == 0 ? 1 : epoch);
         }
 
         public WorkGiverReassignmentData EnsureWorkGiverReassignmentData()
@@ -296,7 +321,7 @@ namespace Better_Work_Tab.Features.Workloads
                 if (currentHour != _lastTimePriorityHour)
                 {
                     _lastTimePriorityHour = currentHour;
-                    TimePriorityService.NotifyHourBoundaryIfNeeded();
+                    Application.NotifyHourBoundary();
                 }
             }
 

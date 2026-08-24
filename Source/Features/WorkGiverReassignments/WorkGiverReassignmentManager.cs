@@ -2,9 +2,11 @@ using Better_Work_Tab;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport;
 using Multiplayer.API;
 using RimWorld;
@@ -134,7 +136,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 int appliedRevision,
                 string appliedFingerprint,
                 long authorityRevision,
-                TimePriorityMutationAuthorization authorization)
+                WorkloadMutationAuthorization authorization)
             {
                 PreviousData = previousData;
                 PreviousFingerprint = previousFingerprint ?? string.Empty;
@@ -151,7 +153,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             internal int AppliedRevision { get; private set; }
             internal string AppliedFingerprint { get; private set; }
             internal long AuthorityRevision { get; private set; }
-            internal TimePriorityMutationAuthorization Authorization { get; private set; }
+            internal WorkloadMutationAuthorization Authorization { get; private set; }
         }
 
         /// <summary>
@@ -319,6 +321,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             ApplyPawnOverridesBatch(workGiverDefName, pawnIds, priorities);
         }
 
+        internal static bool SetPawnOverrideFromTrustedImport(Pawn pawn, WorkGiverDef workGiver, int priority) =>
+            pawn != null && workGiver != null && SetPawnOverride(pawn.thingIDNumber, workGiver, priority, notify: true);
+
         internal static void ClearPawnOverridesForWorkTypeSynced(int pawnId, string workTypeDefName)
         {
             if (MultiplayerBridge.Active)
@@ -330,26 +335,16 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             ApplyClearPawnOverridesForWorkType(pawnId, workTypeDefName);
         }
 
-        internal static void EnableParentWorkTypeSynced(int pawnId, string workTypeDefName)
+        internal static void EnableParentWorkTypeSynced(
+            int pawnId, string workTypeDefName, string workGiverDefName)
         {
             if (MultiplayerBridge.Active)
             {
-                SyncEnableParentWorkType(pawnId, workTypeDefName);
+                SyncEnableParentWorkType(pawnId, workTypeDefName, workGiverDefName);
                 return;
             }
 
-            ApplyEnableParentWorkType(pawnId, workTypeDefName);
-        }
-
-        internal static void EnableParentAndClearSubOverridesSynced(int pawnId, string workTypeDefName)
-        {
-            if (MultiplayerBridge.Active)
-            {
-                SyncEnableParentAndClearSubOverrides(pawnId, workTypeDefName);
-                return;
-            }
-
-            ApplyEnableParentAndClearSubOverrides(pawnId, workTypeDefName);
+            ApplyEnableParentWorkType(pawnId, workTypeDefName, workGiverDefName);
         }
 
         internal static void EnableParentAndSetOnlySubOverrideSynced(int pawnId, string workTypeDefName, string workGiverDefName, int priority)
@@ -438,7 +433,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             IReadOnlyList<WorkloadSpecificOrderBatchEntry> orderEntries,
             int expectedSyncVersion,
             long expectedAuthorityRevision,
-            TimePriorityMutationAuthorization authorization,
+            WorkloadMutationAuthorization authorization,
             out WorkloadSpecificJobBatchRollback rollback,
             out string reason)
         {
@@ -636,7 +631,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static bool CanUseWorkloadSpecificCapability(
             long expectedAuthorityRevision,
             int expectedSyncVersion,
-            TimePriorityMutationAuthorization authorization)
+            WorkloadMutationAuthorization authorization)
         {
             return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(expectedAuthorityRevision) &&
                    (!MultiplayerBridge.Active
@@ -1259,38 +1254,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return results;
         }
 
-        internal static int CountPawnPriorityOverrides(WorkTypeDef workType)
-        {
-            var data = ExistingData;
-            if (data?.PawnWorkGiverPriorityOverrides == null || workType == null)
-            {
-                return 0;
-            }
-
-            var workGiverNames = new HashSet<string>(
-                GetOrderedWorkGiversForWorkType(workType).Select(wg => wg.def.defName),
-                StringComparer.Ordinal);
-
-            int count = 0;
-            foreach (var pawnEntry in data.PawnWorkGiverPriorityOverrides)
-            {
-                if (pawnEntry.Key == -1 || pawnEntry.Value == null)
-                {
-                    continue;
-                }
-
-                foreach (string workGiverName in pawnEntry.Value.Keys)
-                {
-                    if (workGiverNames.Contains(workGiverName))
-                    {
-                        count++;
-                    }
-                }
-            }
-
-            return count;
-        }
-
         internal static bool HasAnyPawnOverride(WorkTypeDef workType, Pawn pawn)
         {
             var data = ExistingData;
@@ -1583,49 +1546,49 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         /// revision.  Absent removes all global opinion; Clear persists an
         /// explicit suppression; Set stores the clamped priority.
         /// </summary>
-        internal static bool TryApplyGlobalWorkGiverPriority(
+        internal static PriorityMutationOutcome TryApplyGlobalWorkGiverPriority(
             GlobalWorkGiverPrioritySnapshot expectedCurrent,
             ExactGlobalStateKind desiredState,
             int desiredPriority = WorkPrioritySystem.DisabledPriority,
-            bool notify = true)
+            bool notify = true,
+            bool isSynchronizedReplay = false)
         {
             if (expectedCurrent == null ||
                 expectedCurrent.WorkGiverDefName.NullOrEmpty() ||
-                !CanSynchronouslyAcknowledgeExactGlobalMutation ||
+                (!isSynchronizedReplay && !CanSynchronouslyAcknowledgeExactGlobalMutation) ||
                 (desiredState != ExactGlobalStateKind.Absent &&
                  desiredState != ExactGlobalStateKind.Set &&
                  desiredState != ExactGlobalStateKind.Clear))
             {
-                return false;
+                return PriorityMutationOutcome.Rejected;
             }
 
-            if (desiredState == ExactGlobalStateKind.Set)
+            if (desiredState == ExactGlobalStateKind.Set &&
+                (DefDatabase<WorkGiverDef>.GetNamedSilentFail(expectedCurrent.WorkGiverDefName) == null ||
+                 WorkPrioritySystem.ClampPriority(desiredPriority) != desiredPriority))
             {
-                if (DefDatabase<WorkGiverDef>.GetNamedSilentFail(expectedCurrent.WorkGiverDefName) == null ||
-                    WorkPrioritySystem.ClampPriority(desiredPriority) != desiredPriority)
-                {
-                    return false;
-                }
+                return PriorityMutationOutcome.Rejected;
             }
 
             if (!TryPrepareExactGlobalMutation(
                     expectedCurrent.SyncVersion,
-                    expectedCurrent.AuthorityRevision))
+                    expectedCurrent.AuthorityRevision,
+                    isSynchronizedReplay))
             {
-                return false;
+                return PriorityMutationOutcome.Rejected;
             }
 
             GlobalWorkGiverPrioritySnapshot observed =
                 CaptureGlobalWorkGiverPrioritySnapshot(expectedCurrent.WorkGiverDefName);
             if (!IsSameGlobalPriorityState(observed, expectedCurrent))
             {
-                return false;
+                return PriorityMutationOutcome.Rejected;
             }
 
             if (observed.State == desiredState &&
                 (desiredState != ExactGlobalStateKind.Set || observed.Priority == desiredPriority))
             {
-                return true;
+                return PriorityMutationOutcome.Applied;
             }
 
             WorkGiverReassignmentData data = Data;
@@ -1635,37 +1598,37 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     desiredState,
                     desiredPriority))
             {
-                return data != null && observed.State == desiredState;
+                return PriorityMutationOutcome.Rejected;
             }
 
-            int expectedRevision = unchecked(expectedCurrent.SyncVersion + 1);
-            if (CurrentSyncVersion != expectedRevision ||
-                !WorkPrioritySystem.IsBwtMutationAuthorityCurrent(expectedCurrent.AuthorityRevision))
-            {
-                return false;
-            }
-
+            // The state write already advanced the reassignment revision. A
+            // later authority handoff must still invalidate the mutation that
+            // happened; callers receive the typed outcome instead of a false
+            // result that would hide the applied state.
             MarkMutationChanged(notify);
-            return true;
+            return PriorityMutationOutcomePolicy.AfterWrite(
+                WorkPrioritySystem.IsBwtMutationAuthorityCurrent(expectedCurrent.AuthorityRevision));
         }
 
-        internal static bool TrySetGlobalWorkGiverPriority(
+        internal static PriorityMutationOutcome TrySetGlobalWorkGiverPriority(
             string workGiverDefName,
             int priority,
             GlobalWorkGiverPrioritySnapshot expectedCurrent,
-            bool notify = true)
+            bool notify = true,
+            bool isSynchronizedReplay = false)
         {
             if (expectedCurrent == null ||
                 !string.Equals(expectedCurrent.WorkGiverDefName, workGiverDefName, StringComparison.Ordinal))
             {
-                return false;
+                return PriorityMutationOutcome.Rejected;
             }
 
             return TryApplyGlobalWorkGiverPriority(
                 expectedCurrent,
                 ExactGlobalStateKind.Set,
                 priority,
-                notify);
+                notify,
+                isSynchronizedReplay);
         }
 
         /// <summary>
@@ -1688,7 +1651,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 expectedCurrent,
                 ExactGlobalStateKind.Clear,
                 WorkPrioritySystem.DisabledPriority,
-                notify);
+                notify) != PriorityMutationOutcome.Rejected;
         }
 
         internal static bool TryRemoveGlobalWorkGiverPriority(
@@ -1706,7 +1669,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 expectedCurrent,
                 ExactGlobalStateKind.Absent,
                 WorkPrioritySystem.DisabledPriority,
-                notify);
+                notify) != PriorityMutationOutcome.Rejected;
         }
 
         internal static bool TryRestoreGlobalWorkGiverPrioritySnapshot(
@@ -1724,7 +1687,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 expectedCurrent,
                 snapshot.State,
                 snapshot.Priority,
-                notify);
+                notify) != PriorityMutationOutcome.Rejected;
         }
 
         /// <summary>
@@ -1872,9 +1835,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static bool TryPrepareExactGlobalMutation(
             int expectedSyncVersion,
-            long expectedAuthorityRevision)
+            long expectedAuthorityRevision,
+            bool isSynchronizedReplay = false)
         {
-            if (!CanSynchronouslyAcknowledgeExactGlobalMutation ||
+            if ((!isSynchronizedReplay && !CanSynchronouslyAcknowledgeExactGlobalMutation) ||
                 CurrentSyncVersion != expectedSyncVersion ||
                 !WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision) ||
                 authorityRevision != expectedAuthorityRevision)
@@ -2102,27 +2066,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return GetOrderedWorkGiversForWorkType(workType).Any(w => w?.def != null && !w.def.emergency);
         }
 
-        internal static bool CanPawnUseMappedWorkType(Pawn pawn, WorkGiverDef def)
-        {
-            if (pawn?.workSettings == null)
-            {
-                return true;
-            }
-
-            var targetWorkType = GetTargetWorkType(def);
-            if (targetWorkType == null)
-            {
-                return true;
-            }
-
-            if (pawn.WorkTypeIsDisabled(targetWorkType))
-            {
-                return false;
-            }
-
-            return ParentPriorityRead.GetLive(pawn, targetWorkType) > 0;
-        }
-
         internal static bool TryGetPawnWorkGiverOverride(Pawn pawn, WorkGiverDef workGiver, out int priority)
         {
             priority = WorkPrioritySystem.DisabledPriority;
@@ -2141,6 +2084,74 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             priority = WorkPrioritySystem.ClampPriority(priority);
             return true;
+        }
+
+        /// <summary>
+        /// Captures one pawn-specific override with the reassignment and
+        /// authority revisions that protect an exact follow-up mutation.
+        /// </summary>
+        internal static bool TryCapturePawnWorkGiverPriority(
+            Pawn pawn,
+            WorkGiverDef workGiver,
+            out int syncVersion,
+            out bool hasOverride,
+            out int priority,
+            out long authorityRevision)
+        {
+            syncVersion = CurrentSyncVersion;
+            hasOverride = false;
+            priority = WorkPrioritySystem.DisabledPriority;
+            authorityRevision = 0L;
+            if (pawn == null || workGiver == null ||
+                !WorkPrioritySystem.TryCaptureBwtMutationAuthority(out authorityRevision))
+            {
+                return false;
+            }
+
+            hasOverride = TryGetPawnWorkGiverOverride(pawn, workGiver, out priority);
+            return syncVersion == CurrentSyncVersion &&
+                   WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
+        }
+
+        /// <summary>
+        /// Writes one pawn-specific override only when its captured state,
+        /// reassignment revision, and authority are still exact.
+        /// </summary>
+        internal static PriorityMutationOutcome TrySetPawnWorkGiverPriority(
+            Pawn pawn,
+            WorkGiverDef workGiver,
+            int priority,
+            int expectedSyncVersion,
+            bool expectedHasOverride,
+            int expectedPriority,
+            long expectedAuthorityRevision)
+        {
+            if (WorkPrioritySystem.ClampPriority(priority) != priority ||
+                !TryCapturePawnWorkGiverPriority(
+                    pawn,
+                    workGiver,
+                    out int syncVersion,
+                    out bool hasOverride,
+                    out int currentPriority,
+                    out long authorityRevision) ||
+                syncVersion != expectedSyncVersion ||
+                hasOverride != expectedHasOverride ||
+                (hasOverride && currentPriority != expectedPriority) ||
+                authorityRevision != expectedAuthorityRevision)
+            {
+                return PriorityMutationOutcome.Rejected;
+            }
+
+            SetPawnOverride(pawn.thingIDNumber, workGiver, priority, notify: true);
+            if (!TryGetPawnWorkGiverOverride(pawn, workGiver, out int appliedPriority) ||
+                appliedPriority != priority)
+            {
+                return PriorityMutationOutcome.Rejected;
+            }
+
+            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(expectedAuthorityRevision)
+                ? PriorityMutationOutcome.Applied
+                : PriorityMutationOutcome.AppliedAfterAuthorityChange;
         }
 
         internal static bool HasPawnWorkGiverOverride(Pawn pawn, WorkGiverDef workGiver)
@@ -2316,9 +2327,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         [SyncMethod]
-        public static void SyncEnableParentWorkType(int pawnId, string workTypeDefName)
+        public static void SyncEnableParentWorkType(
+            int pawnId, string workTypeDefName, string workGiverDefName)
         {
-            ApplyEnableParentWorkType(pawnId, workTypeDefName);
+            ApplyEnableParentWorkType(pawnId, workTypeDefName, workGiverDefName);
         }
 
         [SyncMethod]
@@ -2336,7 +2348,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         private static void ApplyPawnOverride(int pawnId, string workGiverDefName, int priority)
         {
             var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-            if (workGiver == null)
+            Pawn pawn = pawnId < 0 ? null : TimePriorityService.FindPawn(pawnId);
+            WorkTypeDef workType = GetTargetWorkType(workGiver);
+            if (workGiver == null || (pawnId >= 0 && !WorkTabActionability.CanApplySpecific(pawn, workType, workGiver)))
             {
                 return;
             }
@@ -2370,8 +2384,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             bool changed = false;
+            WorkTypeDef workType = GetTargetWorkType(workGiver);
             for (int i = 0; i < count; i++)
             {
+                Pawn pawn = TimePriorityService.FindPawn(pawnIds[i]);
+                if (!WorkTabActionability.CanApplySpecific(pawn, workType, workGiver)) continue;
                 changed |= SetPawnOverride(pawnIds[i], workGiver, priorities[i], notify: false);
             }
 
@@ -2478,11 +2495,14 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             ClearPawnOverridesForWorkType(pawnId, workType, notify: true);
         }
 
-        private static void ApplyEnableParentWorkType(int pawnId, string workTypeDefName)
+        private static void ApplyEnableParentWorkType(
+            int pawnId, string workTypeDefName, string workGiverDefName)
         {
             var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
             var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
-            if (pawn?.workSettings == null || workType == null || pawn.WorkTypeIsDisabled(workType))
+            var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
+            if (GetTargetWorkType(workGiver) != workType ||
+                !WorkTabActionability.CanApplySpecific(pawn, workType, workGiver))
             {
                 return;
             }
@@ -2526,7 +2546,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
             var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
             var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-            if (pawn?.workSettings == null || workType == null || workGiver == null || pawn.WorkTypeIsDisabled(workType))
+            if (!WorkTabActionability.CanApplySpecific(pawn, workType, workGiver))
             {
                 return;
             }
@@ -2805,6 +2825,14 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return;
             }
 
+            WorkTypeDef sourceWorkType = GetTargetWorkType(workGiverDef);
+            if (!TimePriorityService.TryPrepareWorkGiverScheduleRetarget(
+                    workGiverDef, sourceWorkType, targetWorkTypeDef,
+                    out TimePriorityService.WorkGiverScheduleRetargetPlan schedulePlan, out _))
+            {
+                return;
+            }
+
             data.EnsureCollections();
             data.WorkGiverToWorkTypeMap[workGiverDef.defName] = targetWorkTypeDef.defName;
 
@@ -2837,6 +2865,15 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             RemoveWorkGiverFromPawnOrders(data, workGiverDef.defName);
 
             data.SyncVersion++;
+            if (TimePriorityService.CommitWorkGiverScheduleRetarget(schedulePlan) &&
+                TimePriorityService.CommitMutationBatch())
+            {
+                WorkTabApplication.PublishCompletedScheduleMutation(
+                    true,
+                    broadScope: true,
+                    dimensions: WorkTabApplicationDimensions.Schedule |
+                        WorkTabApplicationDimensions.ExecutionOrder);
+            }
             NotifySubWorkDataChanged();
         }
 

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Diagnostics;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -8,6 +9,7 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Schedule;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -183,7 +185,8 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static int GetDisplayPriority(TimePriorityTarget target, int fallbackPriority, Pawn pawn)
         {
-            return TimePriorityService.GetPriorityAtHour(target, fallbackPriority, GetDisplayHour(pawn));
+            return ScheduleProjection.ReadSchedule(target, fallbackPriority).PriorityAt(
+                GetDisplayHour(pawn));
         }
 
         internal static bool TryDrawWorkTypeCell(Rect cellRect, Pawn pawn, WorkTypeDef workType)
@@ -196,7 +199,7 @@ namespace Better_Work_Tab.Features.TimePriority
             Rect boxRect = Better_Work_Tab.UI.WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
             int fallbackPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
             int displayPriority = GetDisplayPriority(
-                TimePriorityTarget.ForRuntimeWorkType(pawn, workType),
+                TimePriorityTarget.ForWorkType(pawn, workType),
                 fallbackPriority,
                 pawn);
             bool manualPriorities = ParentPriorityRead.GetObservedManualMode(pawn, workType, true);
@@ -290,47 +293,39 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal static bool ApplyWorkTypePriority(Pawn pawn, WorkTypeDef workType, int priority)
         {
-            if (!IsOpen || pawn?.workSettings == null || workType == null)
+            if (!IsOpen ||
+                !WorkPriorityCommandGateway.CanHandleParentPriorityInput(pawn, workType))
             {
                 return false;
             }
 
             priority = WorkPrioritySystem.ClampPriority(priority);
-            TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkType(pawn, workType);
+            TimePriorityTarget target = TimePriorityTarget.ForWorkType(pawn, workType);
+            int fallback = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
             if (SelectedHourSet.Count == TimePriorityService.HoursPerDay)
             {
-                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+                WorkTabApplication application = WorkTabApplication.Current;
+                WorkTabApplicationResult result = application == null
+                    ? WorkTabApplicationResult.Rejected("The world application is unavailable.", default)
+                    : ScheduleProjection.IsPreviewActive
+                        ? ScheduleProjection.ApplyFullDayPreviewParent(pawn, workType, priority)
+                        : application.ApplyFullDayParent(pawn, workType, priority);
+                if (!result.Accepted)
                 {
-                    if (!TimePriorityService.TryClearScheduleFromEditor(target, out string clearReason))
-                    {
-                        WorkTabEffectiveStateRuntime.ReportBlocked(
-                            WorkTabEffectiveStateDimension.Schedule,
-                            clearReason ?? "BWT_HourlyPriorities_ClearRejected".Translate());
-                        return false;
-                    }
-
-                    if (!WorkPriorityCommandGateway.TrySetPreviewParentPriority(
-                            pawn,
-                            workType,
-                            priority))
-                    {
-                        return false;
-                    }
-
-                    return true;
+                    ScheduleProjection.ReportScheduleBlocked(
+                        result.Reason ?? "BWT_HourlyPriorities_ClearRejected".Translate());
                 }
 
-                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, priority);
-                return ClearScheduleSynced(target);
+                return result.Accepted;
             }
 
-            int fallback = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
             return ApplySelectedHours(target, fallback, priority);
         }
 
         internal static bool ApplyWorkGiverPriority(int pawnId, WorkGiverDef workGiver, int priority)
         {
-            if (!IsOpen || workGiver?.workType == null)
+            WorkTypeDef targetWorkType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver) ?? workGiver?.workType;
+            if (!IsOpen || targetWorkType == null)
             {
                 return false;
             }
@@ -338,58 +333,42 @@ namespace Better_Work_Tab.Features.TimePriority
             Pawn pawn = pawnId == TimePriorityTarget.GlobalPawnId
                 ? null
                 : PawnsFinder.AllMapsWorldAndTemporary_Alive.FirstOrDefault(candidate => candidate.thingIDNumber == pawnId);
+            if (pawnId != TimePriorityTarget.GlobalPawnId && pawn == null)
+            {
+                return false;
+            }
+
+            if (pawn != null &&
+                !WorkPriorityCommandGateway.CanHandleSpecificJobInput(
+                    pawn,
+                    targetWorkType,
+                    workGiver))
+            {
+                return false;
+            }
+
             int parentPriority = pawn == null
                 ? WorkPrioritySystem.GetDefaultEnabledPriority()
-                : WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workGiver.workType);
+                : WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, targetWorkType);
             int fallback = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
-            TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkGiver(pawn, workGiver.workType, workGiver);
+            TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(pawn, workGiver);
             priority = WorkPrioritySystem.ClampPriority(priority);
 
             if (SelectedHourSet.Count == TimePriorityService.HoursPerDay)
             {
-                if (WorkTabEffectiveStateRuntime.IsPreviewActive)
+                WorkTabApplication application = WorkTabApplication.Current;
+                WorkTabApplicationResult result = application == null
+                    ? WorkTabApplicationResult.Rejected("The world application is unavailable.", default)
+                    : ScheduleProjection.IsPreviewActive
+                        ? ScheduleProjection.ApplyFullDayPreviewSpecific(pawn, targetWorkType, workGiver, priority)
+                        : application.ApplyFullDaySpecific(pawn, workGiver, priority);
+                if (!result.Accepted)
                 {
-                    if (pawnId < 0)
-                    {
-                        // A whole-day edit on a global WorkGiver is a shared
-                        // specific-job edit, not a pawn-local schedule. Route
-                        // it through the typed projected key and clear the
-                        // selected global schedule exactly as the local path
-                        // does.
-                        if (!WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(
-                                WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(
-                                    workGiver.workType,
-                                    workGiver),
-                                priority,
-                                out WorkTabEffectiveStateMutationResult globalResult))
-                        {
-                            WorkTabEffectiveStateRuntime.ReportBlocked(
-                                WorkTabEffectiveStateDimension.SpecificJobOverride,
-                                globalResult.Reason);
-                            return false;
-                        }
-
-                        return ClearScheduleSynced(target);
-                    }
-
-                    if (!WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(
-                            pawnId,
-                            workGiver.workType,
-                            workGiver,
-                            priority,
-                            out WorkTabEffectiveStateMutationResult result))
-                    {
-                        WorkTabEffectiveStateRuntime.ReportBlocked(
-                            WorkTabEffectiveStateDimension.SpecificJobOverride,
-                            result.Reason);
-                        return false;
-                    }
-
-                    return ClearScheduleSynced(target);
+                    ScheduleProjection.ReportScheduleBlocked(
+                        result.Reason ?? "BWT_HourlyPriorities_ClearRejected".Translate());
                 }
 
-                WorkGiverReassignmentManager.SetPawnOverrideSynced(pawnId, workGiver.defName, priority);
-                return ClearScheduleSynced(target);
+                return result.Accepted;
             }
 
             return ApplySelectedHours(target, fallback, priority);
@@ -397,40 +376,24 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static bool ApplySelectedHours(TimePriorityTarget target, int fallbackPriority, int priority)
         {
-            int[] priorities = TimePriorityService.GetPrioritiesForDisplay(target, fallbackPriority);
-            bool[] pinnedHours = TimePriorityService.GetLinkStateForDisplay(target);
+            TimePriorityScheduleValue schedule = ScheduleProjection.ReadSchedule(
+                target,
+                fallbackPriority);
+            TimePriorityScheduleValue desired = schedule;
             foreach (int hour in SelectedHourSet)
             {
-                priorities[hour] = priority;
-                pinnedHours[hour] = true;
+                desired = desired.WithPinnedHour(hour, priority);
             }
 
-            bool accepted = TimePriorityService.TrySetScheduleFromEditor(
+            bool accepted = ScheduleProjection.TryWriteSchedule(
                 target,
-                priorities,
-                pinnedHours,
+                desired,
                 fallbackPriority,
                 out string reason);
             if (!accepted)
             {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
+                ScheduleProjection.ReportScheduleBlocked(
                     reason ?? "BWT_HourlyPriorities_WriteRejected".Translate());
-            }
-
-            return accepted;
-        }
-
-        private static bool ClearScheduleSynced(TimePriorityTarget target)
-        {
-            bool accepted = TimePriorityService.TryClearScheduleFromEditor(
-                target,
-                out string reason);
-            if (!accepted)
-            {
-                WorkTabEffectiveStateRuntime.ReportBlocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    reason ?? "BWT_HourlyPriorities_ClearRejected".Translate());
             }
 
             return accepted;

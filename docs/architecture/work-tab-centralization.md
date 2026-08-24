@@ -27,12 +27,12 @@ Harmony patches may use a small patch-safe facade when RimWorld does not provide
 
 | System | Current owner or convergence point | Target owner | Target read port | Target command owner | Persistence owner | Migration state |
 | --- | --- | --- | --- | --- | --- | --- |
-| Application core | Several gateways and runtime facades | Per-game composition and small application coordinator | Canonical effective-state reader | Explicit typed operations and domain plans | Domain repositories coordinated by the game component | Mapped; migration pending |
-| Priority and authority | `WorkPrioritySystem`, `PriorityAuthorityBroker`, provider and mirror services | Authority-aware priority domain | Priority reads through the canonical state view | Priority command handler | Priority owner or external adapter | Mapped; migration pending |
-| Schedules | `TimePriorityService`, editor, API, and integration paths | Schedule domain | Schedule read service | Schedule command handler | Schedule record owner | Mapped; migration pending |
-| Specific jobs | `WorkGiverReassignmentManager` and UI collaborators | Specific-job domain | Override and inheritance reader | Specific-job command handler | Specific-job record owner | Mapped; migration pending |
+| Application core | Per-game `WorkTabApplication` composed by `GameComponent_BWTWorldSettings` | Per-game composition and small application coordinator | Canonical effective-state reader | Explicit typed operations and domain plans | Domain repositories coordinated by the game component | Parent-priority and schedule operations implemented; remaining domains pending |
+| Priority and authority | `WorkPrioritySystem`, `PriorityAuthorityBroker`, `ParentPriorityRead`, and `WorkTabActionability` | Authority-aware priority domain | `ParentPriorityRead` plus the canonical state view | `WorkTabApplication` for normal parent writes | Priority owner or external adapter | Parent reads and normal writes centralized; rule/API batches remain |
+| Schedules | Per-game `TimePriorityScheduleRuntime` behind `TimePriorityService` | Schedule domain | Immutable `TimePriorityScheduleValue` reads | `WorkTabApplication` schedule operations | Deterministic projection owned by the game component | Live state, editor, import, workload adapter, mirror, and MP replay centralized |
+| Specific jobs | `WorkGiverReassignmentManager` plus shared `WorkTabActionability` | Specific-job domain | Override and inheritance reader | Specific-job command handler | Specific-job record owner | Identity and actionability centralized; general command migration pending |
 | Execution order | Reassignment, layout, and patch paths | Execution-order service | Execution-order reader | Explicit display, execution, or coupled reorder commands | Execution-order record owner | Mapped; migration pending |
-| Settings and presentation | Settings singleton, registry, contextual router, and workload projection | Global preference store plus presentation domain | Concrete pass snapshot through the existing effective-settings facade | Existing workload settings writer with result receipts | Each store owns its record | Mapped; migration pending |
+| Settings and presentation | Settings registry, fallback-free effective-settings cache, contextual router, and workload projection | Global preference store plus presentation domain | Concrete pass snapshot through the existing effective-settings facade | Receipt-bearing workload settings writer | Each store owns its record | First centralization slice implemented; broader preference writes pending |
 | WorkGrid and layout | Snapshot, projection, invalidation, renderer, and layout services | Existing snapshot evolved into a pass-stable finished view plus UI-only frame state | Immutable pass view | Application operations for game state, UI commands for frame state | No game-state persistence | Mapped; migration pending |
 | Rules | Classic apply paths and Rule Builder 2.0 apply service | Pure evaluators and command compiler | Canonical state view | Canonical command batches | Rule format owners and import adapters | Mapped; migration pending |
 | Workloads | Backend, session, gateway, converter, and multiplayer callbacks | Template repository, capture service, planner, and patch projection | Canonical live or projected state view | Canonical command batches plus repository actions | Workload repository and converters | Mapped; migration pending |
@@ -52,6 +52,8 @@ The first priority operations distinguish intent:
 - set the priority displayed by a root cell, which may mean the current schedule hour;
 - set the stored parent priority, which never implies schedule editing;
 - apply a deterministic stored-parent batch.
+
+Schedule operations distinguish a normal authority-checked command, synchronized replay of the captured baseline, and a narrowly named trusted compatibility import. The trusted import is unavailable in active multiplayer and publishes while external mirroring is suspended.
 
 Transport submission and local application are distinct results. A multiplayer client may return `Submitted`; only synchronized local replay can return `Applied`.
 
@@ -73,6 +75,8 @@ An accepted game-state command follows this order unless a documented RimWorld b
 12. On success, advance each affected domain revision once, advance the application revision once, publish one state change, and return the applied receipt.
 
 Rejected, unchanged, submitted, and successfully rolled-back operations do not advance normal state revisions. Reentrant execution is rejected and never interleaves partial mutations. Until an external mirror provides reversible, idempotent, result-bearing delivery, mirror failure is applied-with-warning rather than a false atomic rollback claim.
+
+Workload persistence confirmation is a documented two-phase exception. A retained workload transaction may provisionally publish its schedule mutation before remote confirmation. If confirmation fails, the workload receipt can restore only the exact revisions it still owns, advances the schedule revision for each accepted restore, and republishes only the restored targets. Normal application operations still publish once per accepted transaction.
 
 ## Read precedence
 
@@ -161,6 +165,8 @@ An adapter is not complete until every old caller is inventoried. A permanent fa
 Centralization must reduce production code and ownership paths. It is not permission to keep the old implementation and add a second framework over it.
 
 At the `ad01eed4` baseline, `Source` contains 443 C# files and 152,346 physical lines. The highest-cost areas are Workloads at 21,804 lines, WorkGrid at 12,816 lines, settings UI at 10,356 lines, Time Priority at 6,735 lines, specific-job reassignment at 5,704 lines, and rules at 4,796 lines.
+
+After the schedule/application batch, `Source` contains 454 C# files, 151,629 physical lines, and 134,681 nonblank lines. This is 717 physical lines below the mission baseline and 159 physical plus 91 nonblank lines below the immediately preceding `Dev` baseline. The added files are active application, actionability, immutable schedule, projection, and workload-boundary types; the superseded parent application, schedule authorization owner, mutable editor semantics, duplicate import preflights, and verified dead helpers were removed.
 
 For settings and presentation, the first accepted target is at least 337 fewer production lines: at least 252 from the effective presentation mechanism and its 120 fallback call spans, and at least 85 from the existing workload settings writer's duplicated apply, rollback, persistence, and invalidation scaffolding. This slice reuses the existing effective-settings facade and writer interface; it does not add a presentation-reader interface, a generic settings command service, or a second workload writer.
 

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.Features.TimePriority;
 
 namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 {
@@ -48,14 +48,14 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         {
             ScheduleFallbackPriority = scheduleFallbackPriority;
             ScheduleVersion = scheduleVersion;
-            Schedule = new WorkloadSchedulePayload(schedulePriorities, pinnedHourMask);
+            Schedule = new TimePriorityScheduleValue(schedulePriorities, pinnedHourMask);
         }
 
         internal long AuthorityRevision { get; }
         internal int StoredPriority { get; }
         internal int ScheduleFallbackPriority { get; }
         internal int ScheduleVersion { get; }
-        internal WorkloadSchedulePayload Schedule { get; }
+        internal TimePriorityScheduleValue Schedule { get; }
         internal int PinnedHourMask => Schedule?.PinnedHourMask ?? 0;
         internal bool HasSchedule => Schedule?.IsValid == true;
 
@@ -68,7 +68,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             long authorityRevision,
             int scheduleFallbackPriority,
             int scheduleVersion,
-            WorkloadSchedulePayload schedule) =>
+            TimePriorityScheduleValue schedule) =>
             AuthorityRevision == authorityRevision &&
             HasSchedule &&
             ScheduleFallbackPriority == scheduleFallbackPriority &&
@@ -77,11 +77,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal int[] CopySchedulePriorities()
         {
-            if (!HasSchedule) return null;
-            IReadOnlyList<int> priorities = Schedule.Priorities;
-            var copy = new int[priorities.Count];
-            for (int hour = 0; hour < copy.Length; hour++) copy[hour] = priorities[hour];
-            return copy;
+            return HasSchedule ? Schedule.CopyPriorities() : null;
         }
     }
 }

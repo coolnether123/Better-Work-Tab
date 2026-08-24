@@ -924,6 +924,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 draft => draft.ClearSchedule(key));
         }
 
+        public WorkTabEffectiveStateMutationResult SetScheduleNoOpinion(
+            WorkloadScheduleTargetKey key)
+        {
+            return Apply(
+                WorkTabEffectiveStateDimension.Schedule,
+                WorkloadOwnershipDimensions.Schedules,
+                key?.IsGlobal == true ? null : key?.Pawn,
+                key != null && key.IsValid,
+                "A valid schedule target is required.",
+                draft => draft.SetScheduleNoOpinion(key));
+        }
+
         public WorkTabEffectiveStateMutationResult SetSpecificJobPriority(
             WorkloadSpecificJobTargetKey key,
             WorkloadSpecificPriorityPayload payload)
