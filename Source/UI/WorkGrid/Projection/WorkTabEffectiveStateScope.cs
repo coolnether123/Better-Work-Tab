@@ -139,28 +139,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         public WorkTabEffectiveStateRevision RevisionToken =>
             new WorkTabEffectiveStateRevision(ProviderId, Revision, Source);
 
-        public int GetParentPriority(WorkloadParentPriorityKey key, int fallbackPriority)
-        {
-            return fallbackPriority;
-        }
-
-        public bool TryGetParentPriority(WorkloadParentPriorityKey key, out int priority)
-        {
-            priority = 0;
-            return false;
-        }
-
-        public bool IsManualMode(WorkloadParentPriorityKey key, bool fallbackManualMode)
-        {
-            return fallbackManualMode;
-        }
-
-        public bool TryGetManualMode(WorkloadParentPriorityKey key, out bool manualMode)
-        {
-            manualMode = false;
-            return false;
-        }
-
         public ScheduleKey GetSchedule(PawnKey key, ScheduleKey fallbackSchedule)
         {
             return fallbackSchedule;

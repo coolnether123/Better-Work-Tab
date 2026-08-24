@@ -19,8 +19,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         public Func<long> Revision { get; set; }
         public Func<WorkTabEffectiveStateRevisionVector> RevisionVector { get; set; }
 
-        public WorkTabEffectiveStateResolver<WorkloadParentPriorityKey, int> ParentPriority { get; set; }
-        public WorkTabEffectiveStateResolver<WorkloadParentPriorityKey, bool> ManualMode { get; set; }
         public WorkTabEffectiveStateResolver<PawnKey, ScheduleKey> Schedule { get; set; }
         public WorkTabEffectiveStateResolver<WorkloadSpecificJobKey, WorkloadScalarValue> SpecificJobOverride { get; set; }
         public WorkTabEffectiveStateResolver<WorkloadSpecificJobKey, int> SpecificJobOrder { get; set; }
@@ -70,32 +68,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             new WorkTabEffectiveStateRevision(ProviderId, Revision, Source, RevisionVector);
 
         public IWorkTabEffectiveStateEditor Editor => _editor;
-
-        public int GetParentPriority(WorkloadParentPriorityKey key, int fallbackPriority)
-        {
-            return TryGetParentPriority(key, out int priority) ? priority : fallbackPriority;
-        }
-
-        public bool TryGetParentPriority(WorkloadParentPriorityKey key, out int priority)
-        {
-            priority = 0;
-            return key != null && key.IsValid &&
-                   _callbacks.ParentPriority != null &&
-                   _callbacks.ParentPriority(key, out priority);
-        }
-
-        public bool IsManualMode(WorkloadParentPriorityKey key, bool fallbackManualMode)
-        {
-            return TryGetManualMode(key, out bool manualMode) ? manualMode : fallbackManualMode;
-        }
-
-        public bool TryGetManualMode(WorkloadParentPriorityKey key, out bool manualMode)
-        {
-            manualMode = false;
-            return key != null && key.IsValid &&
-                   _callbacks.ManualMode != null &&
-                   _callbacks.ManualMode(key, out manualMode);
-        }
 
         public ScheduleKey GetSchedule(PawnKey key, ScheduleKey fallbackSchedule)
         {
@@ -157,26 +129,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             return !string.IsNullOrWhiteSpace(key) &&
                    _callbacks.PresentationSetting != null &&
                    _callbacks.PresentationSetting(key, out value);
-        }
-
-        public WorkTabEffectiveStateResolution<int> ResolveParentPriority(
-            WorkloadParentPriorityKey key)
-        {
-            return key != null && key.IsValid &&
-                   _callbacks.ParentPriority != null &&
-                   _callbacks.ParentPriority(key, out int priority)
-                ? WorkTabEffectiveStateResolution<int>.Set(priority)
-                : WorkTabEffectiveStateResolution<int>.NoOpinion;
-        }
-
-        public WorkTabEffectiveStateResolution<bool> ResolveManualMode(
-            WorkloadParentPriorityKey key)
-        {
-            return key != null && key.IsValid &&
-                   _callbacks.ManualMode != null &&
-                   _callbacks.ManualMode(key, out bool manualMode)
-                ? WorkTabEffectiveStateResolution<bool>.Set(manualMode)
-                : WorkTabEffectiveStateResolution<bool>.NoOpinion;
         }
 
         public WorkTabEffectiveStateResolution<WorkloadSchedulePayload> ResolveSchedule(
@@ -243,32 +195,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 : WorkTabEffectiveStateResolution<WorkloadSettingValue>.NoOpinion;
         }
 
-        public WorkTabEffectiveStateMutationResult SetParentPriority(
-            WorkloadParentPriorityKey key,
-            int priority)
-        {
-            return _editor.SetParentPriority(key, priority);
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearParentPriority(
-            WorkloadParentPriorityKey key)
-        {
-            return _editor.ClearParentPriority(key);
-        }
-
-        public WorkTabEffectiveStateMutationResult SetManualMode(
-            WorkloadParentPriorityKey key,
-            bool manualMode)
-        {
-            return _editor.SetManualMode(key, manualMode);
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearManualMode(
-            WorkloadParentPriorityKey key)
-        {
-            return _editor.ClearManualMode(key);
-        }
-
         public WorkTabEffectiveStateMutationResult SetSchedule(
             PawnKey key,
             ScheduleKey schedule)
@@ -322,10 +248,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
     public sealed class LiveWorkTabEffectiveStateEditorCallbacks
     {
-        public Func<WorkloadParentPriorityKey, int, WorkTabEffectiveStateMutationResult> SetParentPriority { get; set; }
-        public Func<WorkloadParentPriorityKey, WorkTabEffectiveStateMutationResult> ClearParentPriority { get; set; }
-        public Func<WorkloadParentPriorityKey, bool, WorkTabEffectiveStateMutationResult> SetManualMode { get; set; }
-        public Func<WorkloadParentPriorityKey, WorkTabEffectiveStateMutationResult> ClearManualMode { get; set; }
         public Func<PawnKey, ScheduleKey, WorkTabEffectiveStateMutationResult> SetSchedule { get; set; }
         public Func<PawnKey, WorkTabEffectiveStateMutationResult> ClearSchedule { get; set; }
         public Func<WorkloadSpecificJobKey, WorkloadScalarValue, WorkTabEffectiveStateMutationResult> SetSpecificJobOverride { get; set; }
@@ -352,30 +274,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         {
             _callbacks = callbacks ?? new LiveWorkTabEffectiveStateEditorCallbacks();
             _revision = revision;
-        }
-
-        public WorkTabEffectiveStateMutationResult SetParentPriority(WorkloadParentPriorityKey key, int priority)
-        {
-            return Invoke(
-                WorkTabEffectiveStateDimension.ParentPriority,
-                _callbacks.SetParentPriority,
-                key,
-                priority);
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearParentPriority(WorkloadParentPriorityKey key)
-        {
-            return Invoke(WorkTabEffectiveStateDimension.ParentPriority, _callbacks.ClearParentPriority, key);
-        }
-
-        public WorkTabEffectiveStateMutationResult SetManualMode(WorkloadParentPriorityKey key, bool manualMode)
-        {
-            return Invoke(WorkTabEffectiveStateDimension.ManualMode, _callbacks.SetManualMode, key, manualMode);
-        }
-
-        public WorkTabEffectiveStateMutationResult ClearManualMode(WorkloadParentPriorityKey key)
-        {
-            return Invoke(WorkTabEffectiveStateDimension.ManualMode, _callbacks.ClearManualMode, key);
         }
 
         public WorkTabEffectiveStateMutationResult SetSchedule(PawnKey key, ScheduleKey schedule)
@@ -459,14 +357,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             _revision = revision;
         }
 
-        public WorkTabEffectiveStateMutationResult SetParentPriority(WorkloadParentPriorityKey key, int priority) =>
-            Blocked(WorkTabEffectiveStateDimension.ParentPriority);
-        public WorkTabEffectiveStateMutationResult ClearParentPriority(WorkloadParentPriorityKey key) =>
-            Blocked(WorkTabEffectiveStateDimension.ParentPriority);
-        public WorkTabEffectiveStateMutationResult SetManualMode(WorkloadParentPriorityKey key, bool manualMode) =>
-            Blocked(WorkTabEffectiveStateDimension.ManualMode);
-        public WorkTabEffectiveStateMutationResult ClearManualMode(WorkloadParentPriorityKey key) =>
-            Blocked(WorkTabEffectiveStateDimension.ManualMode);
         public WorkTabEffectiveStateMutationResult SetSchedule(PawnKey key, ScheduleKey schedule) =>
             Blocked(WorkTabEffectiveStateDimension.Schedule);
         public WorkTabEffectiveStateMutationResult ClearSchedule(PawnKey key) =>

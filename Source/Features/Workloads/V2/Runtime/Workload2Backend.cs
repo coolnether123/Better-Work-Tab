@@ -2926,7 +2926,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             "Global manual-priority state is unavailable while opening the V2 preview.");
                     }
 
-                    liveManualMode = Verse.Find.PlaySettings.useWorkPriorities;
+                    liveManualMode = ParentPriorityRead.GetLiveManualMode(true);
                 }
 
                 var runtimePriorities = new List<WorkloadParentPriorityEntry>();
@@ -4196,7 +4196,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
 
                 WorkloadScope scope = targetTemplate.Definition.Scope ?? WorkloadScope.Empty;
-                ValidateManualModeConsistency(targetTemplate, scope, report);
                 var runtimePlan = new RuntimeCommitPlan();
                 if (decisionKind == WorkloadDecisionKind.Apply)
                 {
@@ -6169,54 +6168,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                    scope.Mode == WorkloadScopeMode.CurrentMapFreeColonists &&
                    scope.ExplicitPawnIds.Count == 0 &&
                    scope.ExcludedPawnIds.Count == 0;
-        }
-
-        private static void ValidateManualModeConsistency(
-            WorkloadTemplate targetTemplate,
-            WorkloadScope scope,
-            WorkloadV2CommitReport report)
-        {
-            if (targetTemplate?.Definition == null ||
-                !targetTemplate.Definition.OwnershipDimensions.Owns(WorkloadStateDimension.ManualModes))
-            {
-                return;
-            }
-
-            WorkloadProjectedState state = targetTemplate.ProjectedState ?? WorkloadProjectedState.Empty;
-            if (state.ManualModes.Count > 0 && !IsGenuinelyGlobalManualScope(scope))
-            {
-                const string message =
-                    "Manual-priority mode is global in RimWorld and requires the unexcluded current-map free-colonist scope.";
-                report.Add(
-                    WorkloadV2CommitMessageKind.Unsupported,
-                    "manual-mode.scope",
-                    scope?.Mode.ToString() ?? string.Empty,
-                    message);
-                Abort(WorkloadDiagnosticCode.UnsupportedOperation, message);
-            }
-
-            bool hasValue = false;
-            bool value = false;
-            for (int i = 0; i < state.ManualModes.Count; i++)
-            {
-                WorkloadManualModeEntry entry = state.ManualModes[i];
-                if (!hasValue)
-                {
-                    hasValue = true;
-                    value = entry.Manual;
-                    continue;
-                }
-
-                if (value == entry.Manual) continue;
-                const string message =
-                    "Conflicting V2 manual-mode entries cannot be represented by RimWorld's global priority mode.";
-                report.Add(
-                    WorkloadV2CommitMessageKind.Unsupported,
-                    "manual-mode.conflict",
-                    "global",
-                    message);
-                Abort(WorkloadDiagnosticCode.UnsupportedOperation, message);
-            }
         }
 
         private static bool TryResolveWritableEntry(
@@ -9630,18 +9581,18 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     continue;
                 }
 
-                WorkloadParentPriorityKey parentKey =
-                    WorkTabEffectiveStateIds.ForParentPriority(pawn, workType);
-                int parentFallback =
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+                WorkloadParentPriorityKey parentKey = new WorkloadParentPriorityKey(
+                    WorkTabEffectiveStateIds.ForPawn(pawn),
+                    WorkTabEffectiveStateIds.ForWorkType(workType));
+                int parentFallback = templateCapture
+                    ? ParentPriorityRead.GetLive(pawn, workType)
+                    : ParentPriorityRead.GetObservationalLive(pawn, workType);
                 if (ownership.Owns(WorkloadStateDimension.ParentPriorities))
                 {
                     int storedPriority = templateCapture
                         ? PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(pawn.workSettings, workType)
                         : parentFallback;
-                    int effectivePriority = templateCapture
-                        ? parentFallback
-                        : liveProvider.GetParentPriority(parentKey, parentFallback);
+                    int effectivePriority = parentFallback;
                     int priority = WorkloadLiveCapturePolicy.SelectParentPriority(
                         templateCapture,
                         storedPriority,
@@ -9652,11 +9603,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
                 if (ownership.Owns(WorkloadStateDimension.ManualModes))
                 {
-                    bool manualMode = templateCapture
-                        ? Verse.Find.PlaySettings.useWorkPriorities
-                        : liveProvider.IsManualMode(
-                            parentKey,
-                            Verse.Find.PlaySettings?.useWorkPriorities ?? true);
+                    bool manualMode = ParentPriorityRead.GetLiveManualMode(true);
                     draft.SetManualMode(parentKey, manualMode);
                     wroteValue = true;
                 }

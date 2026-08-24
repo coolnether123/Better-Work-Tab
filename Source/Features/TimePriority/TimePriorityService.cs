@@ -19,6 +19,8 @@ namespace Better_Work_Tab.Features.TimePriority
         internal const int HoursPerDay = 24;
         private static readonly Dictionary<TimePriorityCacheKey, TimePriorityScheduleData> Cache =
             new Dictionary<TimePriorityCacheKey, TimePriorityScheduleData>();
+        private static WorkTypeScheduleReadSnapshot _workTypeReadSnapshot;
+        private static int _workTypeReadSnapshotVersion = -1;
         private static Game _cachedGame;
         private static int _cachedVersion = -1;
         private static bool _scheduleActivityKnown;
@@ -30,6 +32,63 @@ namespace Better_Work_Tab.Features.TimePriority
         private static bool _loadBoundaryHandled;
         private static int _mutationBatchDepth;
         private static bool _mutationBatchChanged;
+
+        internal sealed class WorkTypeScheduleReadSnapshot
+        {
+            internal static readonly WorkTypeScheduleReadSnapshot Empty =
+                new WorkTypeScheduleReadSnapshot(null);
+            private readonly IDictionary<TimePriorityCacheKey, CapturedSchedule> _schedules;
+            private WorkTypeScheduleReadSnapshot(IDictionary<TimePriorityCacheKey, CapturedSchedule> schedules) =>
+                _schedules = schedules;
+
+            internal bool TryGetPinnedPriority(Pawn pawn, WorkTypeDef workType, int hour, out int priority)
+            {
+                priority = WorkPrioritySystem.DisabledPriority;
+                return pawn != null && workType != null && hour >= 0 && hour < HoursPerDay &&
+                    _schedules != null && _schedules.TryGetValue(
+                        TimePriorityTarget.ForRuntimeWorkType(pawn, workType).CacheKey,
+                        out CapturedSchedule schedule) && schedule.TryGetPinnedPriority(hour, out priority);
+            }
+
+            internal static WorkTypeScheduleReadSnapshot Capture(List<TimePriorityScheduleData> schedules)
+            {
+                if (schedules == null || schedules.Count == 0) return Empty;
+                var captured = new Dictionary<TimePriorityCacheKey, CapturedSchedule>();
+                for (int index = schedules.Count - 1; index >= 0; index--)
+                {
+                    TimePriorityScheduleData schedule = schedules[index];
+                    if (schedule != null && schedule.Kind == TimePriorityTargetKind.WorkType)
+                        captured[schedule.CacheKey] = new CapturedSchedule(schedule);
+                }
+                return captured.Count == 0 ? Empty : new WorkTypeScheduleReadSnapshot(captured);
+            }
+
+            private readonly struct CapturedSchedule
+            {
+                private readonly int _pinnedHourMask;
+                private readonly int[] _priorities;
+
+                internal CapturedSchedule(TimePriorityScheduleData schedule)
+                {
+                    _pinnedHourMask = 0;
+                    _priorities = new int[HoursPerDay];
+                    for (int hour = 0; hour < HoursPerDay; hour++)
+                    {
+                        if (!schedule.TryGetStoredPriority(hour, out int priority)) continue;
+                        _pinnedHourMask |= 1 << hour;
+                        _priorities[hour] = priority;
+                    }
+                }
+
+                internal bool TryGetPinnedPriority(int hour, out int priority)
+                {
+                    priority = WorkPrioritySystem.DisabledPriority;
+                    if ((_pinnedHourMask & (1 << hour)) == 0) return false;
+                    priority = _priorities[hour];
+                    return true;
+                }
+            }
+        }
 
         internal static int CurrentVersion { get; private set; }
 
@@ -183,6 +242,33 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             return GetLivePriorityAtHour(target, fallbackPriority, hour);
+        }
+
+        internal static bool TryGetLiveWorkTypeScheduledPriority(
+            Pawn pawn,
+            WorkTypeDef workType,
+            int hour,
+            out int priority)
+        {
+            priority = WorkPrioritySystem.DisabledPriority;
+            return IsRuntimeEnabled && pawn != null && workType != null &&
+                TryGetSchedule(TimePriorityTarget.ForRuntimeWorkType(pawn, workType),
+                    out TimePriorityScheduleData schedule) &&
+                schedule.TryGetStoredPriority(Mathf.Clamp(hour, 0, HoursPerDay - 1), out priority);
+        }
+
+        internal static WorkTypeScheduleReadSnapshot CaptureLiveWorkTypeScheduleSnapshot()
+        {
+            if (!IsRuntimeEnabled) return WorkTypeScheduleReadSnapshot.Empty;
+            int version = CurrentVersion;
+            if (_workTypeReadSnapshot != null && _workTypeReadSnapshotVersion == version)
+                return _workTypeReadSnapshot;
+            WorkTypeScheduleReadSnapshot snapshot = WorkTypeScheduleReadSnapshot.Capture(
+                GetSchedules(create: false));
+            if (version != CurrentVersion) return WorkTypeScheduleReadSnapshot.Empty;
+            _workTypeReadSnapshot = snapshot;
+            _workTypeReadSnapshotVersion = version;
+            return snapshot;
         }
 
         private static int GetLivePriorityAtHour(
@@ -2049,6 +2135,7 @@ namespace Better_Work_Tab.Features.TimePriority
             _mutationBatchChanged = true;
             _cachedVersion = -1;
             Cache.Clear();
+            InvalidateWorkTypeReadSnapshot();
             _scheduleActivityKnown = false;
         }
 
@@ -2116,6 +2203,7 @@ namespace Better_Work_Tab.Features.TimePriority
             CurrentVersion++;
             _cachedVersion = -1;
             Cache.Clear();
+            InvalidateWorkTypeReadSnapshot();
             _scheduleDataActive = schedules != null && schedules.Count > 0;
             _scheduleActivityKnown = true;
             if (rebuildCache)
@@ -2196,6 +2284,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
             _cachedGame = game;
             Cache.Clear();
+            InvalidateWorkTypeReadSnapshot();
             _cachedVersion = -1;
             CurrentVersion++;
             _scheduleActivityKnown = false;
@@ -2205,6 +2294,12 @@ namespace Better_Work_Tab.Features.TimePriority
             _observedScheduleCount = -1;
             _scheduleCollectionStateKnown = false;
             _loadBoundaryHandled = false;
+        }
+
+        private static void InvalidateWorkTypeReadSnapshot()
+        {
+            _workTypeReadSnapshot = null;
+            _workTypeReadSnapshotVersion = -1;
         }
 
         private static bool HasScheduleCollectionChangedFromAudit(

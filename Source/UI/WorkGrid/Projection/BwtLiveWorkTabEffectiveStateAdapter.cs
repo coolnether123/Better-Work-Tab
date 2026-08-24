@@ -65,8 +65,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             var callbacks = new LiveWorkTabEffectiveStateCallbacks(providerId)
             {
                 Revision = _revisionResolver ?? _revisionClock.Read,
-                ParentPriority = TryGetParentPriority,
-                ManualMode = TryGetManualMode,
                 Schedule = _scheduleResolver,
                 SpecificJobOverride = TryGetSpecificJobOverride,
                 SpecificJobOrder = TryGetSpecificJobOrder,
@@ -116,12 +114,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             int fallbackPriority;
             if (key.TargetKind == WorkloadScheduleTargetKind.ParentWorkType)
             {
-                if (!TryGetParentPriority(
-                        new WorkloadParentPriorityKey(key.Pawn, key.WorkType),
-                        out fallbackPriority))
-                {
-                    return WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion;
-                }
+                fallbackPriority = ParentPriorityRead.GetLive(pawn, workType);
             }
             else
             {
@@ -271,49 +264,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
             return WorkTabEffectiveStateResolution<WorkloadSettingValue>.Set(
                 WorkloadSettingValue.Global(value));
-        }
-
-        private bool TryGetParentPriority(
-            WorkloadParentPriorityKey key,
-            out int priority)
-        {
-            priority = 0;
-            if (key == null || !key.IsValid)
-            {
-                return false;
-            }
-
-            Pawn pawn = _pawnResolver(key.Pawn);
-            WorkTypeDef workType = _workTypeResolver(key.WorkType);
-            if (pawn == null || workType == null)
-            {
-                return false;
-            }
-
-            // A preview may fall through to the live provider for a value that it does not own.
-            // Keep that fallback observational: the ordinary priority read owns transition
-            // processing, while the preview read only observes the current authority snapshot.
-            priority = WorkTabEffectiveStateRuntime.IsPreviewActive
-                ? PriorityAuthorityBroker.GetObservationalEffectivePriority(pawn, workType)
-                : WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
-            return true;
-        }
-
-        private bool TryGetManualMode(
-            WorkloadParentPriorityKey key,
-            out bool manualMode)
-        {
-            manualMode = false;
-            if (key == null || !key.IsValid || Find.PlaySettings == null)
-            {
-                return false;
-            }
-
-            // Vanilla stores manual mode globally. The parent key is retained
-            // in the callback shape so a future authority can scope it without
-            // changing the provider contract.
-            manualMode = Find.PlaySettings.useWorkPriorities;
-            return true;
         }
 
         private bool TryGetSpecificJobOverride(
@@ -508,7 +458,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     TimePriorityService.CurrentVersion,
                     WorkGiverReassignmentManager.CurrentSyncVersion,
                     PriorityAuthorityBroker.GetObservationalAuthorityRevision(),
-                    Find.PlaySettings?.useWorkPriorities ?? true,
+                    ParentPriorityRead.GetLiveManualMode(true),
                     ExternalWorkTabRegistry.RegistryGeneration,
                     PriorityAuthorityResolver.ExplicitAuthorityGeneration);
             }

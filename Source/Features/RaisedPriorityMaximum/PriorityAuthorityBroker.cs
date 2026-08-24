@@ -1,6 +1,5 @@
 using Better_Work_Tab.API;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport;
 using RimWorld;
 using Verse;
@@ -20,12 +19,17 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             PriorityAuthorityTransitionService.CurrentAuthority;
 
         /// <summary>
-        /// Returns the current resolver snapshot for read-only consumers. Unlike
-        /// <see cref="CurrentAuthority"/>, this seam cannot apply a transition or handoff.
+        /// Captures one coherent read-only authority pair. Unlike
+        /// <see cref="CurrentAuthority"/>, this seam cannot apply a transition
+        /// or handoff between the owner and revision observations.
         /// </summary>
-        internal static PriorityAuthoritySnapshot GetObservationalSnapshot()
+        internal static void CaptureObservationalAuthority(
+            out PriorityAuthoritySnapshot snapshot,
+            out long revision)
         {
-            return PriorityAuthorityTransitionService.GetObservationalSnapshot();
+            PriorityAuthorityTransitionService.CaptureObservationalAuthority(
+                out snapshot,
+                out revision);
         }
 
         /// <summary>
@@ -35,17 +39,6 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal static long GetObservationalAuthorityRevision()
         {
             return PriorityAuthorityTransitionService.GetObservationalRevision();
-        }
-
-        /// <summary>
-        /// Reads an effective priority without allowing a preview fallback to initiate authority
-        /// migration. Normal gameplay callers continue to use <see cref="GetEffectivePriority"/>.
-        /// </summary>
-        internal static int GetObservationalEffectivePriority(Pawn pawn, WorkTypeDef workType)
-        {
-            return PriorityAuthorityTransitionService.GetObservationalEffectivePriority(
-                pawn,
-                workType);
         }
 
 #if DEBUG
@@ -78,19 +71,21 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
 
         internal static int GetEffectivePriority(Pawn pawn, WorkTypeDef workType)
         {
-            return PriorityValueResolver.GetEffectivePriority(pawn, workType);
-        }
-
-        internal static int GetEffectivePriorityAtHour(Pawn pawn, WorkTypeDef workType, int hour)
-        {
-            return PriorityValueResolver.GetEffectivePriorityAtHour(pawn, workType, hour);
+            if (pawn?.workSettings == null || workType == null)
+                return PriorityRangePolicy.GetDefaultEnabledPriority();
+            IExternalWorkTabStore store = PriorityAuthorityTransitionService.GetAuthoritativeStore();
+            return store != null && ExternalWorkTabRegistry.TryGetWorkTypePriority(
+                store, pawn, workType, TimePriorityService.GetCurrentHour(pawn), out int priority)
+                ? ClampRuntimePriority(priority) : GetBetterWorkTabEffectiveStoredPriority(pawn, workType);
         }
 
         internal static int GetBetterWorkTabStoredPriority(
             Pawn_WorkSettings workSettings,
             WorkTypeDef workType)
         {
-            return PriorityValueResolver.GetBetterWorkTabStoredPriority(workSettings, workType);
+            return workSettings?.priorities == null || workType == null
+                ? PriorityRangePolicy.GetDefaultEnabledPriority()
+                : PriorityRangePolicy.ClampStoredPriorityForRuntime(workSettings.priorities[workType]);
         }
 
         internal static int GetVanillaCompatibleStoredPriority(
@@ -98,23 +93,26 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             Pawn_WorkSettings workSettings,
             WorkTypeDef workType)
         {
-            return PriorityValueResolver.GetVanillaCompatibleStoredPriority(
+            return GetVanillaCompatibleStoredPriority(
                 pawn,
                 workSettings,
-                workType);
+                workType,
+                Find.PlaySettings == null ? (bool?)null : Find.PlaySettings.useWorkPriorities);
         }
 
-        internal static int GetBetterWorkTabEffectiveWorkGiverPriorityAtHour(
+        // A captured null means PlaySettings was absent; it must not consult live state.
+        internal static int GetVanillaCompatibleStoredPriority(
             Pawn pawn,
+            Pawn_WorkSettings workSettings,
             WorkTypeDef workType,
-            WorkGiverDef workGiver,
-            int hour)
+            bool? manualMode)
         {
-            return PriorityValueResolver.GetBetterWorkTabEffectiveWorkGiverPriorityAtHour(
-                pawn,
-                workType,
-                workGiver,
-                hour);
+            if (pawn?.RaceProps == null || workSettings?.priorities == null || workType == null)
+                return PriorityRangePolicy.GetDefaultEnabledPriority();
+            int priority = workSettings.priorities[workType];
+            return pawn.RaceProps.Humanlike && priority > PriorityConstants.Disabled &&
+                manualMode == false
+                ? PriorityConstants.VanillaDefaultEnabled : priority;
         }
 
         public static PriorityProviderSnapshot GetSnapshot()
@@ -205,6 +203,20 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         internal static IExternalWorkTabStore GetAuthoritativeStore()
         {
             return PriorityAuthorityTransitionService.GetAuthoritativeStore();
+        }
+
+        private static int GetBetterWorkTabEffectiveStoredPriority(Pawn pawn, WorkTypeDef workType)
+        {
+            return pawn?.workSettings?.priorities == null || workType == null
+                ? PriorityRangePolicy.GetDefaultEnabledPriority()
+                : PriorityRangePolicy.ClampStoredPriorityForRuntime(
+                    GetVanillaCompatibleStoredPriority(pawn, pawn.workSettings, workType));
+        }
+
+        private static int ClampRuntimePriority(int priority)
+        {
+            return priority < PriorityConstants.Disabled ? PriorityConstants.Disabled :
+                priority > PriorityConstants.ExtendedHardMax ? PriorityConstants.ExtendedHardMax : priority;
         }
     }
 }

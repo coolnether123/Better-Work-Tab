@@ -239,9 +239,9 @@ namespace Better_Work_Tab.UI.Chrome
             int maxPriority = WorkPrioritySystem.GetMaxPriority();
             EnsureUiTextCache(maxPriority);
             bool wasEnabled = WorkTabEffectiveStateRuntime.IsPreviewActive
-                ? WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                    Find.PlaySettings?.useWorkPriorities ?? true)
-                : Current.Game.playSettings.useWorkPriorities;
+                ? ParentPriorityRead.GetObservedManualModeForDisplay(
+                    true)
+                : ParentPriorityRead.GetLiveManualMode(true);
             bool requestedEnabled = wasEnabled;
             Widgets.CheckboxLabeled(rect, _manualPrioritiesText, ref requestedEnabled);
             if (wasEnabled != requestedEnabled &&
@@ -254,9 +254,7 @@ namespace Better_Work_Tab.UI.Chrome
 
             DrawManualModeInspectionIndicator(rect);
 
-            bool isEnabled = WorkTabEffectiveStateRuntime.IsPreviewActive
-                ? requestedEnabled
-                : Current.Game.playSettings.useWorkPriorities;
+            bool isEnabled = requestedEnabled;
             if (isEnabled)
             {
                 using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))

@@ -651,6 +651,7 @@ namespace Better_Work_Tab.UI.Workloads
             new Queue<MultiplayerStatusSnapshot>();
         private WorkloadSession _session;
         private ProjectedWorkTabEffectiveStateProvider _projectedProvider;
+        private WorkloadParentPriorityProjection _parentPriorityProjection;
         private GameComponent_BWTWorldSettings _boundComponent;
         private bool _hasMultiplayerAttempt;
         private string _multiplayerRequestId = string.Empty;
@@ -702,6 +703,26 @@ namespace Better_Work_Tab.UI.Workloads
 
             internal Func<bool> Action { get; }
             internal Action<bool> Completed { get; }
+        }
+
+        private sealed class EffectiveStateScope : IDisposable
+        {
+            private readonly IDisposable _parentReadScope;
+            private readonly IDisposable _stateScope;
+
+            internal EffectiveStateScope(
+                IDisposable stateScope,
+                IDisposable parentReadScope)
+            {
+                _stateScope = stateScope;
+                _parentReadScope = parentReadScope;
+            }
+
+            public void Dispose()
+            {
+                _parentReadScope?.Dispose();
+                _stateScope?.Dispose();
+            }
         }
 
         /// <summary>
@@ -1568,7 +1589,44 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal IDisposable PushEffectiveStateScope()
         {
-            return WorkTabEffectiveStateScope.Push(ScopedProvider);
+            IDisposable stateScope = WorkTabEffectiveStateScope.Push(ScopedProvider);
+            try
+            {
+                return new EffectiveStateScope(
+                    stateScope,
+                    ParentPriorityRead.PushObservedPass(
+                        _parentPriorityProjection,
+                        TrySetPreviewParentPriority));
+            }
+            catch
+            {
+                stateScope.Dispose();
+                throw;
+            }
+        }
+
+        internal bool TrySetPreviewParentPriority(
+            Pawn pawn,
+            WorkTypeDef workType,
+            int priority)
+        {
+            string reason = null;
+            if (!IsActive || _parentPriorityProjection == null ||
+                !_parentPriorityProjection.TrySet(pawn, workType, priority, out reason))
+            {
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    SetMessage(reason);
+                }
+
+                return false;
+            }
+
+            // The generic provider still owns the remaining draft dimensions
+            // and session synchronization. Tell it about this boundary-owned
+            // draft mutation without retaining a second parent index there.
+            _projectedProvider.InvalidateDraft();
+            return true;
         }
 
         internal void QueueLifecycleAction(
@@ -2668,6 +2726,7 @@ namespace Better_Work_Tab.UI.Workloads
             if (_session == null)
             {
                 _projectedProvider = null;
+                _parentPriorityProjection = null;
                 _projectedEditablePawnSetRevision = long.MinValue;
                 _synchronizedProjectedProviderRevision = long.MinValue;
                 ClearInspectionIndex();
@@ -2675,13 +2734,19 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             var draft = new WorkloadDraft(projectedState ?? WorkloadProjectedState.Empty);
+            IReadOnlyList<PawnKey> editablePawns = BuildEditablePawnIds();
             _projectedProvider = new ProjectedWorkTabEffectiveStateProvider(
                 draft,
                 _liveProvider,
                 _session.SourceTemplate.Definition.OwnershipDimensions,
                 "bwt.preview",
                 _session.SourceTemplate.Definition.Scope,
-                BuildEditablePawnIds());
+                editablePawns);
+            _parentPriorityProjection = new WorkloadParentPriorityProjection(
+                draft,
+                _session.SourceTemplate.Definition.OwnershipDimensions,
+                editablePawns,
+                () => _projectedProvider?.ProjectionRevision ?? long.MinValue);
             _synchronizedProjectedProviderRevision = _projectedProvider.ProjectionRevision;
             _projectedEditablePawnSetRevision = ComputeAvailablePawnSetRevision();
             ClearInspectionIndex();
@@ -2695,6 +2760,7 @@ namespace Better_Work_Tab.UI.Workloads
             InvalidateMembershipSnapshot();
             _session = null;
             _projectedProvider = null;
+            _parentPriorityProjection = null;
             _projectedEditablePawnSetRevision = long.MinValue;
             _synchronizedProjectedProviderRevision = long.MinValue;
             _inspectionActive = false;

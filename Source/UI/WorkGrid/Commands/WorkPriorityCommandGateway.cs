@@ -35,11 +35,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 return false;
             }
 
-            return WorkTabEffectiveStateRuntime.TrySetParentPriority(
+            return ParentPriorityRead.TrySetObserved(
                 pawn,
                 workType,
-                priority,
-                out _);
+                priority);
         }
 
         internal static bool SetWorkGiverPriority(int pawnId, WorkGiverDef workGiver, int priority)

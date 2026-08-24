@@ -74,7 +74,7 @@ namespace Better_Work_Tab.Patches
             }
 
             // Check if work TYPE is disabled (vanilla) or this BWT sub-work giver is not assigned.
-            int parentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            int parentPriority = ParentPriorityRead.GetLive(pawn, workType);
             if (parentPriority != WorkPrioritySystem.DisabledPriority)
             {
                 if (TryGetBwtSubWorkDisabledReason(pawn, workType, workGiver, parentPriority, out string subWorkReason))
@@ -126,7 +126,7 @@ namespace Better_Work_Tab.Patches
             var targetWorkType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver);
             if (targetWorkType != null)
             {
-                int targetParentPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, targetWorkType);
+                int targetParentPriority = ParentPriorityRead.GetLive(pawn, targetWorkType);
                 int baseWorkGiverPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, targetParentPriority);
                 int wgPriority = TimePriorityService.GetEffectiveWorkGiverPriority(
                     pawn,

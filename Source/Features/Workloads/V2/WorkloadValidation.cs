@@ -258,17 +258,6 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 Add(issues, WorkloadValidationCode.UnknownOwnershipDimension, "definition.ownership", "The workload declares an unknown ownership dimension.");
             }
 
-            if (definition.OwnershipDimensions.Owns(WorkloadStateDimension.ManualModes) &&
-                (definition.Scope.Mode != WorkloadScopeMode.CurrentMapFreeColonists ||
-                 definition.Scope.ExcludedPawnIds.Count > 0))
-            {
-                Add(
-                    issues,
-                    WorkloadValidationCode.InvalidManualModeScope,
-                    "definition.scope",
-                    "Manual-priority mode is global and requires the unexcluded current-map free-colonist scope.");
-            }
-
             if (definition.Scope.Mode == WorkloadScopeMode.CurrentMapFreeColonists &&
                 definition.Scope.ExplicitPawnIds.Count > 0)
             {
@@ -290,6 +279,18 @@ namespace Better_Work_Tab.Features.Workloads.V2
             }
 
             WorkloadProjectedState state = template.ProjectedState ?? WorkloadProjectedState.Empty;
+            bool hasManualSet = WorkloadManualModeSemantics.TryGetGlobalMode(
+                state, out _, out _, out bool manualConflict);
+            if (definition.OwnershipDimensions.Owns(WorkloadStateDimension.ManualModes) &&
+                hasManualSet && (definition.Scope.Mode != WorkloadScopeMode.CurrentMapFreeColonists ||
+                    definition.Scope.ExcludedPawnIds.Count > 0))
+            {
+                Add(
+                    issues,
+                    WorkloadValidationCode.InvalidManualModeScope,
+                    "definition.scope",
+                    "Manual-priority mode is global and requires the unexcluded current-map free-colonist scope.");
+            }
 
             if (state.HasAmbiguousSpecificPriorityIntents)
             {
@@ -346,7 +347,6 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 state.PresentationSettings.Count + state.PresentationSettingIntents.Count,
                 "state.presentationSettings");
 
-            var manualValues = new HashSet<bool>();
             for (int i = 0; i < state.ParentPriorities.Count; i++)
             {
                 WorkloadParentPriorityEntry entry = state.ParentPriorities[i];
@@ -361,16 +361,6 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 CheckPawn(issues, catalog, entry.Key.Pawn, "state.manualModes[" + i + "].pawn");
                 CheckWorkType(issues, catalog, entry.Key.WorkType, "state.manualModes[" + i + "].workType");
                 CheckScopePawn(issues, definition.Scope, entry.Key.Pawn, "state.manualModes[" + i + "].pawn");
-                manualValues.Add(entry.Manual);
-            }
-
-            if (manualValues.Count > 1)
-            {
-                Add(
-                    issues,
-                    WorkloadValidationCode.ConflictingManualModes,
-                    "state.manualModes",
-                    "Manual-priority entries disagree even though RimWorld stores one global mode.");
             }
 
             for (int i = 0; i < state.Schedules.Count; i++)
@@ -464,6 +454,15 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 CheckWorkType(issues, catalog, entry.Key.WorkType, "state.manualModeIntents[" + i + "].workType");
                 CheckScopePawn(issues, definition.Scope, entry.Key.Pawn, "state.manualModeIntents[" + i + "].pawn");
                 CheckIntentState(issues, entry.Intent.State, "state.manualModeIntents[" + i + "].intent");
+            }
+
+            if (manualConflict)
+            {
+                Add(
+                    issues,
+                    WorkloadValidationCode.ConflictingManualModes,
+                    "state.manualModes",
+                    "Manual-priority entries disagree even though RimWorld stores one global mode.");
             }
 
             for (int i = 0; i < state.ScheduleIntents.Count; i++)

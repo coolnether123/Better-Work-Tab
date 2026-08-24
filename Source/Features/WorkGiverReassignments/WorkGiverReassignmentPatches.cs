@@ -170,7 +170,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            int wtPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, mappedWorkType);
+            int wtPriority = ParentPriorityRead.GetLive(pawn, mappedWorkType);
             int wgPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, wtPriority);
             wgPriority = TimePriorityService.GetEffectiveWorkGiverPriority(pawn, mappedWorkType, workGiver, wgPriority);
             bool parentWorkActive = wtPriority > WorkPrioritySystem.DisabledPriority;

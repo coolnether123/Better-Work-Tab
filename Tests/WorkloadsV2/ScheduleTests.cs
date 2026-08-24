@@ -108,6 +108,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "ordinary non-multiplayer schedule calls must retain legacy authorization behavior");
 
             AssertRollbackRegistrationContract();
+            AssertObservedScheduleSnapshotContract();
+            AssertObservedParentReadContract();
 
             var source = new WorkloadProjectedState(
                 scheduleIntents: new[]
@@ -212,6 +214,71 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.True(
                 restore >= 0 && authorizationUse > restore,
                 "schedule rollback must carry the transaction-bound authorization");
+        }
+
+        private static void AssertObservedScheduleSnapshotContract()
+        {
+            string service = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "Features", "TimePriority", "TimePriorityService.cs")));
+            TestAssert.Contains(service,
+                "IDictionary<TimePriorityCacheKey, CapturedSchedule> _schedules",
+                "Observed schedule reads must not retain mutable TimePriorityScheduleData references.");
+            TestAssert.Contains(service,
+                "_priorities = new int[HoursPerDay];",
+                "Observed schedule capture must own a private 24-hour value copy.");
+            TestAssert.Contains(service,
+                "captured[schedule.CacheKey] = new CapturedSchedule(schedule);",
+                "Observed schedule capture must materialize immutable schedule values once per pass.");
+            TestAssert.Contains(service,
+                "_workTypeReadSnapshotVersion == version",
+                "Observed schedule capture must reuse one immutable view while the service version is stable.");
+            TestAssert.Contains(service,
+                "if (version != CurrentVersion) return WorkTypeScheduleReadSnapshot.Empty;",
+                "Observed schedule capture must reject a snapshot that raced a schedule mutation.");
+            TestAssert.False(service.Contains(
+                    "IDictionary<TimePriorityCacheKey, TimePriorityScheduleData> _schedules"),
+                "A post-capture SetOverride/ClearOverride must not alter an observed schedule snapshot.");
+        }
+
+        private static void AssertObservedParentReadContract()
+        {
+            string parentRead = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "Features", "RaisedPriorityMaximum", "ParentPriorityRead.cs")));
+            string broker = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "Features", "RaisedPriorityMaximum", "PriorityAuthorityBroker.cs")));
+            TestAssert.Contains(parentRead,
+                "bool? manualMode = CapturedManualModeFor(target);",
+                "Observed parent reads must capture manual mode before any fallback path.");
+            TestAssert.Contains(parentRead,
+                "return ReadStored(pawn, workType, manualMode);",
+                "Every observed parent fallback must use captured manual mode rather than rereading PlaySettings.");
+            TestAssert.Contains(parentRead,
+                "[ThreadStatic] private static Scope currentObservedScope;",
+                "Observed parent reads and writes must share one linked scope frame.");
+            TestAssert.Contains(parentRead,
+                "while (scope != null && scope._disposed) scope = scope._parent;",
+                "Out-of-order observed-scope disposal must skip disposed parents instead of resurrecting them.");
+            TestAssert.Contains(parentRead,
+                "ObservedPass.Capture(null).Read(pawn, workType)",
+                "The observational-live parent read must bypass any ambient preview scope.");
+            TestAssert.Contains(broker,
+                "bool? manualMode",
+                "The broker must accept the captured nullable manual-mode value without rereading PlaySettings.");
+
+            string backend = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs")));
+            TestAssert.Contains(backend.Replace("\r\n", "\n"),
+                "? ParentPriorityRead.GetLive(pawn, workType)\n                    : ParentPriorityRead.GetObservationalLive(pawn, workType);",
+                "Live-baseline capture must use the observational reader while template capture keeps the handoff-owning live reader.");
+
+            string gateway = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "UI", "WorkGrid", "Commands", "WorkPriorityCommandGateway.cs")));
+            TestAssert.Contains(gateway,
+                "WorkTabEffectiveStateDimension.ParentPriority",
+                "External parent-priority write rejection must retain its blocked-feedback dimension.");
+            TestAssert.Contains(gateway,
+                "ExternalPriorityAuthorityReason",
+                "External parent-priority write rejection must retain its explanatory feedback.");
         }
 
         private static string FindRepositoryFile(string relativePath)

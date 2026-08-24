@@ -288,8 +288,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GUI.color = WithVisualAlpha(oldColor);
             GUI.DrawTexture(boxRect, bgTex);
 
-            if (WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                    Find.PlaySettings?.useWorkPriorities ?? true))
+            if (ParentPriorityRead.GetObservedManualModeForDisplay(
+                    true))
             {
                 if (priority > WorkPrioritySystem.DisabledPriority)
                 {
@@ -343,8 +343,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GUI.DrawTexture(boxRect, bgTex);
             GUI.color = oldColor;
 
-            if (WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                    Find.PlaySettings?.useWorkPriorities ?? true) &&
+            if (ParentPriorityRead.GetObservedManualModeForDisplay(
+                    true) &&
                 priority > WorkPrioritySystem.DisabledPriority)
             {
                 Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
@@ -430,10 +430,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WidgetsWork.DrawWorkBoxBackground(boxRect, pawn, workType);
             GUI.color = oldColor;
 
-            if (WorkTabEffectiveStateRuntime.IsManualMode(
+            if (ParentPriorityRead.GetObservedManualMode(
                     pawn,
                     workType,
-                    Find.PlaySettings?.useWorkPriorities ?? true))
+                    true))
             {
                 if (priority > WorkPrioritySystem.DisabledPriority)
                 {
@@ -539,10 +539,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     ? WorkGiverReassignmentManager.GetWorkGiverPriority(
                         pawn,
                         wg.def,
-                        WorkTabEffectiveStateRuntime.GetParentPriority(
-                            pawn,
-                            workType,
-                            WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType)))
+                        ParentPriorityRead.GetObserved(pawn, workType))
                     : WorkGiverReassignmentManager.GetInheritedWorkGiverPriority(
                         pawn,
                         workType,
@@ -605,10 +602,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (evt.type == EventType.ScrollWheel)
             {
                 int direction = evt.delta.y > 0f ? -1 : 1;
-                newPriority = WorkTabEffectiveStateRuntime.IsManualMode(
+                newPriority = ParentPriorityRead.GetObservedManualMode(
                         pawn,
                         workType,
-                        Find.PlaySettings?.useWorkPriorities ?? true)
+                        true)
                     ? WorkPrioritySystem.GetPriorityAfterBoundedStep(WorkPrioritySystem.DisabledPriority, direction)
                     : ToggleNonManualPriority(WorkPrioritySystem.DisabledPriority);
             }
@@ -823,11 +820,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
                 int direction = evt.delta.y > 0f ? -1 : 1;
                 Pawn pawn = ResolvePawn(pawnId);
-                int newPriority = WorkTabEffectiveStateRuntime.IsManualMode(
+                int newPriority = ParentPriorityRead.GetObservedManualMode(
                         pawn,
                         workType ?? WorkGiverReassignmentManager.GetTargetWorkType(workGiverDef) ??
                         workGiverDef?.workType,
-                        Find.PlaySettings?.useWorkPriorities ?? true)
+                        true)
                     ? WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction)
                     : ToggleNonManualPriority(currentPriority);
 
@@ -900,10 +897,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Pawn pawn,
             WorkTypeDef workType)
         {
-            if (WorkTabEffectiveStateRuntime.IsManualMode(
+            if (ParentPriorityRead.GetObservedManualMode(
                     pawn,
                     workType,
-                    Find.PlaySettings?.useWorkPriorities ?? true))
+                    true))
             {
                 return WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, button);
             }

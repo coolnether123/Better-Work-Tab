@@ -1165,7 +1165,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 var sortingPawn = pawn;
                 int defaultPrio = pawn == null
                     ? WorkPrioritySystem.GetDefaultEnabledPriority()
-                    : WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+                    : ParentPriorityRead.GetLive(pawn, workType);
 
                 var indexed = result.Select((g, idx) => new { g, idx }).ToList();
                 indexed.Sort((a, b) =>
@@ -2120,7 +2120,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return false;
             }
 
-            return WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, targetWorkType) > 0;
+            return ParentPriorityRead.GetLive(pawn, targetWorkType) > 0;
         }
 
         internal static bool TryGetPawnWorkGiverOverride(Pawn pawn, WorkGiverDef workGiver, out int priority)
@@ -2266,7 +2266,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         internal static int GetInheritedWorkGiverPriority(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver)
         {
-            int defaultPriority = WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(pawn, workType);
+            int defaultPriority = ParentPriorityRead.GetLive(pawn, workType);
             if (workGiver == null)
             {
                 return WorkPrioritySystem.ClampPriority(defaultPriority);

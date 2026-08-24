@@ -124,10 +124,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                     return true;
                 }
 
-                int parentPriority = WorkTabEffectiveStateRuntime.GetParentPriority(
+                int parentPriority = ParentPriorityRead.GetObserved(
                     row.Pawn,
-                    parentWorkType,
-                    WorkPrioritySystem.GetCurrentPriorityForPawnWorkType(row.Pawn, parentWorkType));
+                    parentWorkType);
                 bool handled = WorkGiverPriorityBoxRenderer.TryHandleRootInput(
                     workGiver,
                     parentWorkType,
@@ -170,10 +169,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
             bool mutatesPriority = evt.type == EventType.ScrollWheel
                 ? BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false
-                : WorkTabEffectiveStateRuntime.IsManualMode(
+                : ParentPriorityRead.GetObservedManualMode(
                       pawn,
                       workType,
-                      Find.PlaySettings?.useWorkPriorities ?? true)
+                      true)
                     ? evt.button == 0 || evt.button == 1
                     : evt.button == 0;
             return !mutatesPriority || preview.EnsurePawnIncludedForPriorityEdit(pawn);

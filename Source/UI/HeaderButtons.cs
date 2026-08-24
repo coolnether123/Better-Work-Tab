@@ -652,8 +652,8 @@ namespace Better_Work_Tab.UI
             TopButtonRects rects = GetTopButtonRects(inRect);
             if (rects.Priority.Contains(evt.mousePosition))
             {
-                bool prioritiesEnabled = WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                    Find.PlaySettings?.useWorkPriorities ?? true);
+                bool prioritiesEnabled = ParentPriorityRead.GetObservedManualModeForDisplay(
+                    true);
                 ToggleManualPriorities(!prioritiesEnabled);
                 evt.Use();
                 return true;
@@ -688,8 +688,8 @@ namespace Better_Work_Tab.UI
             }
 
             TopButtonRects rects = GetTopButtonRects(inRect);
-            bool prioritiesEnabled = WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                Find.PlaySettings?.useWorkPriorities ?? true);
+            bool prioritiesEnabled = ParentPriorityRead.GetObservedManualModeForDisplay(
+                true);
             if (DrawFluffyTopButton(
                     rects.Priority,
                     prioritiesEnabled ? FluffyWorkTabIcon.PrioritiesDetailed : FluffyWorkTabIcon.PrioritiesSimple,
@@ -1323,8 +1323,8 @@ namespace Better_Work_Tab.UI
 
         private static bool ToggleManualPriorities(bool enabled)
         {
-            bool current = WorkTabEffectiveStateRuntime.GetManualModeForDisplay(
-                Find.PlaySettings?.useWorkPriorities ?? true);
+            bool current = ParentPriorityRead.GetObservedManualModeForDisplay(
+                true);
             if (current == enabled)
             {
                 return true;

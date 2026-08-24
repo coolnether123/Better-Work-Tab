@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
@@ -198,6 +199,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 TimePriorityTarget.ForRuntimeWorkType(pawn, workType),
                 fallbackPriority,
                 pawn);
+            bool manualPriorities = ParentPriorityRead.GetObservedManualMode(pawn, workType, true);
 
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
@@ -207,7 +209,7 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 Text.WordWrap = false;
                 WidgetsWork.DrawWorkBoxBackground(boxRect, pawn, workType);
-                if (Find.PlaySettings.useWorkPriorities)
+                if (manualPriorities)
                 {
                     if (displayPriority > WorkPrioritySystem.DisabledPriority)
                     {
@@ -236,11 +238,16 @@ namespace Better_Work_Tab.Features.TimePriority
                 Text.WordWrap = oldWordWrap;
             }
 
-            HandleWorkTypeInput(boxRect, pawn, workType, displayPriority);
+            HandleWorkTypeInput(boxRect, pawn, workType, displayPriority, manualPriorities);
             return true;
         }
 
-        private static void HandleWorkTypeInput(Rect boxRect, Pawn pawn, WorkTypeDef workType, int currentPriority)
+        private static void HandleWorkTypeInput(
+            Rect boxRect,
+            Pawn pawn,
+            WorkTypeDef workType,
+            int currentPriority,
+            bool manualPriorities)
         {
             Event evt = Event.current;
             if (evt == null || !boxRect.Contains(evt.mousePosition))
@@ -251,7 +258,7 @@ namespace Better_Work_Tab.Features.TimePriority
             int nextPriority;
             if (evt.type == EventType.MouseDown && (evt.button == 0 || evt.button == 1))
             {
-                nextPriority = Find.PlaySettings.useWorkPriorities
+                nextPriority = manualPriorities
                     ? WorkPrioritySystem.GetPriorityAfterMouseButton(currentPriority, evt.button)
                     : currentPriority > WorkPrioritySystem.DisabledPriority
                         ? WorkPrioritySystem.DisabledPriority
@@ -261,7 +268,7 @@ namespace Better_Work_Tab.Features.TimePriority
                      (BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false))
             {
                 int direction = evt.delta.y > 0f ? -1 : 1;
-                nextPriority = Find.PlaySettings.useWorkPriorities
+                nextPriority = manualPriorities
                     ? WorkPrioritySystem.GetPriorityAfterBoundedStep(currentPriority, direction)
                     : currentPriority > WorkPrioritySystem.DisabledPriority
                         ? WorkPrioritySystem.DisabledPriority
@@ -302,15 +309,11 @@ namespace Better_Work_Tab.Features.TimePriority
                         return false;
                     }
 
-                    if (!WorkTabEffectiveStateRuntime.TrySetParentPriority(
+                    if (!WorkPriorityCommandGateway.TrySetPreviewParentPriority(
                             pawn,
                             workType,
-                            priority,
-                            out WorkTabEffectiveStateMutationResult result))
+                            priority))
                     {
-                        WorkTabEffectiveStateRuntime.ReportBlocked(
-                            WorkTabEffectiveStateDimension.ParentPriority,
-                            result.Reason);
                         return false;
                     }
 

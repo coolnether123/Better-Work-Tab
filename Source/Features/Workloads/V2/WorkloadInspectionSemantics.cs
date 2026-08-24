@@ -269,38 +269,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             bool beforeMode;
             bool afterMode;
-            if (!TryGetEffectiveManualMode(before, out beforeMode) ||
-                !TryGetEffectiveManualMode(after, out afterMode))
+            if (!WorkloadManualModeSemantics.TryGetGlobalMode(before, out beforeMode, out _, out _) ||
+                !WorkloadManualModeSemantics.TryGetGlobalMode(after, out afterMode, out _, out _))
             {
                 return false;
             }
 
             return beforeMode != afterMode;
-        }
-
-        private static bool TryGetEffectiveManualMode(
-            WorkloadProjectedState state,
-            out bool mode)
-        {
-            mode = false;
-            if (state == null || state.ManualModes == null ||
-                state.ManualModes.Count == 0)
-            {
-                return false;
-            }
-
-            bool first = state.ManualModes[0]?.Manual ?? false;
-            for (int i = 1; i < state.ManualModes.Count; i++)
-            {
-                WorkloadManualModeEntry entry = state.ManualModes[i];
-                if (entry != null && entry.Manual != first)
-                {
-                    return false;
-                }
-            }
-
-            mode = first;
-            return true;
         }
     }
 }
