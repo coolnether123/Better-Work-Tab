@@ -19,7 +19,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("gateway-multiplayer-contracts", GatewayMultiplayerTests.Run),
             new TestCase("gateway-lifecycle-contracts", GatewayLifecycleTests.Run),
             new TestCase("backend-transaction-contracts", BackendTransactionTests.Run),
-            new TestCase("presentation-settings-consolidation", PresentationSettingsConsolidationTests.Run)
+            new TestCase("presentation-settings-consolidation", PresentationSettingsConsolidationTests.Run),
+            new TestCase("layout-history-transaction-contracts", LayoutHistoryTransactionTests.Run)
         };
 
         private static int Main()

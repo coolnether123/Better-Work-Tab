@@ -22,7 +22,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
             // Overwrite protection: don't replace a higher (numerically lower) priority
             if (!p.AllowOverwritingHigherPriority)
             {
-                int current = pawn.workSettings.GetPriority(wt);
+                int current = RuleApplicationPlanningScope.GetPriority(pawn, wt);
                 if (current < p.Priority && current != 0 && p.Priority != 0)
                     return false;
             }
@@ -35,7 +35,7 @@ namespace Better_Work_Tab.Features.Rules.Validators
                 int activeCount = 0;
                 foreach (var w in allWorkTypes)
                 {
-                    if (pawn.workSettings.GetPriority(w) > 0)
+                    if (RuleApplicationPlanningScope.GetPriority(pawn, w) > 0)
                         activeCount++;
                 }
 

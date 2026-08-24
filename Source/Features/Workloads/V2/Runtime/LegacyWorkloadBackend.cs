@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.Workloads;
 using Verse;
 
@@ -133,52 +133,25 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             string validationError = string.Empty;
-            if (worklist == null || !worklist.TryValidate(out validationError))
-            {
-                return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The legacy workload is not safe to apply: " +
-                    (string.IsNullOrEmpty(validationError)
-                        ? "the workload record is missing."
-                        : validationError));
-            }
-
-            long authorityRevision;
+            WorkTabApplicationResult result = default;
             try
             {
-                if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out authorityRevision))
+                if (worklist == null || !worklist.TryApplyAtomicMutation(
+                        out result,
+                        out validationError))
                 {
                     return WorkloadOperationResult.Fail(
-                        WorkloadDiagnosticCode.ExternalPriorityAuthority,
-                        BuildAuthorityFailureMessage());
-                }
-            }
-            catch (Exception exception)
-            {
-                return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.ExternalPriorityAuthority,
-                    "The legacy workload was not applied because priority authority could not be resolved safely: " +
-                    exception.Message);
-            }
-
-            try
-            {
-                _component.ApplyWorklist(worklist);
-                if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision))
-                {
-                    return WorkloadOperationResult.Fail(
-                        WorkloadDiagnosticCode.ExternalPriorityAuthority,
-                        "The legacy workload stopped safely because priority authority changed during apply; " +
-                        "no external handoff or unsafe rollback was attempted.");
+                        HasAuthorityFailure(validationError)
+                            ? WorkloadDiagnosticCode.ExternalPriorityAuthority
+                            : WorkloadDiagnosticCode.InvalidState,
+                        "The legacy workload could not be applied atomically: " +
+                        (validationError ?? result.Reason ?? "the workload record is missing."));
                 }
 
                 return WorkloadOperationResult.Ok();
             }
             catch (Exception exception)
             {
-                // A foreign priority implementation can still reject a value
-                // after validation. Convert that failure into a diagnostic so
-                // the legacy path never takes down the Work tab.
                 Log.Error("[BWT] Legacy workload apply failed safely: " + exception);
                 return WorkloadOperationResult.Fail(
                     WorkloadDiagnosticCode.InvalidState,
@@ -237,22 +210,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 : WorkloadOperationResult.Ok();
         }
 
-        private static string BuildAuthorityFailureMessage()
+        private static bool HasAuthorityFailure(string reason)
         {
-            try
-            {
-                PriorityAuthoritySnapshot snapshot = PriorityAuthorityResolver.Resolve();
-                string owner = snapshot.IsCoherent
-                    ? snapshot.Owner.ToString()
-                    : "an incoherent authority registry";
-                return "The legacy workload was not applied because " + owner +
-                    " owns or prevents coherent priority authority; no external handoff was attempted.";
-            }
-            catch (Exception exception)
-            {
-                return "The legacy workload was not applied because priority authority could not be resolved safely: " +
-                    exception.Message;
-            }
+            return reason?.IndexOf("authority", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static WorkloadDescriptor ToDescriptor(Worklist worklist, bool isCurrent)

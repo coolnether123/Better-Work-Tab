@@ -2,105 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
-using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using RimWorld;
 using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Projection
 {
-    /// <summary>
-    /// Converts live RimWorld objects into the stable identifiers used by the
-    /// projection contract. Workload keys remain the semantic boundary; these
-    /// helpers do not retain the supplied game objects.
-    /// </summary>
-    public static class WorkTabEffectiveStateIds
-    {
-        public static PawnKey ForPawn(Pawn pawn)
-        {
-            return new PawnKey(pawn == null || pawn.thingIDNumber <= 0
-                ? null
-                : pawn.thingIDNumber.ToString(CultureInfo.InvariantCulture));
-        }
-
-        public static WorkTypeKey ForWorkType(WorkTypeDef workType)
-        {
-            return new WorkTypeKey(workType?.defName);
-        }
-
-        public static WorkGiverKey ForWorkGiver(WorkGiverDef workGiver)
-        {
-            return new WorkGiverKey(workGiver?.defName);
-        }
-
-        public static WorkloadSpecificJobKey ForSpecificJob(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiver)
-        {
-            return new WorkloadSpecificJobKey(
-                ForPawn(pawn),
-                ForWorkType(workType),
-                ForWorkGiver(workGiver));
-        }
-
-        public static WorkloadSpecificJobTargetKey ForSpecificJobTarget(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiver)
-        {
-            return WorkloadSpecificJobTargetKey.ForPawn(
-                ForPawn(pawn),
-                ForWorkType(workType),
-                ForWorkGiver(workGiver));
-        }
-
-        public static WorkloadSpecificJobTargetKey ForGlobalSpecificJobTarget(
-            WorkTypeDef workType,
-            WorkGiverDef workGiver)
-        {
-            return WorkloadSpecificJobTargetKey.Global(
-                ForWorkType(workType),
-                ForWorkGiver(workGiver));
-        }
-
-        public static WorkloadWorkTypeOrderKey ForWorkTypeOrder(
-            Pawn pawn,
-            WorkTypeDef workType)
-        {
-            return WorkloadWorkTypeOrderKey.ForPawn(ForPawn(pawn), ForWorkType(workType));
-        }
-
-        public static WorkloadWorkTypeOrderKey ForGlobalWorkTypeOrder(
-            WorkTypeDef workType)
-        {
-            return WorkloadWorkTypeOrderKey.Global(ForWorkType(workType));
-        }
-
-        public static WorkloadScheduleTargetKey ForSchedule(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiver = null)
-        {
-            return workGiver == null
-                ? WorkloadScheduleTargetKey.ForParent(ForPawn(pawn), ForWorkType(workType))
-                : WorkloadScheduleTargetKey.ForWorkGiver(
-                    ForPawn(pawn),
-                    ForWorkType(workType),
-                    ForWorkGiver(workGiver));
-        }
-
-        public static WorkloadScheduleTargetKey ForGlobalSchedule(
-            WorkTypeDef workType,
-            WorkGiverDef workGiver)
-        {
-            return WorkloadScheduleTargetKey.GlobalWorkGiver(
-                ForWorkType(workType),
-                ForWorkGiver(workGiver));
-        }
-    }
-
     /// <summary>
     /// Object-based read helpers for vanilla Harmony callers. The helpers use
     /// the provider currently pushed for the UI pass and preserve the supplied
@@ -180,6 +91,28 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             return EnsureRenderPass();
         }
 
+        /// <summary>
+        /// Captures the active provider after its render-pass token has been
+        /// prepared. Providers without the optional capability remain their
+        /// own stable read source.
+        /// </summary>
+        public static IWorkTabEffectiveStateProvider CaptureCurrentView(
+            WorkTabEffectiveStateRevision revision)
+        {
+            IWorkTabEffectiveStateProvider provider = CurrentProvider;
+            if (provider is IWorkTabEffectiveStateViewSource source)
+            {
+                IWorkTabEffectiveStateProvider captured =
+                    source.CaptureEffectiveStateView(revision);
+                if (captured != null)
+                {
+                    return captured;
+                }
+            }
+
+            return provider;
+        }
+
         public static void InvalidateRenderPass()
         {
             EffectiveStateRenderPass previous = RenderPass.Value;
@@ -207,9 +140,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             PreparingRenderPass.Value = passId;
             try
             {
-                if (provider is ProjectedWorkTabEffectiveStateProvider projected)
+                if (provider is IWorkTabEffectiveStatePassParticipant participant)
                 {
-                    projected.CaptureBaseRevisionForRenderPass(passId);
+                    participant.PrepareRenderPass(passId);
                 }
 
                 revision = provider.RevisionToken;
@@ -257,28 +190,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             return revision.IsCurrent(CurrentProvider);
         }
 
-        public static bool TryGetPreviewEditor(
-            out IWorkTabEffectiveStateEditor editor)
-        {
-            editor = null;
-            IWorkTabEffectiveStateProvider provider = WorkTabEffectiveStateScope.Current;
-            if (provider == null || !provider.IsPreview)
-            {
-                return false;
-            }
-
-            editor = provider as IWorkTabEffectiveStateEditor;
-            if (editor != null)
-            {
-                return true;
-            }
-
-            ReportBlocked(
-                WorkTabEffectiveStateDimension.ParentPriority,
-                "BWT_Workload_PawnCannotChange".Translate());
-            return false;
-        }
-
         public static bool TryGetPreviewV2Editor(
             out IWorkTabEffectiveStateV2Editor editor)
         {
@@ -304,9 +215,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         public static WorkTabEffectiveStateResolution<WorkloadSchedulePayload>
             ResolveSchedule(WorkloadScheduleTargetKey key)
         {
-            if (CurrentProvider is ProjectedWorkTabEffectiveStateProvider projected)
+            if (CurrentProvider is IWorkTabComposedEffectiveStateProvider composed)
             {
-                return projected.ResolveEffectiveSchedule(key);
+                return composed.ResolveEffectiveSchedule(key);
             }
 
             return CurrentProvider is IWorkTabEffectiveStateV2Provider v2
@@ -322,11 +233,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         internal static WorkTabEffectiveStateResolution<WorkloadSchedulePayload>
             ResolvePreviewScheduleIntent(WorkloadScheduleTargetKey key)
         {
-            if (CurrentProvider is ProjectedWorkTabEffectiveStateProvider projected)
-            {
-                return projected.ResolveSchedule(key);
-            }
-
             return CurrentProvider is IWorkTabEffectiveStateV2Provider v2
                 ? v2.ResolveSchedule(key)
                 : WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion;
@@ -335,9 +241,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         public static WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>
             ResolveSpecificJobPriority(WorkloadSpecificJobTargetKey key)
         {
-            if (CurrentProvider is ProjectedWorkTabEffectiveStateProvider projected)
+            if (CurrentProvider is IWorkTabComposedEffectiveStateProvider composed)
             {
-                return projected.ResolveEffectiveSpecificJobPriority(key);
+                return composed.ResolveEffectiveSpecificJobPriority(key);
             }
 
             return CurrentProvider is IWorkTabEffectiveStateV2Provider v2
@@ -348,9 +254,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         public static WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>
             ResolveWorkTypeOrder(WorkloadWorkTypeOrderKey key)
         {
-            if (CurrentProvider is ProjectedWorkTabEffectiveStateProvider projected)
+            if (CurrentProvider is IWorkTabComposedEffectiveStateProvider composed)
             {
-                return projected.ResolveEffectiveWorkTypeOrder(key);
+                return composed.ResolveEffectiveWorkTypeOrder(key);
             }
 
             return CurrentProvider is IWorkTabEffectiveStateV2Provider v2
@@ -361,9 +267,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         public static WorkTabEffectiveStateResolution<WorkloadSettingValue>
             ResolvePresentationSettingV2(string key)
         {
-            if (CurrentProvider is ProjectedWorkTabEffectiveStateProvider projected)
+            if (CurrentProvider is IWorkTabComposedEffectiveStateProvider composed)
             {
-                return projected.ResolveEffectivePresentationSetting(key);
+                return composed.ResolveEffectivePresentationSetting(key);
             }
 
             return CurrentProvider is IWorkTabEffectiveStateV2Provider v2
@@ -386,51 +292,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return false;
             }
 
-            if (!(CurrentProvider is ProjectedWorkTabEffectiveStateProvider projected))
+            if (!(CurrentProvider is IWorkTabPreviewOwnership ownership))
             {
                 return true;
             }
 
-            WorkloadOwnershipDimensions ownership;
-            switch (dimension)
-            {
-                case WorkTabEffectiveStateDimension.ManualMode:
-                    ownership = WorkloadOwnershipDimensions.ManualModes;
-                    break;
-                case WorkTabEffectiveStateDimension.Schedule:
-                    ownership = WorkloadOwnershipDimensions.Schedules;
-                    break;
-                case WorkTabEffectiveStateDimension.SpecificJobOverride:
-                    ownership = WorkloadOwnershipDimensions.SpecificJobOverrides;
-                    break;
-                case WorkTabEffectiveStateDimension.SpecificJobOrder:
-                    ownership = WorkloadOwnershipDimensions.SpecificJobOrder;
-                    break;
-                case WorkTabEffectiveStateDimension.PresentationSetting:
-                    ownership = WorkloadOwnershipDimensions.PresentationSettings;
-                    break;
-                default:
-                    return true;
-            }
-
-            return (projected.OwnedDimensions & ownership) == ownership;
-        }
-
-        public static bool TryGetSpecificJobPriority(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiver,
-            out int priority)
-        {
-            priority = 0;
-            if (pawn == null || workType == null || workGiver == null)
-            {
-                return false;
-            }
-
-            return CurrentProvider.TryGetSpecificJobIntegerOverride(
-                WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver),
-                out priority);
+            return ownership.OwnsDimension(dimension);
         }
 
         public static bool TrySetSpecificJobPriority(
@@ -463,12 +330,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 result = v2Editor.SetSpecificJobPriority(
                     key,
                     new WorkloadSpecificPriorityPayload(priority));
-            }
-            else if (TryGetPreviewEditor(out IWorkTabEffectiveStateEditor editor))
-            {
-                result = editor.SetSpecificJobOverride(
-                    key.ToLegacyKey(),
-                    WorkloadScalarValue.FromInteger(priority));
             }
             else
             {
@@ -619,12 +480,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     key,
                     new WorkloadWorkTypeOrderPayload(ordered));
             }
-            else if (TryGetPreviewEditor(out IWorkTabEffectiveStateEditor editor))
-            {
-                result = editor.SetSpecificJobOrder(
-                    WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver),
-                    order);
-            }
             else
             {
                 result = Blocked(
@@ -639,67 +494,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         {
             if (!IsPreviewActive)
             {
-                WorkPrioritySystem.SetManualPriorities(manualMode);
-                return true;
+                return WorkTabApplication.Current?.SetManualPriorityMode(manualMode) == true;
             }
 
-            ProjectedWorkTabEffectiveStateProvider projectedProvider =
-                CurrentProvider as ProjectedWorkTabEffectiveStateProvider;
-            if (projectedProvider == null ||
-                (projectedProvider.OwnedDimensions & WorkloadOwnershipDimensions.ManualModes) == 0)
+            IWorkGridPreviewPort preview = WorkTabEffectiveStateScope.CurrentPreview;
+            if (preview == null || !preview.TrySetManualMode(manualMode))
             {
-                ReportBlocked(
-                    WorkTabEffectiveStateDimension.ManualMode,
-                    "BWT_Workload_ModeUnavailable".Translate());
                 return false;
             }
-
-            bool attempted = false;
-            var projectedKeys = new List<WorkloadParentPriorityKey>();
-            IReadOnlyList<WorkTypeDef> workTypes =
-                DefDatabase<WorkTypeDef>.AllDefsListForReading;
-            foreach (Pawn pawn in PawnsFinder.AllMapsWorldAndTemporary_Alive)
-            {
-                if (pawn?.workSettings == null || !pawn.workSettings.EverWork)
-                {
-                    continue;
-                }
-
-                PawnKey pawnKey = WorkTabEffectiveStateIds.ForPawn(pawn);
-                if (!projectedProvider.CanEditPawn(pawnKey))
-                {
-                    // Manual priority mode is global in RimWorld, but the
-                    // workload editor still records it through represented
-                    // pawn/work-type keys. Never manufacture entries for a
-                    // pawn outside the active workload scope or for an
-                    // excluded session pawn.
-                    continue;
-                }
-
-                for (int i = 0; i < workTypes.Count; i++)
-                {
-                    WorkTypeDef workType = workTypes[i];
-                    if (workType == null)
-                    {
-                        continue;
-                    }
-
-                    attempted = true;
-                    projectedKeys.Add(new WorkloadParentPriorityKey(
-                        WorkTabEffectiveStateIds.ForPawn(pawn),
-                        WorkTabEffectiveStateIds.ForWorkType(workType)));
-                }
-            }
-
-            if (!attempted)
-            {
-                ReportBlocked(
-                    WorkTabEffectiveStateDimension.ManualMode,
-                    "BWT_Workload_PawnCannotChange".Translate());
-                return false;
-            }
-
-            return AcceptPreviewMutation(projectedProvider.SetManualModes(projectedKeys, manualMode));
+            return true;
         }
 
         public static void ReportBlocked(
@@ -740,20 +543,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 reason);
         }
 
-        public static ScheduleKey GetSchedule(
-            Pawn pawn,
-            ScheduleKey fallbackSchedule = null)
-        {
-            if (pawn == null)
-            {
-                return fallbackSchedule;
-            }
-
-            return CurrentProvider.GetSchedule(
-                WorkTabEffectiveStateIds.ForPawn(pawn),
-                fallbackSchedule);
-        }
-
         /// <summary>Replays one exact preview-layer schedule intent.</summary>
         internal static bool TrySetScheduleIntent(
             WorkloadScheduleTargetKey key,
@@ -781,33 +570,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                     ? editor.ClearSchedule(key)
                     : editor.SetScheduleNoOpinion(key);
             return AcceptPreviewMutation(result);
-        }
-
-        public static WorkloadScalarValue GetSpecificJobOverride(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiver,
-            WorkloadScalarValue fallbackValue)
-        {
-            if (pawn == null || workType == null || workGiver == null)
-            {
-                return fallbackValue;
-            }
-
-            return CurrentProvider.GetSpecificJobOverride(
-                WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver),
-                fallbackValue);
-        }
-
-        public static int GetSpecificJobPriority(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiver,
-            int fallbackPriority)
-        {
-            return CurrentProvider.GetSpecificJobIntegerOverride(
-                WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver),
-                fallbackPriority);
         }
 
         public static bool TryGetSpecificJobPriority(
@@ -873,29 +635,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
             result = editor.ClearWorkTypeOrder(key);
             return AcceptPreviewMutation(result);
-        }
-
-        public static int GetSpecificJobOrder(
-            Pawn pawn,
-            WorkTypeDef workType,
-            WorkGiverDef workGiver,
-            int fallbackOrder)
-        {
-            if (pawn == null || workType == null || workGiver == null)
-            {
-                return fallbackOrder;
-            }
-
-            return CurrentProvider.GetSpecificJobOrder(
-                WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver),
-                fallbackOrder);
-        }
-
-        public static WorkloadScalarValue GetPresentationSetting(
-            string key,
-            WorkloadScalarValue fallbackValue)
-        {
-            return CurrentProvider.GetPresentationSetting(key, fallbackValue);
         }
 
         public static bool TryGetPresentationSettingV2(

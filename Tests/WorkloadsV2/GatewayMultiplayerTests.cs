@@ -78,7 +78,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "!WorkPriorityCommandGateway.CanHandleParentPriorityInput(row.Pawn, workType)",
                 StringComparison.Ordinal);
             int rootMembership = priorityInput.IndexOf(
-                "EnsurePreviewMembershipForMutation(row.Pawn, workType, evt)",
+                "EnsurePreviewMembershipForMutation(view.Preview, row.Pawn, workType, evt)",
                 StringComparison.Ordinal);
             TestAssert.True(
                 rootGate >= 0 && rootMembership > rootGate,

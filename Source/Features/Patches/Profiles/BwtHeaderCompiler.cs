@@ -265,13 +265,6 @@ namespace Better_Work_Tab.Features.Patches.Profiles
             return instruction != null && instruction.opcode == opcode;
         }
 
-        private static bool MatchesCall(CodeInstruction instruction, MethodBase method)
-        {
-            return instruction != null &&
-                (instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt) &&
-                Object.Equals(instruction.operand, method);
-        }
-
         private static bool TryGetBranchTarget(
             CodeInstruction instruction, OpCode opcode, out Label target)
         {

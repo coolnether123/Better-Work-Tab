@@ -32,7 +32,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts
              var bg = profile.PawnBackgroundColors?.ToDictionary(k => k.Key, v => ColorUtility.ToHtmlStringRGBA(v.Value));
              snap.PawnHexColors = bg ?? new Dictionary<string, string>();
 
-             // Also capture column order because "Follow Mode" implies following everything
+             // Follow Mode carries the leader's visible layout. Application-owned
+             // ColumnCurrentOrder remains the shared simulation execution tiebreaker.
              var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
              if (comp != null && comp.ColumnCurrentOrder != null)
                  snap.ColumnOrder = new List<string>(comp.ColumnCurrentOrder);
@@ -55,20 +56,15 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts
                       profile.PawnBackgroundColors[kvp.Key] = c;
              }
              
-             // Apply column order?
-             // If we are following, we usually want to follow column order too.
+             // This is a local presentation projection. It must not mutate the
+             // synchronized execution-order source or its generation.
              if (ColumnOrder != null && ColumnOrder.Count > 0)
              {
-                  var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-                  if (comp != null)
-                  {
-                       WorkColumnOrderManager.SetCurrentOrder(new List<string>(ColumnOrder));
-                  }
+                  WorkColumnOrderManager.TryApplyLocalFollowedColumnOrder(ColumnOrder);
              }
              
              BWTLocalProfileStore.MarkDirty();
              
-             WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
              MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
              Better_Work_Tab.PawnOrganizer.PawnOrganizerSystem.Instance?.Layout?.InvalidateRowDescriptors();
         }

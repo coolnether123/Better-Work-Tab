@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using Spine.RimWorld.Rendering;
 using UnityEngine;
@@ -168,32 +169,26 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
         public WorkGridLayerFlags Layers { get; }
     }
 
-    public readonly struct WorkGridPresentationAccess
+    /// <summary>
+    /// Finished pass view shared by renderer selection, headers, body drawing,
+    /// hit geometry, and event handling. Its snapshot and geometry are prepared
+    /// before the renderer is selected and never replaced during the pass.
+    /// </summary>
+    public readonly struct WorkTabView
     {
-        public WorkGridPresentationAccess(
-            PawnTable table,
-            WorkGridSnapshot snapshot = null,
-            WorkGridGeometrySnapshot geometry = null)
-        {
-            Table = table;
-            Snapshot = snapshot;
-            Geometry = geometry;
-        }
-
-        public PawnTable Table { get; }
-        public WorkGridSnapshot Snapshot { get; }
-        public WorkGridGeometrySnapshot Geometry { get; }
-    }
-
-    public readonly struct WorkGridRenderContext
-    {
-        public WorkGridRenderContext(
+        internal WorkTabView(
             ImGuiEventPhase eventPhase,
             EventType eventType,
             IWorkTabLayoutController layout,
-            WorkGridPresentationAccess presentation,
+            PawnTable table,
+            WorkGridSnapshot snapshot,
+            WorkGridGeometrySnapshot geometry,
+            IWorkTabEffectiveStateProvider effectiveState,
+            WorkTabEffectiveStateRevision effectiveStateRevision,
+            IWorkGridPreviewPort preview,
             Rect viewport,
             Rect windowRect,
+            float extraBottomSpace,
             int frameNumber,
             WorkTabInvalidationVersion invalidationVersions,
             WorkGridRenderConfiguration configuration,
@@ -202,9 +197,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
             EventPhase = eventPhase;
             EventType = eventType;
             Layout = layout;
-            Presentation = presentation;
+            Table = table;
+            Snapshot = snapshot;
+            Geometry = geometry;
+            EffectiveState = effectiveState;
+            EffectiveStateRevision = effectiveStateRevision;
+            Preview = preview;
             Viewport = viewport;
             WindowRect = windowRect;
+            ExtraBottomSpace = extraBottomSpace;
             FrameNumber = frameNumber;
             InvalidationVersions = invalidationVersions;
             Configuration = configuration;
@@ -214,13 +215,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
         public ImGuiEventPhase EventPhase { get; }
         public EventType EventType { get; }
         public IWorkTabLayoutController Layout { get; }
-        public WorkGridPresentationAccess Presentation { get; }
+        public PawnTable Table { get; }
+        public WorkGridSnapshot Snapshot { get; }
+        public WorkGridGeometrySnapshot Geometry { get; }
+        public IWorkTabEffectiveStateProvider EffectiveState { get; }
+        public WorkTabEffectiveStateRevision EffectiveStateRevision { get; }
+        internal IWorkGridPreviewPort Preview { get; }
         public Rect Viewport { get; }
         public Rect WindowRect { get; }
+        public float ExtraBottomSpace { get; }
         public int FrameNumber { get; }
         public WorkTabInvalidationVersion InvalidationVersions { get; }
         public WorkGridRenderConfiguration Configuration { get; }
         public WorkGridSelectionScope Scope { get; }
+        public bool HasMatchingLayoutRevision =>
+            Layout != null && Geometry != null &&
+            Layout.LayoutRevision == Geometry.Revision &&
+            (Snapshot == null || Snapshot.LayoutRevision == Geometry.Revision);
     }
 
     /// <summary>
@@ -232,10 +243,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
     {
         string Id { get; }
         int Priority { get; }
-        bool IsAvailable(in WorkGridRenderContext context);
-        void Prepare(in WorkGridRenderContext context);
-        void Draw(in WorkGridRenderContext context);
-        void HandleEvent(in WorkGridRenderContext context);
-        void ReleaseTransient(in WorkGridRenderContext context);
+        bool IsAvailable(in WorkTabView view);
+        void Prepare(in WorkTabView view);
+        void Draw(in WorkTabView view);
+        void HandleEvent(in WorkTabView view);
+        void ReleaseTransient(in WorkTabView view);
     }
 }

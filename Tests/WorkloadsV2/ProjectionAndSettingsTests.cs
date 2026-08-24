@@ -10,6 +10,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         public static void Run()
         {
             ParentPriorityReadPolicyKeepsTruthAndIdentity();
+            LiveFallbackCaptureKeepsResolvedValuesStable();
             var pawn = TestSupport.Pawn("p1");
             var workType = TestSupport.WorkType("PlantWork");
             var workGiver = TestSupport.WorkGiver("PlantCut");
@@ -66,10 +67,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Equal(WorkloadSettingOwnership.WorkloadOwned, projectedSetting.Value.Ownership,
                 "projected setting must retain workload ownership metadata");
 
-            WorkloadScalarValue globalSetting;
-            TestAssert.True(global.TryGetPresentationSetting("ui.angled", out globalSetting),
+            WorkTabEffectiveStateResolution<WorkloadSettingValue> globalSetting =
+                global.ResolvePresentationSetting("ui.angled");
+            TestAssert.True(globalSetting.IsSet,
                 "the global provider must still expose its persisted setting");
-            TestAssert.False(globalSetting.BooleanValue,
+            TestAssert.False(globalSetting.Value.Scalar.BooleanValue,
                 "preview editing must not mutate the global setting callback state");
 
             var typedOnlyState = new WorkloadProjectedState(
@@ -123,7 +125,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     "ui.angled",
                     WorkloadScalarValue.FromBoolean(false)).Accepted,
                 "the explicit acquisition path must stage a selected global setting");
-            TestAssert.False(globalSetting.BooleanValue,
+            TestAssert.False(globalSetting.Value.Scalar.BooleanValue,
                 "acquiring workload ownership must not mutate the global provider");
             TestAssert.True(
                 unownedProjection.ResolveEffectivePresentationSetting("ui.angled").IsSet,
@@ -155,12 +157,37 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.True(projectedSchedule.IsSet && projectedSchedule.Value.PriorityAt(14) == 4,
                 "the normal schedule projection must expose the edited 24-hour payload");
 
+            WorkTabEffectiveStateRevision capturedRevision = projection.RevisionToken;
+            var capturedView = (IWorkTabEffectiveStateV2Provider)
+                ((IWorkTabEffectiveStateViewSource)projection)
+                .CaptureEffectiveStateView(capturedRevision);
+
             TestAssert.True(
                 v2.ClearSchedule(scheduleKey).Accepted,
                 "schedule clear must be accepted by the projected editor");
             TestAssert.True(
                 projection.ResolveEffectiveSchedule(scheduleKey).IsClear,
                 "an explicit schedule clear must suppress the live schedule in the generic effective-state API");
+            WorkTabEffectiveStateResolution<WorkloadSchedulePayload> capturedSchedule =
+                capturedView.ResolveSchedule(scheduleKey);
+            TestAssert.True(capturedSchedule.IsSet && capturedSchedule.Value.PriorityAt(14) == 4,
+                "a captured WorkTab view must retain its pre-input schedule value after the live draft changes");
+            TestAssert.Equal(capturedRevision, ((IWorkTabEffectiveStateProvider)capturedView).RevisionToken,
+                "the captured view must retain the exact revision token used to build it");
+
+            WorkTabEffectiveStateRevision clearRevision = projection.RevisionToken;
+            var clearedView = (IWorkTabComposedEffectiveStateProvider)
+                ((IWorkTabEffectiveStateViewSource)projection)
+                .CaptureEffectiveStateView(clearRevision);
+            TestAssert.True(
+                v2.SetSchedule(scheduleKey, TestSupport.ScheduleWithValue(6, 1 << 14)).Accepted,
+                "a later input mutation must remain writable on the live projected provider");
+            TestAssert.True(clearedView.ResolveEffectiveSchedule(scheduleKey).IsClear,
+                "a captured WorkTab view must retain an exact schedule tombstone after the live draft changes");
+            TestAssert.True(
+                ((IWorkTabEffectiveStateV2Editor)clearedView)
+                .SetSchedule(scheduleKey, TestSupport.ScheduleWithValue(7, 1 << 14)).IsBlocked,
+                "a captured WorkTab view must fail closed when rendering code attempts a write");
 
             var clearSetting = v2.ClearPresentationSettingV2("ui.angled");
             TestAssert.True(clearSetting.Accepted, "owned presentation setting clear must be accepted");
@@ -183,6 +210,37 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "presentation writes must advance the settings revision dimension");
             TestAssert.True(projection.RevisionVector.ScheduleRevision > 0,
                 "schedule writes must advance the schedule revision dimension");
+        }
+
+        private static void LiveFallbackCaptureKeepsResolvedValuesStable()
+        {
+            WorkTypeKey workType = TestSupport.WorkType("CaptureWork");
+            WorkGiverKey workGiver = TestSupport.WorkGiver("CaptureGiver");
+            WorkloadSpecificJobTargetKey key =
+                WorkloadSpecificJobTargetKey.Global(workType, workGiver);
+            int livePriority = 3;
+            var live = new LiveWorkTabEffectiveStateProvider(
+                new LiveWorkTabEffectiveStateCallbacks("test.mutable-live")
+                {
+                    Revision = () => 21L,
+                    RevisionVector = () => WorkTabEffectiveStateRevisionVector.FromRevision(21L),
+                    SpecificJobPriorityV2 = target => target != null && target.Equals(key)
+                        ? WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.Set(
+                            new WorkloadSpecificPriorityPayload(livePriority))
+                        : WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion
+                });
+
+            WorkTabEffectiveStateRevision revision = live.RevisionToken;
+            var captured = (IWorkTabEffectiveStateV2Provider)
+                ((IWorkTabEffectiveStateViewSource)live).CaptureEffectiveStateView(revision);
+            TestAssert.Equal(3, captured.ResolveSpecificJobPriority(key).Value.Priority,
+                "the captured live fallback must expose the value resolved for this pass");
+
+            livePriority = 7;
+            TestAssert.Equal(3, captured.ResolveSpecificJobPriority(key).Value.Priority,
+                "a captured live fallback must not follow a later live callback change for the same target");
+            TestAssert.Equal(revision, ((IWorkTabEffectiveStateProvider)captured).RevisionToken,
+                "the captured live fallback must retain the view revision token");
         }
 
         private static void ParentPriorityReadPolicyKeepsTruthAndIdentity()

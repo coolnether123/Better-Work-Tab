@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.TimePriority;
 
 namespace BetterWorkTab.WorkloadsV2.Deterministic
@@ -52,12 +53,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 pinnedAtBasePriority.Equals(linked),
                 "a pinned hour equal to the current base must remain distinct from a linked hour");
 
-            WorkloadMutationAuthorization authorization;
+            WorkTabMutationAuthorization authorization;
             string authorizationReason;
             object requestIdentity = new object();
             object sessionIdentity = new object();
             TestAssert.True(
-                WorkloadMutationAuthorization.TryCreateForWorkload(
+                WorkTabMutationAuthorization.TryCreate(
                     requestIdentity,
                     sessionIdentity,
                     "schedule-transaction-1",
@@ -76,13 +77,13 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     out authorizationReason),
                 "a fully-bound schedule transaction authorization must be constructible");
             TestAssert.True(
-                authorization.IsBoundTo(7L) && !authorization.IsBoundTo(8L),
+                authorization.IsUsable && authorization.Lease.AuthorityRevision == 7L,
                 "a schedule authorization must reject a different authority revision");
             TestAssert.False(
-                authorization.IsAcceptedForSchedule(true, 8L, 17),
+                authorization.Lease.IsAcceptedForSchedule(true, 8L, 17),
                 "a synchronized schedule transaction with a stale authority must fail closed");
             TestAssert.True(
-                authorization.IsAcceptedForSchedule(true, 7L, 17),
+                authorization.Lease.IsAcceptedForSchedule(true, 7L, 17),
                 "a synchronized schedule call with the bound token must be accepted");
             TestAssert.False(
                 authorization.IsBoundToTransaction(
@@ -102,19 +103,25 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     "roster-fingerprint"),
                 "a capability must reject a different request object even when strings match");
             TestAssert.True(
-                authorization.IsAcceptedForSchedule(false, 7L, 17),
+                authorization.Lease.IsAcceptedForSchedule(false, 7L, 17),
                 "ordinary non-multiplayer schedule calls must retain legacy authorization behavior");
             TestAssert.True(
-                authorization.IsAcceptedForScheduleRollback(true, 7L, 17),
+                authorization.Lease.IsAcceptedForSchedule(true, 7L, 17),
                 "rollback authorization remains bound to the transaction's captured schedule revision");
             TestAssert.False(
-                authorization.IsAcceptedForScheduleRollback(true, 7L, 18),
+                authorization.Lease.IsAcceptedForSchedule(true, 7L, 18),
                 "rollback authorization must not infer ownership from a fixed revision window");
             TestAssert.False(
-                authorization.IsAcceptedForScheduleRollback(true, 8L, 17),
+                authorization.Lease.IsAcceptedForSchedule(true, 8L, 17),
                 "rollback must reject a different priority authority even at the expected schedule revision");
+            TestAssert.True(
+                authorization.Lease.IsAcceptedForSpecificBatchRollback(true, 7L, 13, 14),
+                "specific-job rollback must bind the captured revision to its one owned applied revision");
+            TestAssert.False(
+                authorization.Lease.IsAcceptedForSpecificBatchRollback(true, 7L, 13, 15),
+                "specific-job rollback must reject an applied revision outside the transaction receipt");
 
-            var revisionReceipt = new WorkloadScheduleRevisionReceipt(17);
+            var revisionReceipt = new WorkTabScheduleRevisionReceipt(17);
             TestAssert.True(revisionReceipt.Owns(17),
                 "a rollback revision receipt starts at the transaction's captured revision");
             TestAssert.True(revisionReceipt.AcceptCommit(true, 18) && revisionReceipt.Owns(18),
@@ -203,15 +210,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 applyTypedLive,
                 StringComparison.Ordinal);
             int writer = backend.IndexOf(
-                "WorkloadTimePriorityAdapter.TryApplyLiveScheduleSnapshot(",
+                "atomicMutation.ApplySchedule(",
                 registration,
                 StringComparison.Ordinal);
             int verification = backend.IndexOf(
                 "WorkloadTimePriorityAdapter.TryCaptureLiveScheduleSnapshot(",
                 writer,
                 StringComparison.Ordinal);
-            int observedAssignment = backend.IndexOf(
-                "appliedMutation.ObservedSnapshot = observed;",
+            int noOpRemoval = backend.IndexOf(
+                "transaction.Schedules.Remove(appliedMutation);",
                 verification,
                 StringComparison.Ordinal);
 
@@ -220,12 +227,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 registration > applyTypedLive &&
                 writer > registration &&
                 verification > writer &&
-                observedAssignment > verification,
+                noOpRemoval > verification,
                 "schedule rollback entries must be registered before writer and post-write verification");
 
             int restore = backend.IndexOf(
-                "WorkloadTimePriorityAdapter.TryRestoreLiveScheduleSnapshot(",
-                observedAssignment,
+                "atomicMutation.TryRestoreSchedule(",
+                noOpRemoval,
                 StringComparison.Ordinal);
             int authorizationUse = backend.IndexOf(
                 "applied.Authorization",
@@ -238,27 +245,46 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             int batchedRestore = backend.IndexOf(
                 "private static bool RestoreSchedules(",
                 StringComparison.Ordinal);
-            int rollbackBatch = backend.IndexOf(
-                "TimePriorityService.BeginMutationBatch()",
-                batchedRestore,
-                StringComparison.Ordinal);
+            string atomic = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "Features", "Application", "WorkTabAtomicMutation.cs")));
             int rollbackWriter = backend.IndexOf(
                 "RestoreSchedule(",
-                rollbackBatch,
-                StringComparison.Ordinal);
-            int rollbackCommit = backend.IndexOf(
-                "CommitAndPublishScheduleMutation(transaction, out bool revisionOwned)",
-                rollbackWriter,
-                StringComparison.Ordinal);
-            int rollbackPublish = backend.IndexOf(
-                "PublishScheduleMutation(",
-                rollbackWriter,
+                batchedRestore,
                 StringComparison.Ordinal);
             TestAssert.True(
-                batchedRestore >= 0 && rollbackBatch > batchedRestore &&
-                rollbackWriter > rollbackBatch && rollbackCommit > rollbackWriter &&
-                rollbackPublish > rollbackWriter,
-                "schedule rollback must batch, commit, and publish its restored state");
+                batchedRestore >= 0 && rollbackWriter > batchedRestore &&
+                backend.Contains("WorkTabMutationScope atomicMutation = transaction.AtomicMutation ??") &&
+                backend.Contains("atomicMutation.Dispose();"),
+                "schedule rollback must reuse and discard the unpublished transaction batch");
+            TestAssert.Contains(atomic,
+                "TimePriorityService.CommitMutationBatch()",
+                "the application atomic mutation must own schedule batch commit");
+            TestAssert.False(atomic.Contains("PublishAtomicMutation("),
+                "the domain batch scope must not publish before the compound transaction succeeds");
+            TestAssert.False(backend.Contains("PublishScheduleMutation("),
+                "the workload backend must not retain a schedule publication adapter");
+            TestAssert.False(backend.Contains("TimePriorityService.BeginMutationBatch()"),
+                "the workload backend must not open a schedule batch directly");
+            TestAssert.False(backend.Contains("WorkGiverReassignmentManager.BeginMutationBatch()"),
+                "the workload backend must not open a specific-job batch directly");
+            TestAssert.False(backend.Contains("WorkPrioritySystem.SetManualPriorities("),
+                "the workload backend must use the application atomic writer for manual-mode changes");
+            TestAssert.False(backend.Contains("WorkPrioritySystem.SetPriority("),
+                "the workload backend must use the application atomic writer for parent-priority changes");
+            TestAssert.Contains(atomic,
+                "TryApplySpecificJobs(",
+                "the application atomic mutation must own the specific-job batch writer");
+            TestAssert.Contains(atomic,
+                "TrySetManualPriorityMode(",
+                "the application atomic mutation must own the manual-mode writer");
+            TestAssert.Contains(atomic,
+                "TrySetParentPriority(",
+                "the application atomic mutation must own the parent-priority writer");
+            TestAssert.Contains(atomic,
+                "if (desired == null || !desired.HasPinnedHours)",
+                "the application atomic mutation must use one typed schedule writer for set and clear intents");
+            TestAssert.False(atomic.Contains("TryClearSchedule("),
+                "schedule clear must not retain a duplicate atomic writer");
         }
 
         private static void AssertObservedScheduleSnapshotContract()
@@ -341,17 +367,23 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "Source", "UI", "Schedule", "ScheduleProjection.cs")));
             string priorityPatch = File.ReadAllText(FindRepositoryFile(Path.Combine(
                 "Source", "Features", "Patches", "Patch_Pawn_WorkSettings_SetPriority.cs")));
+            string mutationScope = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "Features", "Application", "WorkTabAtomicMutation.cs")));
             int apply = application.IndexOf("private WorkTabApplicationResult ApplySchedule(", StringComparison.Ordinal);
             int fullDay = application.IndexOf("private WorkTabApplicationResult SubmitFullDay(", apply, StringComparison.Ordinal);
             string ordinaryWrite = apply >= 0 && fullDay > apply
                 ? application.Substring(apply, fullDay - apply)
                 : string.Empty;
-            int batch = ordinaryWrite.IndexOf("TimePriorityService.BeginMutationBatch()", StringComparison.Ordinal);
-            int commit = ordinaryWrite.IndexOf("TimePriorityService.CommitMutationBatch()", StringComparison.Ordinal);
-            int publish = ordinaryWrite.IndexOf("Publish(expected.Target, WorkTabApplicationDimensions.Schedule", StringComparison.Ordinal);
+            int batch = ordinaryWrite.IndexOf("BeginMutationScope(", StringComparison.Ordinal);
+            int commit = ordinaryWrite.IndexOf(
+                "mutationScope.Complete(scheduleReceipt)",
+                StringComparison.Ordinal);
+            int publish = ordinaryWrite.IndexOf(
+                "Publish(default, WorkTabApplicationDimensions.Schedule",
+                StringComparison.Ordinal);
             TestAssert.True(
-                batch >= 0 && commit > batch && publish > commit,
-                "an ordinary schedule write must batch, materialize/revise through commit, then publish once");
+                batch >= 0 && commit > batch && publish >= 0,
+                "an ordinary schedule write must commit its scope before one application publication");
 
             int complete = service.IndexOf("private static bool CompleteMutationBatch()", StringComparison.Ordinal);
             int nextMember = service.IndexOf("/// <summary>", complete + 1, StringComparison.Ordinal);
@@ -374,8 +406,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "applied full-day results must carry the per-world application revision");
             TestAssert.Contains(application, "WorkTabApplicationRevision(_epoch, _revision)",
                 "the application revision must use its component-provided epoch");
-            TestAssert.Contains(application, "using (ExternalPriorityMirror.Suspend())",
-                "application-owned parent writes must defer external mirroring to the application publication");
+            TestAssert.Contains(mutationScope, "ExternalPriorityMirror.Suspend()",
+                "the shared application mutation scope must defer external mirroring until publication");
             TestAssert.Contains(priorityPatch, "WorkTabApplication.OwnsCurrentParentPrioritySetter",
                 "the vanilla setter patch must defer application-owned invalidation to the coherent application publication");
 

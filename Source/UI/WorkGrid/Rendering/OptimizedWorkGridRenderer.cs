@@ -22,7 +22,7 @@ using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
-    internal sealed class OptimizedWorkGridRenderer : IWorkGridRenderer, IWorkGridSnapshotLayer, IDisposable
+    internal sealed class OptimizedWorkGridRenderer : IWorkGridRenderer, IWorkGridSnapshotLayer, IWorkGridSubWorkPresentationLayer, IWorkGridVisibleColumnRangeProvider, IDisposable
     {
         internal const string RendererId = "bwt.optimized-layered";
         private readonly IWorkGridDrawingSurface _drawingSurface;
@@ -43,7 +43,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         public string Id => RendererId;
         public int Priority => 100;
 
-        public bool IsAvailable(in WorkGridRenderContext context)
+        public WorkGridIndexRange VisibleColumnRange => _visibleColumns;
+
+        public bool IsAvailable(in WorkTabView context)
         {
             // The snapshot is built inside the effective-state scope, so a
             // workload presentation captures projected parent priorities,
@@ -52,16 +54,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             // therefore remains on the native correctness path.
             return !PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority &&
                    WorkGridSnapshotProvider.IsActiveEffectiveStateCurrent() &&
-                   context.Presentation.Snapshot != null &&
-                   context.Presentation.Geometry != null &&
+                   context.Snapshot != null &&
+                   context.Geometry != null &&
                    context.Layout != null &&
-                   context.Presentation.Table != null;
+                   context.Table != null;
         }
 
-        public void Prepare(in WorkGridRenderContext context)
+        public void Prepare(in WorkTabView context)
         {
             _eventPhase = context.EventPhase;
-            WorkGridSnapshot snapshot = context.Presentation.Snapshot;
+            WorkGridSnapshot snapshot = context.Snapshot;
             if (!ReferenceEquals(snapshot, _snapshot))
             {
                 _snapshot = snapshot;
@@ -83,9 +85,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             if (context.EventPhase == ImGuiEventPhase.Repaint)
             {
-                Vector2 scroll = context.Presentation.Table.scrollPosition;
-                _visibleRows = context.Presentation.Geometry.GetVisibleRowRange(context.Viewport, scroll.y);
-                _visibleColumns = context.Presentation.Geometry.GetVisibleColumnRange(context.Viewport, scroll.x);
+                Vector2 scroll = context.Table.scrollPosition;
+                _visibleRows = context.Geometry.GetVisibleRowRange(context.Viewport, scroll.y);
+                _visibleColumns = context.Geometry.GetVisibleColumnRange(context.Viewport, scroll.x);
 
                 // The body renderer already culls with live animated geometry.
                 // Avoid applying a second, stable snapshot filter while columns move.
@@ -96,20 +98,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
-        public void Draw(in WorkGridRenderContext context)
+        public void Draw(in WorkTabView context)
         {
-            _drawingSurface.DrawBody(
-                context.Presentation.Table,
-                context.Layout,
-                context.WindowRect,
-                this);
+            _drawingSurface.DrawBody(in context, this);
         }
 
-        public void HandleEvent(in WorkGridRenderContext context)
+        public void HandleEvent(in WorkTabView context)
         {
         }
 
-        public void ReleaseTransient(in WorkGridRenderContext context)
+        public void ReleaseTransient(in WorkTabView context)
         {
         }
 
@@ -192,6 +190,29 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             DrawCell(cellRect, cell);
             return true;
+        }
+
+        public bool TryGetSubWorkPresentation(
+            int rowIndex,
+            int columnIndex,
+            out WorkGiverCellPresentationCache.CellPresentation presentation)
+        {
+            presentation = null;
+            if (_snapshot == null || rowIndex < 0 || rowIndex >= _snapshot.Rows.Count ||
+                columnIndex < 0 || columnIndex >= _snapshot.Columns.Count)
+            {
+                return false;
+            }
+
+            int lookupIndex = (rowIndex * _snapshot.Columns.Count) + columnIndex;
+            if (lookupIndex < 0 || lookupIndex >= _cellLookup.Length)
+            {
+                return false;
+            }
+
+            int cellIndex = _cellLookup[lookupIndex];
+            return cellIndex >= 0 && cellIndex < _snapshot.Cells.Count &&
+                   _snapshot.Cells[cellIndex].TryGetSubWorkPresentation(out presentation);
         }
 
         public bool ShouldVisitCell(int rowIndex, int columnIndex)

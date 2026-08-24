@@ -10,8 +10,8 @@ using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGiverReassignments;
-using Better_Work_Tab.UI.Workloads;
 using Better_Work_Tab.UI.WorkGrid.Commands;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
@@ -33,9 +33,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             _bodyRenderer = bodyRenderer ?? throw new ArgumentNullException(nameof(bodyRenderer));
         }
 
-        internal bool TryHandlePriorityCellInput(IWorkTabLayoutController layout, Event evt)
+        internal bool TryHandlePriorityCellInput(in WorkTabView view, Event evt)
         {
-            if (layout == null || evt == null ||
+            if (!view.HasMatchingLayoutRevision || evt == null ||
                 (evt.type != EventType.MouseDown && evt.type != EventType.ScrollWheel))
             {
                 return false;
@@ -89,7 +89,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return false;
             }
 
-            if (!_bodyRenderer.TryGetRowAt(layout, evt.mousePosition, out WorkTabLayoutRow row))
+            if (!_bodyRenderer.TryGetRowAt(in view, evt.mousePosition, out WorkTabLayoutRow row))
             {
                 return false;
             }
@@ -99,7 +99,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return false;
             }
 
-            if (!_bodyRenderer.TryGetBodyColumnAt(layout, evt.mousePosition, out WorkTabLayoutColumn column))
+            if (!_bodyRenderer.TryGetBodyColumnAt(in view, evt.mousePosition, out WorkTabLayoutColumn column))
             {
                 return false;
             }
@@ -109,7 +109,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return false;
             }
 
-            if (!_bodyRenderer.TryGetPriorityBoxHit(layout, row, column, evt.mousePosition, out Rect priorityBoxRect))
+            if (!_bodyRenderer.TryGetPriorityBoxHit(in view, row, column, evt.mousePosition, out Rect priorityBoxRect))
             {
                 return false;
             }
@@ -129,7 +129,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                     return true;
                 }
 
-                if (!EnsurePreviewMembershipForMutation(row.Pawn, parentWorkType, evt))
+                if (!EnsurePreviewMembershipForMutation(view.Preview, row.Pawn, parentWorkType, evt))
                 {
                     return true;
                 }
@@ -158,12 +158,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return true;
             }
 
-            if (!EnsurePreviewMembershipForMutation(row.Pawn, workType, evt))
+            if (!EnsurePreviewMembershipForMutation(view.Preview, row.Pawn, workType, evt))
             {
                 return true;
             }
 
-            Rect rowRect = layout.GetScreenRect(row);
+            Rect rowRect = view.Geometry.GetRowScreenRect(row.VisualIndex, view.Table.scrollPosition);
             Rect rootCellRect = WorkGridInteractionGeometry.GetAnimatedBodyScreenRect(column, rowRect);
             bool parentHandled = Patch_WorkPriority_DoCell_Unified.TryHandleRootPriorityInput(
                 rootCellRect,
@@ -173,11 +173,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
         }
 
         private static bool EnsurePreviewMembershipForMutation(
+            IWorkGridPreviewPort preview,
             Pawn pawn,
             WorkTypeDef workType,
             Event evt)
         {
-            WorkloadPreviewController preview = WorkloadPreviewController.Current;
             if (preview?.IsActive != true)
             {
                 return true;

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Unity.Properties;
 using RimWorld;
 using Verse;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.PawnOrganizer.Data;
 
@@ -42,17 +43,71 @@ namespace Better_Work_Tab.Features.Workloads
 
         public void Apply()
         {
-            if (!TryValidate(out string error))
+            if (!TryApplyAtomicMutation(out WorkTabApplicationResult result, out string error))
             {
-                Log.Warning("[BWT] Skipping invalid legacy workload: " + error);
-                return;
+                Log.Warning("[BWT] Skipping legacy workload because its atomic mutation was rejected: " +
+                    (error ?? result.Reason ?? "no reason was provided."));
+            }
+        }
+
+        internal bool TryApplyAtomicMutation(
+            out WorkTabApplicationResult result,
+            out string error)
+        {
+            if (!TryBuildAtomicMutationPlan(out WorkTabAtomicMutationPlan mutation, out error))
+            {
+                result = WorkTabApplicationResult.Rejected(error, default);
+                return false;
             }
 
-            WorkPrioritySystem.SetManualPriorities(UseAdvancedMode);
-            foreach (var pw in PawnWorklists)
+            result = WorkTabApplication.Current?.ApplyAtomicMutationPlan(mutation) ??
+                WorkTabApplicationResult.Rejected(
+                    "The work-tab application service is unavailable.",
+                    default);
+            error = result.Reason;
+            return result.Accepted;
+        }
+
+        /// <summary>
+        /// Compiles the saved legacy values into the same atomic application
+        /// plan used by rules, imports, and modern workloads. No live state is
+        /// written while compiling.
+        /// </summary>
+        internal bool TryBuildAtomicMutationPlan(
+            out WorkTabAtomicMutationPlan mutation,
+            out string error)
+        {
+            mutation = null;
+            if (!TryValidate(out error))
             {
-                pw.Apply();
+                return false;
             }
+
+            List<PawnWorkload> orderedWorkloads = PawnWorklists
+                .OrderBy(workload => workload.OwningPawn.thingIDNumber)
+                .ToList();
+            List<WorkTypeDef> workTypes = orderedWorkloads
+                .SelectMany(workload => workload.GetPriorityWorkTypes())
+                .Distinct()
+                .OrderBy(workType => workType.defName, StringComparer.Ordinal)
+                .ToList();
+
+            mutation = WorkTabAtomicMutationPlan.Capture(
+                orderedWorkloads.Select(workload => workload.OwningPawn),
+                workTypes);
+            mutation.ManualPrioritiesTarget = UseAdvancedMode;
+
+            foreach (PawnWorkload workload in orderedWorkloads)
+            {
+                if (!workload.TryCompileParentPriorities(mutation, out error))
+                {
+                    mutation = null;
+                    return false;
+                }
+            }
+
+            error = string.Empty;
+            return true;
         }
 
         /// <summary>

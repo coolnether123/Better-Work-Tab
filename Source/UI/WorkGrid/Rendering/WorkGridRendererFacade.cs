@@ -49,9 +49,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             HeaderDrawingCoordinator.PrepareFrame(invalidationVersions);
         }
 
-        public void Render(in WorkGridRenderContext context)
+        public void Render(in WorkTabView context)
         {
-            WorkTabEffectiveStateRuntime.BeginRenderPass();
             WorkGridRendererMode userMode = _selectionMode();
             WorkGridForcedRendererMode forcedMode = WorkGridRendererDiagnostics.ForcedMode;
             bool nativeOnly = PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority;
@@ -88,7 +87,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 renderer.Prepare(in context);
                 if ((context.Configuration.Layers & WorkGridLayerFlags.Headers) != 0)
                 {
-                    _drawingSurface.DrawHeaders(context.Presentation.Table, context.Layout);
+                    _drawingSurface.DrawHeaders(in context);
                     headersDrawn = true;
                 }
                 renderer.Draw(in context);
@@ -141,7 +140,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 if ((context.Configuration.Layers & WorkGridLayerFlags.Headers) != 0 &&
                     !headersDrawn)
                 {
-                    _drawingSurface.DrawHeaders(context.Presentation.Table, context.Layout);
+                    _drawingSurface.DrawHeaders(in context);
                 }
                 _vanilla.Draw(in context);
                 if (context.EventPhase == ImGuiEventPhase.Input)
@@ -157,7 +156,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         private void SwitchToRenderer(
             IWorkGridRenderer renderer,
-            in WorkGridRenderContext context)
+            in WorkTabView context)
         {
             IWorkGridRenderer next = renderer ?? _vanilla;
             if (ReferenceEquals(_active, next))
@@ -171,7 +170,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         private static void ReleaseRenderer(
             IWorkGridRenderer renderer,
-            in WorkGridRenderContext context)
+            in WorkTabView context)
         {
             if (renderer == null || renderer is VanillaWorkGridRenderer)
             {

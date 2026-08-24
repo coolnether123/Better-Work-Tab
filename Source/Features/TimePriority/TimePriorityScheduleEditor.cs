@@ -1,15 +1,16 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
@@ -333,9 +334,7 @@ namespace Better_Work_Tab.Features.TimePriority
             {
                 int parentPriority = ParentPriorityRead.GetObserved(pawn, workType);
                 currentPriority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
-                    pawn,
-                    workType,
-                    workGiver,
+                    WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiver),
                     out int specificPriority)
                     ? WorkPrioritySystem.ClampPriority(specificPriority)
                     : WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
@@ -422,8 +421,9 @@ namespace Better_Work_Tab.Features.TimePriority
             return true;
         }
 
-        internal static bool TryHandleInput(IWorkTabLayoutController layout, Event evt)
+        internal static bool TryHandleInput(in WorkTabView view, Event evt)
         {
+            IWorkTabLayoutController layout = view.Layout;
             if (!IsEnabled)
             {
                 FinishClose();
@@ -1031,33 +1031,6 @@ namespace Better_Work_Tab.Features.TimePriority
             }
 
             return false;
-        }
-
-        internal static void AppendScheduleGeometryDiagnostics(System.Text.StringBuilder builder)
-        {
-            if (builder == null)
-            {
-                return;
-            }
-
-            builder.AppendLine("timePriorityActive=" + (_session != null));
-            builder.AppendLine("timePrioritySourceRect=" + FormatRect(_session?.SourceBoxRect ?? Rect.zero));
-            builder.AppendLine("timePriorityTimelineRect=" + FormatRect(_lastTimelineRect));
-            builder.AppendLine("timePriorityCells=" + LastScheduleCellDiagnostics.Count);
-            for (int i = 0; i < LastScheduleCellDiagnostics.Count; i++)
-            {
-                ScheduleCellDiagnostic diagnostic = LastScheduleCellDiagnostics[i];
-                builder.AppendLine(
-                    "timePriorityCell=" + i
-                    + " target=\"" + diagnostic.TargetKey + "\""
-                    + " hour=" + diagnostic.Hour
-                    + " priority=" + diagnostic.Priority
-                    + " cellRect=" + FormatRect(diagnostic.CellRect)
-                    + " boxRect=" + FormatRect(diagnostic.BoxRect)
-                    + " labelRect=" + FormatRect(diagnostic.LabelRect)
-                    + " centerDelta=(" + Format(diagnostic.LabelRect.center.x - diagnostic.BoxRect.center.x)
-                    + "," + Format(diagnostic.LabelRect.center.y - diagnostic.BoxRect.center.y) + ")");
-            }
         }
 
         // Read-only test seam: callers can verify the exact rectangles rendered on the
@@ -2123,9 +2096,7 @@ namespace Better_Work_Tab.Features.TimePriority
             int parentPriority)
         {
             if (WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
-                    pawn,
-                    workType,
-                    workGiver,
+                    WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiver),
                     out int specificPriority))
             {
                 return WorkPrioritySystem.ClampPriority(specificPriority);
@@ -2176,16 +2147,6 @@ namespace Better_Work_Tab.Features.TimePriority
             float age = Time.realtimeSinceStartup - (_isClosing ? _closingStartedAt : _session.StartedAt);
             float progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(age / AnimationSeconds));
             return _isClosing ? 1f - progress : progress;
-        }
-
-        private static string FormatRect(Rect rect)
-        {
-            return "(" + Format(rect.x) + "," + Format(rect.y) + "," + Format(rect.width) + "," + Format(rect.height) + ")";
-        }
-
-        private static string Format(float value)
-        {
-            return value.ToString("0.###", CultureInfo.InvariantCulture);
         }
 
         private static bool IsControlHeld(Event evt)

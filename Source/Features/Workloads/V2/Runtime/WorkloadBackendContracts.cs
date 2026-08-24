@@ -152,45 +152,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         }
     }
 
-    /// <summary>
-    /// Structured result of the backend prepare/execute/rollback lifecycle.
-    /// It is intentionally independent of the wire protocol so a later
-    /// MultiplayerBridge worker can map it to acknowledgements without
-    /// recreating workload transaction logic.
-    /// </summary>
-    internal enum WorkloadBackendTransactionPhase
-    {
-        None = 0,
-        Prepared = 1,
-        Executed = 2,
-        RolledBack = 3,
-        RollbackFailed = 4
-    }
-
-    internal sealed class WorkloadBackendTransactionResult
-    {
-        internal WorkloadBackendTransactionResult(
-            WorkloadBackendTransactionPhase phase,
-            bool succeeded,
-            WorkloadDiagnosticCode code,
-            string message,
-            WorkloadV2CommitResult commitResult = null)
-        {
-            Phase = phase;
-            Succeeded = succeeded;
-            Code = code;
-            Message = message ?? string.Empty;
-            CommitResult = commitResult;
-        }
-
-        internal WorkloadBackendTransactionPhase Phase { get; private set; }
-        internal bool Succeeded { get; private set; }
-        internal WorkloadDiagnosticCode Code { get; private set; }
-        internal string Message { get; private set; }
-        internal WorkloadV2CommitResult CommitResult { get; private set; }
-        internal bool RequiresRecovery => Phase == WorkloadBackendTransactionPhase.RollbackFailed;
-    }
-
     public sealed class WorkloadDescriptor
     {
         public WorkloadDescriptor(

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Input;
 using Better_Work_Tab.UI.WorkGrid.Projection;
@@ -600,30 +601,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return _entryWorkColumnSlot;
         }
 
-        internal static bool TryGetReturnMousePosition(out Vector2 position)
-        {
-            if (_returnMousePosition.HasValue)
-            {
-                position = _returnMousePosition.Value;
-                return true;
-            }
-
-            position = Vector2.zero;
-            return false;
-        }
-
-        internal static bool TryGetReturnMouseLocalPosition(out Vector2 position)
-        {
-            if (_returnMouseLocalPosition.HasValue)
-            {
-                position = _returnMouseLocalPosition.Value;
-                return true;
-            }
-
-            position = Vector2.zero;
-            return false;
-        }
-
         internal static bool TryGetCursorRestorePosition(out Vector2 position, out string suppressionReason)
         {
             if (!_returnMousePosition.HasValue)
@@ -1208,9 +1185,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             int defaultPriority = ParentPriorityRead.GetObserved(pawn, _activeWorkType);
             int priority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
-                pawn,
-                _activeWorkType,
-                workGiverDef,
+                WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, _activeWorkType, workGiverDef),
                 out int projectedPriority)
                 ? Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.ClampPriority(projectedPriority)
                 : WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiverDef, defaultPriority);

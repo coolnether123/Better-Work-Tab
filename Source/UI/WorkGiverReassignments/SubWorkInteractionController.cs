@@ -53,8 +53,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             _suppressSubWorkPriorityMouseDownFrame = -1;
         }
 
-        internal bool TryHandleSubWorkHeaderOpen(IWorkTabLayoutController layout)
+        internal bool TryHandleSubWorkHeaderOpen(in WorkTabView view)
         {
+            IWorkTabLayoutController layout = view.Layout;
             if (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked)
             {
                 ClearPendingSubWorkGesture();
@@ -95,7 +96,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 }
 
                 if (!TryGetSubWorkOpenTarget(
-                        layout,
+                        in view,
                         evt.mousePosition,
                         out var workType,
                         out var bounds,
@@ -186,8 +187,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 evt);
         }
 
-        internal bool TryHandleSubWorkBackButtonClick(IWorkTabLayoutController layout)
+        internal bool TryHandleSubWorkBackButtonClick(in WorkTabView view)
         {
+            IWorkTabLayoutController layout = view.Layout;
             if (layout == null || !SubWorkDrilldownState.IsActive)
             {
                 return false;
@@ -210,8 +212,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             return true;
         }
 
-        internal bool TryHandleSubWorkExitGesture(IWorkTabLayoutController layout)
+        internal bool TryHandleSubWorkExitGesture(in WorkTabView view)
         {
+            IWorkTabLayoutController layout = view.Layout;
             if (!SubWorkDrilldownState.HasAnyDrilldown)
             {
                 return false;
@@ -257,7 +260,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 }
 
                 if (!TryGetSubWorkExitTarget(
-                        layout,
+                        in view,
                         evt.mousePosition,
                         out var bounds,
                         out bool shouldRestoreCursor))
@@ -391,13 +394,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         }
 
         internal bool TryGetSubWorkOpenTarget(
-            IWorkTabLayoutController layout,
+            in WorkTabView view,
             Vector2 mousePosition,
             out WorkTypeDef workType,
             out Rect bounds,
             out bool fromHeader,
             out WorkTabLayoutColumn targetColumn)
         {
+            IWorkTabLayoutController layout = view.Layout;
             workType = null;
             bounds = default;
             fromHeader = false;
@@ -427,9 +431,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             WorkTabLayoutRow bodyRow;
             WorkTabLayoutColumn bodyColumn;
-            if (_bodyRenderer.TryGetRowAt(layout, mousePosition, out bodyRow) &&
-                _bodyRenderer.TryGetBodyColumnAt(layout, mousePosition, out bodyColumn) &&
-                _bodyRenderer.TryGetPriorityBoxHit(layout, bodyRow, bodyColumn, mousePosition, out Rect priorityBoxRect))
+            if (_bodyRenderer.TryGetRowAt(in view, mousePosition, out bodyRow) &&
+                _bodyRenderer.TryGetBodyColumnAt(in view, mousePosition, out bodyColumn) &&
+                _bodyRenderer.TryGetPriorityBoxHit(in view, bodyRow, bodyColumn, mousePosition, out Rect priorityBoxRect))
             {
                 return TryGetOpenTargetFromColumn(
                     bodyColumn,
@@ -480,11 +484,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         }
 
         internal bool TryGetSubWorkExitTarget(
-            IWorkTabLayoutController layout,
+            in WorkTabView view,
             Vector2 mousePosition,
             out Rect bounds,
             out bool restoreCursor)
         {
+            IWorkTabLayoutController layout = view.Layout;
             bounds = default;
             restoreCursor = false;
 
@@ -518,9 +523,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             WorkTabLayoutRow bodyRow;
             WorkTabLayoutColumn column;
-            if (_bodyRenderer.TryGetRowAt(layout, mousePosition, out bodyRow) &&
-                _bodyRenderer.TryGetBodyColumnAt(layout, mousePosition, out column) &&
-                _bodyRenderer.TryGetPriorityBoxHit(layout, bodyRow, column, mousePosition, out Rect bodyPriorityBoxRect))
+            if (_bodyRenderer.TryGetRowAt(in view, mousePosition, out bodyRow) &&
+                _bodyRenderer.TryGetBodyColumnAt(in view, mousePosition, out column) &&
+                _bodyRenderer.TryGetPriorityBoxHit(in view, bodyRow, column, mousePosition, out Rect bodyPriorityBoxRect))
             {
                 bounds = bodyPriorityBoxRect;
                 restoreCursor = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.SubWorkRestoreCursorFromPawnCells);
@@ -560,18 +565,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     settings.Write();
                 },
                 "BWT_SubWork_CtrlClickNotice_Title".Translate()));
-        }
-
-        private static void MarkSubWorkCtrlClickNoticeDismissed()
-        {
-            var settings = BetterWorkTabMod.Settings;
-            if (settings == null || settings.subWorkCtrlClickNoticeDismissed)
-            {
-                return;
-            }
-
-            settings.subWorkCtrlClickNoticeDismissed = true;
-            settings.Write();
         }
 
         private static bool CompleteSubWorkOpen(

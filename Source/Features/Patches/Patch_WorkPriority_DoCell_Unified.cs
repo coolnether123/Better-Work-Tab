@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -915,9 +916,7 @@ namespace Better_Work_Tab.Patches
                 {
                     WorkGiverDef workGiver = workGivers[i]?.def;
                     if (WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
-                            pawn,
-                            workType,
-                            workGiver,
+                            WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiver),
                             out int priority) &&
                         priority > WorkPrioritySystem.DisabledPriority)
                     {

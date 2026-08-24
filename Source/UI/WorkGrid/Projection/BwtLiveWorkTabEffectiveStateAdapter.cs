@@ -26,8 +26,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         private readonly Func<PawnKey, Pawn> _pawnResolver;
         private readonly Func<WorkTypeKey, WorkTypeDef> _workTypeResolver;
         private readonly Func<WorkGiverKey, WorkGiverDef> _workGiverResolver;
-        private readonly WorkTabEffectiveStateResolver<PawnKey, ScheduleKey> _scheduleResolver;
-        private readonly WorkTabEffectiveStateResolver<string, WorkloadScalarValue> _presentationResolver;
         private readonly Func<WorkloadScheduleTargetKey, WorkTabEffectiveStateResolution<WorkloadSchedulePayload>> _scheduleV2Resolver;
         private readonly Func<WorkloadSpecificJobTargetKey, WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>> _specificPriorityV2Resolver;
         private readonly Func<WorkloadWorkTypeOrderKey, WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>> _workTypeOrderV2Resolver;
@@ -39,8 +37,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             Func<PawnKey, Pawn> pawnResolver = null,
             Func<WorkTypeKey, WorkTypeDef> workTypeResolver = null,
             Func<WorkGiverKey, WorkGiverDef> workGiverResolver = null,
-            WorkTabEffectiveStateResolver<PawnKey, ScheduleKey> scheduleResolver = null,
-            WorkTabEffectiveStateResolver<string, WorkloadScalarValue> presentationResolver = null,
             Func<long> revisionResolver = null,
             Func<WorkloadScheduleTargetKey, WorkTabEffectiveStateResolution<WorkloadSchedulePayload>> scheduleV2Resolver = null,
             Func<WorkloadSpecificJobTargetKey, WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>> specificPriorityV2Resolver = null,
@@ -50,8 +46,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             _pawnResolver = pawnResolver ?? ResolvePawn;
             _workTypeResolver = workTypeResolver ?? ResolveWorkType;
             _workGiverResolver = workGiverResolver ?? ResolveWorkGiver;
-            _scheduleResolver = scheduleResolver;
-            _presentationResolver = presentationResolver;
             _scheduleV2Resolver = scheduleV2Resolver;
             _specificPriorityV2Resolver = specificPriorityV2Resolver;
             _workTypeOrderV2Resolver = workTypeOrderV2Resolver;
@@ -65,26 +59,21 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             var callbacks = new LiveWorkTabEffectiveStateCallbacks(providerId)
             {
                 Revision = _revisionResolver ?? _revisionClock.Read,
-                Schedule = _scheduleResolver,
-                SpecificJobOverride = TryGetSpecificJobOverride,
-                SpecificJobOrder = TryGetSpecificJobOrder,
-                PresentationSetting = _presentationResolver,
                 RevisionVector = _revisionResolver == null
                     ? _revisionClock.ReadVector
                     : () => WorkTabEffectiveStateRevisionVector.FromRevision(_revisionResolver()),
                 ScheduleV2 = _scheduleV2Resolver ?? ResolveScheduleV2,
                 SpecificJobPriorityV2 = _specificPriorityV2Resolver ?? ResolveSpecificJobPriorityV2,
                 WorkTypeOrderV2 = _workTypeOrderV2Resolver ?? ResolveWorkTypeOrderV2,
-                PresentationSettingV2 = _presentationV2Resolver ?? ResolvePresentationSettingV2
+                PresentationSettingV2 = _presentationV2Resolver
             };
             return callbacks;
         }
 
         public LiveWorkTabEffectiveStateProvider CreateProvider(
-            string providerId = "bwt.live",
-            IWorkTabEffectiveStateEditor editor = null)
+            string providerId = "bwt.live")
         {
-            return new LiveWorkTabEffectiveStateProvider(CreateCallbacks(providerId), editor);
+            return new LiveWorkTabEffectiveStateProvider(CreateCallbacks(providerId));
         }
 
         private WorkTabEffectiveStateResolution<WorkloadSchedulePayload> ResolveScheduleV2(
@@ -242,78 +231,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             }
 
             return result;
-        }
-
-        private WorkTabEffectiveStateResolution<WorkloadSettingValue> ResolvePresentationSettingV2(
-            string key)
-        {
-            if (string.IsNullOrWhiteSpace(key) || _presentationResolver == null ||
-                !_presentationResolver(key, out WorkloadScalarValue value))
-            {
-                return WorkTabEffectiveStateResolution<WorkloadSettingValue>.NoOpinion;
-            }
-
-            return WorkTabEffectiveStateResolution<WorkloadSettingValue>.Set(
-                WorkloadSettingValue.Global(value));
-        }
-
-        private bool TryGetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            out WorkloadScalarValue value)
-        {
-            value = WorkloadScalarValue.Empty;
-            if (key == null || !key.IsValid)
-            {
-                return false;
-            }
-
-            Pawn pawn = _pawnResolver(key.Pawn);
-            WorkGiverDef workGiver = _workGiverResolver(key.WorkGiver);
-            if (pawn == null || workGiver == null ||
-                !WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
-                    pawn,
-                    workGiver,
-                    out int priority))
-            {
-                return false;
-            }
-
-            value = WorkloadScalarValue.FromInteger(priority);
-            return true;
-        }
-
-        private bool TryGetSpecificJobOrder(
-            WorkloadSpecificJobKey key,
-            out int order)
-        {
-            order = 0;
-            if (key == null || !key.IsValid)
-            {
-                return false;
-            }
-
-            Pawn pawn = _pawnResolver(key.Pawn);
-            WorkTypeDef workType = _workTypeResolver(key.WorkType);
-            if (workType == null)
-            {
-                return false;
-            }
-
-            var workGivers = WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(
-                workType,
-                pawn);
-            for (int i = 0; i < workGivers.Count; i++)
-            {
-                if (StringComparer.Ordinal.Equals(
-                    workGivers[i]?.def?.defName,
-                    key.WorkGiver.Value))
-                {
-                    order = i;
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static Pawn ResolvePawn(PawnKey key)

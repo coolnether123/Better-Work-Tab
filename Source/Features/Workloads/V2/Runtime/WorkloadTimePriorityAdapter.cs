@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using RimWorld;
@@ -121,57 +122,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 out reason);
         }
 
-        internal static bool TryApplyLiveScheduleSnapshot(
-            TimePriorityLiveScheduleSnapshot expectedCurrent,
-            WorkloadSchedulePayload desired,
-            WorkloadMutationAuthorization authorization,
-            out string reason)
-        {
-            if (!IsScheduleAuthorized(expectedCurrent, authorization, out reason) ||
-                !TryGetScheduleValue(desired, out TimePriorityScheduleValue value, out reason))
-            {
-                return false;
-            }
-
-            return TimePriorityService.TryApplyLiveScheduleSnapshot(
-                       expectedCurrent,
-                       value,
-                       out reason,
-                       out _) != TimePriorityScheduleMutationOutcome.Rejected;
-        }
-
-        internal static bool TryClearLiveScheduleSnapshot(
-            TimePriorityLiveScheduleSnapshot expectedCurrent,
-            WorkloadMutationAuthorization authorization,
-            out string reason)
-        {
-            return IsScheduleAuthorized(expectedCurrent, authorization, out reason) &&
-                   TimePriorityService.TryClearLiveScheduleSnapshot(
-                       expectedCurrent,
-                       out reason,
-                       out _) != TimePriorityScheduleMutationOutcome.Rejected;
-        }
-
-        internal static bool TryRestoreLiveScheduleSnapshot(
-            TimePriorityLiveScheduleSnapshot snapshot,
-            TimePriorityLiveScheduleSnapshot expectedCurrent,
-            WorkloadMutationAuthorization authorization,
-            int transactionScheduleRevision,
-            int ownedScheduleRevision,
-            out string reason)
-        {
-            return IsScheduleRollbackAuthorized(
-                       expectedCurrent,
-                       authorization,
-                       transactionScheduleRevision,
-                       ownedScheduleRevision,
-                       out reason) &&
-                   TimePriorityService.TryRestoreLiveScheduleSnapshot(
-                       snapshot,
-                       expectedCurrent,
-                       out reason) != TimePriorityScheduleMutationOutcome.Rejected;
-        }
-
         internal static bool Matches(
             TimePriorityLiveScheduleSnapshot snapshot,
             WorkloadSchedulePayload payload)
@@ -189,7 +139,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 : new WorkloadSchedulePayload(value.CopyPriorities(), value.PinnedHourMask);
         }
 
-        private static bool TryGetScheduleValue(
+        internal static bool TryGetScheduleValue(
             WorkloadSchedulePayload payload,
             out TimePriorityScheduleValue value,
             out string reason)
@@ -204,51 +154,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             value = null;
             return Fail("The schedule payload is not a complete 24-hour value.", out reason);
-        }
-
-        private static bool IsScheduleAuthorized(
-            TimePriorityLiveScheduleSnapshot expectedCurrent,
-            WorkloadMutationAuthorization authorization,
-            out string reason)
-        {
-            reason = null;
-            if (expectedCurrent == null ||
-                (MultiplayerBridge.Active
-                    ? authorization == null || !authorization.IsAcceptedForSchedule(
-                        true,
-                        expectedCurrent.AuthorityRevision,
-                        expectedCurrent.ServiceVersion)
-                    : authorization != null && !authorization.IsAcceptedForSchedule(
-                        false,
-                        expectedCurrent.AuthorityRevision,
-                        expectedCurrent.ServiceVersion)))
-                return Fail("The workload transaction is not authorized for the captured schedule revision.", out reason);
-
-            return true;
-        }
-
-        private static bool IsScheduleRollbackAuthorized(
-            TimePriorityLiveScheduleSnapshot expectedCurrent,
-            WorkloadMutationAuthorization authorization,
-            int transactionScheduleRevision,
-            int ownedScheduleRevision,
-            out string reason)
-        {
-            reason = null;
-            if (expectedCurrent == null ||
-                expectedCurrent.ServiceVersion != ownedScheduleRevision ||
-                (MultiplayerBridge.Active
-                    ? authorization == null || !authorization.IsAcceptedForScheduleRollback(
-                        true,
-                        expectedCurrent.AuthorityRevision,
-                        transactionScheduleRevision)
-                    : authorization != null && !authorization.IsAcceptedForScheduleRollback(
-                        false,
-                        expectedCurrent.AuthorityRevision,
-                        transactionScheduleRevision)))
-                return Fail("The workload transaction no longer owns the schedule revision being rolled back.", out reason);
-
-            return true;
         }
 
         private static bool Fail(string message, out string reason)

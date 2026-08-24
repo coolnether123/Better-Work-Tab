@@ -578,6 +578,50 @@ namespace Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities
         }
 
         /// <summary>
+        /// Restores Sleek's absent-override sentinel for an atomic caller.
+        /// This remains inside the optional-mod boundary because the sentinel
+        /// is an external-store detail, not a BWT priority value.
+        /// </summary>
+        internal static bool TryClearSleekWorkGiverOverride(Pawn pawn, WorkGiverDef workGiver)
+        {
+            if (pawn == null || workGiver == null ||
+                !IsVerifiedSleekPriorityAuthority(out long authorityRevision))
+            {
+                return false;
+            }
+
+            EnsureSleekStoreAccessors();
+            if (_sleekStoreGetter == null || _sleekSetOverrideMethod == null ||
+                _sleekGetOverrideMethod == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                object store = _sleekStoreGetter.GetValue(null, null);
+                if (store == null)
+                {
+                    return false;
+                }
+
+                _sleekSetOverrideMethod.Invoke(store, new object[] { pawn, workGiver, -1 });
+                bool cleared = _sleekGetOverrideMethod.Invoke(store, new object[] { pawn, workGiver }) is int stored &&
+                    stored < 0;
+                return cleared && IsVerifiedSleekPriorityAuthority(out long afterRevision) &&
+                    afterRevision == authorityRevision;
+            }
+            catch (Exception exception)
+            {
+                BetterWorkTabMod.DebugLog(
+                    "[SleekWorkTab] Could not clear a Sleek per-job override: " +
+                    exception.GetBaseException().Message,
+                    DebugFeature.ModSupport);
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Verifies that Sleek is the current, generation-validated external priority owner.
         /// Mixed BWT/Sleek rendering does not satisfy this: BWT remains the shared data owner
         /// there and Sleek's inline worker must be read-only/fallback-rendered.

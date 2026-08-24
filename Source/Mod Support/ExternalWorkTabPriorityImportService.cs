@@ -6,10 +6,8 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Mod_Support.Multiplayer;
-using Better_Work_Tab.UI.WorkGiverReassignments;
 using RimWorld;
 using Verse;
 
@@ -50,50 +48,28 @@ namespace Better_Work_Tab.ModSupport
                 return false;
             }
 
-            component.EnsureWorkGiverReassignmentData();
-            bool subWorkDataChanged = false;
-            var scheduleCommands = new List<WorkTabScheduleCommand>();
-            using (ExternalPriorityMirror.Suspend())
+            var import = new WorkTabTrustedImport
             {
-                try
-                {
-                    using (WorkGiverReassignmentManager.BeginMutationBatch())
-                    {
-                        changed = ImportSuspended(
-                            component,
-                            (records ?? Enumerable.Empty<ExternalPawnWorkGiverPriorityRecord>()).ToList(),
-                            scheduleCommands);
-                    }
-                }
-                finally
-                {
-                    subWorkDataChanged = WorkGiverReassignmentManager.CommitMutationBatch();
-                    WorkTabApplicationDimensions dimensions = changed > 0
-                        ? WorkTabApplicationDimensions.ParentPriority
-                        : WorkTabApplicationDimensions.None;
-                    if (subWorkDataChanged) dimensions |= WorkTabApplicationDimensions.SpecificPriority;
-                    changed += component.Application.ApplyImportedScheduleBatch(
-                        scheduleCommands, dimensions, broadScope: true);
-                }
-            }
-
-            return true;
+                RequiredPriorityMaximum = PriorityAuthorityBroker.ClampMaxPriority(
+                    (records ?? Enumerable.Empty<ExternalPawnWorkGiverPriorityRecord>())
+                        .SelectMany(record => record.WorkGivers)
+                        .SelectMany(record => ExternalWorkTabPriorityArrayNormalizer.Normalize(
+                            record.Priorities,
+                            WorkPrioritySystem.DisabledPriority))
+                        .DefaultIfEmpty(PriorityConstants.VanillaMax)
+                        .Max())
+            };
+            BuildImport(
+                (records ?? Enumerable.Empty<ExternalPawnWorkGiverPriorityRecord>()).ToList(),
+                import);
+            changed = component.Application.ApplyTrustedCompatibilityImport(import);
+            return changed >= 0;
         }
 
-        private static int ImportSuspended(
-            GameComponent_BWTWorldSettings component,
+        private static void BuildImport(
             List<ExternalPawnWorkGiverPriorityRecord> records,
-            List<WorkTabScheduleCommand> scheduleCommands)
+            WorkTabTrustedImport import)
         {
-            int importedMax = records
-                .SelectMany(record => record.WorkGivers)
-                .SelectMany(record => ExternalWorkTabPriorityArrayNormalizer.Normalize(
-                    record.Priorities,
-                    WorkPrioritySystem.DisabledPriority))
-                .DefaultIfEmpty(PriorityConstants.VanillaMax)
-                .Max();
-            int changed = EnsurePriorityRangeForImport(importedMax) ? 1 : 0;
-
             foreach (ExternalPawnWorkGiverPriorityRecord pawnRecord in records)
             {
                 Pawn pawn = pawnRecord.Pawn;
@@ -116,17 +92,11 @@ namespace Better_Work_Tab.ModSupport
                     int[] parentPriorities = BuildWorkTypePriorities(workGiverPriorities);
                     int parentFallback = ChooseFallbackPriority(parentPriorities);
 
-                    int normalizedParentFallback = WorkPrioritySystem.ClampPriority(parentFallback);
-                    if (PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                            pawn.workSettings,
-                            workType) != normalizedParentFallback)
-                    {
-                        if (WorkPrioritySystem.SetStoredPriorityWithoutMirroring(
-                                pawn.workSettings, workType, parentFallback)) changed++;
-                    }
+                    import.ParentPriorities.Add(
+                        new WorkTabTrustedParentPriority(pawn, workType, parentFallback));
 
                     TimePriorityTarget workTypeTarget = TimePriorityTarget.ForWorkType(pawn, workType);
-                    scheduleCommands.Add(CreateScheduleCommand(workTypeTarget, parentPriorities, parentFallback));
+                    import.Schedules.Add(CreateScheduleCommand(workTypeTarget, parentPriorities, parentFallback));
 
                     foreach (ExternalWorkGiverPriorityRecord workGiverPriority in workGiverPriorities)
                     {
@@ -143,79 +113,23 @@ namespace Better_Work_Tab.ModSupport
                             TimePriorityTarget.ForWorkGiver(pawn, workGiver);
                         if (normalizedPriorities.SequenceEqual(parentPriorities))
                         {
-                            if (WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
-                                    pawn,
-                                    workGiver,
-                                    out _))
-                            {
-                                WorkGiverReassignmentManager.ClearPawnOverrideSynced(
-                                    pawn.thingIDNumber,
-                                    workGiver.defName);
-                                changed++;
-                            }
-
-                            scheduleCommands.Add(new WorkTabScheduleCommand(
+                            import.SpecificPriorities.Add(
+                                new WorkTabTrustedSpecificPriority(pawn, workGiver, null));
+                            import.Schedules.Add(new WorkTabScheduleCommand(
                                 workGiverTarget, TimePriorityScheduleValue.AllLinked, parentFallback));
 
                             continue;
                         }
 
                         int workGiverFallback = ChooseFallbackPriority(normalizedPriorities);
-                        int normalizedWorkGiverFallback = WorkPrioritySystem.ClampPriority(workGiverFallback);
-                        if (!WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
-                                pawn,
-                                workGiver,
-                                out int currentWorkGiverFallback) ||
-                            currentWorkGiverFallback != normalizedWorkGiverFallback)
-                        {
-                            if (WorkGiverReassignmentManager.SetPawnOverrideFromTrustedImport(
-                                    pawn, workGiver, workGiverFallback)) changed++;
-                        }
-
-                        scheduleCommands.Add(CreateScheduleCommand(
+                        import.SpecificPriorities.Add(
+                            new WorkTabTrustedSpecificPriority(pawn, workGiver, workGiverFallback));
+                        import.Schedules.Add(CreateScheduleCommand(
                             workGiverTarget, normalizedPriorities, workGiverFallback));
                     }
                 }
             }
 
-            return changed;
-        }
-
-        private static bool EnsurePriorityRangeForImport(int importedMax)
-        {
-            importedMax = PriorityAuthorityBroker.ClampMaxPriority(importedMax);
-            if (importedMax <= PriorityConstants.VanillaMax)
-            {
-                return false;
-            }
-
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (settings == null)
-            {
-                return false;
-            }
-
-            bool changed = false;
-            if (settings.maxPriorityInt < importedMax)
-            {
-                settings.maxPriorityInt = importedMax;
-                changed = true;
-            }
-
-            if (settings.priorityMode == PriorityMode.Vanilla)
-            {
-                settings.SetPriorityMode(PriorityMode.Auto);
-                changed = true;
-            }
-
-            if (!changed)
-            {
-                return false;
-            }
-
-            settings.NormalizePrioritySettings();
-            PriorityAuthorityBroker.InvalidateCaches();
-            return true;
         }
 
         private static WorkTabScheduleCommand CreateScheduleCommand(

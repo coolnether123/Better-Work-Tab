@@ -1,7 +1,7 @@
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.Dividers;
 using Better_Work_Tab.Features.Migration;
-using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
@@ -84,9 +84,7 @@ namespace Better_Work_Tab.UI
             WorkGridDrawingSurface drawingSurface = new WorkGridDrawingSurface(
                 _viewportController,
                 _bodyRenderer,
-                new WorkTabHeaderRenderer(),
-                () => windowRect,
-                () => ExtraBottomSpace);
+                new WorkTabHeaderRenderer());
             _workGridRenderer = new WorkGridRendererFacade(
                 drawingSurface,
                 () => BetterWorkTabMod.Settings?.workGridRendererMode ?? DefaultSettings.workGridRendererMode);
@@ -102,7 +100,8 @@ namespace Better_Work_Tab.UI
             _contextActionController = new WorkGridContextActionController(
                 _bodyRenderer,
                 () => SetDirty(),
-                () => _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged());
+                () => _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged(),
+                () => Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist != null);
             _subWorkStyleChooserPresenter = new SubWorkStyleChooserPresenter(_subWorkInteractionController);
             _workGridInteractionRouter = new WorkGridInteractionRouter(
                 _tutorialInteractionController,
@@ -159,7 +158,7 @@ namespace Better_Work_Tab.UI
             // Auto-enable manual priorities if setting is enabled
             if (settings?.autoEnableManualPriorities ?? false)
             {
-                WorkPrioritySystem.SetManualPriorities(true);
+                WorkTabApplication.Current?.SetManualPriorityMode(true);
             }
 
             // Sub-work is the one thing here a player cannot find by looking:
@@ -260,19 +259,23 @@ namespace Better_Work_Tab.UI
 
             _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
             Event evt = Event.current;
-            RouteFrameInput(inRect, table, organizer, workGridRect, evt);
-            UpdateFrameHover(organizer, inRect, evt);
-            RenderWorkGrid(table, organizer, workGridRect, evt);
-
-            // Begin/EndScrollView must participate in Layout so Unity keeps the same
-            // scroll control state across Layout, input, and Repaint. The drawing surface's
-            // Layout path creates that control without painting rows or headers.
-            if (evt.type == EventType.Layout)
+            WorkTabView view = BuildWorkTabView(inRect, table, organizer, workGridRect, evt);
+            using (WorkTabEffectiveStateScope.PushCapturedView(
+                       view.EffectiveState,
+                       view.Preview))
             {
-                return;
-            }
+                RouteFrameInput(in view, organizer, evt);
+                UpdateFrameHover(in view, organizer, evt);
+                RenderWorkGrid(in view);
 
-            DrawFrameOverlaysAndChrome(inRect, table, organizer, evt);
+                // Begin/EndScrollView must participate in Layout so Unity keeps the same
+                // scroll control state across Layout, input, and Repaint. The drawing surface's
+                // Layout path creates that control without painting rows or headers.
+                if (evt.type != EventType.Layout)
+                {
+                    DrawFrameOverlaysAndChrome(in view, organizer, evt);
+                }
+            }
         }
 
         // These single-caller methods make the immediate-mode frame order explicit.
@@ -378,21 +381,19 @@ namespace Better_Work_Tab.UI
         }
 
         private void RouteFrameInput(
-            Rect inRect,
-            PawnTable table,
+            in WorkTabView view,
             PawnOrganizerSystem organizer,
-            Rect workGridRect,
             Event evt)
         {
-            BWTWorkTabTutorial.UpdatePointerOwnership(inRect, organizer?.Layout, evt.mousePosition);
+            BWTWorkTabTutorial.UpdatePointerOwnership(view.WindowRect, view.Layout, evt.mousePosition);
             if (evt.type == EventType.Repaint)
             {
                 // Contextual settings binds its hit regions during Repaint. Keep
                 // this dispatch ahead of gameplay input so the following Alt-click
                 // can resolve the binding that was registered for this frame.
-                _workGridInteractionRouter.Route(workGridRect, organizer, evt);
+                _workGridInteractionRouter.Route(in view, organizer, evt);
                 _workGridInteractionRouter.TryHandleFooterContextSettings(
-                    inRect,
+                    view.WindowRect,
                     evt);
                 return;
             }
@@ -402,29 +403,29 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            Rect gearRect = WorkTabChromeGeometry.GetInfoIconRect(inRect);
+            Rect gearRect = WorkTabChromeGeometry.GetInfoIconRect(view.WindowRect);
             if (evt.type == EventType.MouseDown &&
                 evt.button == 0 &&
                 evt.alt &&
                 !_workloadPreviewController.IsUnsafePreviewInputBlocked &&
-                HeaderButtons.GetBottomButtonRects(inRect, gearRect)
+                HeaderButtons.GetBottomButtonRects(view.WindowRect, gearRect)
                     .ContainsWorkloadFooter(evt.mousePosition) &&
                 _workGridInteractionRouter.TryHandleFooterContextSettings(
-                    inRect,
+                    view.WindowRect,
                     evt))
             {
                 return;
             }
 
             bool routedWorkloadFooterInput = HeaderButtons.TryHandleWorkloadFooterInput(
-                inRect,
+                view.WindowRect,
                 gearRect,
                 evt);
             bool routedPreviewScroll = !routedWorkloadFooterInput &&
                 TryRouteWorkloadPreviewScroll(
-                    evt,
-                    table,
-                    inRect,
+                     evt,
+                     view.Table,
+                     view.WindowRect,
                     gearRect);
             if (!routedWorkloadFooterInput &&
                 !routedPreviewScroll &&
@@ -441,38 +442,38 @@ namespace Better_Work_Tab.UI
                 !routedPreviewScroll &&
                 SpineTiming.Enabled)
             {
+                WorkTabView routedView = view;
                 SpineTiming.Time(
                     "WorkTab.Input",
-                    () => _workGridInteractionRouter.Route(workGridRect, organizer, evt));
+                    () => _workGridInteractionRouter.Route(in routedView, organizer, evt));
             }
             else if (!routedWorkloadFooterInput &&
                      !routedPreviewScroll)
             {
-                _workGridInteractionRouter.Route(workGridRect, organizer, evt);
+                _workGridInteractionRouter.Route(in view, organizer, evt);
             }
 
             _subWorkInteractionController.SuppressPriorityMouseDownIfNeeded(evt);
             _workloadPreviewController.SynchronizeAfterInput();
-            RefreshSubWorkLayoutIfNeeded(organizer);
             _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
         }
 
-        private void UpdateFrameHover(PawnOrganizerSystem organizer, Rect inRect, Event evt)
+        private void UpdateFrameHover(in WorkTabView view, PawnOrganizerSystem organizer, Event evt)
         {
             if (evt.type != EventType.Layout)
             {
-                _ruleBuilder2InteractionController.UpdateHover(organizer?.Layout, inRect);
+                _ruleBuilder2InteractionController.UpdateHover(in view);
             }
         }
 
-        private void RenderWorkGrid(
+        private WorkTabView BuildWorkTabView(
+            Rect windowRect,
             PawnTable table,
             PawnOrganizerSystem organizer,
             Rect workGridRect,
             Event evt)
         {
             WorkGridFeatureFlags renderFeatures = WorkGridFeatureFlags.None;
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesOverlay))
                 renderFeatures |= WorkGridFeatureFlags.SkillOverlay;
             if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesDividers))
@@ -509,32 +510,49 @@ namespace Better_Work_Tab.UI
                     0x42575453);
             }
 
-            var renderContext = new WorkGridRenderContext(
+            WorkTabEffectiveStateRevision effectiveRevision = WorkTabEffectiveStateRuntime.BeginRenderPass();
+            IWorkTabEffectiveStateProvider effectiveState =
+                WorkTabEffectiveStateRuntime.CaptureCurrentView(effectiveRevision);
+            IWorkGridPreviewPort preview = WorkTabEffectiveStateScope.CurrentPreview;
+            if (preview is IWorkGridPreviewViewSource previewViewSource)
+            {
+                preview = previewViewSource.CapturePreviewView();
+            }
+            return new WorkTabView(
                 ImGuiEventPhases.Classify(evt.type),
                 evt.type,
                 organizer?.Layout,
-                new WorkGridPresentationAccess(table, presentationSnapshot, organizer?.Layout?.GeometrySnapshot),
+                table,
+                presentationSnapshot,
+                organizer?.Layout?.GeometrySnapshot,
+                effectiveState,
+                effectiveRevision,
+                preview,
                 workGridRect,
-                workGridRect,
+                windowRect,
+                ExtraBottomSpace,
                 Time.frameCount,
                 WorkTabInvalidationHub.Current,
                 new WorkGridRenderConfiguration(renderFeatures, WorkGridLayerFlags.All),
                 WorkGridSelectionScope.Window);
-            _workGridRenderer.Render(in renderContext);
+        }
+
+        private void RenderWorkGrid(in WorkTabView view)
+        {
+            _workGridRenderer.Render(in view);
         }
 
         private void DrawFrameOverlaysAndChrome(
-            Rect inRect,
-            PawnTable table,
+            in WorkTabView view,
             PawnOrganizerSystem organizer,
             Event evt)
         {
             if (!_workloadPreviewController.IsUnsafePreviewInputBlocked)
             {
-                TimePriorityScheduleEditor.Draw(organizer?.Layout);
-                FluffyTimeScheduleAssigner.Draw(inRect, organizer?.Layout, base.ExtraBottomSpace);
+                TimePriorityScheduleEditor.Draw(view.Layout);
+                FluffyTimeScheduleAssigner.Draw(view.WindowRect, view.Layout, view.ExtraBottomSpace);
             }
-            _subWorkStyleChooserPresenter.Draw(organizer?.Layout, windowRect, inRect);
+            _subWorkStyleChooserPresenter.Draw(view.Layout, windowRect, view.WindowRect);
 
             if (SpineTiming.Enabled)
             {
@@ -545,11 +563,11 @@ namespace Better_Work_Tab.UI
                 organizer?.DrawDragOverlays();
             }
 
-            _workTabChrome.DrawTopControls(organizer?.Layout, inRect);
-            _workTabChrome.DrawBottomControls(organizer?.Layout, inRect);
-            _workTabChrome.DrawSubWorkExitButton(inRect);
-            _workTabChrome.DrawBottomCounters(inRect, table);
-            BWTWorkTabTutorial.TickAndDraw(inRect, organizer?.Layout);
+            _workTabChrome.DrawTopControls(view.Layout, view.WindowRect);
+            _workTabChrome.DrawBottomControls(in view);
+            _workTabChrome.DrawSubWorkExitButton(view.WindowRect);
+            _workTabChrome.DrawBottomCounters(view.WindowRect, view.Table);
+            BWTWorkTabTutorial.TickAndDraw(view.WindowRect, view.Layout);
             // Serviced after the tutorial has drawn, so the harness resolves
             // targets against the geometry the player is actually looking at.
             if (BWTWorkTabTutorial.OwnsCurrentPointer && evt.type == EventType.Repaint)
@@ -558,8 +576,8 @@ namespace Better_Work_Tab.UI
                 TooltipHandler.ClearTooltipsFrom(new Rect(pointer.x - 1f, pointer.y - 1f, 2f, 2f));
             }
             HeaderButtons.DrawWorkloadFooterPopoverOnTop(
-                inRect,
-                WorkTabChromeGeometry.GetInfoIconRect(inRect));
+                view.WindowRect,
+                WorkTabChromeGeometry.GetInfoIconRect(view.WindowRect));
             NativeCursorPosition.ProcessPendingMove();
             NativeCursorPosition.DrawPendingMoveCue();
         }

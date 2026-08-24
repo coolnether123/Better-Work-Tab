@@ -79,9 +79,6 @@ namespace Better_Work_Tab.Features.Patches
         private static readonly FieldInfo CachedSizeField =
             AccessTools.Field(typeof(PawnTable), "cachedSize");
 
-        private static readonly FieldInfo MaxTableHeightField =
-            AccessTools.Field(typeof(PawnTable), "maxTableHeight");
-
         public static void Postfix(PawnTable __instance)
         {
             // Only process the Work tab

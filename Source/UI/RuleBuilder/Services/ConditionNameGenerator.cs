@@ -94,17 +94,5 @@ namespace Better_Work_Tab.UI.RuleBuilder.Services
             return string.Join(" + ", parts.GetRange(0, 2)) + $" (+{parts.Count - 2})";
         }
 
-        /// <summary>
-        /// Gets a short one-line summary of conditions.
-        /// </summary>
-        public static string GetShortSummary(WorkAssignmentParameters p, int maxLength = 40)
-        {
-            string full = Generate(p);
-
-            if (full.Length <= maxLength)
-                return full;
-
-            return full.Substring(0, maxLength - 3) + "...";
-        }
     }
 }

@@ -60,9 +60,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             internal IReadOnlyList<string> OrderedWorkGiverNames { get; private set; }
         }
 
-        internal sealed class WorkloadSpecificPriorityBatchEntry
+        internal sealed class SpecificPriorityBatchEntry
         {
-            internal WorkloadSpecificPriorityBatchEntry(
+            internal SpecificPriorityBatchEntry(
                 bool isGlobal,
                 int pawnId,
                 string workGiverDefName,
@@ -94,9 +94,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 (IsGlobal ? "global" : "local:" + PawnId.ToString()) + ":priority:" + WorkGiverDefName;
         }
 
-        internal sealed class WorkloadSpecificOrderBatchEntry
+        internal sealed class SpecificOrderBatchEntry
         {
-            internal WorkloadSpecificOrderBatchEntry(
+            internal SpecificOrderBatchEntry(
                 bool isGlobal,
                 int pawnId,
                 string workTypeDefName,
@@ -127,16 +127,17 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 (IsGlobal ? "global" : "local:" + PawnId.ToString()) + ":order:" + WorkTypeDefName;
         }
 
-        internal sealed class WorkloadSpecificJobBatchRollback
+        internal sealed class SpecificJobBatchRollback
         {
-            internal WorkloadSpecificJobBatchRollback(
+            internal SpecificJobBatchRollback(
                 WorkGiverReassignmentData previousData,
                 string previousFingerprint,
                 int previousRevision,
                 int appliedRevision,
                 string appliedFingerprint,
                 long authorityRevision,
-                WorkloadMutationAuthorization authorization)
+                bool synchronizedReplay,
+                WorkTabMutationLease authorization)
             {
                 PreviousData = previousData;
                 PreviousFingerprint = previousFingerprint ?? string.Empty;
@@ -144,6 +145,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 AppliedRevision = appliedRevision;
                 AppliedFingerprint = appliedFingerprint ?? string.Empty;
                 AuthorityRevision = authorityRevision;
+                SynchronizedReplay = synchronizedReplay;
                 Authorization = authorization;
             }
 
@@ -153,7 +155,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             internal int AppliedRevision { get; private set; }
             internal string AppliedFingerprint { get; private set; }
             internal long AuthorityRevision { get; private set; }
-            internal WorkloadMutationAuthorization Authorization { get; private set; }
+            internal bool SynchronizedReplay { get; private set; }
+            internal WorkTabMutationLease Authorization { get; private set; }
         }
 
         /// <summary>
@@ -262,9 +265,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static string CurrentStateFingerprint =>
             Data?.ComputeStateFingerprint() ?? WorkloadCanonical.Fingerprint(string.Empty);
 
-        internal static bool CanSynchronouslyAcknowledgeExactPawnOrderMutation =>
-            !MultiplayerBridge.Active;
-
         internal static bool CanSynchronouslyAcknowledgeExactGlobalMutation =>
             !MultiplayerBridge.Active;
 
@@ -286,105 +286,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
                 return _cachedHasAnyData;
             }
-        }
-
-        internal static void SetPawnOverrideSynced(int pawnId, string workGiverDefName, int priority)
-        {
-            if (MultiplayerBridge.Active)
-            {
-                SyncSetPawnOverride(pawnId, workGiverDefName, priority);
-                return;
-            }
-
-            ApplyPawnOverride(pawnId, workGiverDefName, priority);
-        }
-
-        internal static void ClearPawnOverrideSynced(int pawnId, string workGiverDefName)
-        {
-            if (MultiplayerBridge.Active)
-            {
-                SyncClearPawnOverride(pawnId, workGiverDefName);
-                return;
-            }
-
-            ApplyClearPawnOverride(pawnId, workGiverDefName);
-        }
-
-        internal static void SetPawnOverridesBatchSynced(string workGiverDefName, List<int> pawnIds, List<int> priorities)
-        {
-            if (MultiplayerBridge.Active)
-            {
-                SyncSetPawnOverridesBatch(workGiverDefName, pawnIds, priorities);
-                return;
-            }
-
-            ApplyPawnOverridesBatch(workGiverDefName, pawnIds, priorities);
-        }
-
-        internal static bool SetPawnOverrideFromTrustedImport(Pawn pawn, WorkGiverDef workGiver, int priority) =>
-            pawn != null && workGiver != null && SetPawnOverride(pawn.thingIDNumber, workGiver, priority, notify: true);
-
-        internal static void ClearPawnOverridesForWorkTypeSynced(int pawnId, string workTypeDefName)
-        {
-            if (MultiplayerBridge.Active)
-            {
-                SyncClearPawnOverridesForWorkType(pawnId, workTypeDefName);
-                return;
-            }
-
-            ApplyClearPawnOverridesForWorkType(pawnId, workTypeDefName);
-        }
-
-        internal static void EnableParentWorkTypeSynced(
-            int pawnId, string workTypeDefName, string workGiverDefName)
-        {
-            if (MultiplayerBridge.Active)
-            {
-                SyncEnableParentWorkType(pawnId, workTypeDefName, workGiverDefName);
-                return;
-            }
-
-            ApplyEnableParentWorkType(pawnId, workTypeDefName, workGiverDefName);
-        }
-
-        internal static void EnableParentAndSetOnlySubOverrideSynced(int pawnId, string workTypeDefName, string workGiverDefName, int priority)
-        {
-            if (MultiplayerBridge.Active)
-            {
-                SyncEnableParentAndSetOnlySubOverride(pawnId, workTypeDefName, workGiverDefName, priority);
-                return;
-            }
-
-            ApplyEnableParentAndSetOnlySubOverride(pawnId, workTypeDefName, workGiverDefName, priority);
-        }
-
-        internal static bool SetPawnWorkGiverOrderSynced(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames)
-        {
-            if (MultiplayerBridge.Active)
-            {
-                SyncSetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
-                return true;
-            }
-
-            return SetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
-        }
-
-        internal static void MoveWithinWorkTypeSynced(string workTypeDefName, string workGiverDefName, int newIndex, Pawn pawn = null)
-        {
-            int pawnId = pawn?.thingIDNumber ?? -1;
-            if (pawnId == -1)
-            {
-                TryMoveWorkGiverLayout(workGiverDefName, workTypeDefName, newIndex, out _);
-                return;
-            }
-
-            if (MultiplayerBridge.Active)
-            {
-                SyncMoveWithinWorkType(workTypeDefName, workGiverDefName, newIndex, pawnId);
-                return;
-            }
-
-            ApplyMoveWithinWorkType(workTypeDefName, workGiverDefName, newIndex, pawnId);
         }
 
         /// <summary>
@@ -428,22 +329,23 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         /// rollback unit so a later verification failure cannot leave a
         /// partially applied local/global batch.
         /// </summary>
-        internal static bool TryApplyWorkloadSpecificJobBatch(
-            IReadOnlyList<WorkloadSpecificPriorityBatchEntry> priorityEntries,
-            IReadOnlyList<WorkloadSpecificOrderBatchEntry> orderEntries,
+        internal static bool TryApplySpecificJobBatch(
+            IReadOnlyList<SpecificPriorityBatchEntry> priorityEntries,
+            IReadOnlyList<SpecificOrderBatchEntry> orderEntries,
             int expectedSyncVersion,
             long expectedAuthorityRevision,
-            WorkloadMutationAuthorization authorization,
-            out WorkloadSpecificJobBatchRollback rollback,
+            bool synchronizedReplay,
+            WorkTabMutationLease authorization,
+            out SpecificJobBatchRollback rollback,
             out string reason)
         {
             rollback = null;
             reason = string.Empty;
-            var priorities = (priorityEntries ?? new WorkloadSpecificPriorityBatchEntry[0])
+            var priorities = (priorityEntries ?? new SpecificPriorityBatchEntry[0])
                 .Where(entry => entry != null)
                 .OrderBy(entry => entry.CanonicalKey, StringComparer.Ordinal)
                 .ToList();
-            var orders = (orderEntries ?? new WorkloadSpecificOrderBatchEntry[0])
+            var orders = (orderEntries ?? new SpecificOrderBatchEntry[0])
                 .Where(entry => entry != null)
                 .OrderBy(entry => entry.CanonicalKey, StringComparer.Ordinal)
                 .ToList();
@@ -452,9 +354,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return true;
             }
 
-            if (!CanUseWorkloadSpecificCapability(
+            if (!CanUseSpecificBatchCapability(
                     expectedAuthorityRevision,
                     expectedSyncVersion,
+                    synchronizedReplay,
                     authorization))
             {
                 reason = "The specific-job batch lacks the transaction-bound workload mutation capability.";
@@ -491,7 +394,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             {
                 for (int i = 0; i < priorities.Count; i++)
                 {
-                    WorkloadSpecificPriorityBatchEntry entry = priorities[i];
+                    SpecificPriorityBatchEntry entry = priorities[i];
                     if (entry.IsGlobal)
                     {
                         changed |= ApplyGlobalWorkGiverPriorityState(
@@ -515,7 +418,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
                 for (int i = 0; i < orders.Count; i++)
                 {
-                    WorkloadSpecificOrderBatchEntry entry = orders[i];
+                    SpecificOrderBatchEntry entry = orders[i];
                     if (entry.IsGlobal)
                     {
                         changed |= ApplyGlobalWorkTypeOrderState(
@@ -552,13 +455,14 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
                 InvalidateCaches();
                 MarkMutationChanged(notifyDependents: true);
-                rollback = new WorkloadSpecificJobBatchRollback(
+                rollback = new SpecificJobBatchRollback(
                     previousData,
                     previousFingerprint,
                     previousRevision,
                     data.SyncVersion,
                     data.ComputeStateFingerprint(),
                     expectedAuthorityRevision,
+                    synchronizedReplay,
                     authorization);
                 return true;
             }
@@ -572,8 +476,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        internal static bool TryRestoreWorkloadSpecificJobBatch(
-            WorkloadSpecificJobBatchRollback rollback,
+        internal static bool TryRestoreSpecificJobBatch(
+            SpecificJobBatchRollback rollback,
             out string reason)
         {
             reason = string.Empty;
@@ -582,10 +486,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return true;
             }
 
-            if (!CanUseWorkloadSpecificCapability(
-                    rollback.AuthorityRevision,
-                    rollback.AppliedRevision,
-                    rollback.Authorization))
+            if (!CanUseWorkloadSpecificRollbackCapability(rollback))
             {
                 reason = "The specific-job rollback capability is stale or unavailable.";
                 return false;
@@ -628,24 +529,54 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        private static bool CanUseWorkloadSpecificCapability(
+        internal static bool RestoreUnpublishedSpecificJobBatch(
+            SpecificJobBatchRollback rollback,
+            out string reason)
+        {
+            reason = string.Empty;
+            WorkGiverReassignmentData data = Data;
+            if (_mutationBatchDepth <= 0 || rollback == null || data == null ||
+                CurrentSyncVersion != rollback.AppliedRevision ||
+                !StringComparer.Ordinal.Equals(
+                    data.ComputeStateFingerprint(),
+                    rollback.AppliedFingerprint))
+            {
+                reason = "The unpublished specific-job state no longer matches its transaction receipt.";
+                return false;
+            }
+
+            data.CopyFrom(rollback.PreviousData, rollback.PreviousRevision);
+            if (!StringComparer.Ordinal.Equals(
+                    data.ComputeStateFingerprint(),
+                    rollback.PreviousFingerprint))
+            {
+                reason = "The unpublished specific-job rollback did not restore its exact baseline.";
+                return false;
+            }
+
+            InvalidateCaches();
+            return true;
+        }
+
+        private static bool CanUseSpecificBatchCapability(
             long expectedAuthorityRevision,
             int expectedSyncVersion,
-            WorkloadMutationAuthorization authorization)
+            bool synchronizedReplay,
+            WorkTabMutationLease authorization)
         {
             return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(expectedAuthorityRevision) &&
                    (!MultiplayerBridge.Active
-                       ? authorization == null || authorization.IsUsable
-                       : authorization != null &&
-                         authorization.IsAcceptedForSpecificBatch(
+                         ? authorization == null || authorization.IsUsable
+                         : synchronizedReplay || authorization != null &&
+                           authorization.IsAcceptedForSpecificBatch(
                              synchronizedExecution: true,
                              expectedAuthorityRevision,
                              expectedSyncVersion));
         }
 
         private static bool TryValidateDistinctBatchKeys(
-            IReadOnlyList<WorkloadSpecificPriorityBatchEntry> priorities,
-            IReadOnlyList<WorkloadSpecificOrderBatchEntry> orders,
+            IReadOnlyList<SpecificPriorityBatchEntry> priorities,
+            IReadOnlyList<SpecificOrderBatchEntry> orders,
             out string reason)
         {
             reason = string.Empty;
@@ -672,7 +603,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         private static bool TryValidateSpecificPriorityBatch(
-            IReadOnlyList<WorkloadSpecificPriorityBatchEntry> entries,
+            IReadOnlyList<SpecificPriorityBatchEntry> entries,
             int expectedSyncVersion,
             long expectedAuthorityRevision,
             out string reason)
@@ -680,7 +611,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             reason = string.Empty;
             for (int i = 0; i < entries.Count; i++)
             {
-                WorkloadSpecificPriorityBatchEntry entry = entries[i];
+                SpecificPriorityBatchEntry entry = entries[i];
                 if (entry.WorkGiverDefName.NullOrEmpty() ||
                     DefDatabase<WorkGiverDef>.GetNamedSilentFail(entry.WorkGiverDefName) == null ||
                     (entry.DesiredState == ExactGlobalStateKind.Set &&
@@ -724,7 +655,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         private static bool TryValidateSpecificOrderBatch(
-            IReadOnlyList<WorkloadSpecificOrderBatchEntry> entries,
+            IReadOnlyList<SpecificOrderBatchEntry> entries,
             int expectedSyncVersion,
             long expectedAuthorityRevision,
             out string reason)
@@ -732,7 +663,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             reason = string.Empty;
             for (int i = 0; i < entries.Count; i++)
             {
-                WorkloadSpecificOrderBatchEntry entry = entries[i];
+                SpecificOrderBatchEntry entry = entries[i];
                 WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(entry.WorkTypeDefName);
                 if (workType == null ||
                     (entry.DesiredState == ExactGlobalStateKind.Set &&
@@ -771,11 +702,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         private static bool VerifySpecificPriorityBatch(
-            IReadOnlyList<WorkloadSpecificPriorityBatchEntry> entries)
+            IReadOnlyList<SpecificPriorityBatchEntry> entries)
         {
             for (int i = 0; i < entries.Count; i++)
             {
-                WorkloadSpecificPriorityBatchEntry entry = entries[i];
+                SpecificPriorityBatchEntry entry = entries[i];
                 if (entry.IsGlobal)
                 {
                     GlobalWorkGiverPrioritySnapshot observed =
@@ -806,11 +737,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         private static bool VerifySpecificOrderBatch(
-            IReadOnlyList<WorkloadSpecificOrderBatchEntry> entries)
+            IReadOnlyList<SpecificOrderBatchEntry> entries)
         {
             for (int i = 0; i < entries.Count; i++)
             {
-                WorkloadSpecificOrderBatchEntry entry = entries[i];
+                SpecificOrderBatchEntry entry = entries[i];
                 if (entry.IsGlobal)
                 {
                     GlobalWorkTypeOrderSnapshot observed =
@@ -1325,112 +1256,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 workType?.defName);
         }
 
-        /// <summary>
-        /// Restores an exact pawn order, including the absence of a pawn-local
-        /// override. The caller owns the transaction and may suppress the
-        /// normal notification while it is rolling back.
-        /// </summary>
-        internal static bool RestorePawnWorkGiverOrderSnapshot(
-            PawnWorkGiverOrderSnapshot snapshot,
-            bool notify = true)
-        {
-            if (snapshot == null || snapshot.PawnId < 0 || snapshot.WorkTypeDefName.NullOrEmpty())
-            {
-                return false;
-            }
-
-            return snapshot.HasStoredOrder
-                ? SetPawnWorkGiverOrderExact(
-                    snapshot.PawnId,
-                    snapshot.WorkTypeDefName,
-                    snapshot.OrderedWorkGiverNames,
-                    notify)
-                : ClearPawnWorkGiverOrderExact(
-                    snapshot.PawnId,
-                    snapshot.WorkTypeDefName,
-                    notify);
-        }
-
-        /// <summary>
-        /// Removes only the exact pawn-local order entry. It intentionally does
-        /// not touch global ordering, reassignment mapping, or priority
-        /// overrides.
-        /// </summary>
-        internal static bool ClearPawnWorkGiverOrderExact(
-            int pawnId,
-            string workTypeDefName,
-            bool notify = true)
-        {
-            if (pawnId < 0 || workTypeDefName.NullOrEmpty() ||
-                !CanSynchronouslyAcknowledgeExactPawnOrderMutation)
-            {
-                return false;
-            }
-
-            WorkGiverReassignmentData data = ExistingData;
-            if (data == null || data.PawnWorkGiverOrdering == null ||
-                !data.PawnWorkGiverOrdering.TryGetValue(pawnId, out var pawnOrders) ||
-                pawnOrders == null || !pawnOrders.Remove(workTypeDefName))
-            {
-                return true;
-            }
-
-            if (pawnOrders.Count == 0)
-            {
-                data.PawnWorkGiverOrdering.Remove(pawnId);
-            }
-
-            data.SyncVersion++;
-            if (notify) NotifySubWorkDataChanged();
-            return true;
-        }
-
-        /// <summary>
-        /// Writes a previously captured exact pawn order without normalizing or
-        /// appending entries. The list must still be a permutation of the
-        /// currently resolvable work-givers for the work type; otherwise the
-        /// operation fails closed.
-        /// </summary>
-        internal static bool SetPawnWorkGiverOrderExact(
-            int pawnId,
-            string workTypeDefName,
-            IReadOnlyList<string> orderedWorkGiverNames,
-            bool notify = true)
-        {
-            if (pawnId < 0 || workTypeDefName.NullOrEmpty() || orderedWorkGiverNames == null ||
-                !CanSynchronouslyAcknowledgeExactPawnOrderMutation)
-            {
-                return false;
-            }
-
-            WorkTypeDef workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
-            if (workType == null || !IsExactWorkGiverOrder(workType, orderedWorkGiverNames))
-            {
-                return false;
-            }
-
-            WorkGiverReassignmentData data = Data;
-            if (data == null) return false;
-            data.EnsureCollections();
-            if (!data.PawnWorkGiverOrdering.TryGetValue(pawnId, out var pawnOrders) || pawnOrders == null)
-            {
-                pawnOrders = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-                data.PawnWorkGiverOrdering[pawnId] = pawnOrders;
-            }
-
-            var exact = new List<string>(orderedWorkGiverNames);
-            if (pawnOrders.TryGetValue(workTypeDefName, out var existing) &&
-                existing != null && existing.SequenceEqual(exact))
-            {
-                return true;
-            }
-
-            pawnOrders[workTypeDefName] = exact;
-            data.SyncVersion++;
-            if (notify) NotifySubWorkDataChanged();
-            return true;
-        }
-
         private static bool IsExactWorkGiverOrder(
             WorkTypeDef workType,
             IReadOnlyList<string> orderedWorkGiverNames)
@@ -1538,315 +1363,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 orderedNames,
                 CurrentSyncVersion,
                 PriorityAuthorityBroker.GetObservationalAuthorityRevision());
-        }
-
-        /// <summary>
-        /// Applies one exact global WorkGiver priority state after validating
-        /// the captured state, BWT authority generation, and reassignment
-        /// revision.  Absent removes all global opinion; Clear persists an
-        /// explicit suppression; Set stores the clamped priority.
-        /// </summary>
-        internal static PriorityMutationOutcome TryApplyGlobalWorkGiverPriority(
-            GlobalWorkGiverPrioritySnapshot expectedCurrent,
-            ExactGlobalStateKind desiredState,
-            int desiredPriority = WorkPrioritySystem.DisabledPriority,
-            bool notify = true,
-            bool isSynchronizedReplay = false)
-        {
-            if (expectedCurrent == null ||
-                expectedCurrent.WorkGiverDefName.NullOrEmpty() ||
-                (!isSynchronizedReplay && !CanSynchronouslyAcknowledgeExactGlobalMutation) ||
-                (desiredState != ExactGlobalStateKind.Absent &&
-                 desiredState != ExactGlobalStateKind.Set &&
-                 desiredState != ExactGlobalStateKind.Clear))
-            {
-                return PriorityMutationOutcome.Rejected;
-            }
-
-            if (desiredState == ExactGlobalStateKind.Set &&
-                (DefDatabase<WorkGiverDef>.GetNamedSilentFail(expectedCurrent.WorkGiverDefName) == null ||
-                 WorkPrioritySystem.ClampPriority(desiredPriority) != desiredPriority))
-            {
-                return PriorityMutationOutcome.Rejected;
-            }
-
-            if (!TryPrepareExactGlobalMutation(
-                    expectedCurrent.SyncVersion,
-                    expectedCurrent.AuthorityRevision,
-                    isSynchronizedReplay))
-            {
-                return PriorityMutationOutcome.Rejected;
-            }
-
-            GlobalWorkGiverPrioritySnapshot observed =
-                CaptureGlobalWorkGiverPrioritySnapshot(expectedCurrent.WorkGiverDefName);
-            if (!IsSameGlobalPriorityState(observed, expectedCurrent))
-            {
-                return PriorityMutationOutcome.Rejected;
-            }
-
-            if (observed.State == desiredState &&
-                (desiredState != ExactGlobalStateKind.Set || observed.Priority == desiredPriority))
-            {
-                return PriorityMutationOutcome.Applied;
-            }
-
-            WorkGiverReassignmentData data = Data;
-            if (data == null || !ApplyGlobalWorkGiverPriorityState(
-                    data,
-                    expectedCurrent.WorkGiverDefName,
-                    desiredState,
-                    desiredPriority))
-            {
-                return PriorityMutationOutcome.Rejected;
-            }
-
-            // The state write already advanced the reassignment revision. A
-            // later authority handoff must still invalidate the mutation that
-            // happened; callers receive the typed outcome instead of a false
-            // result that would hide the applied state.
-            MarkMutationChanged(notify);
-            return PriorityMutationOutcomePolicy.AfterWrite(
-                WorkPrioritySystem.IsBwtMutationAuthorityCurrent(expectedCurrent.AuthorityRevision));
-        }
-
-        internal static PriorityMutationOutcome TrySetGlobalWorkGiverPriority(
-            string workGiverDefName,
-            int priority,
-            GlobalWorkGiverPrioritySnapshot expectedCurrent,
-            bool notify = true,
-            bool isSynchronizedReplay = false)
-        {
-            if (expectedCurrent == null ||
-                !string.Equals(expectedCurrent.WorkGiverDefName, workGiverDefName, StringComparison.Ordinal))
-            {
-                return PriorityMutationOutcome.Rejected;
-            }
-
-            return TryApplyGlobalWorkGiverPriority(
-                expectedCurrent,
-                ExactGlobalStateKind.Set,
-                priority,
-                notify,
-                isSynchronizedReplay);
-        }
-
-        /// <summary>
-        /// Persists an explicit global clear.  This differs from the legacy
-        /// ClearPawnOverrideSynced(-1, ...) operation, which intentionally
-        /// means removal back to absence for existing callers.
-        /// </summary>
-        internal static bool TryClearGlobalWorkGiverPriority(
-            string workGiverDefName,
-            GlobalWorkGiverPrioritySnapshot expectedCurrent,
-            bool notify = true)
-        {
-            if (expectedCurrent == null ||
-                !string.Equals(expectedCurrent.WorkGiverDefName, workGiverDefName, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            return TryApplyGlobalWorkGiverPriority(
-                expectedCurrent,
-                ExactGlobalStateKind.Clear,
-                WorkPrioritySystem.DisabledPriority,
-                notify) != PriorityMutationOutcome.Rejected;
-        }
-
-        internal static bool TryRemoveGlobalWorkGiverPriority(
-            string workGiverDefName,
-            GlobalWorkGiverPrioritySnapshot expectedCurrent,
-            bool notify = true)
-        {
-            if (expectedCurrent == null ||
-                !string.Equals(expectedCurrent.WorkGiverDefName, workGiverDefName, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            return TryApplyGlobalWorkGiverPriority(
-                expectedCurrent,
-                ExactGlobalStateKind.Absent,
-                WorkPrioritySystem.DisabledPriority,
-                notify) != PriorityMutationOutcome.Rejected;
-        }
-
-        internal static bool TryRestoreGlobalWorkGiverPrioritySnapshot(
-            GlobalWorkGiverPrioritySnapshot snapshot,
-            GlobalWorkGiverPrioritySnapshot expectedCurrent,
-            bool notify = true)
-        {
-            if (snapshot == null || expectedCurrent == null ||
-                !string.Equals(snapshot.WorkGiverDefName, expectedCurrent.WorkGiverDefName, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            return TryApplyGlobalWorkGiverPriority(
-                expectedCurrent,
-                snapshot.State,
-                snapshot.Priority,
-                notify) != PriorityMutationOutcome.Rejected;
-        }
-
-        /// <summary>
-        /// Applies one exact global WorkType permutation using the same
-        /// authority/revision guard as global priority state.  This seam does
-        /// not update WorkGiverToWorkTypeMap or PlayerMovedWorkGiversByWorkType.
-        /// </summary>
-        internal static bool TryApplyGlobalWorkTypeOrder(
-            GlobalWorkTypeOrderSnapshot expectedCurrent,
-            ExactGlobalStateKind desiredState,
-            IReadOnlyList<string> desiredOrder,
-            bool notify = true)
-        {
-            if (expectedCurrent == null ||
-                expectedCurrent.WorkTypeDefName.NullOrEmpty() ||
-                !CanSynchronouslyAcknowledgeExactGlobalMutation ||
-                (desiredState != ExactGlobalStateKind.Absent &&
-                 desiredState != ExactGlobalStateKind.Set &&
-                 desiredState != ExactGlobalStateKind.Clear))
-            {
-                return false;
-            }
-
-            if (desiredState == ExactGlobalStateKind.Set &&
-                !IsCompleteGlobalWorkTypeOrder(expectedCurrent.WorkTypeDefName, desiredOrder))
-            {
-                return false;
-            }
-
-            if (!TryPrepareExactGlobalMutation(
-                    expectedCurrent.SyncVersion,
-                    expectedCurrent.AuthorityRevision))
-            {
-                return false;
-            }
-
-            GlobalWorkTypeOrderSnapshot observed =
-                CaptureGlobalWorkTypeOrderSnapshot(expectedCurrent.WorkTypeDefName);
-            if (!IsSameGlobalOrderState(observed, expectedCurrent))
-            {
-                return false;
-            }
-
-            bool desiredEqualsObserved = observed.State == desiredState &&
-                (desiredState != ExactGlobalStateKind.Set ||
-                 observed.OrderedWorkGiverNames.SequenceEqual(desiredOrder ?? new string[0]));
-            if (desiredEqualsObserved)
-            {
-                return true;
-            }
-
-            WorkGiverReassignmentData data = Data;
-            if (data == null || !ApplyGlobalWorkTypeOrderState(
-                    data,
-                    expectedCurrent.WorkTypeDefName,
-                    desiredState,
-                    desiredOrder))
-            {
-                return data != null && desiredEqualsObserved;
-            }
-
-            int expectedRevision = unchecked(expectedCurrent.SyncVersion + 1);
-            if (CurrentSyncVersion != expectedRevision ||
-                !WorkPrioritySystem.IsBwtMutationAuthorityCurrent(expectedCurrent.AuthorityRevision))
-            {
-                return false;
-            }
-
-            MarkMutationChanged(notify);
-            return true;
-        }
-
-        internal static bool TrySetGlobalWorkTypeOrder(
-            string workTypeDefName,
-            IReadOnlyList<string> orderedWorkGiverNames,
-            GlobalWorkTypeOrderSnapshot expectedCurrent,
-            bool notify = true)
-        {
-            if (expectedCurrent == null ||
-                !string.Equals(expectedCurrent.WorkTypeDefName, workTypeDefName, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            return TryApplyGlobalWorkTypeOrder(
-                expectedCurrent,
-                ExactGlobalStateKind.Set,
-                orderedWorkGiverNames,
-                notify);
-        }
-
-        internal static bool TryClearGlobalWorkTypeOrder(
-            string workTypeDefName,
-            GlobalWorkTypeOrderSnapshot expectedCurrent,
-            bool notify = true)
-        {
-            if (expectedCurrent == null ||
-                !string.Equals(expectedCurrent.WorkTypeDefName, workTypeDefName, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            return TryApplyGlobalWorkTypeOrder(
-                expectedCurrent,
-                ExactGlobalStateKind.Clear,
-                null,
-                notify);
-        }
-
-        internal static bool TryRemoveGlobalWorkTypeOrder(
-            string workTypeDefName,
-            GlobalWorkTypeOrderSnapshot expectedCurrent,
-            bool notify = true)
-        {
-            if (expectedCurrent == null ||
-                !string.Equals(expectedCurrent.WorkTypeDefName, workTypeDefName, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            return TryApplyGlobalWorkTypeOrder(
-                expectedCurrent,
-                ExactGlobalStateKind.Absent,
-                null,
-                notify);
-        }
-
-        internal static bool TryRestoreGlobalWorkTypeOrderSnapshot(
-            GlobalWorkTypeOrderSnapshot snapshot,
-            GlobalWorkTypeOrderSnapshot expectedCurrent,
-            bool notify = true)
-        {
-            if (snapshot == null || expectedCurrent == null ||
-                !string.Equals(snapshot.WorkTypeDefName, expectedCurrent.WorkTypeDefName, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            return TryApplyGlobalWorkTypeOrder(
-                expectedCurrent,
-                snapshot.State,
-                snapshot.OrderedWorkGiverNames,
-                notify);
-        }
-
-        private static bool TryPrepareExactGlobalMutation(
-            int expectedSyncVersion,
-            long expectedAuthorityRevision,
-            bool isSynchronizedReplay = false)
-        {
-            if ((!isSynchronizedReplay && !CanSynchronouslyAcknowledgeExactGlobalMutation) ||
-                CurrentSyncVersion != expectedSyncVersion ||
-                !WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision) ||
-                authorityRevision != expectedAuthorityRevision)
-            {
-                return false;
-            }
-
-            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
         private static bool IsSameGlobalPriorityState(
@@ -2113,50 +1629,23 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                    WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision);
         }
 
-        /// <summary>
-        /// Writes one pawn-specific override only when its captured state,
-        /// reassignment revision, and authority are still exact.
-        /// </summary>
-        internal static PriorityMutationOutcome TrySetPawnWorkGiverPriority(
-            Pawn pawn,
-            WorkGiverDef workGiver,
-            int priority,
-            int expectedSyncVersion,
-            bool expectedHasOverride,
-            int expectedPriority,
-            long expectedAuthorityRevision)
-        {
-            if (WorkPrioritySystem.ClampPriority(priority) != priority ||
-                !TryCapturePawnWorkGiverPriority(
-                    pawn,
-                    workGiver,
-                    out int syncVersion,
-                    out bool hasOverride,
-                    out int currentPriority,
-                    out long authorityRevision) ||
-                syncVersion != expectedSyncVersion ||
-                hasOverride != expectedHasOverride ||
-                (hasOverride && currentPriority != expectedPriority) ||
-                authorityRevision != expectedAuthorityRevision)
-            {
-                return PriorityMutationOutcome.Rejected;
-            }
-
-            SetPawnOverride(pawn.thingIDNumber, workGiver, priority, notify: true);
-            if (!TryGetPawnWorkGiverOverride(pawn, workGiver, out int appliedPriority) ||
-                appliedPriority != priority)
-            {
-                return PriorityMutationOutcome.Rejected;
-            }
-
-            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(expectedAuthorityRevision)
-                ? PriorityMutationOutcome.Applied
-                : PriorityMutationOutcome.AppliedAfterAuthorityChange;
-        }
-
         internal static bool HasPawnWorkGiverOverride(Pawn pawn, WorkGiverDef workGiver)
         {
             return TryGetPawnWorkGiverOverride(pawn, workGiver, out _);
+        }
+
+        private static bool CanUseWorkloadSpecificRollbackCapability(
+            SpecificJobBatchRollback rollback)
+        {
+            return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(rollback.AuthorityRevision) &&
+                   (!MultiplayerBridge.Active
+                        ? rollback.Authorization == null || rollback.Authorization.IsUsable
+                       : rollback.SynchronizedReplay || rollback.Authorization != null &&
+                          rollback.Authorization.IsAcceptedForSpecificBatchRollback(
+                             synchronizedExecution: true,
+                             rollback.AuthorityRevision,
+                             rollback.PreviousRevision,
+                             rollback.AppliedRevision));
         }
 
         internal static bool HasEnabledPawnOverrideForWorkType(Pawn pawn, WorkTypeDef workType)
@@ -2302,579 +1791,16 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return WorkPrioritySystem.ClampPriority(defaultPriority);
         }
 
-        [SyncMethod]
-        public static void SyncSetPawnOverride(int pawnId, string workGiverDefName, int priority)
+        internal static bool DiscardMutationBatch()
         {
-            ApplyPawnOverride(pawnId, workGiverDefName, priority);
-        }
-
-        [SyncMethod]
-        public static void SyncClearPawnOverride(int pawnId, string workGiverDefName)
-        {
-            ApplyClearPawnOverride(pawnId, workGiverDefName);
-        }
-
-        [SyncMethod]
-        public static void SyncSetPawnOverridesBatch(string workGiverDefName, List<int> pawnIds, List<int> priorities)
-        {
-            ApplyPawnOverridesBatch(workGiverDefName, pawnIds, priorities);
-        }
-
-        [SyncMethod]
-        public static void SyncClearPawnOverridesForWorkType(int pawnId, string workTypeDefName)
-        {
-            ApplyClearPawnOverridesForWorkType(pawnId, workTypeDefName);
-        }
-
-        [SyncMethod]
-        public static void SyncEnableParentWorkType(
-            int pawnId, string workTypeDefName, string workGiverDefName)
-        {
-            ApplyEnableParentWorkType(pawnId, workTypeDefName, workGiverDefName);
-        }
-
-        [SyncMethod]
-        public static void SyncEnableParentAndClearSubOverrides(int pawnId, string workTypeDefName)
-        {
-            ApplyEnableParentAndClearSubOverrides(pawnId, workTypeDefName);
-        }
-
-        [SyncMethod]
-        public static void SyncEnableParentAndSetOnlySubOverride(int pawnId, string workTypeDefName, string workGiverDefName, int priority)
-        {
-            ApplyEnableParentAndSetOnlySubOverride(pawnId, workTypeDefName, workGiverDefName, priority);
-        }
-
-        private static void ApplyPawnOverride(int pawnId, string workGiverDefName, int priority)
-        {
-            var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-            Pawn pawn = pawnId < 0 ? null : TimePriorityService.FindPawn(pawnId);
-            WorkTypeDef workType = GetTargetWorkType(workGiver);
-            if (workGiver == null || (pawnId >= 0 && !WorkTabActionability.CanApplySpecific(pawn, workType, workGiver)))
-            {
-                return;
-            }
-
-            SetPawnOverride(pawnId, workGiver, priority, notify: true);
-        }
-
-        private static void ApplyClearPawnOverride(int pawnId, string workGiverDefName)
-        {
-            var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-            if (workGiver == null)
-            {
-                return;
-            }
-
-            ClearPawnOverride(pawnId, workGiver, notify: true);
-        }
-
-        private static void ApplyPawnOverridesBatch(string workGiverDefName, List<int> pawnIds, List<int> priorities)
-        {
-            var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-            if (workGiver == null || pawnIds == null || priorities == null)
-            {
-                return;
-            }
-
-            int count = Math.Min(pawnIds.Count, priorities.Count);
-            if (count <= 0)
-            {
-                return;
-            }
-
-            bool changed = false;
-            WorkTypeDef workType = GetTargetWorkType(workGiver);
-            for (int i = 0; i < count; i++)
-            {
-                Pawn pawn = TimePriorityService.FindPawn(pawnIds[i]);
-                if (!WorkTabActionability.CanApplySpecific(pawn, workType, workGiver)) continue;
-                changed |= SetPawnOverride(pawnIds[i], workGiver, priorities[i], notify: false);
-            }
-
-            if (changed)
-            {
-                NotifySubWorkDataChanged();
-            }
-        }
-
-        private static bool SetPawnOverride(int pawnId, WorkGiverDef workGiver, int priority, bool notify)
-        {
-            var data = Data;
-            if (data == null || workGiver == null)
+            if (_mutationBatchDepth != 0 || !_mutationBatchChanged)
             {
                 return false;
             }
 
-            data.EnsureCollections();
-            priority = WorkPrioritySystem.ClampPriority(priority);
-
-            bool removedGlobalClear = pawnId == -1 &&
-                data.GlobalWorkGiverPriorityClears.Remove(workGiver.defName);
-
-            if (!data.PawnWorkGiverPriorityOverrides.TryGetValue(pawnId, out var dict) || dict == null)
-            {
-                dict = new Dictionary<string, int>(StringComparer.Ordinal);
-                data.PawnWorkGiverPriorityOverrides[pawnId] = dict;
-            }
-
-            if (dict.TryGetValue(workGiver.defName, out int currentPriority) &&
-                currentPriority == priority &&
-                !removedGlobalClear)
-            {
-                return false;
-            }
-
-            dict[workGiver.defName] = priority;
-
-            data.SyncVersion++;
-            MirrorWorkGiverToExternalWorkTab(pawnId, workGiver);
-            if (notify)
-            {
-                NotifySubWorkDataChanged();
-            }
-
+            _mutationBatchChanged = false;
+            InvalidateCaches();
             return true;
-        }
-
-        private static bool ClearPawnOverride(int pawnId, WorkGiverDef workGiver, bool notify)
-        {
-            var data = Data;
-            if (data == null || workGiver?.defName == null)
-            {
-                return false;
-            }
-
-            data.EnsureCollections();
-            bool removedGlobalClear = pawnId == -1 &&
-                data.GlobalWorkGiverPriorityClears.Remove(workGiver.defName);
-            bool removedStoredValue = data.PawnWorkGiverPriorityOverrides.TryGetValue(pawnId, out var dict) &&
-                dict != null &&
-                dict.Remove(workGiver.defName);
-            if (!removedStoredValue && !removedGlobalClear)
-            {
-                return false;
-            }
-
-            if (removedStoredValue && dict.Count == 0)
-            {
-                data.PawnWorkGiverPriorityOverrides.Remove(pawnId);
-            }
-
-            data.SyncVersion++;
-            MirrorWorkGiverToExternalWorkTab(pawnId, workGiver);
-            if (notify)
-            {
-                NotifySubWorkDataChanged();
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Republishes one pawn's work-giver priority to any external work-tab mod backing the numbers.
-        /// Work-giver overrides live only in Better Work Tab, so nothing else propagates them.
-        /// </summary>
-        private static void MirrorWorkGiverToExternalWorkTab(int pawnId, WorkGiverDef workGiver)
-        {
-            if (ExternalPriorityMirror.IsSuspended || workGiver == null || pawnId < 0)
-            {
-                return;
-            }
-
-            Pawn pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
-            if (pawn != null)
-            {
-                ExternalPriorityMirror.NotifyWorkGiverChanged(pawn, workGiver);
-            }
-        }
-
-        private static void ApplyClearPawnOverridesForWorkType(int pawnId, string workTypeDefName)
-        {
-            var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
-            ClearPawnOverridesForWorkType(pawnId, workType, notify: true);
-        }
-
-        private static void ApplyEnableParentWorkType(
-            int pawnId, string workTypeDefName, string workGiverDefName)
-        {
-            var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
-            var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
-            var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-            if (GetTargetWorkType(workGiver) != workType ||
-                !WorkTabActionability.CanApplySpecific(pawn, workType, workGiver))
-            {
-                return;
-            }
-
-            int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
-            if (parentPriority > WorkPrioritySystem.DisabledPriority)
-            {
-                return;
-            }
-
-            WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.GetDefaultEnabledPriority());
-            NotifySubWorkDataChanged();
-        }
-
-        private static void ApplyEnableParentAndClearSubOverrides(int pawnId, string workTypeDefName)
-        {
-            var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
-            var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
-            if (pawn?.workSettings == null || workType == null || pawn.WorkTypeIsDisabled(workType))
-            {
-                return;
-            }
-
-            bool changed = false;
-            int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
-            if (parentPriority <= WorkPrioritySystem.DisabledPriority)
-            {
-                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.GetDefaultEnabledPriority());
-                changed = true;
-            }
-
-            changed |= ClearPawnOverridesForWorkType(pawnId, workType, notify: false);
-            if (changed)
-            {
-                NotifySubWorkDataChanged();
-            }
-        }
-
-        private static void ApplyEnableParentAndSetOnlySubOverride(int pawnId, string workTypeDefName, string workGiverDefName, int priority)
-        {
-            var pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
-            var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
-            var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-            if (!WorkTabActionability.CanApplySpecific(pawn, workType, workGiver))
-            {
-                return;
-            }
-
-            if (GetTargetWorkType(workGiver) != workType)
-            {
-                return;
-            }
-
-            bool changed = false;
-            int parentPriority = WorkPrioritySystem.GetPriorityForPawnWorkType(pawn, workType);
-            if (parentPriority <= WorkPrioritySystem.DisabledPriority)
-            {
-                WorkPrioritySystem.SetPriority(pawn.workSettings, workType, WorkPrioritySystem.GetDefaultEnabledPriority());
-                changed = true;
-            }
-
-            changed |= SetClickedPawnOverrideForWorkType(pawnId, workType, workGiver, priority);
-            if (changed)
-            {
-                NotifySubWorkDataChanged();
-            }
-        }
-
-        private static bool SetClickedPawnOverrideForWorkType(int pawnId, WorkTypeDef workType, WorkGiverDef enabledWorkGiver, int priority)
-        {
-            var data = Data;
-            if (data == null || workType == null || enabledWorkGiver == null)
-            {
-                return false;
-            }
-
-            data.EnsureCollections();
-            priority = WorkPrioritySystem.ClampPriority(priority);
-            if (priority <= WorkPrioritySystem.DisabledPriority)
-            {
-                return false;
-            }
-
-            // Enabling a pawn from an unassigned parent work type should only lock the
-            // sub-job the player clicked. Other sub-jobs stay inherited/blank so they do
-            // not all show gold override rings.
-            return SetPawnOverride(pawnId, enabledWorkGiver, priority, notify: false);
-        }
-
-        private static bool ClearPawnOverridesForWorkType(int pawnId, WorkTypeDef workType, bool notify)
-        {
-            var data = Data;
-            if (data == null || workType == null)
-            {
-                return false;
-            }
-
-            data.EnsureCollections();
-            bool changed = false;
-            data.PawnWorkGiverPriorityOverrides.TryGetValue(pawnId, out var dict);
-            var workGivers = GetDisplayWorkGiversForWorkType(workType);
-            if (dict != null)
-            {
-                for (int i = 0; i < workGivers.Count; i++)
-                {
-                    string defName = workGivers[i]?.def?.defName;
-                    if (!defName.NullOrEmpty() && dict.Remove(defName))
-                    {
-                        changed = true;
-                    }
-                }
-            }
-
-            if (pawnId == -1 && data.GlobalWorkGiverPriorityClears != null)
-            {
-                for (int i = 0; i < workGivers.Count; i++)
-                {
-                    string defName = workGivers[i]?.def?.defName;
-                    if (!defName.NullOrEmpty() && data.GlobalWorkGiverPriorityClears.Remove(defName))
-                    {
-                        changed = true;
-                    }
-                }
-            }
-
-            if (!changed)
-            {
-                return false;
-            }
-
-            if (dict != null && dict.Count == 0)
-            {
-                data.PawnWorkGiverPriorityOverrides.Remove(pawnId);
-            }
-
-            data.SyncVersion++;
-            MirrorWorkTypeToExternalWorkTab(pawnId, workType);
-            if (notify)
-            {
-                NotifySubWorkDataChanged();
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Republishes a whole work type for one pawn, used when its overrides were cleared en masse.
-        /// </summary>
-        private static void MirrorWorkTypeToExternalWorkTab(int pawnId, WorkTypeDef workType)
-        {
-            if (ExternalPriorityMirror.IsSuspended || workType == null || pawnId < 0)
-            {
-                return;
-            }
-
-            Pawn pawn = PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId);
-            if (pawn != null)
-            {
-                ExternalPriorityMirror.NotifyWorkTypeChanged(pawn, workType);
-            }
-        }
-
-        internal static bool TryReassignWorkGiver(string workGiverDefName, string targetWorkTypeDefName, int? insertIndex, out string errorMsg)
-        {
-            errorMsg = null;
-            var workGiverDef = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-            if (workGiverDef == null)
-            {
-                errorMsg = $"WorkGiver '{workGiverDefName}' not found";
-                return false;
-            }
-
-            var targetWorkTypeDef = DefDatabase<WorkTypeDef>.GetNamedSilentFail(targetWorkTypeDefName);
-            if (targetWorkTypeDef == null)
-            {
-                errorMsg = $"WorkType '{targetWorkTypeDefName}' not found";
-                return false;
-            }
-
-            return TryMoveWorkGiverLayout(
-                workGiverDef.defName,
-                targetWorkTypeDef.defName,
-                insertIndex ?? GetOrderedWorkGiversForWorkType(targetWorkTypeDef).Count,
-                out errorMsg);
-        }
-
-        [SyncMethod]
-        public static void SyncSetPawnWorkGiverOrder(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames)
-        {
-            SetPawnWorkGiverOrder(pawnId, workTypeDefName, orderedWorkGiverNames);
-        }
-
-        private static bool SetPawnWorkGiverOrder(int pawnId, string workTypeDefName, List<string> orderedWorkGiverNames, bool notify = true)
-        {
-            var data = Data;
-            if (data == null) return false;
-            data.EnsureCollections();
-
-            orderedWorkGiverNames = NormalizeWorkGiverOrder(workTypeDefName, orderedWorkGiverNames);
-            if (orderedWorkGiverNames.Count == 0)
-            {
-                return false;
-            }
-
-            if (pawnId == -1)
-            {
-                // Global order
-                bool removedGlobalClear = data.GlobalWorkTypeOrderClears.Remove(workTypeDefName);
-                if (data.WorkTypeWorkGiverOrder.TryGetValue(workTypeDefName, out var existing) &&
-                    existing != null &&
-                    existing.SequenceEqual(orderedWorkGiverNames) &&
-                    !removedGlobalClear)
-                {
-                    return false;
-                }
-
-                data.WorkTypeWorkGiverOrder[workTypeDefName] = new List<string>(orderedWorkGiverNames);
-            }
-            else
-            {
-                // Pawn-specific order
-                if (!data.PawnWorkGiverOrdering.TryGetValue(pawnId, out var pawnOrders) || pawnOrders == null)
-                {
-                    pawnOrders = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-                    data.PawnWorkGiverOrdering[pawnId] = pawnOrders;
-                }
-
-                if (pawnOrders.TryGetValue(workTypeDefName, out var existing) &&
-                    existing != null &&
-                    existing.SequenceEqual(orderedWorkGiverNames))
-                {
-                    return false;
-                }
-
-                pawnOrders[workTypeDefName] = new List<string>(orderedWorkGiverNames);
-            }
-
-            data.SyncVersion++;
-            if (notify)
-            {
-                NotifySubWorkDataChanged();
-            }
-
-            return true;
-        }
-
-        internal static void MoveWithinWorkType(string workTypeDefName, string workGiverDefName, int newIndex, Pawn pawn = null)
-        {
-            MoveWithinWorkTypeSynced(workTypeDefName, workGiverDefName, newIndex, pawn);
-        }
-
-        [SyncMethod]
-        public static void SyncMoveWithinWorkType(string workTypeDefName, string workGiverDefName, int newIndex, int pawnId)
-        {
-            ApplyMoveWithinWorkType(workTypeDefName, workGiverDefName, newIndex, pawnId);
-        }
-
-        private static void ApplyMoveWithinWorkType(string workTypeDefName, string workGiverDefName, int newIndex, int pawnId)
-        {
-            var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
-            if (workType == null || workGiverDefName.NullOrEmpty())
-            {
-                return;
-            }
-
-            Pawn pawn = pawnId >= 0
-                ? PawnsFinder.All_AliveOrDead.FirstOrDefault(p => p.thingIDNumber == pawnId)
-                : null;
-
-            var currentOrder = GetDisplayWorkGiversForWorkType(workType, pawn)
-                .Where(wg => wg?.def != null)
-                .Select(wg => wg.def.defName)
-                .ToList();
-
-            if (!currentOrder.Remove(workGiverDefName))
-            {
-                return;
-            }
-
-            newIndex = Math.Max(0, Math.Min(newIndex, currentOrder.Count));
-            currentOrder.Insert(newIndex, workGiverDefName);
-
-            bool changed = SetPawnWorkGiverOrder(pawnId, workTypeDefName, currentOrder, notify: false);
-            if (!changed)
-            {
-                return;
-            }
-
-            if (pawnId == -1)
-            {
-                var workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-                RecordPlayerMovedWorkGiver(workType, workGiver);
-                PruneBaselineAlignedMovedWorkGivers(workType);
-            }
-
-            NotifySubWorkDataChanged();
-        }
-
-        [SyncMethod]
-        internal static void SyncReassignWorkGiver(string workGiverDefName, string targetWorkTypeDefName, int insertIndex)
-        {
-            var wg = DefDatabase<WorkGiverDef>.GetNamedSilentFail(workGiverDefName);
-            var wt = DefDatabase<WorkTypeDef>.GetNamedSilentFail(targetWorkTypeDefName);
-            if (wg == null || wt == null)
-            {
-                return;
-            }
-
-            ApplyReassignment(wg, wt, insertIndex);
-        }
-
-        /// <summary>
-        /// Mutate mapping + ordering and invalidate caches.
-        /// </summary>
-        private static void ApplyReassignment(WorkGiverDef workGiverDef, WorkTypeDef targetWorkTypeDef, int? insertIndex = null)
-        {
-            var data = Data;
-            if (data == null)
-            {
-                return;
-            }
-
-            WorkTypeDef sourceWorkType = GetTargetWorkType(workGiverDef);
-            if (!TimePriorityService.TryPrepareWorkGiverScheduleRetarget(
-                    workGiverDef, sourceWorkType, targetWorkTypeDef,
-                    out TimePriorityService.WorkGiverScheduleRetargetPlan schedulePlan, out _))
-            {
-                return;
-            }
-
-            data.EnsureCollections();
-            data.WorkGiverToWorkTypeMap[workGiverDef.defName] = targetWorkTypeDef.defName;
-
-            if (data.WorkTypeWorkGiverOrder != null)
-            {
-                foreach (var kv in data.WorkTypeWorkGiverOrder)
-                {
-                    kv.Value?.Remove(workGiverDef.defName);
-                }
-            }
-            else
-            {
-                data.WorkTypeWorkGiverOrder = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-            }
-
-            if (!data.WorkTypeWorkGiverOrder.TryGetValue(targetWorkTypeDef.defName, out var targetList) || targetList == null)
-            {
-                targetList = new List<string>();
-                data.WorkTypeWorkGiverOrder[targetWorkTypeDef.defName] = targetList;
-            }
-
-            // Reassignment creates/updates a canonical global order entry; it
-            // must not leave an older explicit global-order clear shadowing it.
-            data.GlobalWorkTypeOrderClears.Remove(targetWorkTypeDef.defName);
-
-            int index = insertIndex.HasValue ? Math.Max(0, Math.Min(insertIndex.Value, targetList.Count)) : targetList.Count;
-            targetList.Insert(index, workGiverDef.defName);
-            RecordPlayerMovedWorkGiver(targetWorkTypeDef, workGiverDef);
-            PruneBaselineAlignedMovedWorkGivers(targetWorkTypeDef);
-            RemoveWorkGiverFromPawnOrders(data, workGiverDef.defName);
-
-            data.SyncVersion++;
-            if (TimePriorityService.CommitWorkGiverScheduleRetarget(schedulePlan) &&
-                TimePriorityService.CommitMutationBatch())
-            {
-                WorkTabApplication.PublishCompletedScheduleMutation(
-                    true,
-                    broadScope: true,
-                    dimensions: WorkTabApplicationDimensions.Schedule |
-                        WorkTabApplicationDimensions.ExecutionOrder);
-            }
-            NotifySubWorkDataChanged();
         }
 
         private static List<string> GetBaselineWorkGiverOrder(WorkTypeDef workType)
@@ -2912,94 +1838,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
         }
 
-        private static void PruneBaselineAlignedMovedWorkGivers(WorkTypeDef workType)
-        {
-            var data = Data;
-            if (data?.PlayerMovedWorkGiversByWorkType == null || workType?.defName == null)
-            {
-                return;
-            }
-
-            if (!data.PlayerMovedWorkGiversByWorkType.TryGetValue(workType.defName, out var moved) || moved == null)
-            {
-                return;
-            }
-
-            for (int i = moved.Count - 1; i >= 0; i--)
-            {
-                var def = DefDatabase<WorkGiverDef>.GetNamedSilentFail(moved[i]);
-                if (def == null || !IsWorkGiverOutOfBaselinePosition(workType, def))
-                {
-                    moved.RemoveAt(i);
-                }
-            }
-
-            if (moved.Count == 0)
-            {
-                data.PlayerMovedWorkGiversByWorkType.Remove(workType.defName);
-            }
-        }
-
-        private static List<string> NormalizeWorkGiverOrder(string workTypeDefName, List<string> orderedWorkGiverNames)
-        {
-            var workType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
-            if (workType == null)
-            {
-                return new List<string>();
-            }
-
-            var valid = GetDisplayWorkGiversForWorkType(workType)
-                .Where(wg => wg?.def != null)
-                .Select(wg => wg.def.defName)
-                .ToList();
-            var validSet = new HashSet<string>(valid, StringComparer.Ordinal);
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            var result = new List<string>(valid.Count);
-
-            if (orderedWorkGiverNames != null)
-            {
-                for (int i = 0; i < orderedWorkGiverNames.Count; i++)
-                {
-                    string name = orderedWorkGiverNames[i];
-                    if (!name.NullOrEmpty() && validSet.Contains(name) && seen.Add(name))
-                    {
-                        result.Add(name);
-                    }
-                }
-            }
-
-            for (int i = 0; i < valid.Count; i++)
-            {
-                if (seen.Add(valid[i]))
-                {
-                    result.Add(valid[i]);
-                }
-            }
-
-            return result;
-        }
-
-        private static void RemoveWorkGiverFromPawnOrders(WorkGiverReassignmentData data, string workGiverDefName)
-        {
-            if (data?.PawnWorkGiverOrdering == null || workGiverDefName.NullOrEmpty())
-            {
-                return;
-            }
-
-            foreach (var pawnOrders in data.PawnWorkGiverOrdering.Values)
-            {
-                if (pawnOrders == null)
-                {
-                    continue;
-                }
-
-                foreach (var order in pawnOrders.Values)
-                {
-                    order?.Remove(workGiverDefName);
-                }
-            }
-        }
-
         private static void MarkMutationChanged(bool notifyDependents)
         {
             InvalidateCaches();
@@ -3013,11 +1851,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             {
                 NotifySubWorkDependentsChanged();
             }
-        }
-
-        private static void NotifySubWorkDataChanged()
-        {
-            MarkMutationChanged(notifyDependents: true);
         }
 
         private static void NotifySubWorkDependentsChanged()

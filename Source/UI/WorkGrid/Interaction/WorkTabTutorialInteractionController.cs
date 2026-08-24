@@ -5,6 +5,7 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Chrome;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
 using RimWorld;
@@ -26,9 +27,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             _bodyRenderer = bodyRenderer;
         }
 
-        internal bool TryHandleInput(Rect inRect, IWorkTabLayoutController layout, Event evt)
+        internal bool TryHandleInput(in WorkTabView view, Event evt)
         {
-            return BWTWorkTabTutorial.TryHandleInput(inRect, layout, evt);
+            return BWTWorkTabTutorial.TryHandleInput(view.WindowRect, view.Layout, evt);
         }
 
         internal bool TryHandleAcceptKey()
@@ -36,14 +37,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             return BWTWorkTabTutorial.TryHandleAcceptKey();
         }
 
-        internal void ReportInteraction(Rect inRect, IWorkTabLayoutController layout, Event evt)
+        internal void ReportInteraction(in WorkTabView view, Event evt)
         {
             if (evt == null || evt.type != EventType.MouseDown)
             {
                 return;
             }
 
-            BWTTutorialInteractionKind kind = ClassifyInteraction(inRect, layout, evt.mousePosition);
+            BWTTutorialInteractionKind kind = ClassifyInteraction(in view, evt.mousePosition);
             if (kind == BWTTutorialInteractionKind.None)
             {
                 return;
@@ -59,10 +60,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
         }
 
         private BWTTutorialInteractionKind ClassifyInteraction(
-            Rect inRect,
-            IWorkTabLayoutController layout,
+            in WorkTabView view,
             Vector2 mousePosition)
         {
+            Rect inRect = view.WindowRect;
             if (!inRect.Contains(mousePosition))
             {
                 return BWTTutorialInteractionKind.OutsideWorkTab;
@@ -102,14 +103,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return BWTTutorialInteractionKind.TimePriorityCell;
             }
 
-            if (layout?.Rows != null && _bodyRenderer.TryGetRowAt(layout, mousePosition, out var row))
+            if (view.Layout?.Rows != null && _bodyRenderer.TryGetRowAt(in view, mousePosition, out var row))
             {
                 if (row.Divider != null)
                 {
                     return BWTTutorialInteractionKind.Divider;
                 }
 
-                if (row.Pawn != null && _bodyRenderer.TryGetBodyColumnAt(layout, mousePosition, out var bodyColumn))
+                if (row.Pawn != null && _bodyRenderer.TryGetBodyColumnAt(in view, mousePosition, out var bodyColumn))
                 {
                     if (bodyColumn.Column?.Worker is PawnColumnWorker_Label)
                     {
@@ -128,11 +129,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 }
             }
 
-            if (layout?.Columns != null)
+            if (view.Layout?.Columns != null)
             {
-                for (int i = 0; i < layout.Columns.Count; i++)
+                for (int i = 0; i < view.Layout.Columns.Count; i++)
                 {
-                    WorkTabLayoutColumn column = layout.Columns[i];
+                    WorkTabLayoutColumn column = view.Layout.Columns[i];
                     if (!WorkGridInteractionGeometry.GetAnimatedHeaderRect(column).Contains(mousePosition))
                     {
                         continue;

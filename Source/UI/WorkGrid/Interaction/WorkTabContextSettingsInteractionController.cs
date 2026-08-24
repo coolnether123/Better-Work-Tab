@@ -3,6 +3,7 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Chrome;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using RimWorld;
 using Spine.UI.ContextualSettings;
 using UnityEngine;
@@ -15,8 +16,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
     /// </summary>
     internal sealed class WorkTabContextSettingsInteractionController
     {
-        internal bool TryHandleInput(Rect inRect, IWorkTabLayoutController layout, Event evt)
+        internal bool TryHandleInput(in WorkTabView view, Event evt)
         {
+            Rect inRect = view.Viewport;
             if (evt == null || !inRect.Contains(evt.mousePosition))
             {
                 return false;
@@ -24,7 +26,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
             if (!BWTWorkTabContextSettingsRouter.TryBuildFocusRequest(
                     inRect,
-                    layout,
+                    view.Layout,
                     evt.mousePosition,
                     evt.shift,
                     evt.control,

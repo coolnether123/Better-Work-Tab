@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
@@ -10,8 +11,6 @@ using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Chrome;
 using Better_Work_Tab.UI.Headers;
-using Better_Work_Tab.UI.Workloads;
-using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
@@ -854,6 +853,14 @@ namespace Better_Work_Tab.UI.Settings
     {
         private const string PreviewSuppressorId = "bwt.workloadPreview";
 
+        static BWTWorkloadSettingsOwnershipPolicy()
+        {
+            WorkloadPresentationServices.Register(
+                CreateApplyWriter,
+                TryGetStageableScalarKind,
+                () => NotifyGlobalSettingsChanged());
+        }
+
         private static readonly HashSet<string> Metadata =
             BuildMetadata();
 
@@ -895,8 +902,9 @@ namespace Better_Work_Tab.UI.Settings
         private static BWTWorkloadPresentationSnapshot _snapshot =
             BWTWorkloadPresentationSnapshot.CreateInactive(
                 new Dictionary<string, WorkloadScalarValue>(StringComparer.Ordinal));
-        private static readonly WorkloadPresentationSnapshotToken PreviewToken =
-            new WorkloadPresentationSnapshotToken();
+        private static IWorkTabPresentationPreviewPort _previewPort;
+        private static string _observedPreviewIdentity = string.Empty;
+        private static long _snapshotSettingsRevision = long.MinValue;
         private static bool _snapshotValid;
         private static long _globalSettingsRevision;
         private static bool _legacyModeBeforeInteraction;
@@ -906,6 +914,24 @@ namespace Better_Work_Tab.UI.Settings
         private static bool _suppressNextGlobalSettingsWrite;
         [ThreadStatic]
         private static int _authorizedGlobalSettingsWriteDepth;
+
+        /// <summary>
+        /// Registers the optional preview boundary used by the settings drawer.
+        /// A null registration deliberately leaves the drawer fully global and
+        /// testable without a workload implementation.
+        /// </summary>
+        internal static void RegisterPresentationPreviewPort(
+            IWorkTabPresentationPreviewPort previewPort)
+        {
+            if (ReferenceEquals(_previewPort, previewPort))
+            {
+                return;
+            }
+
+            _previewPort = previewPort;
+            _observedPreviewIdentity = string.Empty;
+            Invalidate();
+        }
 
         internal static void PrepareDefinition(SettingDefinition definition)
         {
@@ -1017,42 +1043,43 @@ namespace Better_Work_Tab.UI.Settings
                 SetSnapshot(BWTWorkloadPresentationSnapshot.Failed(
                     globalValues,
                     "The global Better Work Tab presentation values could not be read safely: " + ex.Message,
-                    PreviewToken.Value,
-                    !string.IsNullOrEmpty(PreviewToken.Value)));
+                    _observedPreviewIdentity,
+                    !string.IsNullOrEmpty(_observedPreviewIdentity)));
                 return;
             }
 
             BWTWorkloadPresentationSnapshot next;
             try
             {
-                if (!WorkloadGateway.IsV2PreviewSessionActive)
+                IWorkTabPresentationPreviewPort previewPort = _previewPort;
+                if (previewPort == null || !previewPort.IsPreviewActive)
                 {
                     next = BWTWorkloadPresentationSnapshot.CreateInactive(globalValues);
                 }
                 else
                 {
-                    WorkloadOperationResult<WorkloadPreviewPlan> result =
-                        WorkloadGateway.GetV2PreviewPlan();
-                    if (result.Succeeded && result.Value != null)
+                    if (previewPort.TryReadPresentationPreview(
+                            out WorkTabPresentationPreviewState preview,
+                            out string reason))
                     {
-                        next = string.IsNullOrEmpty(PreviewToken.Value)
+                        next = string.IsNullOrEmpty(preview.Identity)
                             ? BWTWorkloadPresentationSnapshot.Failed(
                                 globalValues,
                                 "The active workload preview has no exact session identity.",
                                 string.Empty)
-                            : BWTWorkloadPresentationSnapshot.FromPlan(
-                                result.Value,
-                                globalValues,
-                                PreviewToken.Value);
+                            : BWTWorkloadPresentationSnapshot.FromPreview(
+                                preview,
+                                globalValues);
                     }
                     else
                     {
                         next = BWTWorkloadPresentationSnapshot.Failed(
                             globalValues,
-                            string.IsNullOrEmpty(result.Message)
+                            string.IsNullOrEmpty(reason)
                                 ? "The active workload preview could not be read safely."
-                                : result.Message,
-                            PreviewToken.Value);
+                                : reason,
+                            _observedPreviewIdentity,
+                            isActive: true);
                     }
                 }
             }
@@ -1061,7 +1088,8 @@ namespace Better_Work_Tab.UI.Settings
                 next = BWTWorkloadPresentationSnapshot.Failed(
                     globalValues,
                     "The active workload preview could not be read safely: " + ex.Message,
-                    PreviewToken.Value);
+                    _observedPreviewIdentity,
+                    isActive: _previewPort?.IsPreviewActive == true);
             }
 
             SetSnapshot(next);
@@ -1069,7 +1097,7 @@ namespace Better_Work_Tab.UI.Settings
 
         internal static void EnsureFresh()
         {
-            if (!_snapshotValid || PreviewToken.NeedsRefresh(_globalSettingsRevision))
+            if (!_snapshotValid || _snapshotSettingsRevision != _globalSettingsRevision)
             {
                 Refresh();
             }
@@ -1085,7 +1113,7 @@ namespace Better_Work_Tab.UI.Settings
 
             _snapshot = next;
             _snapshotValid = true;
-            PreviewToken.MarkRefreshed(_globalSettingsRevision);
+            _snapshotSettingsRevision = _globalSettingsRevision;
 
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if (settings != null)
@@ -1094,7 +1122,8 @@ namespace Better_Work_Tab.UI.Settings
                 // drawer's OnSettingInteracted callback. Keep the last drawn
                 // value so that a reset still crosses the same gateway as a
                 // normal toggle.
-                _lastObservedLegacyMode = settings.useLegacyWorkloads;
+                _lastObservedLegacyMode = WorkloadModeService.CurrentMode ==
+                    WorkloadBackendMode.Legacy;
                 _lastObservedLegacyModeValid = true;
             }
         }
@@ -1128,7 +1157,7 @@ namespace Better_Work_Tab.UI.Settings
                 ? _legacyModeBeforeInteraction
                 : _lastObservedLegacyModeValid
                     ? _lastObservedLegacyMode
-                    : WorkloadGateway.CurrentMode == WorkloadBackendMode.Legacy;
+                    : requestedLegacy;
             _legacyModeBeforeInteractionCaptured = false;
 
             if (requestedLegacy == previousLegacy)
@@ -1154,17 +1183,12 @@ namespace Better_Work_Tab.UI.Settings
                 return;
             }
 
-            WorkloadOperationResult result = WorkloadGateway.TryTransitionMode(
-                requestedLegacy
-                    ? WorkloadBackendMode.Legacy
-                    : WorkloadBackendMode.Modern);
-            // TryTransitionMode has already persisted a successful transition.
-            // Let the shared settings drawer complete its normal write path as
-            // an idempotent write. Avoid a one-shot suppression here: a stale
-            // suppression can otherwise swallow a later unrelated change.
-            if (result.Succeeded)
+            WorkloadOperationResult transition = WorkloadModeService.TryTransition(
+                requestedLegacy ? WorkloadBackendMode.Legacy : WorkloadBackendMode.Modern);
+            if (transition.Succeeded)
             {
-                _lastObservedLegacyMode = requestedLegacy;
+                _lastObservedLegacyMode = WorkloadModeService.CurrentMode ==
+                    WorkloadBackendMode.Legacy;
                 _lastObservedLegacyModeValid = true;
                 return;
             }
@@ -1173,9 +1197,9 @@ namespace Better_Work_Tab.UI.Settings
             _lastObservedLegacyMode = previousLegacy;
             _lastObservedLegacyModeValid = true;
             Messages.Message(
-                string.IsNullOrEmpty(result.Message)
+                string.IsNullOrEmpty(transition.Message)
                     ? "BWT_Settings_WorkloadMode_ChangeFailed".Translate().ToString()
-                    : result.Message,
+                    : transition.Message,
                 MessageTypeDefOf.RejectInput,
                 false);
         }
@@ -1190,18 +1214,19 @@ namespace Better_Work_Tab.UI.Settings
         internal static long GlobalSettingsRevision => _globalSettingsRevision;
 
         /// <summary>
-        /// Called from the preview controller's lifecycle boundary. The token
-        /// changes for a new source, a new session, a staged edit, or a
-        /// persistence rebase, so a cached presentation snapshot never
-        /// survives a different preview by accident.
+        /// Called by the optional preview boundary whenever its immutable
+        /// presentation identity changes. Settings never needs the concrete
+        /// session object to invalidate its prepared projection.
         /// </summary>
-        internal static void ObservePreviewSession(WorkloadSession session)
+        internal static void ObservePreviewIdentity(string previewIdentity)
         {
-            if (!PreviewToken.Observe(session))
+            string safeIdentity = previewIdentity ?? string.Empty;
+            if (StringComparer.Ordinal.Equals(_observedPreviewIdentity, safeIdentity))
             {
                 return;
             }
 
+            _observedPreviewIdentity = safeIdentity;
             BlockedReasons.Clear();
             InvalidateWorkTabPresentationCore(includesHeaderSetting: true);
         }
@@ -1249,7 +1274,7 @@ namespace Better_Work_Tab.UI.Settings
             settings?.Write();
         }
 
-        internal static bool IsPreviewActive => WorkloadGateway.IsV2PreviewSessionActive;
+        internal static bool IsPreviewActive => _previewPort?.IsPreviewActive == true;
 
         internal static WorkloadPresentationSettingsTransaction CreateApplyWriter() =>
             new WorkloadPresentationSettingsTransaction(
@@ -1756,7 +1781,10 @@ namespace Better_Work_Tab.UI.Settings
 
             return TryPreviewMutation(
                 state.Definition.Id,
-                provider => provider.SetPresentationSetting(state.Definition.Id, value),
+                new WorkTabPresentationPreviewMutation(
+                    WorkTabPresentationPreviewMutationKind.Set,
+                    state.Definition.Id,
+                    value),
                 "The projected presentation setting could not be changed safely.",
                 "The projected presentation setting could not be synchronized.",
                 suppressDrawerCallbacks,
@@ -1771,7 +1799,10 @@ namespace Better_Work_Tab.UI.Settings
             string settingId = state?.Definition?.Id;
             return TryChangePresentationOwnership(
                 settingId,
-                provider => provider.AcquirePresentationSetting(settingId, globalValue),
+                new WorkTabPresentationPreviewMutation(
+                    WorkTabPresentationPreviewMutationKind.Acquire,
+                    settingId,
+                    globalValue),
                 "The presentation setting could not be acquired safely.",
                 out reason);
         }
@@ -1782,14 +1813,17 @@ namespace Better_Work_Tab.UI.Settings
         {
             return TryChangePresentationOwnership(
                 settingId,
-                provider => provider.ReleasePresentationSetting(settingId),
+                new WorkTabPresentationPreviewMutation(
+                    WorkTabPresentationPreviewMutationKind.Release,
+                    settingId,
+                    WorkloadScalarValue.Empty),
                 "The presentation ownership could not be removed safely.",
                 out reason);
         }
 
         private static bool TryChangePresentationOwnership(
             string settingId,
-            Func<ProjectedWorkTabEffectiveStateProvider, WorkTabEffectiveStateMutationResult> mutate,
+            WorkTabPresentationPreviewMutation mutation,
             string rejectionReason,
             out string reason)
         {
@@ -1810,7 +1844,7 @@ namespace Better_Work_Tab.UI.Settings
 
             return TryPreviewMutation(
                 settingId,
-                mutate,
+                mutation,
                 rejectionReason,
                 "The presentation ownership change could not be synchronized.",
                 false,
@@ -1819,53 +1853,41 @@ namespace Better_Work_Tab.UI.Settings
 
         private static bool TryPreviewMutation(
             string settingId,
-            Func<ProjectedWorkTabEffectiveStateProvider, WorkTabEffectiveStateMutationResult> mutate,
+            WorkTabPresentationPreviewMutation mutation,
             string rejectionReason,
             string synchronizationReason,
             bool suppressDrawerCallbacks,
             out string reason)
         {
             reason = string.Empty;
-            WorkloadPreviewController controller = WorkloadPreviewController.Current;
-            if (controller == null || !controller.IsActive || controller.ProjectedProvider == null ||
-                mutate == null)
+            IWorkTabPresentationPreviewPort previewPort = _previewPort;
+            if (previewPort == null || !previewPort.IsPreviewActive)
             {
                 reason = "The active workload preview is not available for editing.";
             }
             else
             {
-                WorkTabEffectiveStateMutationResult result = mutate(controller.ProjectedProvider);
-                if (!result.IsBlocked && (result.Accepted || result.IsNoOp))
+                if (previewPort.TryMutatePresentation(mutation, out string mutationReason))
                 {
-                    if (controller.SynchronizeAfterInput())
+                    InvalidateWorkTabPresentation(settingId);
+                    Refresh();
+                    if (suppressDrawerCallbacks)
                     {
-                        WorkTabEffectiveStateRuntime.AcceptPreviewMutation(result);
-                        InvalidateWorkTabPresentation(settingId);
-                        Refresh();
-                        if (suppressDrawerCallbacks)
-                        {
-                            SuppressSettingsCallbacks(settingId);
-                        }
-
-                        return true;
+                        SuppressSettingsCallbacks(settingId);
                     }
 
-                    reason = controller.LastMessage;
-                    if (string.IsNullOrEmpty(reason))
-                    {
-                        reason = synchronizationReason;
-                    }
+                    return true;
                 }
-                else
-                {
-                    reason = string.IsNullOrEmpty(result.Reason) ? rejectionReason : result.Reason;
-                    WorkTabEffectiveStateRuntime.AcceptPreviewMutation(result);
-                }
+
+                reason = string.IsNullOrEmpty(mutationReason)
+                    ? rejectionReason
+                    : mutationReason;
             }
 
             BlockedReasons[settingId ?? string.Empty] = reason;
             return false;
         }
+
 
         private static bool TryCommitGlobalScalar(
             BWTWorkloadSettingDefinitionState state,
@@ -2494,9 +2516,29 @@ namespace Better_Work_Tab.UI.Settings
                 HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
             }
 
-            WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
-                WorkTabDirtyFlags.Presentation |
-                WorkTabDirtyFlags.SettingsThemeLanguageScale);
+            // Presentation changes use the same centralized completion path
+            // as other accepted Work-tab dimensions. This is non-durable: the
+            // settings store and preview port retain their own revision and
+            // persistence contracts.
+            WorkTabApplication.Current?.PublishAtomicMutation(
+                WorkTabApplicationDimensions.Presentation,
+                durable: false,
+                broadScope: true,
+                mirrorExternal: false);
+        }
+
+        private static bool TryGetStageableScalarKind(
+            string settingId,
+            out WorkloadScalarKind kind)
+        {
+            kind = WorkloadScalarKind.Empty;
+            if (!TryGetStageableDefinition(settingId, out BWTWorkloadSettingDefinitionState state))
+            {
+                return false;
+            }
+
+            kind = state.ScalarKind;
+            return true;
         }
 
         private static bool IsHeaderPresentationSetting(string settingId)
@@ -2774,8 +2816,8 @@ namespace Better_Work_Tab.UI.Settings
             string identity,
             string failureReason,
             IDictionary<string, WorkloadScalarValue> globalValues,
-            WorkloadProjectedState beforeState,
-            WorkloadProjectedState afterState)
+            IReadOnlyList<WorkloadPresentationSettingIntentEntry> beforeIntents,
+            IReadOnlyList<WorkloadPresentationSettingIntentEntry> afterIntents)
         {
             IsActive = isActive;
             ReadSucceeded = readSucceeded;
@@ -2789,13 +2831,13 @@ namespace Better_Work_Tab.UI.Settings
                 CacheColor(entry.Key, entry.Value);
             }
 
-            Dictionary<string, WorkloadIntent<WorkloadSettingValue>> beforeIntents =
-                CopyPresentationIntents(beforeState);
-            _afterIntents = CopyPresentationIntents(afterState);
-            _changedSettings = new HashSet<string>(beforeIntents.Keys, StringComparer.Ordinal);
+            Dictionary<string, WorkloadIntent<WorkloadSettingValue>> beforeIntentMap =
+                CopyPresentationIntents(beforeIntents);
+            _afterIntents = CopyPresentationIntents(afterIntents);
+            _changedSettings = new HashSet<string>(beforeIntentMap.Keys, StringComparer.Ordinal);
             foreach (KeyValuePair<string, WorkloadIntent<WorkloadSettingValue>> entry in _afterIntents)
             {
-                if (beforeIntents.TryGetValue(entry.Key, out WorkloadIntent<WorkloadSettingValue> before) &&
+                if (beforeIntentMap.TryGetValue(entry.Key, out WorkloadIntent<WorkloadSettingValue> before) &&
                     before.Equals(entry.Value))
                 {
                     _changedSettings.Remove(entry.Key);
@@ -2837,19 +2879,18 @@ namespace Better_Work_Tab.UI.Settings
                 null);
         }
 
-        internal static BWTWorkloadPresentationSnapshot FromPlan(
-            WorkloadPreviewPlan plan,
-            IDictionary<string, WorkloadScalarValue> globalValues,
-            string identity)
+        internal static BWTWorkloadPresentationSnapshot FromPreview(
+            WorkTabPresentationPreviewState preview,
+            IDictionary<string, WorkloadScalarValue> globalValues)
         {
             return new BWTWorkloadPresentationSnapshot(
                 true,
                 true,
-                identity,
+                preview.Identity,
                 string.Empty,
                 globalValues,
-                plan?.BeforeState,
-                plan?.AfterState);
+                preview.BeforeIntents,
+                preview.AfterIntents);
         }
 
         internal static BWTWorkloadPresentationSnapshot Failed(
@@ -2978,11 +3019,12 @@ namespace Better_Work_Tab.UI.Settings
         }
 
         private static Dictionary<string, WorkloadIntent<WorkloadSettingValue>>
-            CopyPresentationIntents(WorkloadProjectedState state)
+            CopyPresentationIntents(
+                IReadOnlyList<WorkloadPresentationSettingIntentEntry> entries)
         {
             var intents = new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(
                 StringComparer.Ordinal);
-            if (state?.PresentationSettingIntents == null)
+            if (entries == null)
             {
                 return intents;
             }
@@ -2990,9 +3032,9 @@ namespace Better_Work_Tab.UI.Settings
             // WorkloadProjectedState is the canonical owner of legacy-to-typed
             // promotion and release normalization. Its intent list therefore
             // already contains every effective Set/Clear entry exactly once.
-            for (int i = 0; i < state.PresentationSettingIntents.Count; i++)
+            for (int i = 0; i < entries.Count; i++)
             {
-                WorkloadPresentationSettingIntentEntry entry = state.PresentationSettingIntents[i];
+                WorkloadPresentationSettingIntentEntry entry = entries[i];
                 if (entry != null && !string.IsNullOrWhiteSpace(entry.Key) &&
                     !entry.Intent.IsNoOpinion)
                 {

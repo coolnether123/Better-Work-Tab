@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Verse;
-using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.Rules.Validators;
 
 namespace Better_Work_Tab.Features.Rules
@@ -109,7 +109,10 @@ namespace Better_Work_Tab.Features.Rules
                 return false;
 
             // All checks passed - assign the priority.
-            if (!WorkPrioritySystem.SetPriority(pawn.workSettings, assigningWorktype, Parameters.Priority))
+            if (!RuleApplicationPlanningScope.SetPriority(
+                    pawn,
+                    assigningWorktype,
+                    Parameters.Priority))
             {
                 mutationFailed = true;
                 return false;

@@ -1,113 +1,95 @@
 # Work tab centralization ledger
 
-## Source baseline
+## Canonical source
 
 | Item | Value |
 | --- | --- |
-| Remote branch | `origin/Dev` |
-| Remote and local base | `55700b5dc35c1878ed3e7fdd02c2f42fd49459b5` |
-| Integration branch | `refactor/schedule-domain-centralization` |
-| Consolidated source change | `ad01eed42a8194e8774b649a8b00975b5c323bc5` |
-| Integration worktree | `A:\Dev\RimWorld\Worktrees\Better-Work-Tab\schedule-domain-migration` |
-| Standalone Spine source | `14fd0633ea6a67ea5dcc5004c76c26b030ebe883` |
-| Mission production C# baseline | 443 files, 152,346 physical lines |
-| Pre-batch `Dev` baseline | 447 files, 151,788 physical and 134,772 nonblank lines |
+| Production owner | `A:\Dev\RimWorld\Mods\Better-Work-Tab` |
+| Production branch | `Dev` |
+| Completion base | `e5987800e3b08c356f1bbcb61924f415d0bc5f70` |
+| Test owner | `A:\Dev\RimWorld\Infrastructure\Better-Work-Tab-Tests` on `main` |
+| Harness owner | `A:\Dev\RimWorld\Infrastructure\AgenticHarness\RimWorld-Agent` on `master` |
+| Runtime evidence root | `A:\Dev\RimWorld\Runtime\BwtCentralArchitecture` |
 
-The source archive named in the task was not present in the supplied attachment directory, common user folders, or `A:\Dev`. The `Dev` working copy contained 17 modified source and language files with 1,000 insertions and 302 deletions. Those changes contain the named priority-cycle, unavailable-cell, footer, projection, and preview behavior. Commit `2f195ca8` preserves that tree without changing the original working copy.
+The production checkout is the only current source owner. The supplied archive was separate input and is not a source or build authority. A final fetch found no active production feature commit outside `Dev`; only historical `Support/*` product lines remain non-ancestors. The TestProbe API-refresh branch was merged into test `main` after reconciling its older schedule API calls with the current public notification boundary.
 
-The preserved tree was committed directly to `Dev` as `ad01eed4` and pushed to `origin/Dev`. Three outstanding feature branches were replayed onto that base. Their focused changes were already present in the consolidated source, so each branch resolved to `ad01eed4`; merging them into `Dev` was then a no-op. `Nether/infrastructure-streamline` is an ancestor of `Dev`, and no active remote feature branch contains a commit outside `Dev`. Historical support and mainline branches remain separate product histories.
+## Final ownership map
 
-Before this batch, `Dev` and `origin/Dev` were reconciled at `55700b5d`. The preceding integrated slices are `b61470be` (architecture boundaries), `755b2e65` (workload capture and schema migration), `805f75c9` (parent priority commands), `b89c0e70` (presentation state and settings writes), and `55700b5d` (parent priority reads). No active feature branch contained unmerged production commits.
+| System | Authoritative state or policy | Normal read | Normal write or coordination | Persistence and edge role | State |
+| --- | --- | --- | --- | --- | --- |
+| Application | Per-game domain services | Canonical effective-state providers | `WorkTabApplication` and typed atomic plans | Game component composes domain owners | Complete |
+| Priority | Authority broker and priority policy | `ParentPriorityRead` and finished view | Displayed or stored priority batches | External providers remain narrow authority ports | Complete |
+| Schedules | `TimePriorityScheduleRuntime` and service | Immutable schedule values | Application schedule commands | Game component records; mirror and synchronized replay use commands | Complete |
+| Specific jobs | Reassignment domain | Canonical override and inheritance reader | One specific-job batch in `WorkTabMutationScope` | Exact rollback and stale-data cleanup remain domain-owned | Complete |
+| Display and execution order | Column-order and reassignment domains | Effective order readers | Explicit reorder or staged layout command | Layout retarget includes schedule compensation | Complete |
+| Settings and presentation | Global preference owner and workload projection | Pass-stable settings snapshot | Context router or receipt-bearing workload writer | Preview port is session-local; accepted writes persist once | Complete |
+| WorkGrid | Snapshot provider and `WorkTabView` | Finished immutable view | Input routes application commands | Renderer owns no game state | Complete |
+| Rules | Classic and V2 evaluators | Canonical state view | `RuleApplicationPlanningScope` compiles one atomic plan | Old rule records translate at the boundary | Complete |
+| Workloads | Repository, session projection, and planner | Canonical live or projected state | One atomic plan plus one repository action | Legacy and V2 backends share the same application transaction | Complete |
+| Multiplayer | Transport layer | Fingerprints and expected revisions | Synchronized entry points call the same local handlers | Submission remains distinct from application | Complete at repository-harness level |
+| Compatibility | Per-integration narrow gateways | Core-facing authority and state reads | Canonical command or trusted import ports | Fail-closed behavior retained | Complete at repository-contract level |
+| Harmony and Spine | Patch and standalone integration edges | Patch-safe facade only when injection is unavailable | BWT-owned chains use explicit state views | Embedded and external Spine remain separate owners | Complete |
 
-The current batch is isolated in the worktree above. After its merge, subsequent architecture work continues from the canonical `Dev` checkout at `A:\Dev\RimWorld\Mods\Better-Work-Tab`.
+## Central transaction and revision result
 
-## Baseline verification
+`WorkTabAtomicMutationPlan` is the shared plan vocabulary for priorities, schedules, specific jobs, execution order, and presentation-affecting workload operations. `WorkTabMutationScope` validates the whole request, captures rollback state, applies each participating domain without publishing intermediate changes, restores in reverse order on failure, and commits one coherent application result. Rejected, unchanged, submitted, and successfully rolled-back requests do not publish a normal committed revision.
 
-| Check | Result | Evidence |
-| --- | --- | --- |
-| Deterministic source inclusion | Passed | `bwt-source-inclusion-contract/v1` |
-| Deterministic tests | 231 passed, 0 failed | `A:\Dev\RimWorld\Runtime\Evidence\BWT-Central-Architecture\baseline-deterministic` |
-| Full non-runtime gate | 18 steps passed, 0 failed | `A:\Dev\RimWorld\Runtime\Evidence\BWT-Central-Architecture\baseline-full\run-bc9035d1407843c083f4e04df00d4f0a\evidence\verification.json` |
-| Embedded 1.6 build and package | Passed | Full gate evidence |
-| External Spine 1.6 build and package | Passed | Full gate evidence |
-| Spine mirror contract | Passed, 28 shared and 28 retired files | Full gate evidence |
-| Service contracts | Passed | Full gate evidence |
-| Paired API contracts | Passed | Full gate evidence |
-| Production-surface checks | Passed for both candidates | Full gate evidence |
-| TestProbe build and staging | Passed | Full gate evidence |
-| Workloads V2 deterministic suites | 12 passed, 1 failed | `gateway-lifecycle-contracts` expects the retired footer action-in-draw source shape; production separates draw and input dispatch |
-| Runtime smoke behavior | Passed with contaminated log scan | Work tab opened, status and priority smoke passed, screenshot captured, and the session stopped cleanly; matrix failure came from an unrelated historical FactionLens error in `Player-prev.log` |
-| Runtime isolation after stop | Passed | Harness doctor reported no resource leases, unregistered processes, or blockers |
-| Compatibility matrix | Pending | Scheduled after domain and adapter migration |
-| Multiplayer runtime | Pending | Scheduled after command transport migration |
-| Paired benchmark | Pending | Scheduled for changed hot paths |
+The legacy workload path now compiles the same atomic plan as the V2 path. Classic rules and Rule Builder 2 compile the same plan vocabulary. Root-header priority changes use one displayed-priority batch. Full-day schedules and specific-job changes use one batch instead of per-cell or per-job loops. Layout move, undo, and redo stage order and reassignment data, own their schedule retarget batch, and advance history only after the application transaction commits.
 
-## Current batch verification
+## Finished view and input
 
-| Check | Result |
-| --- | --- |
-| Production 1.6 build | Passed with MSBuild |
-| In-repository deterministic suite | 14 passed, 0 failed |
-| External deterministic and contract suite | 258 passed, 0 failed |
-| Service contract suite | 13 passed, 0 failed |
-| Blocker/high review | Passed after import, multiplayer replay, actionability, and migration-retry corrections |
+`WorkTabView` is the pass envelope for geometry, effective state, settings, and prepared snapshot data. Input and drawing use the same view. The optimized BWT path receives prepared specific-job `CellPresentation` values from its snapshot. No concrete workload type is part of the shared WorkGrid contracts, and the BWT-owned body renderer does not resolve live workload state while drawing. Native and Harmony fallback drawing retains one documented live edge until those call sites can receive a finished BWT view.
 
-Two earlier full-gate invocations failed before BWT build steps because the active tooling worktree does not contain the externalized BWT build contract or Spine mirror script. The passing invocation used the clean tooling branch that owns those files and the active workspace and version manifests.
+Workload drafts use a shared bounded history implementation. `Ctrl+Z` and `Ctrl+Y` or `Ctrl+Shift+Z` undo and redo accepted draft edits. Canceling a dirty preview retains its projected state and both history stacks; the next `Ctrl+Z` restores the canceled workload with the unsaved changes. Restoration remains preview-only and does not mutate live game state.
 
-## Integration lanes
+## Removed duplicate paths
 
-| System | Worktree | Branch | Base | Owned paths | Shared dependency | Tests | Review | Integration state | Blockers | Temporary adapters | Removal phase |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Application and mutation map | `central-application-map` | `refactor/work-tab-application-map` | `ad01eed4` | Read-only repository map | None | Inventory only | Compared | Complete | None | None | Not applicable |
-| Priority and schedule map | `priority-schedule-map` | `refactor/priority-schedule-map` | `ad01eed4` | Read-only priority and schedule paths | Application vocabulary | Inventory and test gap analysis | Compared | Complete | None | None | Not applicable |
-| Specific-job and execution map | `specific-job-map` | `refactor/specific-job-map` | `ad01eed4` | Read-only specific-job and execution paths | Application vocabulary | Inventory and test gap analysis | Compared | Complete | None | None | Not applicable |
-| WorkGrid, layout, rendering, and input | `work-grid-map` | `refactor/work-grid-state-map` | `ad01eed4` | Read-only WorkGrid map | Canonical read and change result | Inventory and performance analysis | Compared | Complete | None | None | Not applicable |
-| Settings, presentation, and rules | `settings-rules-map` | `refactor/settings-rules-map` | `ad01eed4` | Read-only settings and rules map | Canonical read and command types | Inventory and transaction analysis | Compared | Complete | None | None | Not applicable |
-| Workloads, persistence, multiplayer, and compatibility map | `workload-boundaries-map` | `refactor/workload-boundaries-map` | `ad01eed4` | Read-only boundary map | All domain contracts | Inventory, migration, and protocol analysis | Compared | Complete | None | None | Not applicable |
-| Shared seam and transaction review | `central-architecture` | `refactor/central-work-tab-architecture` | `ad01eed4` | Architecture records only | All six maps | Call-graph, transaction, lifecycle, and subtraction review | Blocking findings incorporated | Complete | Additive first draft rejected | None | Not applicable |
-| Schedule and application centralization | `schedule-domain-migration` | `refactor/schedule-domain-centralization` | `55700b5d` | Application, schedules, parent/specific actionability, import and workload adapters | Parent read and presentation slices | Build, 14 deterministic, 258 external, 13 service contracts | Blocker/high gate passed | Ready to integrate | None | Trusted import and workload schedule adapters are narrow permanent boundaries |
+- Manager-owned single priority and specific-job write sequences.
+- Per-rule and per-workload mutation, invalidation, and rollback loops.
+- The separate multiplayer column-order synchronizer.
+- Duplicate WorkGrid inspection semantics and effective-state revision shim.
+- Header-positioning, tutorial-geometry, settings-visibility, and naming shells whose behavior already had another owner.
+- Dead diagnostic formatting in production; the external probe formats its own diagnostics through the supported read API.
+- Backend contracts and authorization forwarding that duplicated the application boundary.
 
-## Shared decisions
-
-| Decision | Evidence | State |
-| --- | --- | --- |
-| Application types remain independent from workload keys and intents | Task contract and current multi-caller requirement | Accepted |
-| Domain services retain separate state and policy | Current owners have different invariants and persistence | Accepted |
-| The application exposes explicit typed operations, not a marker-command bus | Prevents a growing dispatcher and preserves distinct displayed, stored, projected, and submitted intent | Accepted after call-graph review |
-| Preview uses a projection editor outside game-state application | Preview must not acquire live transport, persistence, mirror, or invalidation effects | Accepted after call-graph review |
-| The application returns one coherent committed state change | Required for revisions, rollback, execution recache, and UI invalidation | Accepted after transaction-order correction |
-| Live and projected reads use one resolver with an optional overlay | Sharing an interface alone would preserve duplicate policy | Accepted after call-graph review |
-| Multiplayer submission and synchronized local application are distinct results | A dispatched call is not yet an applied mutation | Accepted after protocol review |
-| Compatibility schedule import fails closed in active multiplayer | Bulk import has no deterministic synchronized transaction protocol | Accepted after merge review |
-| Workload rollback owns exact advancing schedule revisions | Partial rollback retries must reject drift without losing ownership of unrestored targets | Accepted after transaction review |
-| The existing snapshot evolves into the finished pass view | A parallel view graph would add code and duplicate geometry/state | Accepted after frame-order review |
-| Per-game composition belongs to the world game component | Mod startup is not the lifetime owner for mutable game state | Accepted after lifetime review |
-| Production centralization is net subtractive | The old path must be removed as each shared owner becomes authoritative | Accepted |
+No temporary mutation adapter remains. The two one-caller ports are intentional edges: the snapshot presentation layer separates prepared data from rendering, and the presentation preview port prevents session edits from reaching persistent settings. Remove either only when its edge disappears; do not add a second implementation merely to justify the abstraction.
 
 ## Simplification scorecard
 
-| Measure | Baseline | Current | Exit condition |
-| --- | --- | --- | --- |
-| Production C# files | 443 | 454 | New boundaries must continue replacing broader owners; no empty file splitting |
-| Production physical lines | 152,346 mission; 151,788 pre-batch | 151,629 | Final count remains below both baselines |
-| Production nonblank lines | 134,772 pre-batch | 134,681 | Each implementation batch remains net subtractive |
-| Direct settings singleton references | 346 in 94 files | 296 in 87 files | Normal domain and rendering callers use owned ports or snapshots |
-| Ambient effective-state runtime references | 266 in 42 files | 180 in 41 files | Retained only at documented Harmony/native edges |
-| Direct WorkGrid invalidation calls | 41 in 26 files | 33 in 23 files | Domain changes return state-change results; only UI-local calls remain |
-| WorkGrid files with Workload text coupling | 13 files, 685 matches | 13 files, 592 matches | No shared WorkGrid contract depends on Workload types |
-| Effective presentation call surface | 120 calls across 31 files and 389 physical lines | 119 fallback-free calls | Continue reducing the mechanism and its caller spans |
-| Workload settings transaction writer | About 445 lines including interface and snapshot shell | Unchanged | At or below 360 lines with one receipt-bearing persistence and compensation path |
-| Temporary adapters | 0 architecture adapters | 0 | Every introduced adapter has a recorded removal phase and no obsolete adapter remains |
+| Measure | Mission baseline | Final working tree | Change |
+| --- | ---: | ---: | ---: |
+| Production C# files | 443 | 459 | +16 focused boundary files |
+| Production physical lines | 152,346 | 151,998 | -348 |
+| Production nonblank lines | Not recorded at mission start | 135,229 | Current measurement |
 
-## Remaining work
+Relative to completion base `e5987800`, tracked production edits add 5,351 and remove 6,663 lines; new production files add 1,693 lines. The full mission remains physically smaller than its baseline while adding atomic rollback, finished views, canceled-draft recovery, and workload undo and redo. The final physical count is the controlling net-simplification measure because the completion base already contains the earlier centralized priority and schedule deletions.
 
-- Move ordinary specific-job and execution-order writes behind typed application commands without retaining manager-owned UI sequences.
-- Compile classic rules and Rule Builder 2 into one canonical command vocabulary and remove their direct mutation loops.
-- Finish WorkGrid pass-view decoupling from workload and concrete domain internals.
-- Finish global settings/preference ownership and route remaining direct singleton writes through owned operations.
-- Shrink the workload backend by moving normal domain mutation, invalidation, and transaction coordination to the application boundary.
-- Complete compatibility, multiplayer-runtime, and paired-performance matrices after the remaining mutation paths stabilize.
+## Final verification
 
-## Update rule
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Production 1.6 build with embedded Spine | Passed, 0 errors | Existing duplicate Publicizer source warning only |
+| In-repository deterministic suite | 15 passed, 0 failed | Local production suite |
+| External deterministic and architecture contracts | 273 passed, 0 failed | Test `main` suite |
+| Full isolated verifier | Passed | `A:\Dev\RimWorld\Runtime\BwtCentralArchitecture\final-verification\run-482989b9e97b43f89fbdc33ea99e32e5\evidence\verification.json` |
+| External Spine build and mirror checks | Passed | Full verifier |
+| API, service, package, and production-surface checks | Passed | Full verifier |
+| TestProbe build and staging | Passed, 0 warnings and 0 errors | Full verifier |
+| Main-window frame phases | 14 passed, 0 failed | Focused source contract |
+| Finished-view and visible-column optimization | 46 passed, 0 failed | Focused source and performance contract |
+| Interaction cleanup | 45 passed, 0 failed | Focused source contract |
+| Input behavior | 33 passed, 0 failed | Focused source contract |
+| Ordering | 8 passed, 0 failed | Focused source contract |
+| Harness extension suite | 35 passed, 0 failed | Harness extension tests |
+| Live Work tab ownership and ExpandBeside geometry | 231 checks, 0 failures for 3 pawns and 24 columns | Runtime profile `central-final-probe2` |
+| Live isolation after test | Passed | Session stopped cleanly; harness reported no blockers before launch |
 
-Update this ledger after each integrated commit. Record the exact command, result, review disposition, adapter state, and next dependency. Remove completed mapping branches and worktrees only after their evidence has been integrated and the source owner no longer needs them.
+The focused visible-column test is the repository's available hot-path gate for this change. It confirms prepared presentation, visible-column culling, and the absence of repeated live resolution in the BWT body path. A paired save benchmark was not available because the workspace has no compatible benchmark manifest and seed lane for this mod. No performance claim beyond the passing source gate and live geometry evidence is made.
+
+## Migration and compatibility policy
+
+Each stateful domain owns current-record meaning and conversion. The game component coordinates Scribe without becoming the behavioral owner. Supported old workload shapes normalize into the current projection and ownership model before runtime planning. Empty collections do not select a schema generation. Compatibility imports use the canonical application plan and are unavailable in active multiplayer when no deterministic transaction protocol exists.
+
+## Remaining condition
+
+There is no remaining central-architecture source migration. The native/Harmony live-render fallback is the only documented edge condition: retire it when those non-BWT call sites can receive the same finished `WorkTabView`. A future paired runtime benchmark needs a repository-owned manifest and deterministic save fixture; that is test infrastructure, not a second state or mutation path.

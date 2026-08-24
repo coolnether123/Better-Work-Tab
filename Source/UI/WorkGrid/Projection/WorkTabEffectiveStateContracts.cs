@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Better_Work_Tab.Features.Workloads.V2;
 
 namespace Better_Work_Tab.UI.WorkGrid.Projection
 {
@@ -101,12 +100,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             return State + (IsSet ? ":" + (boxed == null ? string.Empty : boxed.ToString()) : string.Empty);
         }
     }
-
-    /// <summary>
-    /// A resolver used by the live adapter. Returning false means that the
-    /// adapter has no value for the key and lets the provider's fallback win.
-    /// </summary>
-    public delegate bool WorkTabEffectiveStateResolver<TKey, TValue>(TKey key, out TValue value);
 
     /// <summary>
     /// Revision vector consumed by effective-state and optimized-renderer
@@ -246,15 +239,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                    StringComparer.Ordinal.Equals(ProviderId, provider.ProviderId) &&
                    Revision == provider.Revision &&
                    Source == provider.Source &&
-                   RevisionVector.Equals(
-                       provider is IWorkTabEffectiveStateV2Provider v2
-                           ? v2.RevisionVector
-                           : WorkTabEffectiveStateRevisionVector.FromRevision(provider.Revision));
-        }
-
-        public bool IsStale(IWorkTabEffectiveStateProvider provider)
-        {
-            return !IsCurrent(provider);
+                   RevisionVector.Equals(provider.RevisionVector);
         }
 
         public bool Equals(WorkTabEffectiveStateRevision other)
@@ -312,116 +297,38 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         WorkTabEffectiveStateRevision RevisionToken { get; }
     }
 
+    /// <summary>
+    /// Optional provider capability for a finished UI pass. A capture returns a
+    /// read-only view stamped with the supplied token; input may keep editing
+    /// the live provider, but render consumers keep reading the values that
+    /// were present when the host built its WorkTabView.
+    /// </summary>
+    public interface IWorkTabEffectiveStateViewSource
+    {
+        IWorkTabEffectiveStateProvider CaptureEffectiveStateView(
+            WorkTabEffectiveStateRevision revision);
+    }
+
     public interface IWorkTabEffectiveStateProvider : IWorkTabEffectiveStateRevisionSource
     {
         string ProviderId { get; }
         long Revision { get; }
+        WorkTabEffectiveStateRevisionVector RevisionVector { get; }
         WorkTabEffectiveStateSource Source { get; }
         bool IsLive { get; }
         bool IsPreview { get; }
-
-        ScheduleKey GetSchedule(PawnKey key, ScheduleKey fallbackSchedule);
-        bool TryGetSchedule(PawnKey key, out ScheduleKey schedule);
-
-        WorkloadScalarValue GetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            WorkloadScalarValue fallbackValue);
-
-        bool TryGetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            out WorkloadScalarValue value);
-
-        int GetSpecificJobOrder(WorkloadSpecificJobKey key, int fallbackOrder);
-        bool TryGetSpecificJobOrder(WorkloadSpecificJobKey key, out int order);
-
-        WorkloadScalarValue GetPresentationSetting(
-            string key,
-            WorkloadScalarValue fallbackValue);
-
-        bool TryGetPresentationSetting(string key, out WorkloadScalarValue value);
     }
 
-    /// <summary>
-    /// V2 projection surface. Resolution methods report the exact layer owned
-    /// by the provider. Consumers that need an effective value should use the
-    /// provider's legacy Get/TryGet methods or the runtime adapters, which
-    /// compose Clear by continuing to the canonical lower-precedence layer.
-    /// </summary>
-    public interface IWorkTabEffectiveStateV2Provider
+    /// <summary>Optional preview policy used to fail closed without knowing the provider implementation.</summary>
+    public interface IWorkTabPreviewOwnership
     {
-        WorkTabEffectiveStateRevisionVector RevisionVector { get; }
-
-        WorkTabEffectiveStateResolution<WorkloadSchedulePayload> ResolveSchedule(WorkloadScheduleTargetKey key);
-        WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload> ResolveSpecificJobPriority(WorkloadSpecificJobTargetKey key);
-        WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload> ResolveWorkTypeOrder(WorkloadWorkTypeOrderKey key);
-        WorkTabEffectiveStateResolution<WorkloadSettingValue> ResolvePresentationSetting(string key);
+        bool OwnsDimension(WorkTabEffectiveStateDimension dimension);
     }
 
-    /// <summary>
-    /// Typed preview writes used by schedule, specific-job, and settings
-    /// adapters. The older editor remains available for existing callers.
-    /// </summary>
-    public interface IWorkTabEffectiveStateV2Editor
+    /// <summary>Optional per-pass preparation for providers with live dependencies.</summary>
+    public interface IWorkTabEffectiveStatePassParticipant
     {
-        WorkTabEffectiveStateMutationResult SetSchedule(
-            WorkloadScheduleTargetKey key,
-            WorkloadSchedulePayload payload);
-
-        WorkTabEffectiveStateMutationResult ClearSchedule(WorkloadScheduleTargetKey key);
-
-        WorkTabEffectiveStateMutationResult SetScheduleNoOpinion(WorkloadScheduleTargetKey key);
-
-        WorkTabEffectiveStateMutationResult SetSpecificJobPriority(
-            WorkloadSpecificJobTargetKey key,
-            WorkloadSpecificPriorityPayload payload);
-
-        WorkTabEffectiveStateMutationResult ClearSpecificJobPriority(WorkloadSpecificJobTargetKey key);
-
-        WorkTabEffectiveStateMutationResult SetWorkTypeOrder(
-            WorkloadWorkTypeOrderKey key,
-            WorkloadWorkTypeOrderPayload payload);
-
-        WorkTabEffectiveStateMutationResult ClearWorkTypeOrder(WorkloadWorkTypeOrderKey key);
-
-        WorkTabEffectiveStateMutationResult SetPresentationSetting(
-            string key,
-            WorkloadSettingValue value);
-
-        WorkTabEffectiveStateMutationResult ClearPresentationSettingV2(string key);
-    }
-
-    /// <summary>
-    /// Describes virtual writes against an effective-state source. An editor may
-    /// be backed by live callbacks or by a draft; callers must inspect the
-    /// status instead of assuming that a requested write happened.
-    /// </summary>
-    public interface IWorkTabEffectiveStateEditor
-    {
-        WorkTabEffectiveStateMutationResult SetSchedule(
-            PawnKey key,
-            ScheduleKey schedule);
-
-        WorkTabEffectiveStateMutationResult ClearSchedule(PawnKey key);
-
-        WorkTabEffectiveStateMutationResult SetSpecificJobOverride(
-            WorkloadSpecificJobKey key,
-            WorkloadScalarValue value);
-
-        WorkTabEffectiveStateMutationResult ClearSpecificJobOverride(
-            WorkloadSpecificJobKey key);
-
-        WorkTabEffectiveStateMutationResult SetSpecificJobOrder(
-            WorkloadSpecificJobKey key,
-            int order);
-
-        WorkTabEffectiveStateMutationResult ClearSpecificJobOrder(
-            WorkloadSpecificJobKey key);
-
-        WorkTabEffectiveStateMutationResult SetPresentationSetting(
-            string key,
-            WorkloadScalarValue value);
-
-        WorkTabEffectiveStateMutationResult ClearPresentationSetting(string key);
+        void PrepareRenderPass(long passId);
     }
 
     public readonly struct WorkTabEffectiveStateMutationResult
@@ -497,100 +404,4 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
         }
     }
 
-    public static class WorkTabEffectiveStateProviderExtensions
-    {
-        public static int GetSpecificJobIntegerOverride(
-            this IWorkTabEffectiveStateProvider provider,
-            WorkloadSpecificJobKey key,
-            int fallbackPriority)
-        {
-            WorkloadScalarValue fallback = WorkloadScalarValue.FromInteger(fallbackPriority);
-            WorkloadScalarValue value = provider == null
-                ? fallback
-                : provider.GetSpecificJobOverride(key, fallback);
-            return value.Kind == WorkloadScalarKind.Integer
-                ? value.IntegerValue
-                : fallbackPriority;
-        }
-
-        public static bool TryGetSpecificJobIntegerOverride(
-            this IWorkTabEffectiveStateProvider provider,
-            WorkloadSpecificJobKey key,
-            out int priority)
-        {
-            priority = 0;
-            if (provider == null || !provider.TryGetSpecificJobOverride(key, out WorkloadScalarValue value) ||
-                value.Kind != WorkloadScalarKind.Integer)
-            {
-                return false;
-            }
-
-            priority = value.IntegerValue;
-            return true;
-        }
-
-        public static WorkTabEffectiveStateMutationResult SetSchedule(
-            this IWorkTabEffectiveStateEditor editor,
-            PawnKey key,
-            int scheduleId)
-        {
-            if (editor == null)
-            {
-                return WorkTabEffectiveStateMutationResult.Blocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    0,
-                    "No effective-state editor is available.");
-            }
-
-            return editor.SetSchedule(key, new ScheduleKey(scheduleId));
-        }
-
-        public static WorkTabEffectiveStateMutationResult RemoveSchedule(
-            this IWorkTabEffectiveStateEditor editor,
-            PawnKey key)
-        {
-            return editor == null
-                ? WorkTabEffectiveStateMutationResult.Blocked(
-                    WorkTabEffectiveStateDimension.Schedule,
-                    0,
-                    "No effective-state editor is available.")
-                : editor.ClearSchedule(key);
-        }
-
-        public static WorkTabEffectiveStateMutationResult RemoveSpecificJobOverride(
-            this IWorkTabEffectiveStateEditor editor,
-            WorkloadSpecificJobKey key)
-        {
-            return editor == null
-                ? WorkTabEffectiveStateMutationResult.Blocked(
-                    WorkTabEffectiveStateDimension.SpecificJobOverride,
-                    0,
-                    "No effective-state editor is available.")
-                : editor.ClearSpecificJobOverride(key);
-        }
-
-        public static WorkTabEffectiveStateMutationResult RemoveSpecificJobOrder(
-            this IWorkTabEffectiveStateEditor editor,
-            WorkloadSpecificJobKey key)
-        {
-            return editor == null
-                ? WorkTabEffectiveStateMutationResult.Blocked(
-                    WorkTabEffectiveStateDimension.SpecificJobOrder,
-                    0,
-                    "No effective-state editor is available.")
-                : editor.ClearSpecificJobOrder(key);
-        }
-
-        public static WorkTabEffectiveStateMutationResult RemovePresentationSetting(
-            this IWorkTabEffectiveStateEditor editor,
-            string key)
-        {
-            return editor == null
-                ? WorkTabEffectiveStateMutationResult.Blocked(
-                    WorkTabEffectiveStateDimension.PresentationSetting,
-                    0,
-                    "No effective-state editor is available.")
-                : editor.ClearPresentationSetting(key);
-        }
-    }
 }

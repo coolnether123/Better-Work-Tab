@@ -105,64 +105,6 @@ namespace Better_Work_Tab.Features.Workloads.V2
         }
     }
 
-    public sealed class WorkloadTargetScopeKey : IEquatable<WorkloadTargetScopeKey>, IComparable<WorkloadTargetScopeKey>
-    {
-        public WorkloadTargetScopeKey(WorkloadTargetScope scope, PawnKey pawn = null)
-        {
-            Scope = scope;
-            Pawn = pawn ?? new PawnKey(null);
-        }
-
-        public static WorkloadTargetScopeKey ForPawn(PawnKey pawn)
-        {
-            return new WorkloadTargetScopeKey(WorkloadTargetScope.PawnLocal, pawn);
-        }
-
-        public static WorkloadTargetScopeKey Global
-        {
-            get { return new WorkloadTargetScopeKey(WorkloadTargetScope.GlobalShared); }
-        }
-
-        public WorkloadTargetScope Scope { get; private set; }
-        public PawnKey Pawn { get; private set; }
-        public bool IsGlobal => Scope == WorkloadTargetScope.GlobalShared;
-        public bool IsValid =>
-            (Scope == WorkloadTargetScope.PawnLocal && Pawn.IsValid) ||
-            Scope == WorkloadTargetScope.GlobalShared;
-
-        public string CanonicalKey =>
-            ((int)Scope).ToString() + ":" + WorkloadCanonical.Encode(Pawn.Value);
-
-        public int CompareTo(WorkloadTargetScopeKey other)
-        {
-            if (other == null) return 1;
-            int scope = Scope.CompareTo(other.Scope);
-            return scope != 0 ? scope : Pawn.CompareTo(other.Pawn);
-        }
-
-        public bool Equals(WorkloadTargetScopeKey other)
-        {
-            return !ReferenceEquals(other, null) &&
-                Scope == other.Scope &&
-                Pawn.Equals(other.Pawn);
-        }
-
-        public override bool Equals(object obj)
-        {
-            return Equals(obj as WorkloadTargetScopeKey);
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked { return ((int)Scope * 397) ^ Pawn.GetHashCode(); }
-        }
-
-        public override string ToString()
-        {
-            return CanonicalKey;
-        }
-    }
-
     public sealed class PawnKey : IEquatable<PawnKey>, IComparable<PawnKey>
     {
         public PawnKey(string value)
