@@ -4,6 +4,7 @@ using RimWorld;
 using System.Collections.Generic;
 using Verse.Sound;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Commands;
@@ -449,7 +450,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             for (int i = 0; i < pawns.Count; i++)
             {
                 Pawn pawn = pawns[i];
-                if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType))
+                if (!WorkTabActionability.CanApplyParent(pawn, workType))
                     continue;
 
                 int curPriority = WorkTabEffectiveStateRuntime.IsPreviewActive
@@ -484,10 +485,10 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
                 else
                 {
-                    changed |= ParentPriorityApplication.SetStoredParentPriority(
+                    changed |= WorkTabApplication.Current?.SetStoredParentPriority(
                         pawn,
                         workType,
-                        nextPriority);
+                        nextPriority) == true;
                 }
             }
 
@@ -626,7 +627,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             for (int i = 0; i < pawns.Count; i++)
             {
                 Pawn pawn = pawns[i];
-                if (pawn.Dead || pawn.workSettings == null || !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType))
+                if (!WorkTabActionability.CanApplySpecific(pawn, workType, workGiverDef))
                 {
                     continue;
                 }

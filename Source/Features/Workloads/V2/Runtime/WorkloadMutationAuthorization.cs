@@ -1,15 +1,13 @@
 using System;
 
-namespace Better_Work_Tab.Features.TimePriority
+namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 {
     /// <summary>
-    /// In-process capability for a workload transaction to cross the
-    /// multiplayer schedule writer boundary.  The normal editor and legacy
-    /// sync entry points never receive this object, so an active multiplayer
-    /// session remains fail-closed unless the synchronized workload backend
-    /// explicitly mints one for the current authority revision.
+    /// Opaque transaction capability owned by the workload runtime.  It keeps
+    /// workload request identity, replay fingerprints, and rollback scope out
+    /// of individual feature domains.
     /// </summary>
-    internal sealed class TimePriorityMutationAuthorization
+    internal sealed class WorkloadMutationAuthorization
     {
         private readonly object _requestIdentity;
         private readonly object _sessionIdentity;
@@ -28,7 +26,7 @@ namespace Better_Work_Tab.Features.TimePriority
         private bool _executionActive;
         private bool _finalized;
 
-        private TimePriorityMutationAuthorization(
+        private WorkloadMutationAuthorization(
             object requestIdentity,
             object sessionIdentity,
             string transactionId,
@@ -60,11 +58,6 @@ namespace Better_Work_Tab.Features.TimePriority
             _rosterFingerprint = rosterFingerprint ?? string.Empty;
         }
 
-        /// <summary>
-        /// Mints the single opaque capability used by a synchronized workload
-        /// execute.  The two object identities are deliberately retained by
-        /// reference; matching strings alone can never authorize a write.
-        /// </summary>
         internal static bool TryCreateForWorkload(
             object requestIdentity,
             object sessionIdentity,
@@ -80,7 +73,7 @@ namespace Better_Work_Tab.Features.TimePriority
             int settingsRevision,
             string hostSessionEpoch,
             string rosterFingerprint,
-            out TimePriorityMutationAuthorization authorization,
+            out WorkloadMutationAuthorization authorization,
             out string reason)
         {
             authorization = null;
@@ -102,7 +95,7 @@ namespace Better_Work_Tab.Features.TimePriority
                 return false;
             }
 
-            authorization = new TimePriorityMutationAuthorization(
+            authorization = new WorkloadMutationAuthorization(
                 requestIdentity,
                 sessionIdentity,
                 transactionId,
@@ -125,8 +118,7 @@ namespace Better_Work_Tab.Features.TimePriority
 
         internal bool IsBoundTo(long authorityRevision)
         {
-            return _authorityRevision == authorityRevision &&
-                   IsUsable;
+            return _authorityRevision == authorityRevision && IsUsable;
         }
 
         internal bool IsUsable => _executionActive && !_finalized;
@@ -162,6 +154,30 @@ namespace Better_Work_Tab.Features.TimePriority
                    _settingsRevision == settingsRevision &&
                    StringComparer.Ordinal.Equals(_hostSessionEpoch, hostSessionEpoch ?? string.Empty) &&
                    StringComparer.Ordinal.Equals(_rosterFingerprint, rosterFingerprint ?? string.Empty);
+        }
+
+        internal bool IsAcceptedForSchedule(
+            bool synchronizedExecution,
+            long authorityRevision,
+            int scheduleRevision)
+        {
+            return !synchronizedExecution
+                ? !_finalized
+                : IsUsable &&
+                  _authorityRevision == authorityRevision &&
+                  _scheduleRevision == scheduleRevision;
+        }
+
+        internal bool IsAcceptedForScheduleRollback(
+            bool synchronizedExecution,
+            long authorityRevision,
+            int transactionScheduleRevision)
+        {
+            return !synchronizedExecution
+                ? !_finalized
+                : IsUsable &&
+                  _authorityRevision == authorityRevision &&
+                  _scheduleRevision == transactionScheduleRevision;
         }
 
         internal bool IsAcceptedForSpecificBatch(
@@ -212,14 +228,30 @@ namespace Better_Work_Tab.Features.TimePriority
         internal long SessionRevision => _sessionRevision;
         internal string HostSessionEpoch => _hostSessionEpoch;
         internal string RosterFingerprint => _rosterFingerprint;
+    }
 
-        internal static bool IsAcceptedFor(
-            bool synchronizedExecution,
-            long authorityRevision,
-            TimePriorityMutationAuthorization authorization)
+    internal sealed class WorkloadScheduleRevisionReceipt
+    {
+        internal WorkloadScheduleRevisionReceipt(int initialRevision)
         {
-            return !synchronizedExecution ||
-                   (authorization != null && authorization.IsBoundTo(authorityRevision));
+            InitialRevision = initialRevision;
+            OwnedRevision = initialRevision;
+        }
+
+        internal int InitialRevision { get; }
+        internal int OwnedRevision { get; private set; }
+        internal bool Owns(int revision) => revision == OwnedRevision;
+
+        internal bool AcceptCommit(bool changed, int observedRevision)
+        {
+            int expected = changed ? unchecked(OwnedRevision + 1) : OwnedRevision;
+            if (observedRevision != expected)
+            {
+                return false;
+            }
+
+            OwnedRevision = observedRevision;
+            return true;
         }
     }
 }

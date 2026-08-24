@@ -1,5 +1,7 @@
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.Features.Application;
+using Better_Work_Tab.Features.TimePriority;
 using Multiplayer.API;
 using RimWorld;
 using System;
@@ -172,6 +174,15 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             var orders = DecodeOrders(encodedOrders);
             if (orders.Count == 0) return;
 
+            WorkTypeDef targetWorkType = DefDatabase<WorkTypeDef>.GetNamedSilentFail(targetWorkTypeDefName);
+            WorkTypeDef sourceWorkType = GetTargetWorkType(giver);
+            if (targetWorkType == null ||
+                !TimePriorityService.TryPrepareWorkGiverScheduleRetarget(
+                    giver, sourceWorkType, targetWorkType, out TimePriorityService.WorkGiverScheduleRetargetPlan schedulePlan, out _))
+            {
+                return;
+            }
+
             WorkGiverLayoutCommand command = localCommand;
             if (command == null)
             {
@@ -194,7 +205,17 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             data.SyncVersion++;
             InvalidateCaches();
 
-            var target = DefDatabase<WorkTypeDef>.GetNamedSilentFail(targetWorkTypeDefName);
+            bool schedulesChanged = TimePriorityService.CommitWorkGiverScheduleRetarget(schedulePlan);
+            if (schedulesChanged && TimePriorityService.CommitMutationBatch())
+            {
+                WorkTabApplication.PublishCompletedScheduleMutation(
+                    true,
+                    broadScope: true,
+                    dimensions: WorkTabApplicationDimensions.Schedule |
+                        WorkTabApplicationDimensions.ExecutionOrder);
+            }
+
+            var target = targetWorkType;
             if (target != null && (target != giver.workType || IsWorkGiverOutOfBaselinePosition(target, giver)))
                 RecordPlayerMovedWorkGiver(target, giver);
 
@@ -220,6 +241,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             var source = GetTargetWorkType(giver) ?? giver.workType;
+            if (!TimePriorityService.TryPrepareWorkGiverScheduleRetarget(
+                    giver, source, target, out _, out error))
+            {
+                return false;
+            }
             var affected = new HashSet<string>(StringComparer.Ordinal) { target.defName };
             if (source != null) affected.Add(source.defName);
             var before = CaptureSnapshot(giver, affected);

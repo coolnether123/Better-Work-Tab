@@ -1,4 +1,5 @@
 using HarmonyLib;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using RimWorld;
 using Verse;
@@ -39,6 +40,11 @@ namespace Better_Work_Tab.Features.Patches
             if (__instance?.priorities == null ||
                 w == null ||
                 __state == int.MinValue)
+            {
+                return;
+            }
+
+            if (WorkTabApplication.OwnsCurrentParentPrioritySetter)
             {
                 return;
             }

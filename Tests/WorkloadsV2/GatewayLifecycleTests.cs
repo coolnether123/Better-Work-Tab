@@ -45,7 +45,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string english = Read(root, "Languages", "English", "Keyed", "English.xml");
             string settings = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
 
-            FooterSelectorKeepsManagerAndPreviewActionsSeparate(header, gateway);
+            FooterSelectorKeepsManagerAndPreviewActionsSeparate(header, gateway, mainWindow);
             WorkloadMenuUsesStableIds(header);
             WorkloadSelectorUsesOnlyTheWorkloadName(header);
             PreviewActionsUseVisibleHitRects(header);
@@ -221,42 +221,46 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static void FooterSelectorKeepsManagerAndPreviewActionsSeparate(
             string header,
-            string gateway)
+            string gateway,
+            string mainWindow)
         {
-            int input = header.IndexOf(
-                "public static bool TryHandleWorkloadFooterInput(",
-                StringComparison.Ordinal);
-            int draw = header.IndexOf(
-                "private static void DrawWorkloadGroup(",
-                StringComparison.Ordinal);
-            int previewActions = header.IndexOf(
-                "private static void DrawWorkloadPreviewActions(",
-                StringComparison.Ordinal);
-            TestAssert.True(
-                input >= 0 && draw > input && previewActions > draw,
-                "footer input, selector drawing, and preview-action drawing must remain separate paths");
+            string frameInput = MethodBody(mainWindow, "private void RouteFrameInput(");
+            string inputPath = MethodBody(header, "public static bool TryHandleWorkloadFooterInput(");
+            string footerDrawPath = MethodBody(header, "public static void DrawBottomRightGrouped(");
+            string drawPath = MethodBody(header, "private static void DrawWorkloadGroup(");
+            string previewDrawPath = MethodBody(header, "private static void DrawWorkloadPreviewActions(");
+            string executionPath = MethodBody(header, "private static void ExecuteWorkloadFooterControl(");
 
-            string inputPath = header.Substring(input, draw - input);
-            string drawPath = header.Substring(draw, previewActions - draw);
-            int execute = header.IndexOf(
-                "private static void ExecuteWorkloadFooterControl(",
-                StringComparison.Ordinal);
-            int picker = header.IndexOf(
-                "private static List<FloatMenuOption> BuildWorkloadPickerOptions(",
-                execute,
-                StringComparison.Ordinal);
-            TestAssert.True(
-                execute >= 0 && picker > execute,
-                "footer control execution must remain isolated from drawing");
-            string executionPath = header.Substring(execute, picker - execute);
+            TestAssert.Contains(
+                footerDrawPath,
+                "DrawWorkloadGroup(",
+                "footer drawing must retain the visible workload selector");
+            TestAssert.Contains(
+                footerDrawPath,
+                "DrawWorkloadPreviewActions(",
+                "footer drawing must retain the visible preview-action lane");
+            TestAssert.False(
+                footerDrawPath.IndexOf("ExecuteWorkloadFooterControl(", StringComparison.Ordinal) >= 0 ||
+                footerDrawPath.IndexOf("QueuePreviewLifecycleAction(", StringComparison.Ordinal) >= 0,
+                "footer drawing must not execute lifecycle actions");
+            TestAssert.False(
+                inputPath.IndexOf("DrawWorkloadGroup(", StringComparison.Ordinal) >= 0 ||
+                inputPath.IndexOf("DrawWorkloadPreviewActions(", StringComparison.Ordinal) >= 0,
+                "footer input dispatch must not redraw controls");
             TestAssert.Contains(
                 inputPath,
                 "TryResolveWorkloadFooterControl(",
                 "footer input must resolve a visible control before executing it");
             TestAssert.Contains(
                 inputPath,
-                "ExecuteWorkloadFooterControl(hoveredFooterControl, preview)",
-                "footer input must execute only the resolved control");
+                "overFooterControl && pressedControl == hoveredFooterControl",
+                "footer input must dispatch only the completed click on the same visible control");
+            TestAssert.True(
+                CountOccurrences(inputPath, "ExecuteWorkloadFooterControl(hoveredFooterControl, preview)") == 1,
+                "each resolved footer control must have one reachable input dispatch");
+            TestAssert.True(
+                CountOccurrences(frameInput, "HeaderButtons.TryHandleWorkloadFooterInput(") == 1,
+                "the Work window must dispatch footer input exactly once per input pass");
             TestAssert.Contains(
                 drawPath,
                 "DrawWorkloadMainControl(",
@@ -268,6 +272,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 drawPath.IndexOf("ExecuteWorkloadFooterControl", StringComparison.Ordinal) >= 0,
                 "selector drawing must not execute footer lifecycle actions");
+            TestAssert.False(
+                previewDrawPath.IndexOf("QueuePreviewLifecycleAction(", StringComparison.Ordinal) >= 0,
+                "preview-action drawing must not execute lifecycle actions");
             TestAssert.Contains(
                 executionPath,
                 "() => preview.BeginCurrentPreview(),",
@@ -993,6 +1000,56 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             return TestSupport.FindRepositoryRoot(
                 Path.Combine("Source", "UI", "Workloads", "WorkloadGateway.cs"),
                 "gateway contracts");
+        }
+
+        private static string MethodBody(string source, string signature)
+        {
+            int signatureStart = source.IndexOf(signature, StringComparison.Ordinal);
+            TestAssert.True(signatureStart >= 0, "expected production method is missing: " + signature);
+            if (signatureStart < 0)
+            {
+                return string.Empty;
+            }
+
+            int bodyStart = source.IndexOf('{', signatureStart + signature.Length);
+            TestAssert.True(bodyStart >= 0, "expected production method body is missing: " + signature);
+            if (bodyStart < 0)
+            {
+                return string.Empty;
+            }
+
+            int depth = 0;
+            for (int index = bodyStart; index < source.Length; index++)
+            {
+                if (source[index] == '{')
+                {
+                    depth++;
+                }
+                else if (source[index] == '}' && --depth == 0)
+                {
+                    return source.Substring(bodyStart, index - bodyStart + 1);
+                }
+            }
+
+            TestAssert.True(false, "expected production method body is balanced: " + signature);
+            return string.Empty;
+        }
+
+        private static int CountOccurrences(string source, string value)
+        {
+            int count = 0;
+            int index = 0;
+            while (true)
+            {
+                index = source.IndexOf(value, index, StringComparison.Ordinal);
+                if (index < 0)
+                {
+                    return count;
+                }
+
+                count++;
+                index += value.Length;
+            }
         }
 
         private static string Read(string root, params string[] parts)

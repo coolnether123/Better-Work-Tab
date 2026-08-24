@@ -1,4 +1,5 @@
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads.V2;
@@ -80,7 +81,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 WorkGiverCellPresentationCache.Resolve(wg, workType, pawn, knownParentPriority);
             int workGiverPriority = FluffyTimeScheduleAssigner.IsOpen
                 ? FluffyTimeScheduleAssigner.GetDisplayPriority(
-                    TimePriorityTarget.ForRuntimeWorkGiver(pawn, workType, wg.def),
+                    TimePriorityTarget.ForWorkGiver(pawn, wg.def),
                     presentation.BasePriority,
                     pawn)
                 : presentation.EffectivePriority;
@@ -562,7 +563,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                         pawn,
                         workType,
                         WorkPrioritySystem.GetDefaultEnabledPriority())
-                    : EnableParentWorkTypeLive(pawn, workType);
+                    : EnableParentWorkTypeLive(pawn, workType, wg.def);
                 if (!accepted)
                 {
                     evt.Use();
@@ -1022,18 +1023,18 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             return true;
         }
 
-        private static bool EnableParentWorkTypeLive(Pawn pawn, WorkTypeDef workType)
+        private static bool EnableParentWorkTypeLive(Pawn pawn, WorkTypeDef workType, WorkGiverDef workGiver)
         {
             if (!PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData ||
-                pawn?.workSettings == null ||
-                workType == null)
+                !WorkTabActionability.CanApplySpecific(pawn, workType, workGiver))
             {
                 return false;
             }
 
             WorkGiverReassignmentManager.EnableParentWorkTypeSynced(
                 pawn.thingIDNumber,
-                workType.defName);
+                workType.defName,
+                workGiver.defName);
             return true;
         }
 

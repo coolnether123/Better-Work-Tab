@@ -91,13 +91,13 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 if (records.Count > 0)
                 {
                     component.EnsureWorkGiverReassignmentData();
-                    importedEntryCount = ExternalWorkTabPriorityImportService.Import(component, records);
-                    component.ExternalWorkTabPriorityMigrationVersion = MigrationVersion;
-
-                    if (importedEntryCount > 0)
+                    if (ExternalWorkTabPriorityImportService.TryImport(
+                            component, records, out importedEntryCount))
                     {
-                        Log.Message("[Better Work Tab] Imported " + importedEntryCount +
-                            " Fluffy Work Tab priority entries.");
+                        component.ExternalWorkTabPriorityMigrationVersion = MigrationVersion;
+                        if (importedEntryCount > 0)
+                            Log.Message("[Better Work Tab] Imported " + importedEntryCount +
+                                " Fluffy Work Tab priority entries.");
                     }
                 }
             }
@@ -105,24 +105,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             return new FluffyWorkTabMigrationResult(
                 isCurrentlyActive,
                 savedState.Evidence.Detected);
-        }
-
-        internal static int ImportLivePriorities()
-        {
-            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            if (component == null)
-            {
-                return 0;
-            }
-
-            List<ExternalPawnWorkGiverPriorityRecord> records = ReadLiveFluffyPriorities();
-            if (records.Count == 0)
-            {
-                return 0;
-            }
-
-            component.EnsureWorkGiverReassignmentData();
-            return ExternalWorkTabPriorityImportService.Import(component, records);
         }
 
         internal static bool HasMigrationHistory(GameComponent_BWTWorldSettings component)

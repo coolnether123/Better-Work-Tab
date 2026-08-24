@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Better_Work_Tab.Features.TimePriority;
 
 namespace Better_Work_Tab.Features.Workloads.V2
 {
@@ -874,46 +875,26 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
     public sealed class WorkloadSchedulePayload : IEquatable<WorkloadSchedulePayload>
     {
-        public const int HourCount = 24;
-        private readonly ReadOnlyCollection<int> _priorities;
+        public const int HourCount = TimePriorityScheduleValue.HourCount;
+        private readonly TimePriorityScheduleValue _value;
 
         public WorkloadSchedulePayload(IEnumerable<int> priorities, int pinnedHourMask)
         {
-            var values = new List<int>();
-            if (priorities != null)
-            {
-                foreach (int priority in priorities) values.Add(priority);
-            }
-
-            _priorities = values.AsReadOnly();
-            PinnedHourMask = pinnedHourMask;
+            _value = new TimePriorityScheduleValue(priorities, pinnedHourMask);
         }
 
-        public IReadOnlyList<int> Priorities => _priorities;
-        public int PinnedHourMask { get; private set; }
-        public bool IsValid
-        {
-            get
-            {
-                if (_priorities.Count != HourCount || PinnedHourMask < 0) return false;
-                for (int hour = 0; hour < HourCount; hour++)
-                {
-                    if (_priorities[hour] < 0) return false;
-                }
-
-                return (PinnedHourMask & ~((1 << HourCount) - 1)) == 0;
-            }
-        }
+        public IReadOnlyList<int> Priorities => _value.CopyPriorities();
+        public int PinnedHourMask => _value.PinnedHourMask;
+        public bool IsValid => _value.IsValid;
 
         public bool IsPinned(int hour)
         {
-            return hour >= 0 && hour < HourCount &&
-                (PinnedHourMask & (1 << hour)) != 0;
+            return _value.IsPinned(hour);
         }
 
         public int PriorityAt(int hour)
         {
-            return hour < 0 || hour >= _priorities.Count ? -1 : _priorities[hour];
+            return _value.PriorityAt(hour);
         }
 
         public string CanonicalForm
@@ -922,7 +903,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             {
                 var builder = new System.Text.StringBuilder();
                 builder.Append(PinnedHourMask).Append(':');
-                for (int i = 0; i < _priorities.Count; i++)
+                for (int i = 0; i < HourCount; i++)
                 {
                     // A linked hour has no stored numeric value.  The number
                     // retained in the payload is only a convenient value to
@@ -930,7 +911,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                     // semantically identical linked schedules differ.
                     if (IsPinned(i))
                     {
-                        builder.Append(WorkloadCanonical.Integer(_priorities[i]));
+                        builder.Append(WorkloadCanonical.Integer(PriorityAt(i)));
                     }
 
                     builder.Append(';');
@@ -942,21 +923,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
         public bool Equals(WorkloadSchedulePayload other)
         {
-            if (ReferenceEquals(other, null) || PinnedHourMask != other.PinnedHourMask ||
-                _priorities.Count != other._priorities.Count)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < _priorities.Count; i++)
-            {
-                // Linked-hour numbers are deliberately non-semantic.  Keep
-                // the pin mask in the comparison so a pinned value equal to
-                // the current base remains distinct from a linked hour.
-                if (IsPinned(i) && _priorities[i] != other._priorities[i]) return false;
-            }
-
-            return true;
+            return !ReferenceEquals(other, null) && _value.Equals(other._value);
         }
 
         public override bool Equals(object obj)

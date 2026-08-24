@@ -2,6 +2,7 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using System;
@@ -203,16 +204,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 }
                 else
                 {
-                    scheduleTarget = TimePriorityTarget.ForWorkGiver(null, workType, workGiverDef);
-                    hasScheduleIndicator = TimePriorityService.HasCustomSchedule(scheduleTarget, basePriority);
+                    scheduleTarget = TimePriorityTarget.ForWorkGiver(null, workGiverDef);
+                    hasScheduleIndicator = TimePriorityService.HasLiveCustomSchedule(scheduleTarget);
                 }
             }
             else
             {
                 TimePriorityTarget target = pawn == null
-                    ? TimePriorityTarget.ForWorkGiver(null, workType, workGiverDef)
-                    : TimePriorityTarget.ForWorkGiver(pawn, workType, workGiverDef);
-                if (target.TryGetWorkloadScheduleTarget(
+                    ? TimePriorityTarget.ForWorkGiver(null, workGiverDef)
+                    : TimePriorityTarget.ForWorkGiver(pawn, workGiverDef);
+                if (WorkloadTimePriorityAdapter.TryGetScheduleTarget(
+                    target,
                     out WorkloadScheduleTargetKey scheduleKey,
                         out _))
                 {

@@ -314,6 +314,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 : WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion;
         }
 
+        /// <summary>
+        /// Reads the active preview layer without composing a lower provider.
+        /// This is used only to restore an exact preview intent after a paired
+        /// operation rejects.
+        /// </summary>
+        internal static WorkTabEffectiveStateResolution<WorkloadSchedulePayload>
+            ResolvePreviewScheduleIntent(WorkloadScheduleTargetKey key)
+        {
+            if (CurrentProvider is ProjectedWorkTabEffectiveStateProvider projected)
+            {
+                return projected.ResolveSchedule(key);
+            }
+
+            return CurrentProvider is IWorkTabEffectiveStateV2Provider v2
+                ? v2.ResolveSchedule(key)
+                : WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion;
+        }
+
         public static WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>
             ResolveSpecificJobPriority(WorkloadSpecificJobTargetKey key)
         {
@@ -736,58 +754,32 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 fallbackSchedule);
         }
 
-        public static bool TryGetSchedulePayload(
+        /// <summary>Replays one exact preview-layer schedule intent.</summary>
+        internal static bool TrySetScheduleIntent(
             WorkloadScheduleTargetKey key,
-            out WorkloadSchedulePayload payload)
-        {
-            WorkTabEffectiveStateResolution<WorkloadSchedulePayload> resolution =
-                ResolveSchedule(key);
-            payload = resolution.IsSet ? resolution.Value : null;
-            return resolution.IsSet;
-        }
-
-        public static bool TrySetSchedulePayload(
-            WorkloadScheduleTargetKey key,
-            WorkloadSchedulePayload payload,
+            WorkTabEffectiveStateResolution<WorkloadSchedulePayload> intent,
             out WorkTabEffectiveStateMutationResult result)
         {
             result = default(WorkTabEffectiveStateMutationResult);
             if (!TryGetPreviewV2Editor(out IWorkTabEffectiveStateV2Editor editor) ||
-                key == null || !key.IsValid || payload == null || !payload.IsValid)
+                key == null || !key.IsValid ||
+                (intent.IsSet && (intent.Value == null || !intent.Value.IsValid)))
             {
                 if (IsPreviewActive)
                 {
                     result = Blocked(
                         WorkTabEffectiveStateDimension.Schedule,
-                        "A valid complete 24-hour schedule target and payload are required.");
+                        "A valid typed schedule intent is required.");
                 }
 
                 return false;
             }
 
-            result = editor.SetSchedule(key, payload);
-            return AcceptPreviewMutation(result);
-        }
-
-        public static bool TryClearSchedule(
-            WorkloadScheduleTargetKey key,
-            out WorkTabEffectiveStateMutationResult result)
-        {
-            result = default(WorkTabEffectiveStateMutationResult);
-            if (!TryGetPreviewV2Editor(out IWorkTabEffectiveStateV2Editor editor) ||
-                key == null || !key.IsValid)
-            {
-                if (IsPreviewActive)
-                {
-                    result = Blocked(
-                        WorkTabEffectiveStateDimension.Schedule,
-                        "A valid typed schedule target is required.");
-                }
-
-                return false;
-            }
-
-            result = editor.ClearSchedule(key);
+            result = intent.IsSet
+                ? editor.SetSchedule(key, intent.Value)
+                : intent.IsClear
+                    ? editor.ClearSchedule(key)
+                    : editor.SetScheduleNoOpinion(key);
             return AcceptPreviewMutation(result);
         }
 

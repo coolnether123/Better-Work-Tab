@@ -113,18 +113,6 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
                 });
             }
 
-            if (TimePriorityService.HasAnySchedule())
-            {
-                TimePriorityTarget target = TimePriorityTarget.ForRuntimeWorkType(null, workType);
-                int fallback = WorkPrioritySystem.GetDefaultEnabledPriority();
-                if (TimePriorityService.HasCustomSchedule(target, fallback))
-                {
-                    card.Action.Kind = RuleBuilder2ActionKind.SetTimeSchedule;
-                    card.Action.HourlyPriorities = TimePriorityService.GetPrioritiesForDisplay(target, fallback).ToList();
-                    card.Notes += " Schedule data was detected for this work type.";
-                }
-            }
-
             card.EnsureStableState(card.SortOrder);
             card.Summary = RuleBuilder2SummaryService.BuildSummary(card);
             ruleset.Cards.Add(card);
@@ -143,8 +131,8 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
                 int fallback = WorkPrioritySystem.GetDefaultEnabledPriority();
                 int globalPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(null, workGiver, fallback);
-                TimePriorityTarget globalTarget = TimePriorityTarget.ForRuntimeWorkGiver(null, workType, workGiver);
-                bool hasSchedule = TimePriorityService.HasCustomSchedule(globalTarget, globalPriority);
+                TimePriorityTarget globalTarget = TimePriorityTarget.ForWorkGiver(null, workGiver);
+                bool hasSchedule = TimePriorityService.HasLiveCustomSchedule(globalTarget);
                 bool hasOverrides = pawns.Any(pawn =>
                     WorkGiverReassignmentManager.HasPawnWorkGiverOverride(pawn, workGiver));
                 var overridePawns = hasOverrides
@@ -180,7 +168,9 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
                 if (hasSchedule)
                 {
-                    card.Action.HourlyPriorities = TimePriorityService.GetPrioritiesForDisplay(globalTarget, globalPriority).ToList();
+                    card.Action.HourlyPriorities = TimePriorityService.ReadLiveSchedule(
+                        globalTarget,
+                        globalPriority).CopyPriorities().ToList();
                 }
 
                 if (TryBuildXenotypePatternCondition(overridePawns, pawns, out RuleBuilder2Condition xenotypeCondition))

@@ -18,6 +18,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string root = FindRepositoryRoot();
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
             string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
+            string actionability = Read(root, "Source", "Features", "Application", "WorkTabActionability.cs");
+            string priorityGateway = Read(root, "Source", "UI", "WorkGrid", "Commands", "WorkPriorityCommandGateway.cs");
+            string priorityInput = Read(root, "Source", "UI", "WorkGrid", "Interaction", "WorkTabPriorityInputHandler.cs");
+            string priorityPatch = Read(root, "Source", "Features", "Patches", "Patch_WorkPriority_DoCell_Unified.cs");
+            string prioritySnapshot = Read(root, "Source", "UI", "WorkGrid", "Snapshots", "WorkGridSnapshotProvider.cs");
+            string fluffySchedule = Read(root, "Source", "Features", "TimePriority", "FluffyTimeScheduleAssigner.cs");
             GatewayReturnsAcceptanceAndDefersTerminalHandling(gateway);
             TerminalFailuresKeepThePreviewRetryable(gateway);
             PendingDuplicatesUseCanonicalCorrelation(backend);
@@ -26,6 +32,92 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             SaveForkRebaseOccursOnlyAtFinalConfirmation(gateway, backend);
             NullResultSuccessUsesAuthoritativeReceiptRecovery(gateway, backend);
             ReceiptRecoveryFailureKeepsThePreviewBlocked(gateway, backend);
+            ParentPriorityInputUsesOneCapabilityGate(
+                actionability,
+                priorityGateway,
+                priorityInput,
+                priorityPatch,
+                prioritySnapshot,
+                fluffySchedule);
+        }
+
+        private static void ParentPriorityInputUsesOneCapabilityGate(
+            string actionability,
+            string priorityGateway,
+            string priorityInput,
+            string priorityPatch,
+            string prioritySnapshot,
+            string fluffySchedule)
+        {
+            TestAssert.Contains(
+                actionability,
+                "pawn.IsWorkTypeDisabledByAge(workType, out _)",
+                "parent-priority input must explicitly reject age-disabled cells");
+            TestAssert.Contains(
+                actionability,
+                "CanApplyAnyWorkGiver(pawn, workType);",
+                "parent-priority input must defer raw capability to one helper");
+            TestAssert.Contains(
+                actionability,
+                "workType.workGiversByPriority",
+                "parent-priority input must inspect the work type's own giver capabilities");
+            TestAssert.Contains(
+                actionability,
+                "pawn.health.capacities.CapableOf(capacities[i])",
+                "parent-priority input must reject cells incapable across every work giver");
+            TestAssert.Contains(
+                priorityGateway,
+                "WorkTabActionability.CanApplyParent(pawn, workType)",
+                "the UI command gateway must delegate parent actionability to the application policy");
+            TestAssert.Contains(
+                priorityGateway,
+                "if (!CanHandleParentPriorityInput(pawn, workType) ||",
+                "preview parent-priority writes must use the canonical capability gate");
+
+            int rootGate = priorityInput.IndexOf(
+                "!WorkPriorityCommandGateway.CanHandleParentPriorityInput(row.Pawn, workType)",
+                StringComparison.Ordinal);
+            int rootMembership = priorityInput.IndexOf(
+                "EnsurePreviewMembershipForMutation(row.Pawn, workType, evt)",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                rootGate >= 0 && rootMembership > rootGate,
+                "root parent-priority input must reject an unavailable cell before preview membership can change");
+            TestAssert.Contains(
+                priorityInput,
+                "!WorkPriorityCommandGateway.CanHandleSpecificJobInput(\n                        row.Pawn,\n                        parentWorkType,\n                        workGiver?.def)",
+                "sub-work input must use the exact WorkGiver capability gate");
+            TestAssert.Contains(
+                priorityGateway,
+                "!CanHandleSpecificJobInput(TimePriorityService.FindPawn(pawnId), workType, workGiver)",
+                "direct pawn-specific job commands must fail closed through the same exact capability gate");
+            TestAssert.Contains(
+                priorityPatch,
+                "!WorkPriorityCommandGateway.CanHandleParentPriorityInput(pawn, workType)",
+                "the root priority handler must not bypass the canonical capability gate");
+            TestAssert.Contains(
+                priorityPatch,
+                "!WorkTabActionability.CanApplyAnyWorkGiver(p, work)",
+                "the patch's visual incapability cache must use the canonical capability computation");
+            TestAssert.Contains(
+                prioritySnapshot,
+                "!WorkTabActionability.CanApplyAnyWorkGiver(pawn, workType)",
+                "snapshot cell presentation must use the canonical capability computation");
+            TestAssert.False(
+                prioritySnapshot.IndexOf("private static bool IsIncapable(", StringComparison.Ordinal) >= 0,
+                "snapshot presentation must not retain a second parent-work incapability loop");
+            TestAssert.Contains(
+                fluffySchedule,
+                "!WorkPriorityCommandGateway.CanHandleParentPriorityInput(pawn, workType)",
+                "Fluffy full-day and hourly parent writes must use the canonical actionability gate");
+            TestAssert.Contains(
+                fluffySchedule,
+                "!WorkPriorityCommandGateway.CanHandleSpecificJobInput(",
+                "Fluffy pawn-specific writes must use the exact WorkGiver actionability gate");
+            TestAssert.Contains(
+                fluffySchedule,
+                "pawnId != TimePriorityTarget.GlobalPawnId && pawn == null",
+                "Fluffy pawn-specific writes must not reinterpret a missing pawn as a global target");
         }
 
         private static void AcceptedStatesAreNotLifecycleRejections()

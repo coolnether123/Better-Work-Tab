@@ -11,6 +11,7 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.Workloads;
+using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
@@ -119,6 +120,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                     out WorkTypeDef parentWorkType,
                     out _))
             {
+                if (!WorkPriorityCommandGateway.CanHandleSpecificJobInput(
+                        row.Pawn,
+                        parentWorkType,
+                        workGiver?.def))
+                {
+                    evt.Use();
+                    return true;
+                }
+
                 if (!EnsurePreviewMembershipForMutation(row.Pawn, parentWorkType, evt))
                 {
                     return true;
@@ -140,6 +150,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             if (workType == null)
             {
                 return false;
+            }
+
+            if (!WorkPriorityCommandGateway.CanHandleParentPriorityInput(row.Pawn, workType))
+            {
+                evt.Use();
+                return true;
             }
 
             if (!EnsurePreviewMembershipForMutation(row.Pawn, workType, evt))

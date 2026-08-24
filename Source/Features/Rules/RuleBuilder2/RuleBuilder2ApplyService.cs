@@ -165,13 +165,14 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
 
                     card.Action.EnsureSchedule(targetPriority);
                     TimePriorityTarget scheduleTarget = workGiver == null
-                        ? TimePriorityTarget.ForRuntimeWorkType(pawn, workType)
-                        : TimePriorityTarget.ForRuntimeWorkGiver(pawn, workType, workGiver);
-                    if (!TimePriorityService.SetScheduleSynced(
+                        ? TimePriorityTarget.ForWorkType(pawn, workType)
+                        : TimePriorityTarget.ForWorkGiver(pawn, workGiver);
+                    if (!TimePriorityService.SubmitSchedule(
                             scheduleTarget,
-                            card.Action.HourlyPriorities.ToArray(),
-                            TimePriorityService.CreateAllHoursPinnedState(),
-                            targetPriority))
+                            TimePriorityService.CreateAllHoursPinnedValue(
+                                card.Action.HourlyPriorities.ToArray(),
+                                targetPriority),
+                            targetPriority).Accepted)
                     {
                         return RejectWriteFailure(
                             warnings,

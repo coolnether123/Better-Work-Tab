@@ -19,7 +19,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
             string contracts = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "WorkloadBackendContracts.cs");
             string multiplayer = Read(root, "Source", "Mod Support", "Multiplayer", "MultiplayerBridge.cs");
-            string authorization = Read(root, "Source", "Features", "TimePriority", "TimePriorityMutationAuthorization.cs");
+            string authorization = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "WorkloadMutationAuthorization.cs");
             string manager = Read(root, "Source", "Features", "WorkGiverReassignments", "WorkGiverReassignmentManager.cs");
             string data = Read(root, "Source", "Features", "WorkGiverReassignments", "WorkGiverReassignmentData.cs");
 

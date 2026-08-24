@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -20,8 +21,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
             WorkTypeDef workType,
             int priority)
         {
-            if (pawn?.workSettings == null || workType == null || pawn.Dead ||
-                !pawn.workSettings.EverWork || pawn.WorkTypeIsDisabled(workType) ||
+            if (!CanHandleParentPriorityInput(pawn, workType) ||
                 !IsValidPriority(priority))
             {
                 return false;
@@ -41,11 +41,37 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 priority);
         }
 
+        /// <summary>
+        /// Determines whether a parent work-priority cell can accept normal
+        /// input. This is deliberately separate from priority authority: an
+        /// external provider can make an otherwise actionable cell read-only.
+        /// </summary>
+        internal static bool CanHandleParentPriorityInput(Pawn pawn, WorkTypeDef workType) =>
+            WorkTabActionability.CanApplyParent(pawn, workType);
+
+        internal static bool CanHandleSpecificJobInput(
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkGiverDef workGiver)
+        {
+            return WorkTabActionability.CanApplySpecific(pawn, workType, workGiver);
+        }
+
         internal static bool SetWorkGiverPriority(int pawnId, WorkGiverDef workGiver, int priority)
         {
             bool accepted = (pawnId >= 0 || pawnId == -1) &&
                             workGiver != null &&
                             IsValidPriority(priority);
+            WorkTypeDef workType = accepted
+                ? WorkGiverReassignmentManager.GetTargetWorkType(workGiver) ?? workGiver.workType
+                : null;
+            if (accepted &&
+                pawnId >= 0 &&
+                !CanHandleSpecificJobInput(TimePriorityService.FindPawn(pawnId), workType, workGiver))
+            {
+                return false;
+            }
+
             if (accepted && !PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
             {
                 return false;
@@ -53,8 +79,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
 
             if (accepted && WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
-                WorkTypeDef workType =
-                    WorkGiverReassignmentManager.GetTargetWorkType(workGiver) ?? workGiver.workType;
                 accepted = pawnId == -1
                     ? WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(
                         WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(workType, workGiver),
