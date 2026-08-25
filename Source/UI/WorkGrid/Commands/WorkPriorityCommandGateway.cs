@@ -3,10 +3,9 @@ using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads.V2.Runtime;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGrid.Projection;
-using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -85,17 +84,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
 
             if (accepted && WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
-                accepted = pawnId == -1
-                    ? WorkloadProjectionRuntime.TrySetSpecificJobPriority(
-                        WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(workType, workGiver),
-                        priority,
-                        out _)
-                    : WorkloadProjectionRuntime.TrySetSpecificJobPriority(
-                        pawnId,
-                        workType,
-                        workGiver,
-                        priority,
-                        out _);
+                WorkTabSpecificJobTarget target = WorkTabSpecificJobTarget.For(
+                    pawnId == -1 ? null : TimePriorityService.FindPawn(pawnId),
+                    workType,
+                    workGiver);
+                accepted = WorkTabEffectiveStateRuntime.TrySetPreviewSpecificJobPriority(
+                    target,
+                    priority,
+                    out _);
                 return accepted;
             }
 
@@ -188,10 +184,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 }
 
                 attempted = true;
-                if (!WorkloadProjectionRuntime.TryClearSpecificJobPriority(
-                        pawn,
-                        workType,
-                        workGiver,
+                if (!WorkTabEffectiveStateRuntime.TryClearPreviewSpecificJobPriority(
+                        WorkTabSpecificJobTarget.For(pawn, workType, workGiver),
                         out _))
                 {
                     return false;
@@ -209,10 +203,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 }
 
                 attempted = true;
-                if (!WorkloadProjectionRuntime.TryClearSpecificJobPriority(
-                        pawn,
-                        workType,
-                        workGiver,
+                if (!WorkTabEffectiveStateRuntime.TryClearPreviewSpecificJobPriority(
+                        WorkTabSpecificJobTarget.For(pawn, workType, workGiver),
                         out _))
                 {
                     return false;

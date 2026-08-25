@@ -4,7 +4,6 @@ using System.Linq;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.ModSupport;
@@ -738,17 +737,18 @@ namespace Better_Work_Tab.Features.Application
                     staged.ExternalSpecificPriorities.Add(entry);
                 else
                     staged.SpecificPriorities.Add(
-                        new WorkGiverReassignmentManager.SpecificPriorityBatchEntry(
-                            false,
+                        new WorkTabStagedSpecificPriority(
                             entry.Pawn.thingIDNumber,
                             entry.WorkGiver.defName,
                             entry.Clear
-                                ? WorkGiverReassignmentManager.ExactGlobalStateKind.Clear
-                                : WorkGiverReassignmentManager.ExactGlobalStateKind.Set,
+                                ? WorkTabSpecificPriorityState.LocalInherit
+                                : WorkTabSpecificPriorityState.LocalSet,
                             entry.Desired,
-                            null,
-                            entry.HadOverride,
-                            entry.Initial));
+                            new WorkTabSpecificPriorityBaseline(
+                                entry.HadOverride
+                                    ? WorkTabSpecificPriorityState.LocalSet
+                                    : WorkTabSpecificPriorityState.LocalInherit,
+                                entry.Initial)));
                 staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
                     TimePriorityTarget.ForWorkGiver(entry.Pawn, entry.WorkGiver),
                     WorkTabApplicationDimensions.SpecificPriority));
@@ -759,14 +759,16 @@ namespace Better_Work_Tab.Features.Application
             {
                 WorkTabRuleSpecificOrder entry = orders[i];
                 staged.SpecificOrders.Add(
-                    new WorkGiverReassignmentManager.SpecificOrderBatchEntry(
-                        false,
+                    new WorkTabStagedSpecificOrder(
                         entry.Pawn.thingIDNumber,
                         entry.WorkType.defName,
-                        WorkGiverReassignmentManager.ExactGlobalStateKind.Set,
+                        WorkTabSpecificOrderState.LocalStored,
                         entry.Desired,
-                        null,
-                        entry.Expected));
+                        new WorkTabSpecificOrderBaseline(
+                            entry.Expected?.HasStoredOrder == true
+                                ? WorkTabSpecificOrderState.LocalStored
+                                : WorkTabSpecificOrderState.LocalInherit,
+                            entry.Expected?.OrderedWorkGiverNames)));
                 staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
                     TimePriorityTarget.ForWorkType(entry.Pawn, entry.WorkType),
                     WorkTabApplicationDimensions.SpecificOrder |
@@ -1183,7 +1185,7 @@ namespace Better_Work_Tab.Features.Application
             {
                 return Reject("The parent priority baseline changed.");
             }
-            var priorityEntries = new List<WorkGiverReassignmentManager.SpecificPriorityBatchEntry>();
+            var priorityEntries = new List<WorkTabStagedSpecificPriority>();
             var affectedTargets = new List<TimePriorityTarget>();
             if (targetsWorkType)
             {
@@ -1197,11 +1199,11 @@ namespace Better_Work_Tab.Features.Application
                     if (!TryCreateSpecificPriorityBatchEntry(
                             command.PawnId,
                             target,
-                            WorkGiverReassignmentManager.ExactGlobalStateKind.Absent,
+                            WorkTabSpecificPriorityState.LocalInherit,
                             WorkPrioritySystem.DisabledPriority,
                             command.ExpectedSpecificRevision,
                             command.AuthorityRevision,
-                            out WorkGiverReassignmentManager.SpecificPriorityBatchEntry entry))
+                            out WorkTabStagedSpecificPriority entry))
                         return Reject("The specific-job priority baseline changed.");
                     priorityEntries.Add(entry);
                     affectedTargets.Add(TimePriorityTarget.ForWorkGiver(pawn, target));
@@ -1209,11 +1211,11 @@ namespace Better_Work_Tab.Features.Application
             }
             else if (command.Intent != WorkTabSpecificPriorityIntent.EnableParent)
             {
-                WorkGiverReassignmentManager.ExactGlobalStateKind desired =
+                WorkTabSpecificPriorityState desired =
                     command.Intent == WorkTabSpecificPriorityIntent.Set ||
                     command.Intent == WorkTabSpecificPriorityIntent.EnableParentAndSet
-                        ? WorkGiverReassignmentManager.ExactGlobalStateKind.Set
-                        : WorkGiverReassignmentManager.ExactGlobalStateKind.Absent;
+                        ? WorkTabSpecificPriorityState.LocalSet
+                        : WorkTabSpecificPriorityState.LocalInherit;
                 if (!TryCreateSpecificPriorityBatchEntry(
                         command.PawnId,
                         workGiver,
@@ -1221,7 +1223,7 @@ namespace Better_Work_Tab.Features.Application
                         command.Priority,
                         command.ExpectedSpecificRevision,
                         command.AuthorityRevision,
-                        out WorkGiverReassignmentManager.SpecificPriorityBatchEntry entry))
+                        out WorkTabStagedSpecificPriority entry))
                     return Reject("The specific-job priority baseline changed.");
                 priorityEntries.Add(entry);
                 affectedTargets.Add(TimePriorityTarget.ForWorkGiver(pawn, workGiver));
@@ -1235,7 +1237,7 @@ namespace Better_Work_Tab.Features.Application
             try
             {
                 bool parentChanged = false;
-                WorkGiverReassignmentManager.SpecificJobBatchRollback specificRollback = null;
+                IWorkTabSpecificJobRollbackReceipt specificRollback = null;
                 int defaultParentPriority = WorkPrioritySystem.GetDefaultEnabledPriority();
                 using (WorkTabMutationScope scope = BeginMutationScope(
                            includesSchedules: false,
@@ -1243,7 +1245,7 @@ namespace Better_Work_Tab.Features.Application
                 {
                     if (priorityEntries.Count > 0 && !scope.TryApplySpecificJobs(
                             priorityEntries,
-                            new WorkGiverReassignmentManager.SpecificOrderBatchEntry[0],
+                            new WorkTabStagedSpecificOrder[0],
                             command.ExpectedSpecificRevision,
                             command.AuthorityRevision,
                             synchronizedReplay,
@@ -1340,11 +1342,11 @@ namespace Better_Work_Tab.Features.Application
         private static bool TryCreateSpecificPriorityBatchEntry(
             int pawnId,
             WorkGiverDef workGiver,
-            WorkGiverReassignmentManager.ExactGlobalStateKind desiredState,
+            WorkTabSpecificPriorityState desiredState,
             int desiredPriority,
             int expectedRevision,
             long authorityRevision,
-            out WorkGiverReassignmentManager.SpecificPriorityBatchEntry entry)
+            out WorkTabStagedSpecificPriority entry)
         {
             entry = null;
             if (workGiver == null)
@@ -1357,15 +1359,14 @@ namespace Better_Work_Tab.Features.Application
                 if (expected.SyncVersion != expectedRevision ||
                     expected.AuthorityRevision != authorityRevision)
                     return false;
-                entry = new WorkGiverReassignmentManager.SpecificPriorityBatchEntry(
-                    true,
+                entry = new WorkTabStagedSpecificPriority(
                     TimePriorityTarget.GlobalPawnId,
                     workGiver.defName,
                     desiredState,
                     desiredPriority,
-                    expected,
-                    false,
-                    WorkPrioritySystem.DisabledPriority);
+                    new WorkTabSpecificPriorityBaseline(
+                        ToApplicationPriorityState(expected.State, global: true),
+                        expected.Priority));
                 return true;
             }
 
@@ -1380,18 +1381,56 @@ namespace Better_Work_Tab.Features.Application
                 revision != expectedRevision ||
                 capturedAuthority != authorityRevision)
                 return false;
-            entry = new WorkGiverReassignmentManager.SpecificPriorityBatchEntry(
-                false,
+            entry = new WorkTabStagedSpecificPriority(
                 pawnId,
                 workGiver.defName,
-                desiredState == WorkGiverReassignmentManager.ExactGlobalStateKind.Set
-                    ? desiredState
-                    : WorkGiverReassignmentManager.ExactGlobalStateKind.Clear,
+                desiredState == WorkTabSpecificPriorityState.GlobalSet ||
+                desiredState == WorkTabSpecificPriorityState.LocalSet
+                    ? WorkTabSpecificPriorityState.LocalSet
+                    : WorkTabSpecificPriorityState.LocalInherit,
                 desiredPriority,
-                null,
-                hadOverride,
-                priority);
+                new WorkTabSpecificPriorityBaseline(
+                    hadOverride
+                        ? WorkTabSpecificPriorityState.LocalSet
+                        : WorkTabSpecificPriorityState.LocalInherit,
+                    priority));
             return true;
+        }
+
+        private static WorkTabSpecificPriorityState ToApplicationPriorityState(
+            WorkGiverReassignmentManager.ExactGlobalStateKind state,
+            bool global)
+        {
+            if (!global)
+            {
+                return state == WorkGiverReassignmentManager.ExactGlobalStateKind.Set
+                    ? WorkTabSpecificPriorityState.LocalSet
+                    : WorkTabSpecificPriorityState.LocalInherit;
+            }
+
+            switch (state)
+            {
+                case WorkGiverReassignmentManager.ExactGlobalStateKind.Set:
+                    return WorkTabSpecificPriorityState.GlobalSet;
+                case WorkGiverReassignmentManager.ExactGlobalStateKind.Clear:
+                    return WorkTabSpecificPriorityState.GlobalClear;
+                default:
+                    return WorkTabSpecificPriorityState.GlobalAbsent;
+            }
+        }
+
+        private static WorkTabSpecificOrderState ToApplicationOrderState(
+            WorkGiverReassignmentManager.ExactGlobalStateKind state)
+        {
+            switch (state)
+            {
+                case WorkGiverReassignmentManager.ExactGlobalStateKind.Set:
+                    return WorkTabSpecificOrderState.GlobalSet;
+                case WorkGiverReassignmentManager.ExactGlobalStateKind.Clear:
+                    return WorkTabSpecificOrderState.GlobalClear;
+                default:
+                    return WorkTabSpecificOrderState.GlobalAbsent;
+            }
         }
 
         private WorkTabApplicationResult ApplySpecificPriorityBatch(
@@ -1416,7 +1455,7 @@ namespace Better_Work_Tab.Features.Application
             }
 
             var pawns = new List<Pawn>(pawnIds.Count);
-            var entries = new List<WorkGiverReassignmentManager.SpecificPriorityBatchEntry>(
+            var entries = new List<WorkTabStagedSpecificPriority>(
                 pawnIds.Count);
             var uniquePawnIds = new HashSet<int>();
             for (int i = 0; i < pawnIds.Count; i++)
@@ -1434,11 +1473,11 @@ namespace Better_Work_Tab.Features.Application
                 if (!TryCreateSpecificPriorityBatchEntry(
                         pawnIds[i],
                         workGiver,
-                        WorkGiverReassignmentManager.ExactGlobalStateKind.Set,
+                        WorkTabSpecificPriorityState.LocalSet,
                         priorities[i],
                         expectedRevision,
                         authorityRevision,
-                        out WorkGiverReassignmentManager.SpecificPriorityBatchEntry entry))
+                        out WorkTabStagedSpecificPriority entry))
                     return Reject("The specific-job priority batch baseline changed.");
                 entries.Add(entry);
             }
@@ -1460,7 +1499,7 @@ namespace Better_Work_Tab.Features.Application
                 {
                     if (!scope.TryApplySpecificJobs(
                             entries,
-                            new WorkGiverReassignmentManager.SpecificOrderBatchEntry[0],
+                            new WorkTabStagedSpecificOrder[0],
                             expectedRevision,
                             authorityRevision,
                             synchronizedReplay,
@@ -1527,20 +1566,28 @@ namespace Better_Work_Tab.Features.Application
                                  expectedGlobal.SyncVersion != expectedRevision ||
                                  expectedGlobal.AuthorityRevision != authorityRevision))
                     return Reject("The global specific-job order baseline is missing.");
-                var entry = new WorkGiverReassignmentManager.SpecificOrderBatchEntry(
-                    isGlobal,
+                var entry = new WorkTabStagedSpecificOrder(
                     pawnId,
                     workTypeDefName,
-                    WorkGiverReassignmentManager.ExactGlobalStateKind.Set,
+                    isGlobal
+                        ? WorkTabSpecificOrderState.GlobalSet
+                        : WorkTabSpecificOrderState.LocalStored,
                     orderedWorkGivers,
-                    expectedGlobal,
-                    expectedLocal);
+                    isGlobal
+                        ? new WorkTabSpecificOrderBaseline(
+                            ToApplicationOrderState(expectedGlobal.State),
+                            expectedGlobal.OrderedWorkGiverNames)
+                        : new WorkTabSpecificOrderBaseline(
+                            expectedLocal?.HasStoredOrder == true
+                                ? WorkTabSpecificOrderState.LocalStored
+                                : WorkTabSpecificOrderState.LocalInherit,
+                            expectedLocal?.OrderedWorkGiverNames));
                 using (WorkTabMutationScope scope = BeginMutationScope(
                            includesSchedules: false,
                            includesSpecificJobs: true))
                 {
                     if (!scope.TryApplySpecificJobs(
-                            new WorkGiverReassignmentManager.SpecificPriorityBatchEntry[0],
+                            new WorkTabStagedSpecificPriority[0],
                             new[] { entry },
                             expectedRevision,
                             authorityRevision,
@@ -1657,18 +1704,20 @@ namespace Better_Work_Tab.Features.Application
                     }
                     else
                     {
-                        WorkGiverReassignmentManager.SpecificJobBatchRollback rollback = null;
+                        IWorkTabSpecificJobRollbackReceipt rollback = null;
                         applied = TryCreateSpecificPriorityBatchEntry(
                                 request.Pawn?.thingIDNumber ?? TimePriorityTarget.GlobalPawnId,
                                 request.WorkGiver,
-                                WorkGiverReassignmentManager.ExactGlobalStateKind.Set,
+                                request.Pawn == null
+                                    ? WorkTabSpecificPriorityState.GlobalSet
+                                    : WorkTabSpecificPriorityState.LocalSet,
                                 request.Priority,
                                 request.SpecificRevision,
                                 request.Schedule.AuthorityRevision,
-                                out WorkGiverReassignmentManager.SpecificPriorityBatchEntry entry) &&
+                                out WorkTabStagedSpecificPriority entry) &&
                             scope.TryApplySpecificJobs(
                                 new[] { entry },
-                                new WorkGiverReassignmentManager.SpecificOrderBatchEntry[0],
+                                new WorkTabStagedSpecificOrder[0],
                                 request.SpecificRevision,
                                 request.Schedule.AuthorityRevision,
                                 synchronizedReplay,
@@ -1966,7 +2015,7 @@ namespace Better_Work_Tab.Features.Application
                 PriorityAuthorityBroker.GetObservationalAuthorityRevision(),
                 TimePriorityService.CurrentVersion,
                 WorkGiverReassignmentManager.CurrentSyncVersion,
-                BWTWorkloadSettingsOwnershipPolicy.GlobalSettingsRevision);
+                WorkTabPresentationRevision.Current);
 
         private static IEnumerable<WorkTabApplicationTargetChange> BuildTargetChanges(
             TimePriorityTarget primaryTarget,

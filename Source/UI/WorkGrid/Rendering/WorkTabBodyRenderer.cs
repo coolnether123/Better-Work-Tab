@@ -222,13 +222,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         viewport.ViewRect.width,
                         rowGeometry,
                         visibleRows));
-                    SpineTiming.Time("WorkTab.Rows.DrawWorkloadMembership", () => DrawWorkloadMembershipIndicators(
+                    SpineTiming.Time("WorkTab.Rows.DrawPreviewMembership", () => DrawPreviewMembershipIndicators(
                         rowDescriptors,
                         totalWidth,
                         rowGeometry,
                         visibleRows,
                         preview));
-                    SpineTiming.Time("WorkTab.Rows.DrawWorkloadInspection", () => DrawWorkloadInspectionHighlights(
+                    SpineTiming.Time("WorkTab.Rows.DrawPreviewInspection", () => DrawPreviewInspectionHighlights(
                         rowDescriptors,
                         columns,
                         totalWidth,
@@ -268,7 +268,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         rowGeometry,
                         visibleRows);
 
-                    DrawWorkloadMembershipIndicators(
+                    DrawPreviewMembershipIndicators(
                         rowDescriptors,
                         totalWidth,
                         rowGeometry,
@@ -280,7 +280,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     // content so changed cells/rows remain visible even when
                     // ordinary highlights are disabled or content draws over
                     // the earlier highlight pass.
-                    DrawWorkloadInspectionHighlights(
+                    DrawPreviewInspectionHighlights(
                         rowDescriptors,
                         columns,
                         totalWidth,
@@ -298,7 +298,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
-        private void DrawWorkloadMembershipIndicators(
+        private void DrawPreviewMembershipIndicators(
             List<RowDescriptor> rowDescriptors,
             float totalWidth,
             WorkGridGeometrySnapshot rowGeometry,
@@ -322,11 +322,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 if (descriptor?.Pawn != null &&
                     preview.TryGetMembershipPresentation(
                         descriptor.Pawn,
-                        out WorkGridPreviewMembershipState state))
+                        out WorkGridPreviewMembershipState state,
+                        out string tooltip))
                 {
-                    DrawWorkloadMembershipIndicator(
+                    DrawPreviewMembershipIndicator(
                         new Rect(0f, currentY, totalWidth, descriptor.Height),
-                        state);
+                        state,
+                        tooltip);
                 }
 
                 if (rowGeometry == null)
@@ -336,38 +338,33 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
-        private static void DrawWorkloadMembershipIndicator(
+        private static void DrawPreviewMembershipIndicator(
             Rect rowRect,
-            WorkGridPreviewMembershipState state)
+            WorkGridPreviewMembershipState state,
+            string tooltip)
         {
             Color accent;
             Color fill = Color.clear;
-            string tooltip;
             switch (state)
             {
                 case WorkGridPreviewMembershipState.Included:
                     accent = new Color(0.30f, 0.74f, 0.66f, 0.88f);
-                    tooltip = "BWT_Workload_PawnIncludedTooltip".Translate();
                     break;
                 case WorkGridPreviewMembershipState.New:
                     accent = new Color(0.95f, 0.72f, 0.28f, 0.92f);
                     fill = new Color(0.95f, 0.72f, 0.28f, 0.055f);
-                    tooltip = "BWT_Workload_PawnNewTooltip".Translate();
                     break;
                 case WorkGridPreviewMembershipState.OutsideScope:
                     accent = new Color(0.55f, 0.58f, 0.60f, 0.78f);
                     fill = new Color(0f, 0f, 0f, 0.09f);
-                    tooltip = "BWT_Workload_PawnOutsideTooltip".Translate();
                     break;
                 case WorkGridPreviewMembershipState.ExplicitlyExcluded:
                     accent = new Color(0.82f, 0.36f, 0.36f, 0.92f);
                     fill = new Color(0.70f, 0.16f, 0.16f, 0.07f);
-                    tooltip = "BWT_Workload_PawnExcludedTooltip".Translate();
                     break;
                 case WorkGridPreviewMembershipState.Missing:
                     accent = new Color(0.68f, 0.38f, 0.38f, 0.82f);
                     fill = new Color(0f, 0f, 0f, 0.08f);
-                    tooltip = "BWT_Workload_PawnMissingTooltip".Translate();
                     break;
                 default:
                     return;
@@ -386,7 +383,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if (markerRect.width > 0f && markerRect.height > 0f)
             {
                 Widgets.DrawBoxSolid(markerRect, accent);
-                TooltipHandler.TipRegion(markerRect, tooltip);
+                if (!string.IsNullOrEmpty(tooltip))
+                {
+                    TooltipHandler.TipRegion(markerRect, tooltip);
+                }
             }
         }
 
@@ -638,7 +638,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         }
 
-        private void DrawWorkloadInspectionHighlights(
+        private void DrawPreviewInspectionHighlights(
             List<RowDescriptor> rowDescriptors,
             IReadOnlyList<WorkTabLayoutColumn> columns,
             float totalWidth,
@@ -649,18 +649,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             float horizontalViewportWidth,
             IWorkGridPreviewPort preview)
         {
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.WorkloadsInspectionHighlights) ||
+            if (preview?.InspectionHighlightsEnabled != true ||
                 preview?.IsInspectionActive != true)
             {
                 return;
             }
 
-            float opacity = GetWorkloadInspectionOpacity(settings);
+            float opacity = Mathf.Clamp01(preview.InspectionOpacity);
 
             if (preview.HasInspectionRowLevelChanges)
             {
-                DrawWorkloadInspectionRows(
+                DrawPreviewInspectionRows(
                     rowDescriptors,
                     totalWidth,
                     rowGeometry,
@@ -897,7 +896,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 geometry.BodyContentX <= visibleRight;
         }
 
-        private static void DrawWorkloadInspectionRows(
+        private static void DrawPreviewInspectionRows(
             List<RowDescriptor> rowDescriptors,
             float totalWidth,
             WorkGridGeometrySnapshot rowGeometry,
@@ -919,7 +918,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 {
                     HighlightDrawer.DrawHighlight(
                         new Rect(0f, currentY, totalWidth, descriptor.Height),
-                        ApplyWorkloadInspectionOpacity(
+                        ApplyPreviewInspectionOpacity(
                             new Color(0.34f, 0.65f, 0.62f, 0.18f),
                             opacity));
                 }
@@ -1004,7 +1003,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 HighlightDrawer.DrawHighlight(
                     priorityRect,
-                    ApplyWorkloadInspectionOpacity(
+                    ApplyPreviewInspectionOpacity(
                         new Color(0.30f, 0.75f, 0.68f, 0.32f),
                         opacity));
             }
@@ -1015,7 +1014,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 {
                     HighlightDrawer.DrawHighlight(
                         specificRect,
-                        ApplyWorkloadInspectionOpacity(
+                        ApplyPreviewInspectionOpacity(
                             new Color(0.45f, 0.58f, 0.92f, 0.34f),
                             opacity));
                 }
@@ -1024,7 +1023,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 DrawInspectionStripe(
                     cellRect,
-                    ApplyWorkloadInspectionOpacity(
+                    ApplyPreviewInspectionOpacity(
                         new Color(0.95f, 0.70f, 0.25f, 0.88f),
                         opacity),
                     right: false);
@@ -1033,20 +1032,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 DrawInspectionStripe(
                     cellRect,
-                    ApplyWorkloadInspectionOpacity(
+                    ApplyPreviewInspectionOpacity(
                         new Color(0.72f, 0.46f, 0.90f, 0.88f),
                         opacity),
                     right: true);
             }
         }
 
-        private static float GetWorkloadInspectionOpacity(BetterWorkTabSettings settings)
-        {
-            int opacity = BWTWorkTabEffectiveSettings.GetInt(SettingIDs.WorkloadsInspectionOpacity);
-            return BetterWorkTabSettings.ClampWorkloadInspectionOpacity(opacity) / 100f;
-        }
-
-        private static Color ApplyWorkloadInspectionOpacity(Color color, float opacity)
+        private static Color ApplyPreviewInspectionOpacity(Color color, float opacity)
         {
             color.a *= Mathf.Clamp01(opacity);
             return color;
@@ -1449,7 +1442,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     {
                         WorkTabEffectiveStateRuntime.ReportBlocked(
                             WorkTabEffectiveStateDimension.SpecificJobOverride,
-                            "BWT_Workload_SleekCellUnavailable".Translate());
+                            "BWT_Preview_SleekCellUnavailable".Translate());
                         continue;
                     }
 

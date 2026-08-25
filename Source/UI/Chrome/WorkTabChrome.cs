@@ -18,7 +18,6 @@ using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Projection;
-using Better_Work_Tab.UI.Workloads;
 using RimWorld;
 using Spine.Profiling;
 using Spine.UI.WidgetExtensions;
@@ -312,18 +311,17 @@ namespace Better_Work_Tab.UI.Chrome
 
         private static void DrawManualModeInspectionIndicator(Rect checkboxRect)
         {
-            WorkloadPreviewController preview = WorkloadPreviewController.Current;
-            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.WorkloadsInspectionHighlights) ||
-                preview == null ||
-                !WorkloadPreviewController.IsInspectionActiveForCurrentTab ||
+            IWorkGridPreviewPort preview = WorkTabEffectiveStateScope.CurrentPreview;
+            if (preview == null ||
+                !preview.IsActive ||
+                !preview.IsInspectionActive ||
+                !preview.InspectionHighlightsEnabled ||
                 !preview.HasManualModeInspectionChange)
             {
                 return;
             }
 
-            int opacity = BWTWorkTabEffectiveSettings.GetInt(SettingIDs.WorkloadsInspectionOpacity);
-            float normalizedOpacity = BetterWorkTabSettings.ClampWorkloadInspectionOpacity(opacity) / 100f;
+            float normalizedOpacity = preview.InspectionOpacity;
             GUI.color = new Color(0.95f, 0.70f, 0.25f, 0.9f * normalizedOpacity);
             Widgets.DrawBox(checkboxRect.ExpandedBy(2f), 2);
             GUI.color = Color.white;

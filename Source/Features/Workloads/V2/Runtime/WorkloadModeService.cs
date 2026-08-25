@@ -16,26 +16,22 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (targetMode != WorkloadBackendMode.Legacy && targetMode != WorkloadBackendMode.Modern)
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "BWT_Workload_ModeUnavailable".Translate());
+                    WorkloadDiagnosticCode.ModeUnavailable);
             }
 
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             if (settings == null)
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.NoSettings,
-                    "BWT_Workload_NotReady".Translate());
+                    WorkloadDiagnosticCode.NoSettings);
 
             if (CurrentMode == targetMode) return WorkloadOperationResult.Ok();
 
-            GameComponent_BWTWorldSettings component =
-                Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            IWorkloadWorldState component = WorkloadWorldStates.For(Current.Game);
             Workload2Backend backend = Workload2Backend.MultiplayerBackend;
-            if (backend?.Component == component && backend.IsPreviewSessionActive)
+            if (backend?.WorldState == component && backend.IsPreviewSessionActive)
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.BlockedModeTransition,
-                    "BWT_Workload_CloseBeforeModeChange".Translate());
+                    WorkloadDiagnosticCode.BlockedModeTransition);
             }
 
             settings.useLegacyWorkloads = targetMode == WorkloadBackendMode.Legacy;

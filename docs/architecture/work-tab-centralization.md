@@ -78,6 +78,8 @@ Rejected, unchanged, submitted, and successfully rolled-back operations do not a
 
 Workload multiplayer confirmation is a documented two-phase exception. A retained workload transaction may apply live values provisionally, but it does not publish durable application change, mirror externally, persist presentation settings, or notify workload persistence until final confirmation is acknowledged. Provisional application emits only the transient invalidation and execution refresh needed to keep the local game coherent. If confirmation fails before the commit decision, the receipt restores only values and revisions it still owns. Parent, manual-mode, configuration, and external-specific compensation use compare-and-swap checks. Successful per-dimension restores clear their ownership so recovery retries operate only on residual state.
 
+Workloads V2 returns structured operation data across its runtime boundary. `WorkloadOperationResult`, validation issues, descriptors, multiplayer status, and commit reports contain codes, stable identifiers, paths, values, and state. They do not contain player-facing sentences. `WorkloadPresentationResolver` is the UI boundary that maps those facts to translation keys and supplies structured values as translation arguments. Runtime exceptions and persistence details remain in technical logs or persistence diagnostics; the UI never displays exception text.
+
 After the host reaches a commit decision, it remains pending until each required peer acknowledges delivery of the final control. Send failure and timeout after that point retry final delivery; they do not roll back a peer that may already have committed. Duplicate final controls are idempotent and produce another acknowledgement.
 
 ## Read precedence

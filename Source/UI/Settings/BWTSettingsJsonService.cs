@@ -5,13 +5,11 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using Better_Work_Tab.Features.Tutorial;
-using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using System.Xml;
 using Spine.RimWorld.Serialization;
 using Spine.UI.ColourPicker;
 using Spine.UI.SettingsFramework;
 using UnityEngine;
-using Better_Work_Tab.UI.Workloads;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Verse;
@@ -249,14 +247,14 @@ namespace Better_Work_Tab.UI.Settings
 
                 if (data.Settings.useLegacyWorkloads != destination.useLegacyWorkloads)
                 {
-                    WorkloadOperationResult workloadTransition = WorkloadGateway.TryTransitionMode(
-                        data.Settings.useLegacyWorkloads
-                            ? WorkloadBackendMode.Legacy
-                            : WorkloadBackendMode.Modern,
-                        persistSettings: false);
-                    if (!workloadTransition.Succeeded)
+                    if (!BWTWorkloadSettingsOwnershipPolicy.TryTransitionMode(
+                            data.Settings.useLegacyWorkloads,
+                            persist: false,
+                            out string transitionReason))
                     {
-                        report = workloadTransition.Message;
+                        report = string.IsNullOrEmpty(transitionReason)
+                            ? "The workload mode could not be changed."
+                            : transitionReason;
                         return false;
                     }
 

@@ -107,7 +107,7 @@ namespace Better_Work_Tab.UI
                 _bodyRenderer,
                 () => SetDirty(),
                 () => _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged(),
-                () => Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.CurrentWorklist != null);
+                () => WorkTabGameRoots.For(Current.Game)?.State?.Dividers != null);
             _subWorkStyleChooserPresenter = new SubWorkStyleChooserPresenter(_subWorkInteractionController);
             _workGridInteractionRouter = new WorkGridInteractionRouter(
                 _tutorialInteractionController,
@@ -752,11 +752,12 @@ namespace Better_Work_Tab.UI
         {
             IReadOnlyList<Pawn> pawns = table.PawnsListForReading;
             pawns = SleekWorkTabGateway.ApplyMixedSearch(pawns);
-            var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            WorkTabGameRoot gameRoot = WorkTabGameRoots.For(Current.Game);
             var settings = BetterWorkTabMod.Settings;
             bool useDividers = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesDividers);
             IReadOnlyList<PawnDivider> dividers = useDividers
-                ? comp?.ActiveDividers ?? (IReadOnlyList<PawnDivider>)Array.Empty<PawnDivider>()
+                ? gameRoot?.State?.Dividers?.ActiveDividers ??
+                  (IReadOnlyList<PawnDivider>)Array.Empty<PawnDivider>()
                 : Array.Empty<PawnDivider>();
 
             if (_organizerSnapshot == null ||

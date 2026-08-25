@@ -3,16 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads.V2;
-using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Projection;
-using Better_Work_Tab.UI.Workloads;
-using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -59,7 +56,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             // This submenu is a separate WindowStack entry. Its constructor and
             // later frames run after MainTabWindow_BetterWork has popped the
             // Work-tab pass scope, so re-enter the same session provider here.
-            return WorkloadPreviewController.Current?.PushEffectiveStateScope();
+            return WorkTabEffectiveStateRuntime.PushCurrentPreviewScope();
         }
 
         public Window_WorkGiverSubMenu(WorkTypeDef workType, Vector2 triggerPos, Pawn pawn = null)
@@ -173,13 +170,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            WorkloadWorkTypeOrderKey orderKey = _pawn == null
-                ? WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(_workType)
-                : WorkTabEffectiveStateIds.ForWorkTypeOrder(_pawn, _workType);
-            WorkloadWorkTypeOrderPayload projectedOrder =
-                WorkloadProjectionRuntime.ResolveWorkTypeOrder(orderKey).IsSet
-                    ? WorkloadProjectionRuntime.ResolveWorkTypeOrder(orderKey).Value
-                    : null;
+            WorkTabWorkTypeOrderTarget orderTarget =
+                WorkTabWorkTypeOrderTarget.For(_pawn, _workType);
+            WorkTabEffectiveStateResolution<IReadOnlyList<string>> projectedOrder =
+                WorkTabEffectiveStateRuntime.ResolvePreviewWorkTypeOrder(orderTarget);
 
             var fallbackIndices = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < _workGivers.Count; i++)
@@ -192,11 +186,11 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             var projectedIndices = new Dictionary<string, int>(StringComparer.Ordinal);
-            if (projectedOrder != null && projectedOrder.IsValid)
+            if (projectedOrder.IsSet && projectedOrder.Value != null)
             {
-                for (int i = 0; i < projectedOrder.OrderedWorkGivers.Count; i++)
+                for (int i = 0; i < projectedOrder.Value.Count; i++)
                 {
-                    string defName = projectedOrder.OrderedWorkGivers[i]?.Value;
+                    string defName = projectedOrder.Value[i];
                     if (!defName.NullOrEmpty() && !projectedIndices.ContainsKey(defName))
                     {
                         projectedIndices.Add(defName, i);
@@ -688,28 +682,28 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private void ShowPreviewOrderMenu()
         {
-            WorkloadPreviewController controller = WorkloadPreviewController.Current;
-            if (controller == null || _workType == null)
+            if (_workType == null)
             {
                 return;
             }
 
-            WorkloadWorkTypeOrderKey key = _pawn == null
-                ? WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(_workType)
-                : WorkTabEffectiveStateIds.ForWorkTypeOrder(_pawn, _workType);
+            WorkTabWorkTypeOrderTarget target =
+                WorkTabWorkTypeOrderTarget.For(_pawn, _workType);
             var options = new List<FloatMenuOption>();
             options.Add(new FloatMenuOption(
                 "BWT_Workload_ClearSpecificJobOrder".Translate(),
-                () => controller.SetWorkTypeOrderPreviewIntent(
-                    key,
-                    WorkloadIntent<WorkloadWorkTypeOrderPayload>.Clear)));
+                () => WorkTabEffectiveStateRuntime.TrySetPreviewWorkTypeOrderIntent(
+                    target,
+                    WorkTabEffectiveStateResolution<IReadOnlyList<string>>.Clear,
+                    out _)));
             options.Add(new FloatMenuOption(
                 "BWT_Workload_LeaveSpecificJobOrderUnchanged".Translate(),
-                () => controller.SetWorkTypeOrderPreviewIntent(
-                    key,
-                    WorkloadIntent<WorkloadWorkTypeOrderPayload>.NoOpinion)));
+                () => WorkTabEffectiveStateRuntime.TrySetPreviewWorkTypeOrderIntent(
+                    target,
+                    WorkTabEffectiveStateResolution<IReadOnlyList<string>>.NoOpinion,
+                    out _)));
 
-            var names = new List<WorkGiverKey>(_workGivers.Count);
+            var names = new List<string>(_workGivers.Count);
             for (int i = 0; i < _workGivers.Count; i++)
             {
                 WorkGiverDef definition = _workGivers[i]?.def;
@@ -718,18 +712,18 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     return;
                 }
 
-                names.Add(new WorkGiverKey(definition.defName));
+                names.Add(definition.defName);
             }
 
-            WorkloadWorkTypeOrderPayload currentOrder =
-                new WorkloadWorkTypeOrderPayload(names);
-            if (currentOrder.IsValid)
+            if (names.Count > 0)
             {
+                IReadOnlyList<string> currentOrder = new List<string>(names);
                 options.Add(new FloatMenuOption(
                     "BWT_Workload_SaveDisplayedSpecificJobOrder".Translate(),
-                    () => controller.SetWorkTypeOrderPreviewIntent(
-                        key,
-                        WorkloadIntent<WorkloadWorkTypeOrderPayload>.CreateSet(currentOrder))));
+                    () => WorkTabEffectiveStateRuntime.TrySetPreviewWorkTypeOrderIntent(
+                        target,
+                        WorkTabEffectiveStateResolution<IReadOnlyList<string>>.Set(currentOrder),
+                        out _)));
             }
 
             Find.WindowStack.Add(new FloatMenu(options));

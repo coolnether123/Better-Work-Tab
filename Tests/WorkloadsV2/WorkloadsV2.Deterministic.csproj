@@ -43,6 +43,7 @@
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadValidation.cs" Link="Production\WorkloadValidation.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadSession.cs" Link="Production\WorkloadSession.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadBackendContracts.cs" Link="Production\WorkloadBackendContracts.cs" />
+    <Compile Include="..\..\Source\UI\Workloads\WorkloadPresentationResolver.cs" Link="Production\WorkloadPresentationResolver.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadPresentationSettingsTransaction.cs" Link="Production\WorkloadPresentationSettingsTransaction.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadV2Persistence.cs" Link="Production\WorkloadV2Persistence.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadV2DescriptorCatalog.cs" Link="Production\WorkloadV2DescriptorCatalog.cs" />
@@ -56,6 +57,7 @@
     <Compile Include="..\..\Source\Features\RaisedPriorityMaximum\PriorityCycleMath.cs" Link="Production\PriorityCycleMath.cs" />
     <Compile Include="..\..\Source\Features\RaisedPriorityMaximum\ParentPriorityReadPolicy.cs" Link="Production\ParentPriorityReadPolicy.cs" />
     <Compile Include="..\..\Source\UI\WorkGrid\Projection\WorkTabEffectiveStateContracts.cs" Link="Production\WorkTabEffectiveStateContracts.cs" />
+    <Compile Include="..\..\Source\UI\WorkGrid\Contracts\WorkGridPreviewStateContracts.cs" Link="Production\WorkGridPreviewStateContracts.cs" />
     <Compile Include="..\..\Source\UI\Workloads\Projection\WorkloadProjectionContracts.cs" Link="Production\WorkloadProjectionContracts.cs" />
     <Compile Include="..\..\Source\UI\Workloads\Projection\LiveWorkTabEffectiveStateProvider.cs" Link="Production\LiveWorkTabEffectiveStateProvider.cs" />
     <Compile Include="..\..\Source\UI\Workloads\Projection\ProjectedWorkTabEffectiveStateProvider.cs" Link="Production\ProjectedWorkTabEffectiveStateProvider.cs" />
@@ -84,6 +86,7 @@
     <Compile Include="WorkExecutionSpawnPerformanceContractTests.cs" />
     <Compile Include="WorkGridRetainedSparseAuditPerformanceContractTests.cs" />
     <Compile Include="DependencyDirectionContractTests.cs" />
+    <Compile Include="WorkloadFeatureIsolationContractTests.cs" />
     <Compile Include="LegacyWorldComponentDependencyContractTests.cs" />
     <Compile Include="ApplicationPublicationContractTests.cs" />
     <Compile Include="ReassignmentCleanupTests.cs" />
@@ -94,6 +97,7 @@
     <Compile Include="CapturePolicyTests.cs" />
     <Compile Include="PresentationSettingsConsolidationTests.cs" />
     <Compile Include="LayoutHistoryTransactionTests.cs" />
+    <Compile Include="PresentationBoundaryTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
   <ItemGroup>

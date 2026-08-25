@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Xml.Serialization;
 using Better_Work_Tab.Features.Application;
@@ -18,7 +19,7 @@ using Verse;
 
 namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 {
-    public enum WorkloadV2CommitMessageKind
+    public enum WorkloadV2CommitEntryKind
     {
         Changed = 0,
         Unchanged = 1,
@@ -30,24 +31,21 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         Cleared = 7
     }
 
-    public sealed class WorkloadV2CommitMessage
+    public sealed class WorkloadV2CommitEntry
     {
-        internal WorkloadV2CommitMessage(
-            WorkloadV2CommitMessageKind kind,
+        internal WorkloadV2CommitEntry(
+            WorkloadV2CommitEntryKind kind,
             string code,
-            string subject,
-            string message)
+            string subject)
         {
             Kind = kind;
             Code = code ?? string.Empty;
             Subject = subject ?? string.Empty;
-            Message = message ?? string.Empty;
         }
 
-        public WorkloadV2CommitMessageKind Kind { get; private set; }
+        public WorkloadV2CommitEntryKind Kind { get; private set; }
         public string Code { get; private set; }
         public string Subject { get; private set; }
-        public string Message { get; private set; }
     }
 
     /// <summary>
@@ -57,24 +55,24 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
     /// </summary>
     public sealed class WorkloadV2CommitReport
     {
-        private readonly List<WorkloadV2CommitMessage> _messages =
-            new List<WorkloadV2CommitMessage>();
-        private readonly List<WorkloadV2CommitMessage> _changed =
-            new List<WorkloadV2CommitMessage>();
-        private readonly List<WorkloadV2CommitMessage> _unchanged =
-            new List<WorkloadV2CommitMessage>();
-        private readonly List<WorkloadV2CommitMessage> _skipped =
-            new List<WorkloadV2CommitMessage>();
-        private readonly List<WorkloadV2CommitMessage> _excluded =
-            new List<WorkloadV2CommitMessage>();
-        private readonly List<WorkloadV2CommitMessage> _missingOrStale =
-            new List<WorkloadV2CommitMessage>();
-        private readonly List<WorkloadV2CommitMessage> _unsupported =
-            new List<WorkloadV2CommitMessage>();
-        private readonly List<WorkloadV2CommitMessage> _fatal =
-            new List<WorkloadV2CommitMessage>();
-        private readonly List<WorkloadV2CommitMessage> _cleared =
-            new List<WorkloadV2CommitMessage>();
+        private readonly List<WorkloadV2CommitEntry> _entries =
+            new List<WorkloadV2CommitEntry>();
+        private readonly List<WorkloadV2CommitEntry> _changed =
+            new List<WorkloadV2CommitEntry>();
+        private readonly List<WorkloadV2CommitEntry> _unchanged =
+            new List<WorkloadV2CommitEntry>();
+        private readonly List<WorkloadV2CommitEntry> _skipped =
+            new List<WorkloadV2CommitEntry>();
+        private readonly List<WorkloadV2CommitEntry> _excluded =
+            new List<WorkloadV2CommitEntry>();
+        private readonly List<WorkloadV2CommitEntry> _missingOrStale =
+            new List<WorkloadV2CommitEntry>();
+        private readonly List<WorkloadV2CommitEntry> _unsupported =
+            new List<WorkloadV2CommitEntry>();
+        private readonly List<WorkloadV2CommitEntry> _fatal =
+            new List<WorkloadV2CommitEntry>();
+        private readonly List<WorkloadV2CommitEntry> _cleared =
+            new List<WorkloadV2CommitEntry>();
 
         internal WorkloadV2CommitReport(
             WorkloadDecisionKind decisionKind,
@@ -110,26 +108,25 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         public int FatalCount => _fatal.Count;
         public int ClearedCount => _cleared.Count;
 
-        public IReadOnlyList<WorkloadV2CommitMessage> Messages => _messages.AsReadOnly();
-        public IReadOnlyList<WorkloadV2CommitMessage> Changed => _changed.AsReadOnly();
-        public IReadOnlyList<WorkloadV2CommitMessage> Unchanged => _unchanged.AsReadOnly();
-        public IReadOnlyList<WorkloadV2CommitMessage> Skipped => _skipped.AsReadOnly();
-        public IReadOnlyList<WorkloadV2CommitMessage> Excluded => _excluded.AsReadOnly();
-        public IReadOnlyList<WorkloadV2CommitMessage> MissingOrStale => _missingOrStale.AsReadOnly();
-        public IReadOnlyList<WorkloadV2CommitMessage> MissingStale => MissingOrStale;
-        public IReadOnlyList<WorkloadV2CommitMessage> Unsupported => _unsupported.AsReadOnly();
-        public IReadOnlyList<WorkloadV2CommitMessage> Fatal => _fatal.AsReadOnly();
-        public IReadOnlyList<WorkloadV2CommitMessage> Cleared => _cleared.AsReadOnly();
+        public IReadOnlyList<WorkloadV2CommitEntry> Entries => _entries.AsReadOnly();
+        public IReadOnlyList<WorkloadV2CommitEntry> Changed => _changed.AsReadOnly();
+        public IReadOnlyList<WorkloadV2CommitEntry> Unchanged => _unchanged.AsReadOnly();
+        public IReadOnlyList<WorkloadV2CommitEntry> Skipped => _skipped.AsReadOnly();
+        public IReadOnlyList<WorkloadV2CommitEntry> Excluded => _excluded.AsReadOnly();
+        public IReadOnlyList<WorkloadV2CommitEntry> MissingOrStale => _missingOrStale.AsReadOnly();
+        public IReadOnlyList<WorkloadV2CommitEntry> MissingStale => MissingOrStale;
+        public IReadOnlyList<WorkloadV2CommitEntry> Unsupported => _unsupported.AsReadOnly();
+        public IReadOnlyList<WorkloadV2CommitEntry> Fatal => _fatal.AsReadOnly();
+        public IReadOnlyList<WorkloadV2CommitEntry> Cleared => _cleared.AsReadOnly();
 
         internal void Add(
-            WorkloadV2CommitMessageKind kind,
+            WorkloadV2CommitEntryKind kind,
             string code,
-            string subject,
-            string message)
+            string subject)
         {
-            for (int i = 0; i < _messages.Count; i++)
+            for (int i = 0; i < _entries.Count; i++)
             {
-                WorkloadV2CommitMessage existing = _messages[i];
+                WorkloadV2CommitEntry existing = _entries[i];
                 if (existing.Kind == kind &&
                     StringComparer.Ordinal.Equals(existing.Code, code ?? string.Empty) &&
                     StringComparer.Ordinal.Equals(existing.Subject, subject ?? string.Empty))
@@ -138,32 +135,32 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
             }
 
-            var diagnostic = new WorkloadV2CommitMessage(kind, code, subject, message);
-            _messages.Add(diagnostic);
+            var diagnostic = new WorkloadV2CommitEntry(kind, code, subject);
+            _entries.Add(diagnostic);
             switch (kind)
             {
-                case WorkloadV2CommitMessageKind.Changed:
+                case WorkloadV2CommitEntryKind.Changed:
                     _changed.Add(diagnostic);
                     break;
-                case WorkloadV2CommitMessageKind.Unchanged:
+                case WorkloadV2CommitEntryKind.Unchanged:
                     _unchanged.Add(diagnostic);
                     break;
-                case WorkloadV2CommitMessageKind.Skipped:
+                case WorkloadV2CommitEntryKind.Skipped:
                     _skipped.Add(diagnostic);
                     break;
-                case WorkloadV2CommitMessageKind.Excluded:
+                case WorkloadV2CommitEntryKind.Excluded:
                     _excluded.Add(diagnostic);
                     break;
-                case WorkloadV2CommitMessageKind.MissingOrStale:
+                case WorkloadV2CommitEntryKind.MissingOrStale:
                     _missingOrStale.Add(diagnostic);
                     break;
-                case WorkloadV2CommitMessageKind.Unsupported:
+                case WorkloadV2CommitEntryKind.Unsupported:
                     _unsupported.Add(diagnostic);
                     break;
-                case WorkloadV2CommitMessageKind.Fatal:
+                case WorkloadV2CommitEntryKind.Fatal:
                     _fatal.Add(diagnostic);
                     break;
-                case WorkloadV2CommitMessageKind.Cleared:
+                case WorkloadV2CommitEntryKind.Cleared:
                     _cleared.Add(diagnostic);
                     break;
             }
@@ -180,15 +177,17 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         internal WorkloadV2CommitResult(
             bool succeeded,
             WorkloadDiagnosticCode code,
-            string message,
             WorkloadV2CommitReport report,
             WorkloadPreviewPlan plan,
             WorkloadTemplate resultTemplate,
-            string stableId)
+            string stableId,
+            WorkloadDiagnosticContext context = null)
         {
             Succeeded = succeeded;
             Code = code;
-            Message = message ?? string.Empty;
+            Context = context ?? (string.IsNullOrEmpty(stableId)
+                ? WorkloadDiagnosticContext.Empty
+                : new WorkloadDiagnosticContext(stableId: stableId));
             Report = report;
             Plan = plan;
             ResultTemplate = resultTemplate;
@@ -197,7 +196,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
         public bool Succeeded { get; private set; }
         public WorkloadDiagnosticCode Code { get; private set; }
-        public string Message { get; private set; }
+        public WorkloadDiagnosticContext Context { get; private set; }
         public WorkloadV2CommitReport Report { get; private set; }
         public WorkloadPreviewPlan Plan { get; private set; }
         public WorkloadTemplate ResultTemplate { get; private set; }
@@ -256,19 +255,19 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         private static Workload2Backend _multiplayerBackend;
         private static readonly WorkloadMultiplayerBackendCallbacks MultiplayerCallbacks =
             new WorkloadMultiplayerBackendCallbacks();
-        private readonly GameComponent_BWTWorldSettings _component;
+        private readonly IWorkloadWorldState _component;
         private readonly WorkloadV2ApplyService _applyService;
         private readonly WorkloadV2DescriptorCatalog _descriptorCatalog =
             new WorkloadV2DescriptorCatalog();
         private WorkloadSession _previewSession;
 
-        internal Workload2Backend(GameComponent_BWTWorldSettings component)
+        internal Workload2Backend(IWorkloadWorldState component)
             : this(component, true)
         {
         }
 
         private Workload2Backend(
-            GameComponent_BWTWorldSettings component,
+            IWorkloadWorldState component,
             bool registerAsMultiplayerUiBackend)
         {
             _component = component;
@@ -304,12 +303,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         }
 
         internal static Workload2Backend MultiplayerBackend => _multiplayerBackend;
-        internal GameComponent_BWTWorldSettings Component => _component;
+        internal IWorkloadWorldState WorldState => _component;
 
         internal static Workload2Backend CreateMultiplayerTransactionBackend()
         {
-            GameComponent_BWTWorldSettings component =
-                Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            IWorkloadWorldState component = WorkloadWorldStates.Current;
             return component == null ? null : new Workload2Backend(component, false);
         }
 
@@ -337,8 +335,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (store == null)
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no Better Work Tab world component.");
+                    WorkloadDiagnosticCode.NoCurrentGame);
             }
 
             _descriptorCatalog.EnsureCurrent(store);
@@ -351,13 +348,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (!ready.Succeeded) return ready;
 
             WorkloadOperationResult<WorkloadV2PersistenceRecord> found = Find(workloadId);
-            if (!found.Succeeded) return WorkloadOperationResult.Fail(found.Code, found.Message);
+            if (!found.Succeeded) return WorkloadOperationResult.Fail(found.Code, found.Context);
 
             WorkloadOperationResult<WorkloadTemplate> template =
                 WorkloadV2RecordConverter.TryToTemplate(found.Value);
             if (!template.Succeeded)
             {
-                return WorkloadOperationResult.Fail(template.Code, template.Message);
+                return WorkloadOperationResult.Fail(template.Code, template.Context);
             }
 
             Store.CurrentWorkloadId = found.Value.StableId;
@@ -370,7 +367,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadOperationResult ready = RequireMutableStore();
             if (!ready.Succeeded)
             {
-                return WorkloadOperationResult<WorkloadDescriptor>.Fail(ready.Code, ready.Message);
+                return WorkloadOperationResult<WorkloadDescriptor>.Fail(ready.Code, ready.Context);
             }
 
             string finalLabel = WorkloadLiveCapturePolicy.ResolveLabel(label, GetDefaultLabel);
@@ -379,7 +376,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadLiveCapture.CaptureCurrentTemplate(stableId, finalLabel);
             if (!captured.Succeeded)
             {
-                return WorkloadOperationResult<WorkloadDescriptor>.Fail(captured.Code, captured.Message);
+                return WorkloadOperationResult<WorkloadDescriptor>.Fail(captured.Code, captured.Context);
             }
 
             return SaveTemplate(captured.Value, true);
@@ -392,14 +389,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_previewSession != null)
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The active V2 preview must be finished or cancelled before writing a template directly.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadOperationResult ready = RequireMutableStore();
             if (!ready.Succeeded)
             {
-                return WorkloadOperationResult<WorkloadDescriptor>.Fail(ready.Code, ready.Message);
+                return WorkloadOperationResult<WorkloadDescriptor>.Fail(ready.Code, ready.Context);
             }
 
             WorkloadValidationResult validation = WorkloadValidator.Validate(template);
@@ -412,28 +408,31 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     validation.IsNewerSchema
                         ? WorkloadDiagnosticCode.NewerSchema
                         : WorkloadDiagnosticCode.InvalidState,
-                    issue?.Message ?? "The V2 template failed validation and was not written.");
+                    new WorkloadDiagnosticContext(
+                        stableId: template?.StableId,
+                        path: issue?.Path,
+                        validationCode: issue?.Code,
+                        expectedVersion: WorkloadSchema.CurrentVersion,
+                        actualVersion: template?.SchemaVersion));
             }
 
             if (WorkloadV2OwnershipResolver.HasUnsupportedLegacyPayload(template))
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "The workload contains legacy schedule or presentation state without a typed transaction intent.");
+                    WorkloadDiagnosticCode.UnsupportedLegacyState);
             }
 
             WorkloadOperationResult<WorkloadV2PersistenceRecord> converted =
                 WorkloadV2RecordConverter.TryFromTemplate(template);
             if (!converted.Succeeded)
             {
-                return WorkloadOperationResult<WorkloadDescriptor>.Fail(converted.Code, converted.Message);
+                return WorkloadOperationResult<WorkloadDescriptor>.Fail(converted.Code, converted.Context);
             }
 
             if (Store.HasDuplicateStableId(converted.Value.StableId))
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.AmbiguousStableId,
-                    "The workload stable ID is already duplicated in the store.");
+                    WorkloadDiagnosticCode.AmbiguousStableId);
             }
 
             WorkloadV2PersistenceRecord existing = Store.Find(converted.Value.StableId);
@@ -445,7 +444,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 {
                     return WorkloadOperationResult<WorkloadDescriptor>.Fail(
                         existingTemplate.Code,
-                        existingTemplate.Message);
+                        existingTemplate.Context);
                 }
 
                 int index = Store.Records.IndexOf(existing);
@@ -471,18 +470,17 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (string.IsNullOrWhiteSpace(newLabel))
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.InvalidLabel,
-                    "A workload label is required.");
+                    WorkloadDiagnosticCode.InvalidLabel);
             }
 
             WorkloadOperationResult ready = RequireMutableStore();
             if (!ready.Succeeded) return ready;
             WorkloadOperationResult<WorkloadV2PersistenceRecord> found = Find(workloadId);
-            if (!found.Succeeded) return WorkloadOperationResult.Fail(found.Code, found.Message);
+            if (!found.Succeeded) return WorkloadOperationResult.Fail(found.Code, found.Context);
 
             WorkloadOperationResult<WorkloadTemplate> template =
                 WorkloadV2RecordConverter.TryToTemplate(found.Value);
-            if (!template.Succeeded) return WorkloadOperationResult.Fail(template.Code, template.Message);
+            if (!template.Succeeded) return WorkloadOperationResult.Fail(template.Code, template.Context);
 
             found.Value.Label = newLabel;
             NotifyChanged();
@@ -494,13 +492,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadOperationResult ready = RequireMutableStore();
             if (!ready.Succeeded) return ready;
             WorkloadOperationResult<WorkloadV2PersistenceRecord> found = Find(workloadId);
-            if (!found.Succeeded) return WorkloadOperationResult.Fail(found.Code, found.Message);
+            if (!found.Succeeded) return WorkloadOperationResult.Fail(found.Code, found.Context);
 
             WorkloadOperationResult<WorkloadTemplate> template =
                 WorkloadV2RecordConverter.TryToTemplate(found.Value, Store.IsReadOnlyDiagnostic);
             if (!template.Succeeded)
             {
-                return WorkloadOperationResult.Fail(template.Code, template.Message);
+                return WorkloadOperationResult.Fail(template.Code, template.Context);
             }
 
             Store.Records.Remove(found.Value);
@@ -520,21 +518,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadOperationResult<WorkloadSession> opened = BeginPreview(workloadId);
                 if (!opened.Succeeded)
                 {
-                    return WorkloadOperationResult.Fail(opened.Code, opened.Message);
+                    return WorkloadOperationResult.Fail(opened.Code, opened.Context);
                 }
             }
             else if (!string.IsNullOrEmpty(workloadId) &&
                      !string.Equals(_previewSession.SourceTemplate.StableId, workloadId, StringComparison.Ordinal))
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The active V2 preview belongs to a different workload stable ID.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadV2CommitResult result = CommitPreview(WorkloadDecisionKind.Apply, null, null);
             return result.Succeeded
-                ? WorkloadOperationResult.Ok(result.Message)
-                : WorkloadOperationResult.Fail(result.Code, result.Message);
+                ? WorkloadOperationResult.Ok()
+                : WorkloadOperationResult.Fail(result.Code, result.Context);
         }
 
         internal WorkloadOperationResult<WorkloadTemplate> GetTemplate(string workloadId = null)
@@ -545,7 +542,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadOperationResult<WorkloadDescriptor> current = Current();
                 if (!current.Succeeded)
                 {
-                    return WorkloadOperationResult<WorkloadTemplate>.Fail(current.Code, current.Message);
+                    return WorkloadOperationResult<WorkloadTemplate>.Fail(current.Code, current.Context);
                 }
 
                 id = current.Value.StableId;
@@ -554,7 +551,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadOperationResult<WorkloadV2PersistenceRecord> found = Find(id);
             if (!found.Succeeded)
             {
-                return WorkloadOperationResult<WorkloadTemplate>.Fail(found.Code, found.Message);
+                return WorkloadOperationResult<WorkloadTemplate>.Fail(found.Code, found.Context);
             }
 
             return WorkloadV2RecordConverter.TryToTemplate(found.Value, Store.IsReadOnlyDiagnostic);
@@ -565,8 +562,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_previewSession != null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "A V2 preview is already active.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadOperationResult<WorkloadTemplate> template = SpineTiming.Enabled
@@ -576,7 +572,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 : GetTemplate(workloadId);
             if (!template.Succeeded)
             {
-                return WorkloadOperationResult<WorkloadSession>.Fail(template.Code, template.Message);
+                return WorkloadOperationResult<WorkloadSession>.Fail(template.Code, template.Context);
             }
 
             WorkloadOperationResult<WorkloadLiveBaselineCapture> liveCapture =
@@ -589,7 +585,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
                     liveCapture.Code,
-                    liveCapture.Message);
+                    liveCapture.Context);
             }
 
             WorkloadSession opened = SpineTiming.Enabled
@@ -608,8 +604,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (opened == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 preview could not establish an explicit live baseline and source identity.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             _applyService.RememberBackendBaseline(
@@ -624,8 +619,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (session == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "Use explicit V2 cancel to close the active preview.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (session.IsTerminal ||
@@ -637,8 +631,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     WorkloadSession.GetSourceIdentity(session.SourceTemplate)))
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 preview session is not backed by an explicit live baseline and source identity.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (_previewSession?.RuntimeBaseline != null &&
@@ -646,8 +639,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                  !session.RuntimeBaseline.Preserves(_previewSession.RuntimeBaseline)))
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The incoming V2 preview did not preserve the previously captured runtime baseline.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadOwnershipDimensions ownership =
@@ -669,8 +661,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         !session.RuntimeBaseline.ContainsPawn(pawn))
                     {
                         return WorkloadOperationResult<WorkloadSession>.Fail(
-                            WorkloadDiagnosticCode.InvalidState,
-                            "The incoming V2 preview added a pawn without extending its captured runtime baseline: " + pawn + ".");
+                            WorkloadDiagnosticCode.InvalidState);
                     }
                 }
             }
@@ -683,8 +674,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     session.SourceIdentity))
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 preview source no longer matches the stored workload template.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             _previewSession = session;
@@ -696,8 +686,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_previewSession == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.NotFound,
-                    "There is no active V2 preview session.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             WorkloadSession candidate = _previewSession.Edit(edit);
@@ -719,8 +708,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_previewSession == null || candidate == null || pawn == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The active V2 preview cannot extend its captured live baseline safely.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (!StringComparer.Ordinal.Equals(
@@ -730,8 +718,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 candidate.RuntimeBaseline == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The included pawn candidate does not preserve the active preview identity or baseline.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadOperationResult<WorkloadSession> prepared =
@@ -744,8 +731,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (!prepared.Value.RuntimeBaseline.ContainsPawn(pawn))
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The newly included pawn has no authoritative live runtime baseline.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             _previewSession = prepared.Value;
@@ -783,8 +769,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (previous?.RuntimeBaseline == null || !previous.HasCapturedLiveBaseline)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "A newly included pawn cannot be accepted because the preview has no captured runtime baseline to extend.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadTemplate captureTemplate = BuildEffectiveTemplate(
@@ -797,7 +782,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
                     capture.Code,
-                    "The newly included pawn runtime baseline could not be captured: " + capture.Message);
+                    capture.Context);
             }
 
             WorkloadRuntimeBaseline extension = capture.Value.RuntimeBaseline;
@@ -806,8 +791,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 existing.ManualMode != extension.ManualMode)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The global manual-priority mode changed while the new pawn baseline was being extended.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadOwnershipDimensions ownership =
@@ -821,8 +805,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                  existing.SpecificJobRevision != extension.SpecificJobRevision))
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "BWT specific-job state changed while the new pawn baseline was being extended.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             bool requiresPawnRuntimeBaseline =
@@ -835,8 +818,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (!extension.ContainsPawn(added[i]))
                     {
                         return WorkloadOperationResult<WorkloadSession>.Fail(
-                            WorkloadDiagnosticCode.InvalidState,
-                            "The newly included pawn has no complete captured runtime baseline: " + added[i] + ".");
+                            WorkloadDiagnosticCode.InvalidState);
                     }
                 }
             }
@@ -845,8 +827,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (merged == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The newly included pawn baseline was captured under a different manual-mode or specific-job revision.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (capture.Value.BackendBaseline != null)
@@ -881,7 +862,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
                     refresh.Code,
-                    refresh.Message);
+                    refresh.Context);
             }
 
             return WorkloadOperationResult<WorkloadSession>.Ok(prepared);
@@ -894,8 +875,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (candidate == null || previous == null)
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 preview baseline refresh has no session candidate.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (!_applyService.TryGetBackendBaseline(
@@ -903,8 +883,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     out WorkloadBackendDimensionBaseline existing))
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 preview is missing its service-owned dimension baseline.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (!NeedsBackendBaselineRefresh(candidate, existing))
@@ -922,8 +901,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 return WorkloadOperationResult.Fail(
                     capture.Code,
-                    "The V2 service-owned baseline could not be refreshed: " +
-                    capture.Message);
+                    capture.Context);
             }
 
             _applyService.RememberBackendBaseline(
@@ -1023,8 +1001,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_previewSession == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.NotFound,
-                    "There is no active V2 preview session.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             WorkloadSession candidate = _previewSession.EditState(projectedState);
@@ -1044,8 +1021,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_previewSession == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.NotFound,
-                    "There is no active V2 preview session.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             _previewSession = _previewSession.Revert();
@@ -1057,8 +1033,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_previewSession == null)
             {
                 return WorkloadOperationResult<WorkloadPreviewPlan>.Fail(
-                    WorkloadDiagnosticCode.NotFound,
-                    "There is no active V2 preview session.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             WorkloadSessionDecision decision;
@@ -1077,15 +1052,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     break;
                 default:
                     return WorkloadOperationResult<WorkloadPreviewPlan>.Fail(
-                        WorkloadDiagnosticCode.UnsupportedOperation,
-                        "The requested V2 preview decision is not supported.");
+                        WorkloadDiagnosticCode.UnsupportedDecision);
             }
 
             if (decision?.Plan == null)
             {
                 return WorkloadOperationResult<WorkloadPreviewPlan>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 preview could not construct a lifecycle plan.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadTemplate targetTemplate = decisionKind == WorkloadDecisionKind.Apply
@@ -1121,8 +1094,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_previewSession == null)
             {
                 return WorkloadOperationResult<WorkloadSemanticDiff>.Fail(
-                    WorkloadDiagnosticCode.NotFound,
-                    "There is no active V2 preview session.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             WorkloadOperationResult<WorkloadPreviewPlan> plan =
@@ -1131,7 +1103,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 ? WorkloadOperationResult<WorkloadSemanticDiff>.Ok(plan.Value.Diff)
                 : WorkloadOperationResult<WorkloadSemanticDiff>.Fail(
                     plan.Code,
-                    plan.Message);
+                    plan.Context);
         }
 
         internal WorkloadOperationResult<WorkloadSemanticDiff> PreviewImpactDiff()
@@ -1139,8 +1111,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_previewSession == null)
             {
                 return WorkloadOperationResult<WorkloadSemanticDiff>.Fail(
-                    WorkloadDiagnosticCode.NotFound,
-                    "There is no active V2 preview session.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             WorkloadOperationResult<WorkloadPreviewPlan> plan =
@@ -1149,7 +1120,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 ? WorkloadOperationResult<WorkloadSemanticDiff>.Ok(plan.Value.Diff)
                 : WorkloadOperationResult<WorkloadSemanticDiff>.Fail(
                     plan.Code,
-                    plan.Message);
+                    plan.Context);
         }
 
         internal static WorkloadTemplate BuildEffectiveTemplate(
@@ -1210,16 +1181,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_previewSession == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.NotFound,
-                    "There is no active V2 preview session to rebase.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             WorkloadSession rebased = _previewSession.RebaseAfterPersistence(receipt);
             if (rebased == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The V2 persistence receipt does not match the active preview source or target.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             WorkloadOperationResult rekey = _applyService.RekeyBackendBaseline(
@@ -1229,7 +1198,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
                     rekey.Code,
-                    rekey.Message);
+                    rekey.Context);
             }
 
             _previewSession = rebased;
@@ -1244,8 +1213,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_previewSession == null)
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.NotFound,
-                    "There is no active V2 preview session from which to recover a persistence receipt.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             return _applyService.RecoverPersistenceReceipt(
@@ -1262,8 +1230,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (request == null || projectedTemplate == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The synchronized workload request or projected payload is missing.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (string.IsNullOrWhiteSpace(request.SessionId) ||
@@ -1272,23 +1239,21 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 request.ExpectedRevisions.MembershipRevision <= 0)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The synchronized workload request has no valid preview-session identity or independent freshness revisions.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadOperationResult<WorkloadV2PersistenceRecord> found = Find(request.SourceWorkloadId);
             if (!found.Succeeded)
-                return WorkloadOperationResult<WorkloadSession>.Fail(found.Code, found.Message);
+                return WorkloadOperationResult<WorkloadSession>.Fail(found.Code, found.Context);
             WorkloadOperationResult<WorkloadTemplate> source = WorkloadV2RecordConverter.TryToTemplate(found.Value);
             if (!source.Succeeded)
-                return WorkloadOperationResult<WorkloadSession>.Fail(source.Code, source.Message);
+                return WorkloadOperationResult<WorkloadSession>.Fail(source.Code, source.Context);
             if (!StringComparer.OrdinalIgnoreCase.Equals(
                     WorkloadSession.GetSourceIdentity(source.Value),
                     request.ExpectedRevisions.SourceTemplateFingerprint))
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The synchronized workload source fingerprint is stale.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadProjectedState synchronizedState =
@@ -1321,9 +1286,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadOperationResult<WorkloadLiveBaselineCapture> capture =
                 _applyService.CaptureLiveBaselineCapture(observedSource);
             if (!capture.Succeeded)
-                return WorkloadOperationResult<WorkloadSession>.Fail(capture.Code, capture.Message);
+                return WorkloadOperationResult<WorkloadSession>.Fail(capture.Code, capture.Context);
             WorkloadBackendDimensionBaseline observed = capture.Value.BackendBaseline;
-            WorkloadV2PersistenceEnvelope store = _component.EnsureWorkloadV2Persistence();
+            WorkloadV2PersistenceEnvelope store = _component.EnsureV2Persistence();
             if (store == null || store.PersistenceRevision != request.ExpectedRevisions.StoreRevision ||
                 observed == null ||
                 observed.AuthorityRevision != request.ExpectedRevisions.AuthorityRevision ||
@@ -1341,8 +1306,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     request.ExpectedRevisions.TaxonomyFingerprint))
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.BaselineChanged,
-                    "A synchronized workload store, authority, service, or taxonomy revision changed before prepare.");
+                    WorkloadDiagnosticCode.BaselineChanged);
             }
             WorkloadSession session = WorkloadSession.OpenCaptured(
                 source.Value,
@@ -1355,8 +1319,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (session == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The synchronized workload session could not be reconstructed.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (!StringComparer.Ordinal.Equals(
@@ -1366,8 +1329,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 session.MembershipRevision != request.ExpectedRevisions.MembershipRevision)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.BaselineChanged,
-                    "The synchronized preview-session identity or freshness revisions changed before prepare.");
+                    WorkloadDiagnosticCode.BaselineChanged);
             }
 
             _applyService.RememberBackendBaseline(source.Value, capture.Value.BackendBaseline);
@@ -1394,8 +1356,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (request == null || session == null)
             {
                 return WorkloadOperationResult<WorkloadPreparedTransaction>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The synchronized workload prepare is missing its request or session identity.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadV2CommitResult validation = _applyService.ValidatePrepared(
@@ -1407,7 +1368,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 return WorkloadOperationResult<WorkloadPreparedTransaction>.Fail(
                     validation.Code,
-                    validation.Message);
+                    validation.Context);
+            }
+
+            if (!_applyService.TryGetBackendBaseline(
+                    session,
+                    out WorkloadBackendDimensionBaseline baseline))
+            {
+                return WorkloadOperationResult<WorkloadPreparedTransaction>.Fail(
+                    WorkloadDiagnosticCode.BaselineChanged);
             }
 
             return WorkloadOperationResult<WorkloadPreparedTransaction>.Ok(
@@ -1418,7 +1387,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     targetStableId,
                     forkLabel,
                     validation,
-                    BuildPreparedPlanFingerprint(validation.Plan, decision, targetStableId)));
+                    BuildPreparedPlanFingerprint(
+                        validation.Plan,
+                        decision,
+                        targetStableId,
+                        baseline)));
         }
 
         internal WorkloadV2CommitResult ExecuteMultiplayerCommit(
@@ -1432,23 +1405,25 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return WorkloadV2ApplyService.GatewayFailure(
                     prepared?.Decision ?? WorkloadDecisionKind.Apply,
                     WorkloadDiagnosticCode.InvalidState,
-                    "multiplayer.execute.prepare",
-                    "The synchronized workload execute has no immutable prepare artifact.");
+                    "multiplayer.execute.prepare");
             }
 
-            if (prepared.ExecuteStarted ||
+            if (!_applyService.TryGetBackendBaseline(
+                    prepared.Session,
+                    out WorkloadBackendDimensionBaseline baseline) ||
+                prepared.ExecuteStarted ||
                 !StringComparer.Ordinal.Equals(
                     BuildPreparedPlanFingerprint(
                         prepared.Validation.Plan,
                         prepared.Decision,
-                        prepared.TargetStableId),
+                        prepared.TargetStableId,
+                        baseline),
                     prepared.PlanFingerprint))
             {
                 return WorkloadV2ApplyService.GatewayFailure(
                     prepared.Decision,
                     WorkloadDiagnosticCode.InvalidState,
-                    "multiplayer.execute.prepare",
-                    "The synchronized workload prepare artifact was reused or changed.");
+                    "multiplayer.execute.prepare");
             }
 
             WorkloadTransactionRequest request = prepared.Request;
@@ -1462,8 +1437,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return WorkloadV2ApplyService.GatewayFailure(
                     prepared.Decision,
                     WorkloadDiagnosticCode.MutationCapabilityRejected,
-                    "multiplayer.execute.authorization",
-                    authorizationReason);
+                    "multiplayer.execute.authorization");
             }
 
             if (targetTemplate == null)
@@ -1473,8 +1447,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return WorkloadV2ApplyService.GatewayFailure(
                     prepared.Decision,
                     WorkloadDiagnosticCode.MutationCapabilityRejected,
-                    "multiplayer.execute.authorization",
-                    authorizationReason);
+                    "multiplayer.execute.authorization");
             }
 
             if (!TryConvertCapabilityRevision(
@@ -1496,8 +1469,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return WorkloadV2ApplyService.GatewayFailure(
                     prepared.Decision,
                     WorkloadDiagnosticCode.MutationCapabilityRejected,
-                    "multiplayer.execute.authorization",
-                    authorizationReason);
+                    "multiplayer.execute.authorization");
             }
 
             if (!WorkTabMutationAuthorization.TryCreate(
@@ -1521,9 +1493,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return WorkloadV2ApplyService.GatewayFailure(
                     prepared.Decision,
                     WorkloadDiagnosticCode.MutationCapabilityRejected,
-                    "multiplayer.execute.authorization",
-                    authorizationReason ??
-                    "The synchronized workload mutation capability could not be minted.");
+                    "multiplayer.execute.authorization");
             }
 
             prepared.ExecuteStarted = true;
@@ -1552,7 +1522,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         internal static string BuildPreparedPlanFingerprint(
             WorkloadPreviewPlan plan,
             WorkloadDecisionKind decision,
-            string targetStableId)
+            string targetStableId,
+            WorkloadBackendDimensionBaseline baseline = null)
         {
             if (plan == null)
             {
@@ -1565,7 +1536,68 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 (plan.BeforeState?.SemanticFingerprint ?? string.Empty) + "\u001f" +
                 (plan.AfterState?.SemanticFingerprint ?? string.Empty) + "\u001f" +
                 (plan.Diff?.BeforeFingerprint ?? string.Empty) + "\u001f" +
-                (plan.Diff?.AfterFingerprint ?? string.Empty));
+                (plan.Diff?.AfterFingerprint ?? string.Empty) + "\u001f" +
+                BuildLoweredMutationFingerprint(baseline));
+        }
+
+        private static string BuildLoweredMutationFingerprint(
+            WorkloadBackendDimensionBaseline baseline)
+        {
+            if (baseline == null)
+                return string.Empty;
+
+            var builder = new StringBuilder();
+            builder.Append(baseline.AuthorityRevision).Append('|')
+                .Append(baseline.ScheduleRevision).Append('|')
+                .Append(baseline.SpecificJobRevision).Append('|')
+                .Append(WorkloadCanonical.Encode(
+                    baseline.TaxonomyFingerprint ?? string.Empty));
+
+            var priorities = baseline.SpecificPriorities.Values
+                .Where(value => value != null)
+                .OrderBy(value => value.Key?.ToString() ?? string.Empty, StringComparer.Ordinal);
+            foreach (WorkloadSpecificPriorityBaseline value in priorities)
+            {
+                builder.Append("|p:")
+                    .Append(WorkloadCanonical.Encode(value.Key?.ToString() ?? string.Empty))
+                    .Append(':').Append((int)value.State.State)
+                    .Append(':').Append(value.State.Priority);
+            }
+
+            var orders = baseline.WorkTypeOrders.Values
+                .Where(value => value != null)
+                .OrderBy(value => value.Key?.ToString() ?? string.Empty, StringComparer.Ordinal);
+            foreach (WorkloadWorkTypeOrderBaseline value in orders)
+            {
+                builder.Append("|o:")
+                    .Append(WorkloadCanonical.Encode(value.Key?.ToString() ?? string.Empty))
+                    .Append(':').Append((int)value.State.State);
+                IReadOnlyList<string> names = value.State.OrderedWorkGiverNames;
+                for (int i = 0; names != null && i < names.Count; i++)
+                {
+                    builder.Append(':').Append(WorkloadCanonical.Encode(names[i]));
+                }
+            }
+
+            var schedules = baseline.Schedules
+                .OrderBy(value => value.Key?.ToString() ?? string.Empty, StringComparer.Ordinal);
+            foreach (KeyValuePair<WorkloadScheduleTargetKey, TimePriorityLiveScheduleSnapshot> value
+                     in schedules)
+            {
+                TimePriorityLiveScheduleSnapshot snapshot = value.Value;
+                builder.Append("|s:")
+                    .Append(WorkloadCanonical.Encode(value.Key?.ToString() ?? string.Empty))
+                    .Append(':').Append(snapshot?.ServiceVersion ?? -1)
+                    .Append(':').Append(snapshot?.HadSchedule == true ? 1 : 0)
+                    .Append(':').Append(snapshot?.Schedule?.PinnedHourMask ?? 0);
+                TimePriorityScheduleValue schedule = snapshot?.Schedule;
+                for (int hour = 0; schedule != null && hour < 24; hour++)
+                {
+                    builder.Append(':').Append(schedule.PriorityAt(hour));
+                }
+            }
+
+            return WorkloadCanonical.Fingerprint(builder.ToString());
         }
 
         private static bool TryConvertCapabilityRevision(
@@ -1602,7 +1634,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 !_applyService.TryGetBackendBaseline(session, out var baseline) ||
                 baseline == null)
                 return false;
-            WorkloadV2PersistenceEnvelope store = _component?.EnsureWorkloadV2Persistence();
+            WorkloadV2PersistenceEnvelope store = _component?.EnsureV2Persistence();
             if (store == null) return false;
             revisions = new WorkloadTransactionRevisionVector(
                 store.PersistenceRevision,
@@ -1656,8 +1688,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return WorkloadV2ApplyService.GatewayFailure(
                     decisionKind,
                     pending.Code,
-                    "multiplayer.pending",
-                    pending.Message);
+                    "multiplayer.pending");
             }
 
             WorkloadV2CommitResult result = _applyService.Commit(
@@ -1689,30 +1720,26 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (string.IsNullOrEmpty(workloadId))
             {
                 return WorkloadOperationResult<WorkloadV2PersistenceRecord>.Fail(
-                    WorkloadDiagnosticCode.MissingStableId,
-                    "A V2 workload stable ID is required.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             WorkloadV2PersistenceEnvelope store = Store;
             if (store == null)
             {
                 return WorkloadOperationResult<WorkloadV2PersistenceRecord>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no Better Work Tab world component.");
+                    WorkloadDiagnosticCode.NoCurrentGame);
             }
 
             if (store.HasDuplicateStableId(workloadId))
             {
                 return WorkloadOperationResult<WorkloadV2PersistenceRecord>.Fail(
-                    WorkloadDiagnosticCode.AmbiguousStableId,
-                    "The V2 workload stable ID is duplicated.");
+                    WorkloadDiagnosticCode.AmbiguousStableId);
             }
 
             WorkloadV2PersistenceRecord record = store.Find(workloadId);
             return record == null
                 ? WorkloadOperationResult<WorkloadV2PersistenceRecord>.Fail(
-                    WorkloadDiagnosticCode.UnknownWorkloadId,
-                    "The V2 workload stable ID was not found.")
+                    WorkloadDiagnosticCode.UnknownWorkloadId)
                 : WorkloadOperationResult<WorkloadV2PersistenceRecord>.Ok(record);
         }
 
@@ -1721,8 +1748,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_component == null)
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no Better Work Tab world component.");
+                    WorkloadDiagnosticCode.NoCurrentGame);
             }
 
             WorkloadV2PersistenceEnvelope store = Store;
@@ -1732,10 +1758,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return WorkloadOperationResult.Fail(
                     store.DiagnosticCode == WorkloadDiagnosticCode.None
                         ? WorkloadDiagnosticCode.ReadOnlyDiagnostic
-                        : store.DiagnosticCode,
-                    string.IsNullOrEmpty(store.Diagnostic)
-                        ? "The V2 workload store is read-only for diagnostics."
-                        : store.Diagnostic);
+                        : store.DiagnosticCode);
             }
 
             return WorkloadOperationResult.Ok();
@@ -1743,12 +1766,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
         private WorkloadV2PersistenceEnvelope Store
         {
-            get { return _component?.EnsureWorkloadV2Persistence(); }
+            get { return _component?.EnsureV2Persistence(); }
         }
 
         private void NotifyChanged()
         {
-            _component?.NotifyWorkloadV2Changed();
+            _component?.NotifyV2Changed();
         }
 
         private string FindFirstStableId()
@@ -1832,16 +1855,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         {
             if (!MultiplayerBridge.Active || !MultiplayerBridge.Host)
                 return Status(string.Empty, WorkloadMultiplayerCommitState.Rejected,
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "Only the authenticated multiplayer host may request a workload transaction.");
+                    WorkloadDiagnosticCode.MultiplayerUnavailable);
             if (backend == null || session == null)
                 return Status(string.Empty, WorkloadMultiplayerCommitState.Rejected,
-                    WorkloadDiagnosticCode.NotFound, "There is no active workload preview session.");
+                    WorkloadDiagnosticCode.NotFound);
             if (!MultiplayerBridge.TryGetWorkloadSessionContext(out var epoch, out var roster) ||
                 !MultiplayerBridge.TryGetWorkloadParticipantKeys(out var participants))
                 return Status(string.Empty, WorkloadMultiplayerCommitState.Rejected,
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "The synchronized multiplayer session roster is unavailable.");
+                    WorkloadDiagnosticCode.MultiplayerUnavailable);
 
             string targetId = decision == WorkloadDecisionKind.Fork
                 ? (string.IsNullOrWhiteSpace(forkStableId) ? Guid.NewGuid().ToString("N") : forkStableId)
@@ -1855,17 +1876,17 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2RecordConverter.TryFromTemplate(payloadTemplate);
             if (!converted.Succeeded)
                 return Status(string.Empty, WorkloadMultiplayerCommitState.Rejected,
-                    converted.Code, converted.Message);
+                    converted.Code);
             string payloadError = null;
             if (!WorkloadMultiplayerPayloadCodec.TrySerialize(converted.Value, out var bytes, out var codecError) ||
                 !WorkloadTransactionPayload.TryCreate(bytes, null, out var payload, out payloadError))
                 return Status(string.Empty, WorkloadMultiplayerCommitState.Rejected,
-                    WorkloadDiagnosticCode.InvalidState, codecError ?? payloadError);
+                    WorkloadDiagnosticCode.InvalidState);
 
-            WorkloadV2PersistenceEnvelope store = backend.Component?.EnsureWorkloadV2Persistence();
+            WorkloadV2PersistenceEnvelope store = backend.WorldState?.EnsureV2Persistence();
             if (store == null)
                 return Status(string.Empty, WorkloadMultiplayerCommitState.Rejected,
-                    WorkloadDiagnosticCode.NoCurrentGame, "The workload store is unavailable.");
+                    WorkloadDiagnosticCode.NoCurrentGame);
             store.RefreshDiagnostics();
             string requestId = Guid.NewGuid().ToString("N");
             string effectiveIdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey)
@@ -1874,15 +1895,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (!backend.TryCreateMultiplayerRevisionVector(
                 session, epoch, roster, out var revisions))
                 return Status(requestId, WorkloadMultiplayerCommitState.Rejected,
-                    WorkloadDiagnosticCode.BaselineChanged,
-                    "The workload service revisions captured for preview are unavailable.");
+                    WorkloadDiagnosticCode.BaselineChanged);
             if (!WorkloadTransactionRequest.TryCreateCanonical(
                     ToOperation(decision), requestId, effectiveIdempotencyKey,
                     session.PreviewSessionId, session.SourceTemplate.StableId, targetId,
                     MultiplayerBridge.LocalPlayerName, 3600, payload, revisions,
                     participants, out var request, out var diagnostic))
                 return Status(requestId, WorkloadMultiplayerCommitState.Rejected,
-                    WorkloadDiagnosticCode.InvalidState, diagnostic);
+                    WorkloadDiagnosticCode.InvalidState);
 
             long sequence = Verse.Find.TickManager?.TicksGame ?? 0;
             WorkloadTransactionAdmission admission = WorkloadTransactionMultiplayer.TryBegin(request, sequence);
@@ -1893,7 +1913,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 {
                     return Status(admission.Request?.RequestId ?? requestId,
                         WorkloadMultiplayerCommitState.Rejected,
-                        WorkloadDiagnosticCode.PersistenceConflict, admission.Diagnostic);
+                        WorkloadDiagnosticCode.PersistenceConflict);
                 }
 
                 if (admission.TerminalResult != null)
@@ -1906,9 +1926,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             : admission.TerminalResult.TerminalState ==
                               WorkloadTransactionTerminalState.RollbackFailed
                                 ? WorkloadDiagnosticCode.RollbackFailed
-                                : WorkloadDiagnosticCode.InvalidState,
-                        admission.TerminalResult.Detail,
-                        null);
+                                : WorkloadDiagnosticCode.InvalidState);
                 }
 
                 if (admission.Code == WorkloadTransactionAdmissionCode.Duplicate &&
@@ -1918,8 +1936,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     return Status(
                         correlatedRequestId,
                         WorkloadMultiplayerCommitState.Pending,
-                        WorkloadDiagnosticCode.None,
-                        "The idempotent workload transaction is already in progress.");
+                        WorkloadDiagnosticCode.None);
                 }
 
                 if (admission.Code == WorkloadTransactionAdmissionCode.RecoveryRequired)
@@ -1927,16 +1944,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     return Status(
                         correlatedRequestId,
                         WorkloadMultiplayerCommitState.RollbackFailed,
-                        WorkloadDiagnosticCode.RollbackFailed,
-                        admission.Diagnostic);
+                        WorkloadDiagnosticCode.RollbackFailed);
                 }
 
                 return Status(requestId, WorkloadMultiplayerCommitState.Rejected,
-                    WorkloadDiagnosticCode.UnsupportedOperation, admission.Diagnostic);
+                    WorkloadDiagnosticCode.MultiplayerUnavailable);
             }
             return Status(requestId, WorkloadMultiplayerCommitState.Pending,
-                WorkloadDiagnosticCode.None,
-                "The workload transaction is pending synchronized prepare/execute acknowledgement.");
+                WorkloadDiagnosticCode.None);
         }
 
         public void OnRequestAccepted(WorkloadTransactionRequest request) { }
@@ -1946,7 +1961,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (admission?.Code == WorkloadTransactionAdmissionCode.MismatchedDuplicate)
             {
                 Status(admission.Request?.RequestId, WorkloadMultiplayerCommitState.Rejected,
-                    WorkloadDiagnosticCode.PersistenceConflict, admission.Diagnostic);
+                    WorkloadDiagnosticCode.PersistenceConflict);
                 return;
             }
 
@@ -1962,9 +1977,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         : admission.TerminalResult.TerminalState ==
                           WorkloadTransactionTerminalState.RollbackFailed
                             ? WorkloadDiagnosticCode.RollbackFailed
-                            : WorkloadDiagnosticCode.InvalidState,
-                    admission.TerminalResult.Detail,
-                    null);
+                            : WorkloadDiagnosticCode.InvalidState);
                 return;
             }
 
@@ -1974,8 +1987,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 Status(
                     admission.RegisteredRequest?.RequestId ?? admission.Request?.RequestId,
                     WorkloadMultiplayerCommitState.Pending,
-                    WorkloadDiagnosticCode.None,
-                    "The idempotent workload transaction is already in progress.");
+                    WorkloadDiagnosticCode.None);
                 return;
             }
 
@@ -1984,14 +1996,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 Status(
                     admission.RegisteredRequest?.RequestId ?? admission.Request?.RequestId,
                     WorkloadMultiplayerCommitState.RollbackFailed,
-                    WorkloadDiagnosticCode.RollbackFailed,
-                    admission.Diagnostic);
+                    WorkloadDiagnosticCode.RollbackFailed);
                 return;
             }
 
             Status(admission?.Request?.RequestId, WorkloadMultiplayerCommitState.Rejected,
-                WorkloadDiagnosticCode.UnsupportedOperation,
-                admission?.Diagnostic ?? "The synchronized workload request was rejected.");
+                WorkloadDiagnosticCode.MultiplayerUnavailable);
         }
 
         public void OnPrepareRequested(WorkloadTransactionRequest request, WorkloadTransactionState state)
@@ -2001,11 +2011,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (accepted) _pendingByRequestId[request.RequestId] = pending;
             if (accepted)
                 Status(request.RequestId, WorkloadMultiplayerCommitState.Prepared,
-                    WorkloadDiagnosticCode.None, detail);
+                    WorkloadDiagnosticCode.None);
             else
                 Status(request.RequestId, WorkloadMultiplayerCommitState.Rejected,
-                    WorkloadDiagnosticCode.InvalidState,
-                    detail ?? "The synchronized workload prepare was rejected.");
+                    WorkloadDiagnosticCode.InvalidState);
             var acknowledgement = new WorkloadTransactionWireAcknowledgement
             {
                 Phase = (byte)WorkloadTransactionPhase.Prepare,
@@ -2065,19 +2074,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     pending.Prepared,
                     out pending.Lease);
                 accepted = pending.Result.Succeeded;
-                detail = pending.Result.Message;
-                pending.ReportFingerprint = ReportFingerprint(pending.Result);
+                detail = pending.Result.Code.ToString();
+                pending.ReportFingerprint = ReportFingerprint(
+                    pending.Result,
+                    pending.Prepared?.PlanFingerprint);
                 if (accepted)
                     Status(request.RequestId,
                         WorkloadMultiplayerCommitState.ExecutedAwaitingConfirmation,
-                        WorkloadDiagnosticCode.None, detail, pending.Result);
+                        WorkloadDiagnosticCode.None, pending.Result);
                 else
                     Status(request.RequestId,
                         pending.Result.Code == WorkloadDiagnosticCode.RollbackFailed
                             ? WorkloadMultiplayerCommitState.RollbackFailed
                             : WorkloadMultiplayerCommitState.Failed,
                         pending.Result.Code,
-                        detail,
                         pending.Result);
             }
             var result = new WorkloadTransactionWireResult
@@ -2233,8 +2243,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             Status(
                 request?.RequestId,
                 WorkloadMultiplayerCommitState.RollbackFailed,
-                WorkloadDiagnosticCode.RollbackRequired,
-                "The synchronized workload transaction is awaiting exactly-once rollback reports.");
+                WorkloadDiagnosticCode.RollbackRequired);
         }
 
         public void OnTerminal(WorkloadTransactionResult result)
@@ -2293,8 +2302,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     ? WorkloadDiagnosticCode.RollbackFailed
                     : result.Accepted && !rollbackAfterConfirmationFailure
                         ? WorkloadDiagnosticCode.None
-                        : WorkloadDiagnosticCode.InvalidState,
-                terminalDetail, pending?.Result);
+                        : WorkloadDiagnosticCode.InvalidState, pending?.Result);
             if (pending != null && state != WorkloadMultiplayerCommitState.RollbackFailed)
             {
                 _pendingByRequestId.Remove(result.RequestId);
@@ -2316,9 +2324,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 !WorkloadMultiplayerPayloadCodec.TryDeserialize(
                     request.Payload.CopyBytes(), out var record, out detail)) return false;
             WorkloadOperationResult<WorkloadTemplate> payload = WorkloadV2RecordConverter.TryToTemplate(record);
-            if (!payload.Succeeded) { detail = payload.Message; return false; }
+            if (!payload.Succeeded) { detail = payload.Code.ToString(); return false; }
             WorkloadOperationResult<WorkloadSession> rebuilt = backend.BuildMultiplayerSession(request, payload.Value);
-            if (!rebuilt.Succeeded) { detail = rebuilt.Message; return false; }
+            if (!rebuilt.Succeeded) { detail = rebuilt.Code.ToString(); return false; }
             WorkloadDecisionKind decision = ToDecision(request.Operation);
             WorkloadOperationResult<WorkloadPreparedTransaction> prepared =
                 backend.PrepareMultiplayerCommit(
@@ -2329,7 +2337,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     payload.Value.Label);
             if (!prepared.Succeeded)
             {
-                detail = prepared.Message;
+                detail = prepared.Code.ToString();
                 return false;
             }
             pending = new PendingPeerCommit
@@ -2342,10 +2350,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 TargetStableId = request.TargetWorkloadId,
                 ForkLabel = payload.Value.Label,
                 Result = prepared.Value.Validation,
-                ReportFingerprint = ReportFingerprint(prepared.Value.Validation)
+                ReportFingerprint = ReportFingerprint(
+                    prepared.Value.Validation,
+                    prepared.Value.PlanFingerprint)
             };
             code = "prepared";
-            detail = prepared.Value.Validation.Message;
+            detail = prepared.Value.Validation.Code.ToString();
             return true;
         }
 
@@ -2385,13 +2395,16 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return control;
         }
 
-        private static string ReportFingerprint(WorkloadV2CommitResult result)
+        private static string ReportFingerprint(
+            WorkloadV2CommitResult result,
+            string preparedPlanFingerprint = null)
         {
             string canonical = (result?.Succeeded == true ? "1" : "0") + "\u001f" +
                 (result?.StableId ?? string.Empty) + "\u001f" +
                 (result?.ResultTemplate?.SemanticFingerprint ?? string.Empty) + "\u001f" +
                 (result?.Report?.ChangedCount ?? 0).ToString(CultureInfo.InvariantCulture) + "\u001f" +
-                (result?.Report?.ClearedCount ?? 0).ToString(CultureInfo.InvariantCulture);
+                (result?.Report?.ClearedCount ?? 0).ToString(CultureInfo.InvariantCulture) + "\u001f" +
+                (preparedPlanFingerprint ?? string.Empty);
             return WorkloadCanonical.Fingerprint(canonical);
         }
 
@@ -2432,9 +2445,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
         private static WorkloadMultiplayerCommitStatus Status(
             string requestId, WorkloadMultiplayerCommitState state,
-            WorkloadDiagnosticCode code, string message, WorkloadV2CommitResult result = null)
+            WorkloadDiagnosticCode code, WorkloadV2CommitResult result = null)
         {
-            var status = new WorkloadMultiplayerCommitStatus(requestId, state, code, message, result);
+            var status = new WorkloadMultiplayerCommitStatus(requestId, state, code, null, result);
             Workload2Backend.PublishMultiplayerStatus(status);
             return status;
         }
@@ -2549,9 +2562,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         internal WorkTypeDef WorkType { get; set; }
         internal WorkGiverDef WorkGiver { get; set; }
         internal bool IsGlobal { get; set; }
-        internal bool HasLocalOverride { get; set; }
-        internal int LocalPriority { get; set; }
-        internal WorkGiverReassignmentManager.GlobalWorkGiverPrioritySnapshot GlobalSnapshot { get; set; }
+        internal WorkTabSpecificPriorityBaseline State { get; set; }
     }
 
     internal sealed class WorkloadWorkTypeOrderBaseline
@@ -2560,17 +2571,23 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         internal Pawn Pawn { get; set; }
         internal WorkTypeDef WorkType { get; set; }
         internal bool IsGlobal { get; set; }
-        internal WorkGiverReassignmentManager.PawnWorkGiverOrderSnapshot LocalSnapshot { get; set; }
-        internal WorkGiverReassignmentManager.GlobalWorkTypeOrderSnapshot GlobalSnapshot { get; set; }
+        internal WorkTabSpecificOrderBaseline State { get; set; }
     }
 
     internal sealed class WorkloadV2ApplyService
     {
-        private readonly GameComponent_BWTWorldSettings _component;
+        private static IWorkTabPriorityCapturePort PriorityState =>
+            WorkTabDomainPorts.Priority;
+        private static IWorkTabScheduleCapturePort ScheduleState =>
+            WorkTabDomainPorts.Schedules;
+        private static IWorkTabSpecificJobCapturePort SpecificJobState =>
+            WorkTabDomainPorts.SpecificJobs;
+
+        private readonly IWorkloadWorldState _component;
         private readonly Dictionary<string, WorkloadBackendDimensionBaseline> _backendBaselines =
             new Dictionary<string, WorkloadBackendDimensionBaseline>(StringComparer.Ordinal);
 
-        internal WorkloadV2ApplyService(GameComponent_BWTWorldSettings component)
+        internal WorkloadV2ApplyService(IWorkloadWorldState component)
         {
             _component = component;
         }
@@ -2613,8 +2630,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 string.IsNullOrWhiteSpace(receipt.PersistenceFingerprint))
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The V2 service-owned baseline rekey receipt is not authoritative.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             if (!_backendBaselines.TryGetValue(oldIdentity, out var baseline) ||
@@ -2626,11 +2642,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     receipt.PreviousPersistenceFingerprint))
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The V2 service-owned baseline no longer matches the committed persistence receipt.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
-            WorkloadV2PersistenceEnvelope store = _component?.EnsureWorkloadV2Persistence();
+            WorkloadV2PersistenceEnvelope store = _component?.EnsureV2Persistence();
             if (store == null || store.IsReadOnlyDiagnostic ||
                 store.PersistenceRevision != receipt.PersistenceRevision ||
                 !StringComparer.Ordinal.Equals(
@@ -2639,8 +2654,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 store.HasDuplicateStableId(receipt.TargetStableId))
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The local V2 persistence envelope does not match the committed receipt.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             WorkloadV2PersistenceRecord targetRecord =
@@ -2657,16 +2671,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                      receipt.TargetStableId)))
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The local V2 target record does not match the committed receipt.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             if (!StringComparer.Ordinal.Equals(oldIdentity, newIdentity) &&
                 _backendBaselines.ContainsKey(newIdentity))
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The V2 target identity already has a service-owned baseline.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             // The typed/runtime snapshots remain the exact opening snapshots.
@@ -2705,16 +2717,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 session.SourceTemplate.Definition == null)
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 preview source required for persistence receipt recovery is missing.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (decisionKind != WorkloadDecisionKind.Update &&
                 decisionKind != WorkloadDecisionKind.Fork)
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "A V2 persistence receipt can only be recovered for Update or Fork.");
+                    WorkloadDiagnosticCode.UnsupportedDecision);
             }
 
             string sourceStableId = session.SourceTemplate.StableId ?? string.Empty;
@@ -2726,8 +2736,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     WorkloadSession.GetSourceIdentity(session.SourceTemplate)))
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The V2 preview source identity is stale or unavailable for persistence receipt recovery.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             targetStableId = targetStableId ?? string.Empty;
@@ -2736,16 +2745,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 if (!StringComparer.Ordinal.Equals(targetStableId, sourceStableId))
                 {
                     return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                        WorkloadDiagnosticCode.InvalidState,
-                        "The V2 Update receipt target does not match the active preview source.");
+                        WorkloadDiagnosticCode.InvalidState);
                 }
             }
             else if (string.IsNullOrWhiteSpace(targetStableId) ||
                      StringComparer.Ordinal.Equals(targetStableId, sourceStableId))
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 Fork receipt target is missing or reuses the preview source ID.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (!_backendBaselines.TryGetValue(sourceIdentity, out var baseline) ||
@@ -2755,18 +2762,16 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 string.IsNullOrWhiteSpace(baseline.PersistenceFingerprint))
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The old V2 service-owned persistence baseline is unavailable for receipt recovery.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
-            WorkloadV2PersistenceEnvelope store = _component?.EnsureWorkloadV2Persistence();
+            WorkloadV2PersistenceEnvelope store = _component?.EnsureV2Persistence();
             store?.RefreshDiagnostics();
             if (store == null || store.IsReadOnlyDiagnostic ||
                 store.PersistenceRevision < 0)
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The current V2 persistence envelope is not authoritative for receipt recovery.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             WorkloadOperationResult<WorkloadPersistenceReceipt> receipt =
@@ -2804,7 +2809,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 CaptureLiveBaselineCapture(template);
             return capture.Succeeded
                 ? WorkloadOperationResult<WorkloadProjectedState>.Ok(capture.Value.State)
-                : WorkloadOperationResult<WorkloadProjectedState>.Fail(capture.Code, capture.Message);
+                : WorkloadOperationResult<WorkloadProjectedState>.Fail(capture.Code, capture.Context);
         }
 
         internal WorkloadOperationResult<WorkloadLiveBaselineCapture> CaptureLiveBaselineCapture(
@@ -2813,8 +2818,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (template == null)
             {
                 return WorkloadOperationResult<WorkloadLiveBaselineCapture>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 live baseline cannot be captured without a template.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             WorkloadProjectedState templateState =
@@ -2910,9 +2914,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             int priority;
                             try
                             {
-                                priority = PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                                    pawn.workSettings,
-                                    workType);
+                                priority = PriorityState.ReadStored(pawn, workType);
                             }
                             catch (Exception exception)
                             {
@@ -2955,9 +2957,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             " could not be captured safely because pawn work settings are unavailable.");
                     }
 
-                    int priority = PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                        pawn.workSettings,
-                        workType);
+                    int priority = PriorityState.ReadStored(pawn, workType);
                     livePriorities.Add(new WorkloadParentPriorityEntry(entry.Key, priority));
                 }
 
@@ -3001,7 +3001,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             " could not be captured safely: " + failure);
                     }
 
-                    if (WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+                    if (SpecificJobState.TryReadLocalPriority(
                             pawn,
                             workGiver,
                             out int specificPriority))
@@ -3054,9 +3054,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     specificJobOverrides: null,
                     specificJobOrders: null,
                     captureSpecificOverrides || captureSpecificOrder,
-                    WorkGiverReassignmentManager.CurrentSyncVersion,
+                    SpecificJobState.Revision,
                     captureSpecificOverrides || captureSpecificOrder
-                        ? WorkGiverReassignmentManager.CurrentStateFingerprint
+                        ? SpecificJobState.StateFingerprint
                         : null);
                 long profileRuntimeBaseline = Stopwatch.GetTimestamp();
                 WorkloadBackendDimensionBaseline backendBaseline =
@@ -3104,14 +3104,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             catch (CommitAbortException exception)
             {
                 return WorkloadOperationResult<WorkloadLiveBaselineCapture>.Fail(
-                    exception.Code,
-                    exception.Message);
+                    exception.Code);
             }
             catch (Exception exception)
             {
+                Log.Error("[BWT] Workloads V2 live baseline capture failed: " + exception);
                 return WorkloadOperationResult<WorkloadLiveBaselineCapture>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 live baseline could not be captured safely: " + exception.Message);
+                    WorkloadDiagnosticCode.InvalidState);
             }
         }
 
@@ -3210,7 +3209,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return false;
             }
 
-            if (WorkGiverReassignmentManager.GetTargetWorkType(workGiver) != workType)
+            if (SpecificJobState.ResolveWorkType(workGiver) != workType)
             {
                 failure = "the WorkGiverDef no longer belongs to the stable WorkTypeDef";
                 return false;
@@ -3238,7 +3237,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             order = -1;
             if (workType == null || string.IsNullOrEmpty(workGiverDefName)) return false;
             IReadOnlyList<WorkGiver> workGivers =
-                WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType, pawn);
+                SpecificJobState.GetDisplayWorkGivers(workType, pawn);
             for (int i = 0; i < workGivers.Count; i++)
             {
                 if (StringComparer.Ordinal.Equals(workGivers[i]?.def?.defName, workGiverDefName))
@@ -3254,7 +3253,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         private WorkloadBackendDimensionBaseline CapturePersistenceBaseline()
         {
             var baseline = new WorkloadBackendDimensionBaseline();
-            WorkloadV2PersistenceEnvelope store = _component?.EnsureWorkloadV2Persistence();
+            WorkloadV2PersistenceEnvelope store = _component?.EnsureV2Persistence();
             if (store != null)
             {
                 store.RefreshDiagnostics();
@@ -3263,10 +3262,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 baseline.HasPersistenceBaseline = !store.IsReadOnlyDiagnostic;
             }
 
-            baseline.SpecificJobRevision = WorkGiverReassignmentManager.CurrentSyncVersion;
-            baseline.ScheduleRevision = TimePriorityService.CurrentVersion;
-            baseline.AuthorityRevision =
-                PriorityAuthorityBroker.GetObservationalAuthorityRevision();
+            baseline.SpecificJobRevision = SpecificJobState.Revision;
+            baseline.ScheduleRevision = ScheduleState.Revision;
+            baseline.AuthorityRevision = PriorityState.ObservationalAuthorityRevision;
             return baseline;
         }
 
@@ -3399,7 +3397,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (baseline.SettingsWriter == null)
                     {
                         Abort(
-                            WorkloadDiagnosticCode.UnsupportedOperation,
+                            WorkloadDiagnosticCode.CaptureFailed,
                             "The workload presentation service is unavailable.");
                     }
                     if (!baseline.SettingsWriter.TryCapture(
@@ -3408,7 +3406,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             out string reason))
                     {
                         Abort(
-                            WorkloadDiagnosticCode.UnsupportedOperation,
+                            WorkloadDiagnosticCode.CaptureFailed,
                             "The workload-owned presentation baseline could not be captured: " + reason);
                     }
 
@@ -3429,10 +3427,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadV2CommitReport report)
         {
             report?.Add(
-                WorkloadV2CommitMessageKind.Unsupported,
+                WorkloadV2CommitEntryKind.Unsupported,
                 "dimension." + dimension + ".legacy",
-                dimension.ToString(),
-                message);
+                dimension.ToString());
             Abort(WorkloadDiagnosticCode.UnsupportedLegacyState, message);
         }
 
@@ -3447,14 +3444,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkTypeDef workType = runtime.WorkTypes[names[i]];
                 builder.Append(WorkloadCanonical.Encode(names[i])).Append(':');
                 IReadOnlyList<WorkGiver> workGivers =
-                    WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+                    SpecificJobState.GetDisplayWorkGivers(workType);
                 for (int j = 0; j < workGivers.Count; j++)
                 {
                     WorkGiverDef workGiver = workGivers[j]?.def;
                     if (workGiver == null) continue;
                     builder.Append(WorkloadCanonical.Encode(workGiver.defName)).Append(',');
                     builder.Append(WorkloadCanonical.Encode(
-                        WorkGiverReassignmentManager.GetTargetWorkType(workGiver)?.defName));
+                        SpecificJobState.ResolveWorkType(workGiver)?.defName));
                 }
                 builder.Append(';');
             }
@@ -3489,9 +3486,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     return false;
                 }
 
-                fallbackPriority = PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                    pawn.workSettings,
-                    workType);
+                fallbackPriority = PriorityState.ReadStored(pawn, workType);
             }
             else if (key.IsGlobal)
             {
@@ -3511,10 +3506,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 // enabled default.  Capturing the default unconditionally
                 // made an existing global override look like a schedule
                 // change and could rebase linked hours incorrectly.
-                fallbackPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
+                fallbackPriority = SpecificJobState.ReadPriority(
                     null,
                     workGiver,
-                    WorkPrioritySystem.GetDefaultEnabledPriority());
+                    PriorityState.DefaultEnabledPriority);
             }
             else
             {
@@ -3532,17 +3527,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     return false;
                 }
 
-                int parentPriority = PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                    pawn.workSettings,
-                    workType);
-                fallbackPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
+                int parentPriority = PriorityState.ReadStored(pawn, workType);
+                fallbackPriority = SpecificJobState.ReadPriority(
                     pawn,
                     workGiver,
                     parentPriority);
             }
 
-            return WorkloadTimePriorityAdapter.TryCaptureLiveScheduleSnapshot(
-                key,
+            if (!WorkloadTimePriorityAdapter.TryGetTimePriorityTarget(
+                    key,
+                    out TimePriorityTarget target,
+                    out reason))
+                return false;
+            return ScheduleState.TryCapture(
+                target,
                 fallbackPriority,
                 out snapshot,
                 out reason);
@@ -3575,14 +3573,23 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     return false;
                 }
 
+                if (!SpecificJobState.TryCapturePriority(
+                        null,
+                        workGiver,
+                        out WorkTabSpecificPriorityBaseline globalCaptured,
+                        out _,
+                        out _))
+                {
+                    reason = "the global specific-job state is unavailable";
+                    return false;
+                }
                 baseline = new WorkloadSpecificPriorityBaseline
                 {
                     Key = key,
                     WorkType = workType,
                     WorkGiver = workGiver,
                     IsGlobal = true,
-                    GlobalSnapshot = WorkGiverReassignmentManager.CaptureGlobalWorkGiverPrioritySnapshot(
-                        workGiver.defName)
+                    State = globalCaptured
                 };
                 return true;
             }
@@ -3605,13 +3612,17 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkType = localWorkType,
                 WorkGiver = localWorkGiver,
                 IsGlobal = false,
-                HasLocalOverride = WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+                State = SpecificJobState.TryCapturePriority(
                     pawn,
                     localWorkGiver,
-                    out int priority),
-                LocalPriority = priority
+                    out WorkTabSpecificPriorityBaseline localCaptured,
+                    out _,
+                    out _)
+                    ? localCaptured
+                    : default(WorkTabSpecificPriorityBaseline)
             };
-            return true;
+            return baseline.State.State == WorkTabSpecificPriorityState.LocalSet ||
+                   baseline.State.State == WorkTabSpecificPriorityState.LocalInherit;
         }
 
         private static bool TryCaptureWorkTypeOrderBaseline(
@@ -3638,13 +3649,22 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     return false;
                 }
 
+                if (!SpecificJobState.TryCaptureOrder(
+                        null,
+                        globalWorkType,
+                        out WorkTabSpecificOrderBaseline captured,
+                        out _,
+                        out _))
+                {
+                    reason = "the global specific-job order is unavailable";
+                    return false;
+                }
                 baseline = new WorkloadWorkTypeOrderBaseline
                 {
                     Key = key,
                     WorkType = globalWorkType,
                     IsGlobal = true,
-                    GlobalSnapshot = WorkGiverReassignmentManager.CaptureGlobalWorkTypeOrderSnapshot(
-                        globalWorkType.defName)
+                    State = captured
                 };
                 return true;
             }
@@ -3659,15 +3679,23 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return false;
             }
 
+            if (!SpecificJobState.TryCaptureOrder(
+                    pawn,
+                    workType,
+                    out WorkTabSpecificOrderBaseline localSnapshot,
+                    out _,
+                    out _))
+            {
+                reason = "the pawn specific-job order is unavailable";
+                return false;
+            }
             baseline = new WorkloadWorkTypeOrderBaseline
             {
                 Key = key,
                 Pawn = pawn,
                 WorkType = workType,
                 IsGlobal = false,
-                LocalSnapshot = WorkGiverReassignmentManager.CapturePawnWorkGiverOrderSnapshot(
-                    pawn,
-                    workType)
+                State = localSnapshot
             };
             return true;
         }
@@ -3692,7 +3720,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return false;
             }
 
-            if (WorkGiverReassignmentManager.GetTargetWorkType(workGiver) != workType)
+            if (SpecificJobState.ResolveWorkType(workGiver) != workType)
             {
                 reason = "the WorkGiverDef taxonomy no longer matches the WorkTypeDef identity";
                 return false;
@@ -3773,35 +3801,30 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return Failure(
                 decisionKind,
                 WorkloadDiagnosticCode.NotFound,
-                "preview.missing",
-                "There is no active V2 preview session to commit.");
+                "preview.missing");
         }
 
         internal static WorkloadV2CommitResult GatewayFailure(
             WorkloadDecisionKind decisionKind,
             WorkloadDiagnosticCode code,
-            string subject,
-            string message)
+            string subject)
         {
-            return Failure(decisionKind, code, subject, message);
+            return Failure(decisionKind, code, subject);
         }
 
         private static WorkloadV2CommitResult Failure(
             WorkloadDecisionKind decisionKind,
             WorkloadDiagnosticCode code,
-            string subject,
-            string message)
+            string subject)
         {
             var report = new WorkloadV2CommitReport(decisionKind, string.Empty, string.Empty);
             report.Add(
-                WorkloadV2CommitMessageKind.Fatal,
+                WorkloadV2CommitEntryKind.Fatal,
                 subject,
-                string.Empty,
-                message);
+                string.Empty);
             return new WorkloadV2CommitResult(
                 false,
                 code,
-                message,
                 report,
                 null,
                 null,
@@ -3908,10 +3931,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (!FinalizeLiveMutation(live, out string reason))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Fatal,
+                            WorkloadV2CommitEntryKind.Fatal,
                             "confirm.application",
-                            "live-state",
-                            reason ?? "The provisional Work-tab transaction could not be finalized.");
+                            "live-state");
                         return false;
                     }
                     NotifyCommitChanged(live);
@@ -3977,7 +3999,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     decisionKind != WorkloadDecisionKind.Fork)
                 {
                     Abort(
-                        WorkloadDiagnosticCode.UnsupportedOperation,
+                        WorkloadDiagnosticCode.UnsupportedDecision,
                         "The requested V2 commit decision is not supported.");
                 }
 
@@ -3996,10 +4018,21 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     forkLabel);
                 if (decision?.Plan == null || !decision.Accepted)
                 {
+                    WorkloadValidationIssue issue = decision?.ValidationIssue;
+                    WorkloadDiagnosticCode rejectionCode =
+                        decision?.RejectionCode == WorkloadSessionDecisionCode.MissingForkStableId
+                            ? WorkloadDiagnosticCode.MissingStableId
+                            : decision?.Plan?.Validation?.IsNewerSchema == true
+                                ? WorkloadDiagnosticCode.NewerSchema
+                                : WorkloadDiagnosticCode.InvalidState;
                     Abort(
-                        WorkloadDiagnosticCode.InvalidState,
-                        decision?.RejectionReason ??
-                        "The V2 preview did not pass model validation.");
+                        rejectionCode,
+                        "SessionDecision:" +
+                        (decision?.RejectionCode.ToString() ?? "MissingDecision"),
+                        new WorkloadDiagnosticContext(
+                            stableId: targetStableId,
+                            path: issue?.Path,
+                            validationCode: issue?.Code));
                 }
 
                 targetTemplate = decisionKind == WorkloadDecisionKind.Apply
@@ -4012,7 +4045,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 if (WorkloadV2OwnershipResolver.HasUnsupportedLegacyPayload(targetTemplate))
                 {
                     Abort(
-                        WorkloadDiagnosticCode.UnsupportedOperation,
+                        WorkloadDiagnosticCode.UnsupportedLegacyState,
                         "The V2 commit contains legacy schedule or presentation state without a typed transaction intent.");
                 }
                 WorkloadOwnershipDimensions effectiveOwnership =
@@ -4038,19 +4071,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
                 RequireValidTemplate(targetTemplate, report);
 
-                if (executionContext?.PreparedPlanFingerprint.AnyNonWhitespace() == true &&
-                    !StringComparer.Ordinal.Equals(
-                        Workload2Backend.BuildPreparedPlanFingerprint(
-                            plan,
-                            decisionKind,
-                            targetStableId),
-                        executionContext.PreparedPlanFingerprint))
-                {
-                    Abort(
-                        WorkloadDiagnosticCode.InvalidState,
-                        "The synchronized workload execute no longer matches its immutable prepare plan.");
-                }
-
                 if (decisionKind != WorkloadDecisionKind.Apply &&
                     session.SessionExcludedPawnIds.Count > 0)
                 {
@@ -4058,14 +4078,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     {
                         PawnKey pawn = session.SessionExcludedPawnIds[i];
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "scope.session-excluded",
-                            pawn.Value,
-                            "This temporary application exclusion was not written to the workload template.");
+                            pawn.Value);
                     }
                 }
 
-                store = _component.EnsureWorkloadV2Persistence();
+                store = _component.EnsureV2Persistence();
                 if (store == null)
                 {
                     Abort(
@@ -4093,7 +4112,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     WorkloadV2RecordConverter.TryToTemplate(currentRecord);
                 if (!currentTemplateResult.Succeeded)
                 {
-                    Abort(currentTemplateResult.Code, currentTemplateResult.Message);
+                    Abort(currentTemplateResult.Code, currentTemplateResult.Code.ToString());
                 }
 
                 WorkloadTemplate currentTemplate = currentTemplateResult.Value;
@@ -4111,6 +4130,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     Abort(
                         WorkloadDiagnosticCode.InvalidState,
                         "The V2 preview is missing the service-owned dimension baselines required by the central transaction.");
+                }
+
+                if (executionContext?.PreparedPlanFingerprint.AnyNonWhitespace() == true &&
+                    !StringComparer.Ordinal.Equals(
+                        Workload2Backend.BuildPreparedPlanFingerprint(
+                            plan,
+                            decisionKind,
+                            targetStableId,
+                            backendBaseline),
+                        executionContext.PreparedPlanFingerprint))
+                {
+                    Abort(
+                        WorkloadDiagnosticCode.InvalidState,
+                        "The synchronized workload execute no longer matches its immutable prepare plan.");
                 }
 
                 ValidateTypedStateForCommit(
@@ -4225,7 +4258,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         WorkloadV2RecordConverter.TryFromTemplate(targetTemplate);
                     if (!converted.Succeeded)
                     {
-                        Abort(converted.Code, converted.Message);
+                        Abort(converted.Code, converted.Code.ToString());
                     }
 
                     EnsureUpdateTarget(store, sourceStableId, report);
@@ -4241,7 +4274,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         WorkloadV2RecordConverter.TryFromTemplate(targetTemplate);
                     if (!converted.Succeeded)
                     {
-                        Abort(converted.Code, converted.Message);
+                        Abort(converted.Code, converted.Code.ToString());
                     }
 
                     EnsureForkTargetIsNew(store, targetStableId, report);
@@ -4278,7 +4311,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     return new WorkloadV2CommitResult(
                         true,
                         WorkloadDiagnosticCode.None,
-                        "The V2 workload transaction prepared without mutation.",
                         report,
                         plan,
                         targetTemplate,
@@ -4307,14 +4339,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         ApplyPersistence(store, persistence);
                         report.TemplatePersisted = true;
                         report.Add(
-                            WorkloadV2CommitMessageKind.Changed,
+                            WorkloadV2CommitEntryKind.Changed,
                             persistence.Kind == PersistenceMutationKind.Replace
                                 ? "template.updated"
                                 : "template.forked",
-                            persistence.StableId,
-                            persistence.Kind == PersistenceMutationKind.Replace
-                                ? "The projected V2 template replaced the same stable ID."
-                                : "The projected V2 template was written under a new stable ID.");
+                            persistence.StableId);
                     }
                     catch (Exception exception)
                     {
@@ -4351,7 +4380,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             backendBaseline);
                     if (!receipt.Succeeded)
                     {
-                        Abort(receipt.Code, receipt.Message);
+                        Abort(receipt.Code, receipt.Code.ToString());
                     }
 
                     executionContext.PersistenceReceipt = receipt.Value;
@@ -4384,23 +4413,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
 
                 report.IsSemanticNoOp = plan.Diff.IsEmpty;
-                string temporaryScopeNote = decisionKind != WorkloadDecisionKind.Apply &&
-                    session.SessionExcludedPawnIds.Count > 0
-                    ? " Temporary pawn exclusions were not saved."
-                    : string.Empty;
-                string successMessage = decisionKind == WorkloadDecisionKind.Apply
-                    ? (report.SkippedCount > 0
-                        ? "The V2 workload was applied with explicit skipped entries."
-                        : "The V2 workload was applied.")
-                    : decisionKind == WorkloadDecisionKind.Update
-                        ? (plan.Diff.IsEmpty
-                            ? "The V2 workload save was a semantic no-op."
-                            : "The V2 workload template was saved.") + temporaryScopeNote
-                        : "The V2 workload template was forked." + temporaryScopeNote;
                 var successResult = new WorkloadV2CommitResult(
                     true,
                     WorkloadDiagnosticCode.None,
-                    successMessage,
                     report,
                     plan,
                     targetTemplate,
@@ -4437,22 +4452,22 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadDiagnosticCode resultCode = rollbackSucceeded
                     ? exception.Code
                     : WorkloadDiagnosticCode.RollbackFailed;
-                string resultMessage = rollbackSucceeded
-                    ? exception.Message
-                    : exception.Message + " Rollback is incomplete and requires recovery.";
+                Log.Warning(
+                    "[BWT] Workloads V2 commit aborted. Code=" + resultCode +
+                    ". RollbackSucceeded=" + rollbackSucceeded +
+                    ". Detail=" + exception.Message);
                 report.Add(
-                    WorkloadV2CommitMessageKind.Fatal,
+                    WorkloadV2CommitEntryKind.Fatal,
                     resultCode.ToString(),
-                    targetStableId,
-                    resultMessage);
+                    targetStableId);
                 return new WorkloadV2CommitResult(
                     false,
                     resultCode,
-                    resultMessage,
                     report,
                     plan,
                     null,
-                    targetStableId);
+                    targetStableId,
+                    exception.Context);
             }
             catch (Exception exception)
             {
@@ -4480,21 +4495,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         report,
                         recoveryRequired: true);
                 }
-                string resultMessage = rollbackSucceeded
-                    ? "The V2 commit failed safely: " + exception.Message
-                    : "The V2 commit failed and rollback requires recovery: " + exception.Message;
                 WorkloadDiagnosticCode resultCode = rollbackSucceeded
                     ? WorkloadDiagnosticCode.InvalidState
                     : WorkloadDiagnosticCode.RollbackFailed;
+                Log.Error(
+                    "[BWT] Workloads V2 commit failed. Code=" + resultCode +
+                    ". RollbackSucceeded=" + rollbackSucceeded +
+                    ". Exception=" + exception);
                 report.Add(
-                    WorkloadV2CommitMessageKind.Fatal,
+                    WorkloadV2CommitEntryKind.Fatal,
                     resultCode.ToString(),
-                    targetStableId,
-                    resultMessage);
+                    targetStableId);
                 return new WorkloadV2CommitResult(
                     false,
                     resultCode,
-                    resultMessage,
                     report,
                     plan,
                     null,
@@ -4537,10 +4551,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 {
                     WorkloadValidationIssue issue = validation.Issues[i];
                     report.Add(
-                        WorkloadV2CommitMessageKind.Fatal,
+                        WorkloadV2CommitEntryKind.Fatal,
                         issue.Code.ToString(),
-                        issue.Path,
-                        issue.Message);
+                        issue.Path);
                 }
             }
 
@@ -4559,7 +4572,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (string.IsNullOrWhiteSpace(stableId))
             {
                 Abort(
-                    WorkloadDiagnosticCode.MissingStableId,
+                    WorkloadDiagnosticCode.NotFound,
                     "A V2 workload stable ID is required for commit.");
             }
 
@@ -4601,23 +4614,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                  decisionKind != WorkloadDecisionKind.Fork))
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 persistence receipt was requested before a committed mutation existed.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (store.HasDuplicateStableId(targetStableId))
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.AmbiguousStableId,
-                    "The committed V2 target stable ID is no longer unique.");
+                    WorkloadDiagnosticCode.AmbiguousStableId);
             }
 
             WorkloadV2PersistenceRecord record = store.Find(targetStableId);
             if (record == null)
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.UnknownWorkloadId,
-                    "The committed V2 target record could not be round-tripped.");
+                    WorkloadDiagnosticCode.UnknownWorkloadId);
             }
 
             WorkloadOperationResult<WorkloadTemplate> target =
@@ -4626,7 +4636,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
                     target.Code,
-                    target.Message);
+                    target.Context);
             }
 
             string persistenceFingerprint = store.ComputeContentFingerprint();
@@ -4636,8 +4646,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     persistenceFingerprint))
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The V2 persistence metadata was not authoritative after the write.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             string targetIdentity = WorkloadSession.GetSourceIdentity(target.Value);
@@ -4647,8 +4656,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 string.IsNullOrWhiteSpace(targetIdentity))
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The committed V2 target identity could not be established safely.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             return WorkloadOperationResult<WorkloadPersistenceReceipt>.Ok(
@@ -4805,20 +4813,18 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 if (scope.IsExplicitlyExcluded(pawnKey))
                 {
                     report.Add(
-                        WorkloadV2CommitMessageKind.Excluded,
+                        WorkloadV2CommitEntryKind.Excluded,
                         "scope.excluded",
-                        pawnKey.Value,
-                        "The explicitly scoped pawn is excluded from this workload.");
+                        pawnKey.Value);
                     continue;
                 }
 
                 if (!runtime.Pawns.ContainsKey(pawnKey.Value))
                 {
                     report.Add(
-                        WorkloadV2CommitMessageKind.MissingOrStale,
+                        WorkloadV2CommitEntryKind.MissingOrStale,
                         "scope.pawn.missing",
-                        pawnKey.Value,
-                        "The explicitly scoped pawn is stale or missing at commit time.");
+                        pawnKey.Value);
                 }
             }
         }
@@ -4879,7 +4885,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (entry.Key == null || !entry.Key.IsValid ||
                         (entry.Intent.HasValue &&
                          (!entry.Intent.Value.IsValid ||
-                          WorkPrioritySystem.ClampPriority(entry.Intent.Value.Priority) !=
+                          PriorityState.Clamp(entry.Intent.Value.Priority) !=
                           entry.Intent.Value.Priority)))
                     {
                         Abort(
@@ -4947,7 +4953,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (!WorkloadPresentationServices.TryGetScalarKind(entry.Key, out _))
                     {
                         Abort(
-                            WorkloadDiagnosticCode.UnsupportedOperation,
+                            WorkloadDiagnosticCode.UnsupportedPresentationData,
                             "The workload presentation setting '" + entry.Key +
                             "' is outside the BWT workload-owned allowlist.");
                     }
@@ -4994,10 +5000,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (!entry.Key.IsGlobal && !useTargetTemplateState && session.IsExcludedForApply(entry.Key.Pawn))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "apply.session-excluded",
-                            entry.Key.ToString(),
-                            "The staged schedule belongs to a pawn excluded for this application.");
+                            entry.Key.ToString());
                         continue;
                     }
 
@@ -5019,10 +5024,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (!entry.Key.IsGlobal && !useTargetTemplateState && session.IsExcludedForApply(entry.Key.Pawn))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "apply.session-excluded",
-                            entry.Key.ToString(),
-                            "The staged specific-job priority belongs to a pawn excluded for this application.");
+                            entry.Key.ToString());
                         continue;
                     }
 
@@ -5071,10 +5075,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (!entry.Key.IsGlobal && !useTargetTemplateState && session.IsExcludedForApply(entry.Key.Pawn))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "apply.session-excluded",
-                            entry.Key.ToString(),
-                            "The staged WorkGiver order belongs to a pawn excluded for this application.");
+                            entry.Key.ToString());
                         continue;
                     }
 
@@ -5149,7 +5152,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 HasPersistedDimension(state, WorkloadStateDimension.ParentPriorities) ||
                 HasPersistedDimension(state, WorkloadStateDimension.ManualModes);
 
-            if (hasSchedules && TimePriorityService.CurrentVersion != baseline.ScheduleRevision)
+            if (hasSchedules && ScheduleState.Revision != baseline.ScheduleRevision)
             {
                 AbortBaselineChanged(
                     report,
@@ -5159,7 +5162,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             if (hasSpecificJobs)
             {
-                if (WorkGiverReassignmentManager.CurrentSyncVersion != baseline.SpecificJobRevision)
+                if (SpecificJobState.Revision != baseline.SpecificJobRevision)
                 {
                     AbortBaselineChanged(
                         report,
@@ -5179,7 +5182,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             if (hasPriorityRuntime &&
-                !WorkPrioritySystem.IsBwtMutationAuthorityCurrent(baseline.AuthorityRevision))
+                !PriorityState.IsAuthorityCurrent(baseline.AuthorityRevision))
             {
                 AbortBaselineChanged(
                     report,
@@ -5278,10 +5281,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 !IsCompleteOrderPayload(key, intent.Value, runtime))
             {
                 report.Add(
-                    WorkloadV2CommitMessageKind.Unsupported,
+                    WorkloadV2CommitEntryKind.Unsupported,
                     "specific-job-order.permutation",
-                    key.ToString(),
-                    "The workload order is not a complete permutation of the current WorkGiver taxonomy.");
+                    key.ToString());
                 return false;
             }
 
@@ -5322,7 +5324,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     orderedNames.Add(payload.OrderedWorkGivers[i].Value);
                 }
 
-                return WorkGiverReassignmentManager.IsCompleteGlobalWorkTypeOrder(
+                return SpecificJobState.IsCompleteGlobalOrder(
                     workType.defName,
                     orderedNames);
             }
@@ -5333,7 +5335,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             IReadOnlyList<WorkGiver> expected =
-                WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType, pawn);
+                SpecificJobState.GetDisplayWorkGivers(workType, pawn);
             if (expected.Count != payload.OrderedWorkGivers.Count) return false;
             for (int i = 0; i < expected.Count; i++)
             {
@@ -5358,7 +5360,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         {
             if (baseline == null) return;
             if (baseline.Schedules.Count > 0 &&
-                TimePriorityService.CurrentVersion != baseline.ScheduleRevision)
+                ScheduleState.Revision != baseline.ScheduleRevision)
             {
                 AbortBaselineChanged(
                     report,
@@ -5367,7 +5369,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             if ((baseline.SpecificPriorities.Count > 0 || baseline.WorkTypeOrders.Count > 0) &&
-                WorkGiverReassignmentManager.CurrentSyncVersion != baseline.SpecificJobRevision)
+                SpecificJobState.Revision != baseline.SpecificJobRevision)
             {
                 AbortBaselineChanged(
                     report,
@@ -5388,7 +5390,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             if ((baseline.Schedules.Count > 0 || baseline.SpecificPriorities.Count > 0 ||
                  baseline.WorkTypeOrders.Count > 0) &&
-                !WorkPrioritySystem.IsBwtMutationAuthorityCurrent(baseline.AuthorityRevision))
+                !PriorityState.IsAuthorityCurrent(baseline.AuthorityRevision))
             {
                 AbortBaselineChanged(
                     report,
@@ -5444,10 +5446,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (session != null && session.IsExcludedForApply(difference.Key.Pawn))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "apply.session-excluded",
-                            difference.Key.ToString(),
-                            "The staged entry belongs to a pawn excluded for this application; the live pawn was left unchanged.");
+                            difference.Key.ToString());
                         continue;
                     }
 
@@ -5481,10 +5482,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (session != null && session.IsExcludedForApply(difference.Key.Pawn))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "apply.session-excluded",
-                            difference.Key.ToString(),
-                            "The staged manual-mode entry belongs to a pawn excluded for this application; the live pawn was left unchanged.");
+                            difference.Key.ToString());
                         continue;
                     }
 
@@ -5520,10 +5520,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (session != null && session.IsExcludedForApply(difference.Key.Pawn))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "apply.session-excluded",
-                            difference.Key.ToString(),
-                            "The staged specific-job entry belongs to a pawn excluded for this application; the live pawn was left unchanged.");
+                            difference.Key.ToString());
                         continue;
                     }
 
@@ -5564,10 +5563,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (session != null && session.IsExcludedForApply(difference.Key.Pawn))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "apply.session-excluded",
-                            difference.Key.ToString(),
-                            "The staged specific-job order belongs to a pawn excluded for this application; the live pawn was left unchanged.");
+                            difference.Key.ToString());
                         continue;
                     }
 
@@ -5610,11 +5608,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 "The projected " + dimension + " entry for " + key +
                 " is absent, but V2 projection has no tombstone that can distinguish an intentional clear from live fallback. The commit was blocked without mutation.";
             report.Add(
-                WorkloadV2CommitMessageKind.Unsupported,
+                WorkloadV2CommitEntryKind.Unsupported,
                 "specific-job.clear.requires-tombstone",
-                key?.ToString() ?? string.Empty,
-                message);
-            Abort(WorkloadDiagnosticCode.UnsupportedOperation, message);
+                key?.ToString() ?? string.Empty);
+            Abort(WorkloadDiagnosticCode.UnsupportedClear, message);
         }
 
         private static RuntimeCommitPlan PrepareRuntimeChanges(
@@ -5648,11 +5645,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (session.IsExcludedForApply(difference.Key.Pawn))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "apply.session-excluded",
-                            difference.Key.ToString(),
-                            "The staged entry belongs to a pawn excluded for this application; " +
-                            "the live pawn was left unchanged.");
+                            difference.Key.ToString());
                         continue;
                     }
 
@@ -5681,18 +5676,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
                     EnsureRuntimeMutationAuthority(result, report, difference.Key.ToString());
                     int desired = difference.HasAfter
-                        ? WorkPrioritySystem.ClampPriority(difference.After)
-                        : WorkPrioritySystem.DisabledPriority;
-                    int current = PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                        pawn.workSettings,
-                        workType);
+                        ? PriorityState.Clamp(difference.After)
+                        : PriorityState.DisabledPriority;
+                    int current = PriorityState.ReadStored(pawn, workType);
                     if (current == desired)
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Unchanged,
+                            WorkloadV2CommitEntryKind.Unchanged,
                             "parent-priority.unchanged",
-                            difference.Key.ToString(),
-                            "The current parent priority already matches the preview.");
+                            difference.Key.ToString());
                         continue;
                     }
 
@@ -5723,11 +5715,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     const string message =
                         "Manual-priority mode is global in RimWorld and cannot be applied from a pawn-scoped workload.";
                     report.Add(
-                        WorkloadV2CommitMessageKind.Unsupported,
+                        WorkloadV2CommitEntryKind.Unsupported,
                         "manual-mode.pawn-scoped",
-                        scope.Mode.ToString(),
-                        message);
-                    Abort(WorkloadDiagnosticCode.UnsupportedOperation, message);
+                        scope.Mode.ToString());
+                    Abort(WorkloadDiagnosticCode.UnsupportedRuntimeState, message);
                 }
 
                 bool hasManualTarget = false;
@@ -5751,11 +5742,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (session.IsExcludedForApply(difference.Key.Pawn))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "apply.session-excluded",
-                            difference.Key.ToString(),
-                            "The staged manual-mode entry belongs to a pawn excluded for this application; " +
-                            "the live pawn was left unchanged.");
+                            difference.Key.ToString());
                         continue;
                     }
 
@@ -5785,10 +5774,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (!difference.HasAfter)
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Skipped,
+                            WorkloadV2CommitEntryKind.Skipped,
                             "manual-mode.removed",
-                            difference.Key.ToString(),
-                            "The per-key manual overlay was removed; the global manual-priority authority was left unchanged.");
+                            difference.Key.ToString());
                         continue;
                     }
 
@@ -5797,12 +5785,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (hasManualTarget && manualTarget != difference.After)
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Unsupported,
+                            WorkloadV2CommitEntryKind.Unsupported,
                             "manual-mode.conflict",
-                            difference.Key.ToString(),
-                            "The V2 manual-mode entries disagree, but the live authority is global.");
+                            difference.Key.ToString());
                         Abort(
-                            WorkloadDiagnosticCode.UnsupportedOperation,
+                            WorkloadDiagnosticCode.UnsupportedRuntimeState,
                             "Conflicting V2 manual-mode entries cannot be represented by the global priority authority.");
                     }
 
@@ -5811,10 +5798,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (currentManual == difference.After)
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Unchanged,
+                            WorkloadV2CommitEntryKind.Unchanged,
                             "manual-mode.unchanged",
-                            difference.Key.ToString(),
-                            "The global manual-priority mode already matches the preview.");
+                            difference.Key.ToString());
                     }
                     else
                     {
@@ -5836,11 +5822,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (session.IsExcludedForApply(difference.Key.Pawn))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "apply.session-excluded",
-                            difference.Key.ToString(),
-                            "The staged specific-job entry belongs to a pawn excluded for this application; " +
-                            "the live pawn was left unchanged.");
+                            difference.Key.ToString());
                         continue;
                     }
 
@@ -5876,7 +5860,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         continue;
                     }
 
-                    int desired = WorkPrioritySystem.DisabledPriority;
+                    int desired = PriorityState.DisabledPriority;
                     if (difference.HasAfter)
                     {
                         if (difference.After.Kind != WorkloadScalarKind.Integer)
@@ -5888,7 +5872,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         }
 
                         desired = difference.After.IntegerValue;
-                        if (WorkPrioritySystem.ClampPriority(desired) != desired)
+                        if (PriorityState.Clamp(desired) != desired)
                         {
                             Abort(
                                 WorkloadDiagnosticCode.InvalidState,
@@ -5897,27 +5881,25 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         }
                     }
 
-                    bool hasCurrent = WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+                    bool hasCurrent = SpecificJobState.TryReadLocalPriority(
                         pawn,
                         workGiver,
                         out int current);
                     if (difference.HasAfter && hasCurrent && current == desired)
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Unchanged,
+                            WorkloadV2CommitEntryKind.Unchanged,
                             "specific-job-priority.unchanged",
-                            difference.Key.ToString(),
-                            "The current BWT specific-job priority already matches the preview.");
+                            difference.Key.ToString());
                         continue;
                     }
 
                     if (!difference.HasAfter && !hasCurrent)
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Unchanged,
+                            WorkloadV2CommitEntryKind.Unchanged,
                             "specific-job-priority.unchanged",
-                            difference.Key.ToString(),
-                            "The current BWT specific-job override is already absent.");
+                            difference.Key.ToString());
                         continue;
                     }
 
@@ -5943,11 +5925,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (session.IsExcludedForApply(difference.Key.Pawn))
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Excluded,
+                            WorkloadV2CommitEntryKind.Excluded,
                             "apply.session-excluded",
-                            difference.Key.ToString(),
-                            "The staged specific-job order belongs to a pawn excluded for this application; " +
-                            "the live pawn was left unchanged.");
+                            difference.Key.ToString());
                         continue;
                     }
 
@@ -6073,11 +6053,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 const string message =
                     "V2 Apply live mutations require immediate authoritative acknowledgement and are unavailable in the active multiplayer route. Save and Fork remain persistence-only operations.";
                 report.Add(
-                    WorkloadV2CommitMessageKind.Unsupported,
+                    WorkloadV2CommitEntryKind.Unsupported,
                     "apply.multiplayer-acknowledgement",
-                    "live-state",
-                    message);
-                Abort(WorkloadDiagnosticCode.UnsupportedOperation, message);
+                    "live-state");
+                Abort(WorkloadDiagnosticCode.MultiplayerUnavailable, message);
             }
 
             result.RequiresSpecificJobRevision = ownsSpecificJobState;
@@ -6151,10 +6130,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (scope.IsExplicitlyExcluded(pawnKey))
             {
                 report.Add(
-                    WorkloadV2CommitMessageKind.Excluded,
+                    WorkloadV2CommitEntryKind.Excluded,
                     "scope.excluded",
-                    subject,
-                    "The V2 entry is explicitly excluded from the workload scope.");
+                    subject);
                 return false;
             }
 
@@ -6162,30 +6140,27 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 missingOrStale = true;
                 report.Add(
-                    WorkloadV2CommitMessageKind.MissingOrStale,
+                    WorkloadV2CommitEntryKind.MissingOrStale,
                     "pawn.missing",
-                    subject,
-                    "The V2 pawn ID is stale or missing at commit time.");
+                    subject);
                 return false;
             }
 
             if (pawn.Dead)
             {
                 report.Add(
-                    WorkloadV2CommitMessageKind.Skipped,
+                    WorkloadV2CommitEntryKind.Skipped,
                     "pawn.dead",
-                    subject,
-                    "The V2 entry was skipped because the pawn is dead.");
+                    subject);
                 return false;
             }
 
             if (!IsInScope(scope, pawn, runtime))
             {
                 report.Add(
-                    WorkloadV2CommitMessageKind.Skipped,
+                    WorkloadV2CommitEntryKind.Skipped,
                     "scope.outside",
-                    subject,
-                    "The V2 entry was skipped because the pawn is outside the current workload scope.");
+                    subject);
                 return false;
             }
 
@@ -6193,30 +6168,27 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 missingOrStale = true;
                 report.Add(
-                    WorkloadV2CommitMessageKind.MissingOrStale,
+                    WorkloadV2CommitEntryKind.MissingOrStale,
                     "work-type.missing",
-                    subject,
-                    "The V2 WorkTypeDef ID is stale or missing at commit time.");
+                    subject);
                 return false;
             }
 
             if (pawn.workSettings == null || !pawn.workSettings.EverWork)
             {
                 report.Add(
-                    WorkloadV2CommitMessageKind.Skipped,
+                    WorkloadV2CommitEntryKind.Skipped,
                     "pawn.work-settings",
-                    subject,
-                    "The V2 entry was skipped because the pawn has no writable work settings.");
+                    subject);
                 return false;
             }
 
             if (pawn.WorkTypeIsDisabled(workType))
             {
                 report.Add(
-                    WorkloadV2CommitMessageKind.Skipped,
+                    WorkloadV2CommitEntryKind.Skipped,
                     "work-type.disabled",
-                    subject,
-                    "The V2 entry was skipped because the work type is disabled for the pawn.");
+                    subject);
                 return false;
             }
 
@@ -6242,10 +6214,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 missingOrStale = true;
                 report.Add(
-                    WorkloadV2CommitMessageKind.MissingOrStale,
+                    WorkloadV2CommitEntryKind.MissingOrStale,
                     "specific-job.invalid",
-                    subject,
-                    "The V2 specific-job key is invalid at commit time.");
+                    subject);
                 return false;
             }
 
@@ -6267,21 +6238,19 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 missingOrStale = true;
                 report.Add(
-                    WorkloadV2CommitMessageKind.MissingOrStale,
+                    WorkloadV2CommitEntryKind.MissingOrStale,
                     "work-giver.missing",
-                    subject,
-                    "The V2 WorkGiverDef ID is stale or missing at commit time.");
+                    subject);
                 return false;
             }
 
-            if (WorkGiverReassignmentManager.GetTargetWorkType(workGiver) != workType)
+            if (SpecificJobState.ResolveWorkType(workGiver) != workType)
             {
                 missingOrStale = true;
                 report.Add(
-                    WorkloadV2CommitMessageKind.MissingOrStale,
+                    WorkloadV2CommitEntryKind.MissingOrStale,
                     "work-giver.mapping.changed",
-                    subject,
-                    "The V2 WorkGiverDef no longer belongs to the stable WorkTypeDef at commit time.");
+                    subject);
                 return false;
             }
 
@@ -6292,10 +6261,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     out int unusedOrder))
             {
                 report.Add(
-                    WorkloadV2CommitMessageKind.Skipped,
+                    WorkloadV2CommitEntryKind.Skipped,
                     "work-giver.unavailable",
-                    subject,
-                    "The V2 specific-job entry was skipped because the WorkGiverDef is not currently available in the work type.");
+                    subject);
                 return false;
             }
 
@@ -6434,11 +6402,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 {
                     report.Add(
                         entry.Intent.IsClear
-                            ? WorkloadV2CommitMessageKind.Unchanged
-                            : WorkloadV2CommitMessageKind.Unchanged,
+                            ? WorkloadV2CommitEntryKind.Unchanged
+                            : WorkloadV2CommitEntryKind.Unchanged,
                         "schedule.unchanged",
-                        entry.Key.ToString(),
-                        "The live 24-hour linked/pinned schedule already matches the preview.");
+                        entry.Key.ToString());
                     continue;
                 }
 
@@ -6463,26 +6430,34 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         "The typed specific-job priority plan has no captured baseline: " + entry.Key + ".");
                 }
 
-                WorkGiverReassignmentManager.ExactGlobalStateKind desiredGlobalState =
-                    entry.Intent.IsClear
-                        ? WorkGiverReassignmentManager.ExactGlobalStateKind.Clear
-                        : WorkGiverReassignmentManager.ExactGlobalStateKind.Set;
+                WorkTabSpecificPriorityState desiredGlobalState = previous.IsGlobal
+                    ? entry.Intent.IsClear
+                        ? WorkTabSpecificPriorityState.GlobalClear
+                        : WorkTabSpecificPriorityState.GlobalSet
+                    : entry.Intent.IsClear
+                        ? WorkTabSpecificPriorityState.LocalInherit
+                        : WorkTabSpecificPriorityState.LocalSet;
                 int desiredPriority = entry.Intent.HasValue
                     ? entry.Intent.Value.Priority
-                    : WorkPrioritySystem.DisabledPriority;
+                    : PriorityState.DisabledPriority;
                 bool unchanged;
                 if (previous.IsGlobal)
                 {
-                    WorkGiverReassignmentManager.GlobalWorkGiverPrioritySnapshot current =
-                        WorkGiverReassignmentManager.CaptureGlobalWorkGiverPrioritySnapshot(
-                            previous.WorkGiver.defName);
+                    if (!SpecificJobState.TryCapturePriority(
+                            null,
+                            previous.WorkGiver,
+                            out WorkTabSpecificPriorityBaseline current,
+                            out _,
+                            out _))
+                        Abort(WorkloadDiagnosticCode.InvalidState,
+                            "The global specific-job priority baseline is unavailable.");
                     unchanged = current.State == desiredGlobalState &&
-                        (desiredGlobalState != WorkGiverReassignmentManager.ExactGlobalStateKind.Set ||
+                        (desiredGlobalState != WorkTabSpecificPriorityState.GlobalSet ||
                          current.Priority == desiredPriority);
                 }
                 else
                 {
-                    bool hasCurrent = WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+                    bool hasCurrent = SpecificJobState.TryReadLocalPriority(
                         previous.Pawn,
                         previous.WorkGiver,
                         out int currentPriority);
@@ -6494,10 +6469,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 if (unchanged)
                 {
                     report.Add(
-                        WorkloadV2CommitMessageKind.Unchanged,
+                        WorkloadV2CommitEntryKind.Unchanged,
                         "specific-job-priority.unchanged",
-                        entry.Key.ToString(),
-                        "The exact local/global specific-job priority already matches the preview.");
+                        entry.Key.ToString());
                     continue;
                 }
 
@@ -6540,36 +6514,44 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 bool unchanged;
                 if (previous.IsGlobal)
                 {
-                    WorkGiverReassignmentManager.GlobalWorkTypeOrderSnapshot current =
-                        WorkGiverReassignmentManager.CaptureGlobalWorkTypeOrderSnapshot(
-                            previous.WorkType.defName);
-                    WorkGiverReassignmentManager.ExactGlobalStateKind desiredState =
+                    if (!SpecificJobState.TryCaptureOrder(
+                            null,
+                            previous.WorkType,
+                            out WorkTabSpecificOrderBaseline current,
+                            out _,
+                            out _))
+                        Abort(WorkloadDiagnosticCode.InvalidState,
+                            "The global specific-job order baseline is unavailable.");
+                    WorkTabSpecificOrderState desiredState =
                         entry.Intent.IsClear
-                            ? WorkGiverReassignmentManager.ExactGlobalStateKind.Clear
-                            : WorkGiverReassignmentManager.ExactGlobalStateKind.Set;
+                            ? WorkTabSpecificOrderState.GlobalClear
+                            : WorkTabSpecificOrderState.GlobalSet;
                     unchanged = current.State == desiredState &&
-                        (desiredState != WorkGiverReassignmentManager.ExactGlobalStateKind.Set ||
+                        (desiredState != WorkTabSpecificOrderState.GlobalSet ||
                          SequenceEqual(current.OrderedWorkGiverNames, desiredOrder));
                 }
                 else
                 {
-                    WorkGiverReassignmentManager.PawnWorkGiverOrderSnapshot current =
-                        WorkGiverReassignmentManager.CapturePawnWorkGiverOrderSnapshot(
+                    if (!SpecificJobState.TryCaptureOrder(
                             previous.Pawn,
-                            previous.WorkType);
+                            previous.WorkType,
+                            out WorkTabSpecificOrderBaseline current,
+                            out _,
+                            out _))
+                        Abort(WorkloadDiagnosticCode.InvalidState,
+                            "The pawn specific-job order baseline is unavailable.");
                     unchanged = entry.Intent.IsClear
-                        ? !current.HasStoredOrder
-                        : current.HasStoredOrder &&
+                        ? current.State == WorkTabSpecificOrderState.LocalInherit
+                        : current.State == WorkTabSpecificOrderState.LocalStored &&
                           SequenceEqual(current.OrderedWorkGiverNames, desiredOrder);
                 }
 
                 if (unchanged)
                 {
                     report.Add(
-                        WorkloadV2CommitMessageKind.Unchanged,
+                        WorkloadV2CommitEntryKind.Unchanged,
                         "specific-job-order.unchanged",
-                        entry.Key.ToString(),
-                        "The exact local/global WorkGiver order already matches the preview.");
+                        entry.Key.ToString());
                     continue;
                 }
 
@@ -6667,10 +6649,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
                 values[settingId] = fallback;
                 report.Add(
-                    WorkloadV2CommitMessageKind.Cleared,
+                    WorkloadV2CommitEntryKind.Cleared,
                     "presentation.clear",
-                    settingId,
-                    "The workload-owned presentation override will restore the captured global value.");
+                    settingId);
                 return true;
             }
 
@@ -6727,8 +6708,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             foreach (ParentPriorityMutation parent in parents.Values)
             {
-                if (parent.DesiredPriority > WorkPrioritySystem.DisabledPriority ||
-                    WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent())
+                if (parent.DesiredPriority > PriorityState.DisabledPriority ||
+                    SpecificJobState.RetainsOverridesForDisabledParent)
                 {
                     continue;
                 }
@@ -6737,11 +6718,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     "Specific-job state for " + parent.Key +
                     " cannot be committed while its parent priority is disabled unless BWT's locked-specific override mode is active.";
                 report.Add(
-                    WorkloadV2CommitMessageKind.Unsupported,
+                    WorkloadV2CommitEntryKind.Unsupported,
                     "specific-job.parent-disabled",
-                    parent.Key.ToString(),
-                    message);
-                Abort(WorkloadDiagnosticCode.UnsupportedOperation, message);
+                    parent.Key.ToString());
+                Abort(WorkloadDiagnosticCode.UnsupportedRuntimeState, message);
             }
         }
 
@@ -6759,9 +6739,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
             }
 
-            return PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                pawn.workSettings,
-                workType);
+            return PriorityState.ReadStored(pawn, workType);
         }
 
         private static List<SpecificJobOverrideDifference> BuildSpecificJobOverrideDifferences(
@@ -6849,10 +6827,19 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkTypeDef workType,
             WorkloadV2CommitReport report)
         {
-            WorkGiverReassignmentManager.PawnWorkGiverOrderSnapshot snapshot =
-                WorkGiverReassignmentManager.CapturePawnWorkGiverOrderSnapshot(pawn, workType);
+            if (!SpecificJobState.TryCaptureOrder(
+                    pawn,
+                    workType,
+                    out WorkTabSpecificOrderBaseline snapshot,
+                    out _,
+                    out _))
+                Abort(WorkloadDiagnosticCode.InvalidState,
+                    "The pawn specific-job order baseline is unavailable.");
+            var baseline = new WorkTabSpecificOrderBaseline(
+                snapshot.State,
+                snapshot.OrderedWorkGiverNames);
             IReadOnlyList<WorkGiver> currentWorkGivers =
-                WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType, pawn);
+                SpecificJobState.GetDisplayWorkGivers(workType, pawn);
             var currentNames = new List<string>();
             for (int i = 0; i < currentWorkGivers.Count; i++)
             {
@@ -6888,13 +6875,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             if (requestedCount == 0)
             {
-                if (!snapshot.HasStoredOrder)
+                if (snapshot.State == WorkTabSpecificOrderState.LocalInherit)
                 {
                     report.Add(
-                        WorkloadV2CommitMessageKind.Unchanged,
+                        WorkloadV2CommitEntryKind.Unchanged,
                         "specific-job-order.unchanged",
-                        parent.ToString(),
-                        "The exact BWT pawn-specific work-giver order is already absent.");
+                        parent.ToString());
                     return null;
                 }
 
@@ -6903,7 +6889,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     pawn,
                     workType,
                     null,
-                    snapshot);
+                    baseline);
             }
 
             var desired = new string[currentNames.Count];
@@ -6935,13 +6921,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 nextCurrent++;
             }
 
-            if (snapshot.HasStoredOrder && SequenceEqual(snapshot.OrderedWorkGiverNames, desired))
+            if (snapshot.State == WorkTabSpecificOrderState.LocalStored &&
+                SequenceEqual(snapshot.OrderedWorkGiverNames, desired))
             {
                 report.Add(
-                    WorkloadV2CommitMessageKind.Unchanged,
+                    WorkloadV2CommitEntryKind.Unchanged,
                     "specific-job-order.unchanged",
-                    parent.ToString(),
-                    "The exact BWT pawn-specific work-giver order already matches the preview.");
+                    parent.ToString());
                 return null;
             }
 
@@ -6950,7 +6936,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 pawn,
                 workType,
                 desired,
-                snapshot);
+                baseline);
         }
 
         private static bool SequenceEqual(
@@ -6980,7 +6966,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             if (!plan.HasAuthorityRevision)
             {
-                if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long revision))
+                if (!PriorityState.TryCaptureAuthority(out long revision))
                 {
                     EnsureBetterWorkTabAuthority(report);
                     return;
@@ -6990,7 +6976,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 plan.HasAuthorityRevision = true;
             }
 
-            if (WorkPrioritySystem.IsBwtMutationAuthorityCurrent(plan.AuthorityRevision))
+            if (PriorityState.IsAuthorityCurrent(plan.AuthorityRevision))
             {
                 return;
             }
@@ -6999,10 +6985,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 "The V2 live mutation was blocked because priority authority changed during " +
                 (string.IsNullOrEmpty(subject) ? "planning" : subject) + "; no external handoff was attempted.";
             report.Add(
-                WorkloadV2CommitMessageKind.Fatal,
+                WorkloadV2CommitEntryKind.Fatal,
                 "priority-authority.changed",
-                subject ?? string.Empty,
-                message);
+                subject ?? string.Empty);
             Abort(WorkloadDiagnosticCode.ExternalPriorityAuthority, message);
         }
 
@@ -7019,7 +7004,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     "The V2 specific-job mutation plan is missing its BWT sync revision.");
             }
 
-            if (WorkGiverReassignmentManager.CurrentSyncVersion == plan.SpecificJobRevision)
+            if (SpecificJobState.Revision == plan.SpecificJobRevision)
             {
                 return;
             }
@@ -7028,10 +7013,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 "The V2 specific-job mutation was blocked because BWT work-giver state changed during " +
                 (string.IsNullOrEmpty(subject) ? "planning" : subject) + ".";
             report.Add(
-                WorkloadV2CommitMessageKind.Fatal,
+                WorkloadV2CommitEntryKind.Fatal,
                 "specific-job.revision.changed",
-                subject ?? string.Empty,
-                message);
+                subject ?? string.Empty);
             Abort(WorkloadDiagnosticCode.InvalidState, message);
         }
 
@@ -7111,9 +7095,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         continue;
                     }
 
-                    int current = PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                        pawn.workSettings,
-                        workType);
+                    int current = PriorityState.ReadStored(pawn, workType);
                     if (current != captured.Value)
                     {
                         AbortBaselineChanged(
@@ -7156,9 +7138,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     "The captured parent-priority baseline is missing " + mutation.Key + ".");
             }
 
-            int current = PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                mutation.Pawn.workSettings,
-                mutation.WorkType);
+            int current = PriorityState.ReadStored(mutation.Pawn, mutation.WorkType);
             if (current != expected)
             {
                 AbortBaselineChanged(report, mutation.Key.ToString(), "The BWT parent priority changed immediately before the write.");
@@ -7230,10 +7210,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             if (baseline.SpecificJobRevision ==
-                    WorkGiverReassignmentManager.CurrentSyncVersion &&
+                    SpecificJobState.Revision &&
                 StringComparer.Ordinal.Equals(
                     baseline.SpecificJobFingerprint,
-                    WorkGiverReassignmentManager.CurrentStateFingerprint))
+                    SpecificJobState.StateFingerprint))
             {
                 return;
             }
@@ -7250,10 +7230,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             string message)
         {
             report.Add(
-                WorkloadV2CommitMessageKind.Fatal,
+                WorkloadV2CommitEntryKind.Fatal,
                 "runtime-baseline.changed",
-                subject ?? string.Empty,
-                message);
+                subject ?? string.Empty);
             Abort(WorkloadDiagnosticCode.InvalidState, message);
         }
 
@@ -7261,7 +7240,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         {
             try
             {
-                if (WorkPrioritySystem.TryCaptureBwtMutationAuthority(out _))
+                if (PriorityState.TryCaptureAuthority(out _))
                 {
                     return;
                 }
@@ -7273,10 +7252,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 string message = "V2 priority commit is blocked because " + authority +
                     " owns or prevents coherent priority authority; no external handoff was attempted.";
                 report.Add(
-                    WorkloadV2CommitMessageKind.Unsupported,
+                    WorkloadV2CommitEntryKind.Unsupported,
                     "priority-authority",
-                    authority,
-                    message);
+                    authority);
                 Abort(WorkloadDiagnosticCode.ExternalPriorityAuthority, message);
             }
             catch (CommitAbortException)
@@ -7402,18 +7380,16 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             staged.ExpectedManualPriorityMode = previousManualMode;
                             staged.ManualPriorityTarget = runtimePlan.ManualTarget;
                             report.Add(
-                                WorkloadV2CommitMessageKind.Changed,
+                                WorkloadV2CommitEntryKind.Changed,
                                 "manual-mode.changed",
-                                "global",
-                                "The global manual-priority mode was staged through the Work-tab application.");
+                                "global");
                         }
                         else
                         {
                             report.Add(
-                                WorkloadV2CommitMessageKind.Unchanged,
+                                WorkloadV2CommitEntryKind.Unchanged,
                                 "manual-mode.unchanged",
-                                "global",
-                                "The global manual-priority mode already matches the preview at write time.");
+                                "global");
                         }
                     }
                 }
@@ -7456,16 +7432,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         resolvedMutation,
                         report,
                         mutation.Key.ToString());
-                    int previous = PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                        pawn.workSettings,
-                        workType);
+                    int previous = PriorityState.ReadStored(pawn, workType);
                     if (previous == mutation.DesiredPriority)
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Unchanged,
+                            WorkloadV2CommitEntryKind.Unchanged,
                             "parent-priority.unchanged",
-                            mutation.Key.ToString(),
-                            "The current parent priority already matches the preview at write time.");
+                            mutation.Key.ToString());
                         continue;
                     }
 
@@ -7479,10 +7452,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         WorkTabApplicationDimensions.ParentPriority));
 
                     report.Add(
-                        WorkloadV2CommitMessageKind.Changed,
+                        WorkloadV2CommitEntryKind.Changed,
                         "parent-priority.changed",
-                        mutation.Key.ToString(),
-                        "The parent priority was staged through the Work-tab application.");
+                        mutation.Key.ToString());
                 }
 
                 CompileSchedules(
@@ -7604,10 +7576,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 requestIdentity == null || session == null || targetTemplate == null)
             {
                 report?.Add(
-                    WorkloadV2CommitMessageKind.Fatal,
+                    WorkloadV2CommitEntryKind.Fatal,
                     "transaction-capability.missing",
-                    targetStableId,
-                    "The synchronized workload execute did not supply its opaque mutation capability.");
+                    targetStableId);
                 return false;
             }
 
@@ -7619,10 +7590,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     WorkloadSession.GetSourceIdentity(session.SourceTemplate)))
             {
                 report?.Add(
-                    WorkloadV2CommitMessageKind.Fatal,
+                    WorkloadV2CommitEntryKind.Fatal,
                     "transaction-capability.fingerprint",
-                    targetStableId,
-                    "The synchronized workload capability is bound to a different template fingerprint.");
+                    targetStableId);
                 return false;
             }
 
@@ -7658,8 +7628,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return true;
             }
 
-            var priorities = new List<WorkGiverReassignmentManager.SpecificPriorityBatchEntry>();
-            var orders = new List<WorkGiverReassignmentManager.SpecificOrderBatchEntry>();
+            var priorities = new List<WorkTabStagedSpecificPriority>();
+            var orders = new List<WorkTabStagedSpecificOrder>();
             var affectedTargets = new List<TimePriorityTarget>();
 
             for (int i = 0; i < plan.SpecificJobOverrides.Count; i++)
@@ -7671,22 +7641,23 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     mutation,
                     report,
                     mutation.Key.ToString());
-                bool hasPrevious = WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+                bool hasPrevious = SpecificJobState.TryReadLocalPriority(
                     mutation.Pawn,
                     mutation.WorkGiver,
                     out int previousPriority);
                 priorities.Add(
-                    new WorkGiverReassignmentManager.SpecificPriorityBatchEntry(
-                        false,
+                    new WorkTabStagedSpecificPriority(
                         mutation.Pawn.thingIDNumber,
                         mutation.WorkGiver.defName,
                         mutation.HasAfter
-                            ? WorkGiverReassignmentManager.ExactGlobalStateKind.Set
-                            : WorkGiverReassignmentManager.ExactGlobalStateKind.Clear,
+                            ? WorkTabSpecificPriorityState.LocalSet
+                            : WorkTabSpecificPriorityState.LocalInherit,
                         mutation.DesiredPriority,
-                        null,
-                        hasPrevious,
-                        previousPriority));
+                        new WorkTabSpecificPriorityBaseline(
+                            hasPrevious
+                                ? WorkTabSpecificPriorityState.LocalSet
+                                : WorkTabSpecificPriorityState.LocalInherit,
+                            previousPriority)));
                 affectedTargets.Add(TimePriorityTarget.ForWorkGiver(
                     mutation.Pawn, mutation.WorkGiver));
             }
@@ -7701,15 +7672,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     report,
                     mutation.Parent.ToString());
                 orders.Add(
-                    new WorkGiverReassignmentManager.SpecificOrderBatchEntry(
-                        false,
+                    new WorkTabStagedSpecificOrder(
                         mutation.Pawn.thingIDNumber,
                         mutation.WorkType.defName,
                         mutation.DesiredOrder == null
-                            ? WorkGiverReassignmentManager.ExactGlobalStateKind.Clear
-                            : WorkGiverReassignmentManager.ExactGlobalStateKind.Set,
+                            ? WorkTabSpecificOrderState.LocalInherit
+                            : WorkTabSpecificOrderState.LocalStored,
                         mutation.DesiredOrder,
-                        null,
                         mutation.PreviousSnapshot));
                 affectedTargets.Add(TimePriorityTarget.ForWorkType(
                     mutation.Pawn, mutation.WorkType));
@@ -7727,15 +7696,16 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
 
                 priorities.Add(
-                    new WorkGiverReassignmentManager.SpecificPriorityBatchEntry(
-                        previous.IsGlobal,
+                    new WorkTabStagedSpecificPriority(
                         previous.IsGlobal ? -1 : previous.Pawn.thingIDNumber,
                         previous.WorkGiver.defName,
-                        mutation.DesiredGlobalState,
+                        previous.IsGlobal
+                            ? mutation.DesiredGlobalState
+                            : mutation.DesiredGlobalState == WorkTabSpecificPriorityState.GlobalSet
+                                ? WorkTabSpecificPriorityState.LocalSet
+                                : WorkTabSpecificPriorityState.LocalInherit,
                         mutation.DesiredPriority,
-                        previous.GlobalSnapshot,
-                        previous.HasLocalOverride,
-                        previous.LocalPriority));
+                        previous.State));
                 affectedTargets.Add(TimePriorityTarget.ForWorkGiver(
                     previous.IsGlobal ? null : previous.Pawn,
                     previous.WorkGiver));
@@ -7753,16 +7723,18 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
 
                 orders.Add(
-                    new WorkGiverReassignmentManager.SpecificOrderBatchEntry(
-                        previous.IsGlobal,
+                    new WorkTabStagedSpecificOrder(
                         previous.IsGlobal ? -1 : previous.Pawn.thingIDNumber,
                         previous.WorkType.defName,
-                        mutation.IsClear
-                            ? WorkGiverReassignmentManager.ExactGlobalStateKind.Clear
-                            : WorkGiverReassignmentManager.ExactGlobalStateKind.Set,
+                        previous.IsGlobal
+                            ? mutation.IsClear
+                                ? WorkTabSpecificOrderState.GlobalClear
+                                : WorkTabSpecificOrderState.GlobalSet
+                            : mutation.IsClear
+                                ? WorkTabSpecificOrderState.LocalInherit
+                                : WorkTabSpecificOrderState.LocalStored,
                         mutation.DesiredOrder,
-                        previous.GlobalSnapshot,
-                        previous.LocalSnapshot));
+                        previous.State));
                 affectedTargets.Add(TimePriorityTarget.ForWorkType(
                     previous.IsGlobal ? null : previous.Pawn,
                     previous.WorkType));
@@ -7784,32 +7756,32 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             for (int i = 0; i < priorities.Count; i++)
             {
-                WorkGiverReassignmentManager.SpecificPriorityBatchEntry entry =
-                    priorities[i];
+                WorkTabStagedSpecificPriority entry = priorities[i];
                 report.Add(
-                    entry.DesiredState == WorkGiverReassignmentManager.ExactGlobalStateKind.Clear
-                        ? WorkloadV2CommitMessageKind.Cleared
-                        : WorkloadV2CommitMessageKind.Changed,
-                    entry.DesiredState == WorkGiverReassignmentManager.ExactGlobalStateKind.Clear
+                    entry.DesiredState == WorkTabSpecificPriorityState.GlobalClear ||
+                    entry.DesiredState == WorkTabSpecificPriorityState.LocalInherit
+                        ? WorkloadV2CommitEntryKind.Cleared
+                        : WorkloadV2CommitEntryKind.Changed,
+                    entry.DesiredState == WorkTabSpecificPriorityState.GlobalClear ||
+                    entry.DesiredState == WorkTabSpecificPriorityState.LocalInherit
                         ? "specific-job-priority.cleared"
                         : "specific-job-priority.changed",
-                    entry.CanonicalKey,
-                    "The specific-job priority was staged through the canonical application batch.");
+                    entry.CanonicalKey);
             }
 
             for (int i = 0; i < orders.Count; i++)
             {
-                WorkGiverReassignmentManager.SpecificOrderBatchEntry entry =
-                    orders[i];
+                WorkTabStagedSpecificOrder entry = orders[i];
                 report.Add(
-                    entry.DesiredState == WorkGiverReassignmentManager.ExactGlobalStateKind.Clear
-                        ? WorkloadV2CommitMessageKind.Cleared
-                        : WorkloadV2CommitMessageKind.Changed,
-                    entry.DesiredState == WorkGiverReassignmentManager.ExactGlobalStateKind.Clear
+                    entry.DesiredState == WorkTabSpecificOrderState.GlobalClear ||
+                    entry.DesiredState == WorkTabSpecificOrderState.LocalInherit
+                        ? WorkloadV2CommitEntryKind.Cleared
+                        : WorkloadV2CommitEntryKind.Changed,
+                    entry.DesiredState == WorkTabSpecificOrderState.GlobalClear ||
+                    entry.DesiredState == WorkTabSpecificOrderState.LocalInherit
                         ? "specific-job-order.cleared"
                         : "specific-job-order.changed",
-                    entry.CanonicalKey,
-                    "The WorkGiver order was staged through the canonical application batch.");
+                    entry.CanonicalKey);
             }
 
             return true;
@@ -7851,15 +7823,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     WorkTabApplicationDimensions.Schedule));
                 report.Add(
                     mutation.Intent.IsClear || !expectedHasSchedule
-                        ? WorkloadV2CommitMessageKind.Cleared
-                        : WorkloadV2CommitMessageKind.Changed,
+                        ? WorkloadV2CommitEntryKind.Cleared
+                        : WorkloadV2CommitEntryKind.Changed,
                     mutation.Intent.IsClear || !expectedHasSchedule
                         ? "schedule.cleared"
                         : "schedule.changed",
-                    mutation.Key.ToString(),
-                    mutation.Intent.IsClear || !expectedHasSchedule
-                        ? "The exact 24-hour schedule was staged through the Work-tab application."
-                        : "The exact 24-hour linked/pinned schedule was staged through the Work-tab application.");
+                    mutation.Key.ToString());
             }
         }
 
@@ -7914,10 +7883,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 foreach (string settingId in presentationReceipt.ChangedSettingIds)
                 {
                     report.Add(
-                        WorkloadV2CommitMessageKind.Changed,
+                        WorkloadV2CommitEntryKind.Changed,
                         "presentation.changed",
-                        settingId,
-                        "The workload-owned presentation setting was committed through the BWT settings writer.");
+                        settingId);
                 }
             }
         }
@@ -8016,12 +7984,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     out error))
             {
                 report.Add(
-                    WorkloadV2CommitMessageKind.Fatal,
+                    WorkloadV2CommitEntryKind.Fatal,
                     "persistence.cas",
-                    subject,
-                    string.IsNullOrEmpty(error)
-                        ? "The V2 persistence compare-and-swap validation failed."
-                        : error);
+                    subject);
                 Abort(
                     WorkloadDiagnosticCode.PersistenceConflict,
                     string.IsNullOrEmpty(error)
@@ -8132,7 +8097,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
         private void NotifyCommitChanged(LiveMutationTransaction live)
         {
-            _component.NotifyWorkloadV2Changed();
+            _component.NotifyV2Changed();
             if (live?.StagedMutation == null)
             {
                 WorkTabApplication.Current?.PublishAtomicMutation(
@@ -8153,10 +8118,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (store?.Records == null)
             {
                 report.Add(
-                    WorkloadV2CommitMessageKind.Fatal,
+                    WorkloadV2CommitEntryKind.Fatal,
                     "rollback.persistence",
-                    mutation.StableId,
-                    "The V2 persistence write could not be rolled back because its store disappeared.");
+                    mutation.StableId);
                 return false;
             }
 
@@ -8172,10 +8136,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 if (!revisionStillOwned)
                 {
                     report.Add(
-                        WorkloadV2CommitMessageKind.Fatal,
+                        WorkloadV2CommitEntryKind.Fatal,
                         "rollback.persistence.conflict",
-                        mutation.StableId,
-                        "The V2 persistence target changed during rollback; the previous record was not restored.");
+                        mutation.StableId);
                     return false;
                 }
 
@@ -8194,10 +8157,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     else
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Fatal,
+                            WorkloadV2CommitEntryKind.Fatal,
                             "rollback.persistence.conflict",
-                            mutation.StableId,
-                            "The V2 persistence target changed during rollback; the previous record was not restored.");
+                            mutation.StableId);
                         return false;
                     }
                 }
@@ -8220,10 +8182,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 if (!restored)
                 {
                     report.Add(
-                        WorkloadV2CommitMessageKind.Fatal,
+                        WorkloadV2CommitEntryKind.Fatal,
                         "rollback.persistence.verification",
-                        mutation.StableId,
-                        "The V2 persistence rollback completed without restoring the exact prior revision and fingerprint.");
+                        mutation.StableId);
                 }
 
                 if (restored)
@@ -8241,11 +8202,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
             catch (Exception exception)
             {
+                Log.Error("[BWT] Workloads V2 persistence rollback failed: " + exception);
                 report.Add(
-                    WorkloadV2CommitMessageKind.Fatal,
+                    WorkloadV2CommitEntryKind.Fatal,
                     "rollback.persistence.failed",
-                    mutation.StableId,
-                    "The V2 persistence rollback failed: " + exception.Message);
+                    mutation.StableId);
                 return false;
             }
         }
@@ -8278,14 +8239,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (rollbackReceipt == null || !rollbackReceipt.Succeeded)
                     {
                         report.Add(
-                            WorkloadV2CommitMessageKind.Fatal,
+                            WorkloadV2CommitEntryKind.Fatal,
                             "rollback.presentation",
-                            "presentation",
-                            "The workload-owned presentation settings could not be restored: " +
-                            (settingsCapabilityValid
-                                ? rollbackReceipt?.FailureReason ??
-                                  "The presentation rollback writer or baseline is unavailable."
-                                : "The synchronized transaction capability is unavailable for presentation rollback."));
+                            "presentation");
                         restored = false;
                     }
                     else
@@ -8300,20 +8256,19 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     !transaction.StagedMutation.Rollback(out string stagedReason))
                 {
                     report.Add(
-                        WorkloadV2CommitMessageKind.Fatal,
+                        WorkloadV2CommitEntryKind.Fatal,
                         "rollback.application",
-                        "live-state",
-                        stagedReason ?? "The application-owned staged rollback failed.");
+                        "live-state");
                     restored = false;
                 }
             }
             catch (Exception exception)
             {
+                Log.Error("[BWT] Workloads V2 live-state rollback failed: " + exception);
                 report.Add(
-                    WorkloadV2CommitMessageKind.Fatal,
+                    WorkloadV2CommitEntryKind.Fatal,
                     "rollback.failed",
-                    "live-state",
-                    "The V2 live-state rollback failed: " + exception.Message);
+                    "live-state");
                 restored = false;
             }
             return restored && !HasLiveNetChanges(transaction);
@@ -8373,20 +8328,26 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
         private static void Abort(
             WorkloadDiagnosticCode code,
-            string message)
+            string message,
+            WorkloadDiagnosticContext context = null)
         {
-            throw new CommitAbortException(code, message);
+            throw new CommitAbortException(code, message, context);
         }
 
         private sealed class CommitAbortException : Exception
         {
-            internal CommitAbortException(WorkloadDiagnosticCode code, string message)
+            internal CommitAbortException(
+                WorkloadDiagnosticCode code,
+                string message,
+                WorkloadDiagnosticContext context)
                 : base(message)
             {
                 Code = code;
+                Context = context ?? WorkloadDiagnosticContext.Empty;
             }
 
             internal WorkloadDiagnosticCode Code { get; private set; }
+            internal WorkloadDiagnosticContext Context { get; private set; }
         }
 
         private sealed class RuntimeContext
@@ -8481,7 +8442,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             internal TypedSpecificPriorityMutation(
                 WorkloadSpecificJobTargetKey key,
                 WorkloadSpecificPriorityBaseline previous,
-                WorkGiverReassignmentManager.ExactGlobalStateKind desiredGlobalState,
+                WorkTabSpecificPriorityState desiredGlobalState,
                 int desiredPriority)
             {
                 Key = key;
@@ -8492,7 +8453,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             internal WorkloadSpecificJobTargetKey Key { get; private set; }
             internal WorkloadSpecificPriorityBaseline Previous { get; private set; }
-            internal WorkGiverReassignmentManager.ExactGlobalStateKind DesiredGlobalState { get; private set; }
+            internal WorkTabSpecificPriorityState DesiredGlobalState { get; private set; }
             internal int DesiredPriority { get; private set; }
         }
 
@@ -8637,7 +8598,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 Pawn pawn,
                 WorkTypeDef workType,
                 IReadOnlyList<string> desiredOrder,
-                WorkGiverReassignmentManager.PawnWorkGiverOrderSnapshot previousSnapshot)
+                WorkTabSpecificOrderBaseline previousSnapshot)
             {
                 Parent = parent;
                 Pawn = pawn;
@@ -8650,7 +8611,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             internal Pawn Pawn { get; private set; }
             internal WorkTypeDef WorkType { get; private set; }
             internal IReadOnlyList<string> DesiredOrder { get; private set; }
-            internal WorkGiverReassignmentManager.PawnWorkGiverOrderSnapshot PreviousSnapshot { get; private set; }
+            internal WorkTabSpecificOrderBaseline PreviousSnapshot { get; private set; }
         }
 
         private sealed class LiveMutationTransaction
@@ -8837,6 +8798,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
     /// </summary>
     internal static class WorkloadLiveCapture
     {
+        private static IWorkTabPriorityCapturePort PriorityState =>
+            WorkTabDomainPorts.Priority;
+        private static IWorkTabScheduleCapturePort ScheduleState =>
+            WorkTabDomainPorts.Schedules;
+        private static IWorkTabSpecificJobCapturePort SpecificJobState =>
+            WorkTabDomainPorts.SpecificJobs;
         private static readonly Func<WorkloadScheduleTargetKey, int, WorkloadSchedulePayload> LiveScheduleCapture =
             TryCaptureLiveSchedule;
 
@@ -8847,13 +8814,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadOperationResult preflight = WorkloadLiveCapturePolicy.ValidateTemplateCapture(
                 stableId,
                 Verse.Find.CurrentMap != null,
-                delegate { return WorkPrioritySystem.TryCaptureBwtMutationAuthority(out _); },
+                delegate { return PriorityState.TryCaptureAuthority(out _); },
                 Verse.Find.PlaySettings != null);
             if (!preflight.Succeeded)
             {
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
                     preflight.Code,
-                    preflight.Message);
+                    preflight.Context);
             }
 
             try
@@ -8894,8 +8861,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 Log.Error("[BWT] Typed workload capture failed.\n" + exception);
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "BWT_Workload_CaptureFailed".Translate());
+                    WorkloadDiagnosticCode.CaptureFailed);
             }
         }
 
@@ -8943,7 +8909,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 if (ownership.Owns(WorkloadStateDimension.ParentPriorities))
                 {
                     int storedPriority = templateCapture
-                        ? PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(pawn.workSettings, workType)
+                        ? PriorityState.ReadStored(pawn, workType)
                         : parentFallback;
                     int effectivePriority = parentFallback;
                     int priority = WorkloadLiveCapturePolicy.SelectParentPriority(
@@ -8978,7 +8944,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
 
                 IReadOnlyList<WorkGiver> workGivers =
-                    WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(
+                    SpecificJobState.GetDisplayWorkGivers(
                         workType,
                         pawn);
                 for (int workGiverIndex = 0;
@@ -8994,7 +8960,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     WorkloadSpecificJobKey specificKey =
                         WorkTabEffectiveStateIds.ForSpecificJob(pawn, workType, workGiver);
                     int inheritedPriority =
-                        WorkGiverReassignmentManager.GetWorkGiverPriority(
+                        SpecificJobState.ReadPriority(
                             pawn,
                             workGiver,
                             parentFallback);
@@ -9002,7 +8968,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     {
                         if (templateCapture)
                         {
-                            if (WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+                            if (SpecificJobState.TryReadLocalPriority(
                                     pawn,
                                     workGiver,
                                     out int priority))
@@ -9041,16 +9007,18 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
 
                 if (templateCapture && ownsSpecificOrder &&
-                    WorkGiverReassignmentManager.HasPawnOrdering(pawn, workType))
+                    SpecificJobState.HasLocalOrder(pawn, workType))
                 {
-                    WorkGiverReassignmentManager.PawnWorkGiverOrderSnapshot snapshot =
-                        WorkGiverReassignmentManager.CapturePawnWorkGiverOrderSnapshot(
+                    if (SpecificJobState.TryCaptureOrder(
                             pawn,
-                            workType);
-                    if (WorkloadLiveCapturePolicy.ApplyWorkTypeOrderSnapshot(
+                            workType,
+                            out WorkTabSpecificOrderBaseline snapshot,
+                            out _,
+                            out _) &&
+                        WorkloadLiveCapturePolicy.ApplyWorkTypeOrderSnapshot(
                             draft,
                             WorkTabEffectiveStateIds.ForWorkTypeOrder(pawn, workType),
-                            true,
+                            snapshot.State == WorkTabSpecificOrderState.LocalStored,
                             false,
                             snapshot.OrderedWorkGiverNames))
                     {
@@ -9079,7 +9047,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
 
                 IReadOnlyList<WorkGiver> workGivers =
-                    WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(workType);
+                    SpecificJobState.GetDisplayWorkGivers(workType);
                 for (int workGiverIndex = 0;
                      workGivers != null && workGiverIndex < workGivers.Count;
                      workGiverIndex++)
@@ -9092,9 +9060,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
                     if (ownership.Owns(WorkloadStateDimension.SpecificJobOverrides))
                     {
-                        WorkGiverReassignmentManager.GlobalWorkGiverPrioritySnapshot snapshot =
-                            WorkGiverReassignmentManager.CaptureGlobalWorkGiverPrioritySnapshot(
-                                workGiver.defName);
+                        if (!SpecificJobState.TryCapturePriority(
+                                null,
+                                workGiver,
+                                out WorkTabSpecificPriorityBaseline snapshot,
+                                out _,
+                                out _))
+                            continue;
                         WorkloadSpecificJobTargetKey key =
                             WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(
                                 workType,
@@ -9102,8 +9074,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         WorkloadLiveCapturePolicy.ApplySpecificPrioritySnapshot(
                             draft,
                             key,
-                            snapshot.HasStoredValue,
-                            snapshot.IsExplicitlyCleared,
+                            snapshot.State == WorkTabSpecificPriorityState.GlobalSet,
+                            snapshot.State == WorkTabSpecificPriorityState.GlobalClear,
                             snapshot.Priority);
                     }
 
@@ -9112,10 +9084,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             WorkloadScheduleTargetKey.GlobalWorkGiver(
                                 WorkTabEffectiveStateIds.ForWorkType(workType),
                                 WorkTabEffectiveStateIds.ForWorkGiver(workGiver)),
-                            WorkGiverReassignmentManager.GetWorkGiverPriority(
+                            SpecificJobState.ReadPriority(
                                 null,
                                 workGiver,
-                                WorkPrioritySystem.GetDefaultEnabledPriority()),
+                                PriorityState.DefaultEnabledPriority),
                             LiveScheduleCapture))
                     {
                         capturedSchedule = true;
@@ -9124,16 +9096,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
                 if (ownership.Owns(WorkloadStateDimension.SpecificJobOrder))
                 {
-                    WorkGiverReassignmentManager.GlobalWorkTypeOrderSnapshot snapshot =
-                        WorkGiverReassignmentManager.CaptureGlobalWorkTypeOrderSnapshot(
-                            workType.defName);
+                    if (!SpecificJobState.TryCaptureOrder(
+                            null,
+                            workType,
+                            out WorkTabSpecificOrderBaseline snapshot,
+                            out _,
+                            out _))
+                        continue;
                     WorkloadWorkTypeOrderKey key =
                         WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(workType);
                     WorkloadLiveCapturePolicy.ApplyWorkTypeOrderSnapshot(
                         draft,
                         key,
-                        snapshot.HasStoredValue,
-                        snapshot.IsExplicitlyCleared,
+                        snapshot.State == WorkTabSpecificOrderState.GlobalSet,
+                        snapshot.State == WorkTabSpecificOrderState.GlobalClear,
                         snapshot.OrderedWorkGiverNames);
                 }
             }
@@ -9143,8 +9119,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadScheduleTargetKey key,
             int fallbackPriority)
         {
-            return WorkloadTimePriorityAdapter.TryCaptureLiveScheduleSnapshot(
+            return WorkloadTimePriorityAdapter.TryGetTimePriorityTarget(
                     key,
+                    out TimePriorityTarget target,
+                    out _) &&
+                ScheduleState.TryCapture(
+                    target,
                     fallbackPriority,
                     out TimePriorityLiveScheduleSnapshot snapshot,
                     out _) && snapshot.HadSchedule

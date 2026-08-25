@@ -6,7 +6,7 @@ using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGiverReassignments;
-using Better_Work_Tab.UI.Workloads;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -339,7 +339,7 @@ namespace Better_Work_Tab.Patches
             bool hasOverride = WorkGiverReassignmentManager.HasAnyPawnOverride(targetWorkType, pawn) ||
                                WorkGiverReassignmentManager.HasPawnOrdering(pawn, targetWorkType);
             Pawn windowPawn = hasOverride ? pawn : null;
-            if (WorkloadPreviewController.Current?.IsActive == true && windowPawn == null)
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive && windowPawn == null)
             {
                 Messages.Message(
                     "BWT_Workload_SharedSpecificJobOrderUnavailable".Translate(),

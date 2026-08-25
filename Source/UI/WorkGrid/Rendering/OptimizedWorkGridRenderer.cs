@@ -59,8 +59,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         public bool IsAvailable(in WorkTabView context)
         {
             // The snapshot is built inside the effective-state scope, so a
-            // workload presentation captures projected parent priorities,
-            // specific-job state, and its validated global manual mode. An
+            // preview captures projected parent priorities, specific-job
+            // state, and its validated global manual mode. An
             // external priority owner still lacks a safe content revision and
             // therefore remains on the native correctness path.
             return !PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority &&

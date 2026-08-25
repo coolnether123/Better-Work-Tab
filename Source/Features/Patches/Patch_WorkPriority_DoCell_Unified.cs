@@ -5,7 +5,6 @@ using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -13,9 +12,9 @@ using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Input;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Projection;
-using Better_Work_Tab.UI.Workloads.Projection;
 using HarmonyLib;
 using RimWorld;
 using Spine.Profiling;
@@ -194,7 +193,7 @@ namespace Better_Work_Tab.Patches
                 {
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.ParentPriority,
-                        "BWT_Workload_SleekCellUnavailable".Translate());
+                        "BWT_Preview_SleekCellUnavailable".Translate());
                     Event.current?.Use();
                     return false;
                 }
@@ -916,10 +915,11 @@ namespace Better_Work_Tab.Patches
                 for (int i = 0; i < workGivers.Count; i++)
                 {
                     WorkGiverDef workGiver = workGivers[i]?.def;
-                    if (WorkloadProjectionRuntime.TryGetSpecificJobPriority(
-                            WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiver),
-                            out int priority) &&
-                        priority > WorkPrioritySystem.DisabledPriority)
+                    WorkTabEffectiveStateResolution<int> resolution =
+                        WorkTabEffectiveStateRuntime.ResolvePreviewSpecificJobPriority(
+                            WorkTabSpecificJobTarget.For(pawn, workType, workGiver));
+                    if (resolution.IsSet &&
+                        resolution.Value > WorkPrioritySystem.DisabledPriority)
                     {
                         return true;
                     }

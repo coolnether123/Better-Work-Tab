@@ -1846,7 +1846,7 @@ namespace Better_Work_Tab.UI
             descriptor = result.Value;
             if (!result.Succeeded)
             {
-                ReportWorkloadFailure(result.Message);
+                ReportWorkloadFailure(WorkloadPresentationResolver.Resolve(result));
             }
 
             return result.Succeeded;
@@ -1908,7 +1908,7 @@ namespace Better_Work_Tab.UI
             WorkloadOperationResult result = WorkloadGateway.ApplyCurrentWorkload();
             if (!result.Succeeded)
             {
-                ReportWorkloadFailure(result.Message);
+                ReportWorkloadFailure(WorkloadPresentationResolver.Resolve(result));
                 return;
             }
 

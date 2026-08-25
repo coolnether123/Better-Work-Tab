@@ -25,7 +25,7 @@ using Verse;
 
 namespace Better_Work_Tab.Features.Workloads
 {
-    public class GameComponent_BWTWorldSettings : GameComponent
+    public class GameComponent_BWTWorldSettings : GameComponent, IWorkloadWorldState
     {
         public List<Worklist> SavedWorklists = new List<Worklist>();
         public Worklist CurrentWorklist = null;
@@ -41,20 +41,24 @@ namespace Better_Work_Tab.Features.Workloads
         public int BWTWorldSchemaVersion = BWT20UpgradePolicy.CurrentWorldSchemaVersion;
         public int ExternalWorkTabPriorityMigrationVersion;
         public int FluffyWorkTabCompatibilityPromptVersion;
-        internal BWTWorldSchemaState WorldSchemaState { get; private set; } = BWTWorldSchemaState.Current;
-        internal string WorldSchemaDiagnostic { get; private set; } = string.Empty;
-        internal bool IsWorldSchemaReadOnly =>
-            !BWT20UpgradePolicy.CanPersistWorldSchema(BWTWorldSchemaVersion);
+        internal BWTWorldSchemaState WorldSchemaState => Root.WorldSchema.Classification;
+        internal string WorldSchemaDiagnostic => Root.WorldSchema.Diagnostic;
+        internal bool IsWorldSchemaReadOnly => Root.WorldSchema.IsReadOnly;
         private bool _worldSchemaMarkerMalformed;
         private const int WorkloadDiagnosticsAuditFrameInterval = 3600;
         private int _nextWorkloadDiagnosticsAuditFrame;
-        private int _lastTimePriorityHour = -1;
         internal WorkTabGameRoot Root { get; }
         internal WorkTabApplication Application => Root.Application;
 
         public GameComponent_BWTWorldSettings(Game game) : base()
         {
-            Root = WorkTabGameRoots.Attach(game, new PersistenceAdapter(this));
+            WorkloadPresentationSettingsAdapter.EnsureRegistered();
+            WorkloadWorldStates.Attach(game, this);
+            Root = WorkTabGameRoots.Attach(
+                game,
+                new PersistenceAdapter(this),
+                new RuntimeLifecyclePort(this),
+                new RuntimeMaintenancePort(this));
         }
 
         private sealed class PersistenceAdapter :
@@ -63,7 +67,8 @@ namespace Better_Work_Tab.Features.Workloads
             IWorkTabReassignmentState,
             IWorkTabCustomLabelState,
             IWorkTabDividerState,
-            IWorkTabWorldSchemaState
+            IWorkTabWorldSchemaState,
+            IWorkTabCompatibilityMigrationState
         {
             private readonly GameComponent_BWTWorldSettings _owner;
 
@@ -112,6 +117,161 @@ namespace Better_Work_Tab.Features.Workloads
                 get => _owner.BWTWorldSchemaVersion;
                 set => _owner.BWTWorldSchemaVersion = value;
             }
+
+            public int ExternalPriorityVersion
+            {
+                get => _owner.ExternalWorkTabPriorityMigrationVersion;
+                set => _owner.ExternalWorkTabPriorityMigrationVersion = value;
+            }
+
+            public int CompatibilityPromptVersion
+            {
+                get => _owner.FluffyWorkTabCompatibilityPromptVersion;
+                set => _owner.FluffyWorkTabCompatibilityPromptVersion = value;
+            }
+        }
+
+        /// <summary>
+        /// Keeps workload/profile compatibility at the save shell while the
+        /// game root owns lifecycle ordering. No runtime service receives the
+        /// concrete GameComponent type.
+        /// </summary>
+        private sealed class RuntimeLifecyclePort : IWorkTabGameLifecyclePort
+        {
+            private readonly GameComponent_BWTWorldSettings _owner;
+
+            internal RuntimeLifecyclePort(GameComponent_BWTWorldSettings owner)
+            {
+                _owner = owner;
+            }
+
+            public bool MultiplayerActive => MultiplayerBridge.Active;
+
+            public bool IsLocalProfileLoaded =>
+                BWTLocalProfileStore.IsLoadedForCurrentSession;
+
+            public void LoadOrCreateLocalProfile()
+            {
+                BWTLocalProfileStore.LoadOrCreateForCurrentSession();
+            }
+
+            public void LoadLocalUiStateIntoRuntime()
+            {
+                _owner.LoadLocalUiStateIntoRuntime();
+            }
+
+            public void EnsurePersistenceBoundary()
+            {
+                _owner.EnsureWorkloadV2Persistence();
+            }
+
+            public void RefreshPersistenceDiagnostics()
+            {
+                _owner.EnsureWorkloadV2Persistence().RefreshDiagnostics();
+            }
+
+            public void EnsureCurrentWorklist()
+            {
+                _owner.EnsureCurrentWorklist();
+            }
+
+            public void MigrateLegacyReassignmentData()
+            {
+                WorkGiverReassignmentMigrationAdapter
+                    .MigrateLegacySettingsDataIfNeeded(
+                        _owner.Root?.State?.Reassignments);
+            }
+
+            public void MigrateFluffyPriorityData()
+            {
+                FluffyWorkTabGateway.MigratePriorityDataIfNeeded(_owner.Root);
+            }
+
+            public void ReconcilePostLoad(string currentWorklistName)
+            {
+                if (!MultiplayerBridge.Active)
+                {
+                    if (_owner.SavedWorklists != null)
+                    {
+                        for (int i = 0; i < _owner.SavedWorklists.Count; i++)
+                        {
+                            _owner.SavedWorklists[i]?.EnsureCollections();
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(currentWorklistName) &&
+                        _owner.SavedWorklists != null)
+                    {
+                        _owner.CurrentWorklist = _owner.SavedWorklists.FirstOrDefault(
+                            w => w.RenamableLabel == currentWorklistName);
+                    }
+
+                    if (_owner.CurrentWorklist == null &&
+                        _owner.SavedWorklists != null &&
+                        _owner.SavedWorklists.Count > 0)
+                    {
+                        _owner.CurrentWorklist = _owner.SavedWorklists[0];
+                    }
+
+                    _owner.EnsureCurrentWorklist();
+
+                    if ((_owner.ActiveDividers == null ||
+                         _owner.ActiveDividers.Count == 0) &&
+                        _owner.CurrentWorklist != null &&
+                        _owner.CurrentWorklist.Dividers != null)
+                    {
+                        _owner.ActiveDividers = new List<PawnDivider>(
+                            _owner.CurrentWorklist.Dividers
+                                .Select(d => d?.Copy())
+                                .Where(d => d != null));
+                    }
+                }
+                else
+                {
+                    _owner.LoadLocalUiStateIntoRuntime();
+                    _owner.EnsureCurrentWorklist();
+                }
+            }
+        }
+
+        private sealed class RuntimeMaintenancePort : IWorkTabGameMaintenancePort
+        {
+            private readonly GameComponent_BWTWorldSettings _owner;
+
+            internal RuntimeMaintenancePort(GameComponent_BWTWorldSettings owner)
+            {
+                _owner = owner;
+            }
+
+            public void MaintainLocalProfile()
+            {
+                if (!MultiplayerBridge.Active && BWTLocalProfileStore.Current != null)
+                {
+                    // Flush before the standalone profile is discarded when
+                    // MP is disabled or the game is torn down.
+                    BWTLocalProfileStore.LoadOrCreateForCurrentSession();
+                }
+                else if (MultiplayerBridge.Active &&
+                         !BWTLocalProfileStore.IsLoadedForCurrentSession)
+                {
+                    if (BWTLocalProfileStore.LoadOrCreateForCurrentSession())
+                    {
+                        _owner.LoadLocalUiStateIntoRuntime();
+                    }
+                }
+
+                if (Current.Game == null || Current.ProgramState != ProgramState.Playing)
+                {
+                    BWTLocalProfileStore.FlushIfDirty();
+                }
+                else
+                {
+                    // A dirty profile is retried every frame after Scribe
+                    // becomes inactive; it is never dependent on the old
+                    // 300-tick window.
+                    BWTLocalProfileStore.SaveIfDirty();
+                }
+            }
         }
 
         internal void SetColumnCurrentOrder(List<string> order)
@@ -125,44 +285,7 @@ namespace Better_Work_Tab.Features.Workloads
         public override void FinalizeInit()
         {
             base.FinalizeInit();
-
-            TimePriorityScheduleEditor.ResetForGameTransition();
-
-            if (MultiplayerBridge.Active)
-            {
-                // Local profiles use a standalone Scribe document. Game.FinalizeInit runs only
-                // after the save game's ScribeLoader.FinalizeLoading has completed, so this is
-                // the safe lifecycle boundary for profile I/O. Never move this call into
-                // ExposeData: doing so nests the global Scribe loader and invalidates RimWorld's
-                // PostLoadIniter enumeration during Multiplayer save/reload.
-                BWTLocalProfileStore.LoadOrCreateForCurrentSession();
-            }
-
-            WorkColumnOrderManager.InitializeOnGameLoad();
-
-            if (MultiplayerBridge.Active && BWTLocalProfileStore.IsLoadedForCurrentSession)
-                LoadLocalUiStateIntoRuntime();
-
-            EnsureWorkloadV2Persistence();
-            RefreshWorldSchemaDiagnostics();
-
-            DisplayElementPool.Clear();
-            EnsureCurrentWorklist();
-            EnsureWorkGiverReassignmentData();
-            WorkGiverReassignmentMigrationAdapter.MigrateLegacySettingsDataIfNeeded(this);
-            ColumnBaselineManager.EnsureBaseline(Root.State.ColumnOrder);
-            EnsureApplicationRevisionEpoch();
-            if (TimePriorityService.NotifyLoaded())
-            {
-                Application.ReportObservedScheduleChange();
-            }
-            FluffyWorkTabGateway.MigratePriorityDataIfNeeded(this);
-
-            SpineTiming.Configure(
-                message => BetterWorkTabMod.DebugLog(message, DebugFeature.Performance),
-                () => WorkTabUsageState.OpenSeconds,
-                "Work tab open");
-            SpineTiming.Enabled = BetterWorkTabMod.Settings?.enableProfiler ?? false;
+            Root.Lifecycle.FinalizeInit();
         }
 
         public override void ExposeData()
@@ -179,7 +302,7 @@ namespace Better_Work_Tab.Features.Workloads
 
             if (Scribe.mode == LoadSaveMode.Saving)
             {
-                RefreshWorldSchemaDiagnostics();
+                Root.Lifecycle.PrepareForSave();
                 if (IsWorldSchemaReadOnly)
                 {
                     throw new System.InvalidOperationException(
@@ -194,7 +317,6 @@ namespace Better_Work_Tab.Features.Workloads
             if (Scribe.mode == LoadSaveMode.Saving)
             {
                 EnsureCurrentWorklist();
-                TimePriorityService.NormalizeBeforeSave();
             }
 
             string currentWorklistName = "";
@@ -210,7 +332,7 @@ namespace Better_Work_Tab.Features.Workloads
             Scribe_Collections.Look(ref TimePrioritySchedules, "timePrioritySchedules", LookMode.Deep);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                TimePriorityService.AcceptTrustedLoadedScheduleCollection(TimePrioritySchedules);
+                Root.Lifecycle.AcceptTrustedLoadedScheduleCollection();
             }
 
             Scribe_Values.Look(ref BWTWorldSchemaVersion, "bwtWorldSchemaVersion", 0);
@@ -256,81 +378,8 @@ namespace Better_Work_Tab.Features.Workloads
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                RefreshWorldSchemaDiagnostics();
-                if (ColumnBaselineOrder == null)
-                {
-                    ColumnBaselineOrder = new List<string>();
-                }
-
-                EnsureWorkloadV2Persistence().RefreshDiagnostics();
-
-                List<string> loadedColumnOrder = ColumnCurrentOrder ?? new List<string>();
-
-                if (ColumnBaselineOrder.Count == 0)
-                {
-                    ColumnBaselineOrder = ColumnBaselineManager.CaptureCurrentOrder();
-                }
-
-                if (loadedColumnOrder.Count == 0)
-                {
-                    loadedColumnOrder = new List<string>(ColumnBaselineOrder);
-                }
-
-                SetColumnCurrentOrder(loadedColumnOrder);
-
-                if (!MultiplayerBridge.Active)
-                {
-                    if (SavedWorklists != null)
-                    {
-                        for (int i = 0; i < SavedWorklists.Count; i++)
-                        {
-                            SavedWorklists[i].EnsureCollections();
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(currentWorklistName) && SavedWorklists != null)
-                    {
-                        CurrentWorklist = SavedWorklists.FirstOrDefault(
-                            w => w.RenamableLabel == currentWorklistName);
-                    }
-
-                    if (CurrentWorklist == null && SavedWorklists != null && SavedWorklists.Count > 0)
-                    {
-                        CurrentWorklist = SavedWorklists[0];
-                    }
-
-                    EnsureCurrentWorklist();
-
-                    if ((ActiveDividers == null || ActiveDividers.Count == 0) && CurrentWorklist != null && CurrentWorklist.Dividers != null)
-                    {
-                        ActiveDividers = new List<PawnDivider>(CurrentWorklist.Dividers.Select(d => d?.Copy()).Where(d => d != null));
-                    }
-                }
-                else
-                {
-                    LoadLocalUiStateIntoRuntime();
-                    EnsureCurrentWorklist();
-                }
-
-                if (ActiveDividers == null)
-                {
-                    ActiveDividers = new List<PawnDivider>();
-                }
-
-                EnsureWorkGiverReassignmentData();
-                WorkGiverReassignmentMigrationAdapter.MigrateLegacySettingsDataIfNeeded(this);
-                EnsureApplicationRevisionEpoch();
-                TimePriorityService.NotifyPostLoad();
+                Root.Lifecycle.CompletePostLoad(currentWorklistName);
             }
-        }
-
-        private void EnsureApplicationRevisionEpoch()
-        {
-            string seed = Find.World?.info?.seedString ?? string.Empty;
-            int epoch = 17;
-            for (int index = 0; index < seed.Length; index++)
-                epoch = unchecked(epoch * 31 + seed[index]);
-            Application.SetRevisionEpoch(epoch == 0 ? 1 : epoch);
         }
 
         public WorkGiverReassignmentData EnsureWorkGiverReassignmentData()
@@ -365,15 +414,7 @@ namespace Better_Work_Tab.Features.Workloads
 
         public override void GameComponentUpdate()
         {
-            if (SpineTiming.Enabled)
-            {
-                SpineTiming.OnFrameStart();
-            }
-
-            if (Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork)
-            {
-                Patch_WorkPriority_DoCell_Unified.TrimCacheIfNeeded();
-            }
+            Root.Maintenance.BeforeGameComponentUpdate();
 
             base.GameComponentUpdate();
 
@@ -383,48 +424,13 @@ namespace Better_Work_Tab.Features.Workloads
                 WorkloadPawnRosterCache.AuditIfDue(Find.TickManager.TicksGame);
             }
 
-            if (TimePriorityService.IsRuntimeActive)
-            {
-                int currentHour = TimePriorityService.GetCurrentHour(null);
-                if (currentHour != _lastTimePriorityHour)
-                {
-                    _lastTimePriorityHour = currentHour;
-                    Application.NotifyHourBoundary();
-                }
-            }
-
-            if (!MultiplayerBridge.Active && BWTLocalProfileStore.Current != null)
-            {
-                // Flush before the standalone profile is discarded when MP is
-                // disabled or the game is torn down.
-                BWTLocalProfileStore.LoadOrCreateForCurrentSession();
-            }
-            else if (MultiplayerBridge.Active && !BWTLocalProfileStore.IsLoadedForCurrentSession)
-            {
-                if (BWTLocalProfileStore.LoadOrCreateForCurrentSession())
-                {
-                    LoadLocalUiStateIntoRuntime();
-                }
-            }
-
-            if (Current.Game == null || Current.ProgramState != ProgramState.Playing)
-            {
-                BWTLocalProfileStore.FlushIfDirty();
-            }
-            else
-            {
-                // A dirty profile is retried every frame after Scribe becomes
-                // inactive; it is never dependent on the old 300-tick window.
-                BWTLocalProfileStore.SaveIfDirty();
-            }
+            Root.Maintenance.AfterGameComponentUpdate();
         }
 
         public override void GameComponentOnGUI()
         {
             base.GameComponentOnGUI();
-
-            // Handle 1 / Shift+1 for reporting / clearing
-            SpineTiming.HandleInput();
+            Root.Maintenance.OnGUI();
         }
 
         private void EnsureCurrentWorklist()
@@ -579,6 +585,12 @@ namespace Better_Work_Tab.Features.Workloads
             }
         }
 
+        IReadOnlyList<Worklist> IWorkloadWorldState.SavedWorklists => SavedWorklists;
+        Worklist IWorkloadWorldState.CurrentWorklist => CurrentWorklist;
+        WorkloadV2PersistenceEnvelope IWorkloadWorldState.EnsureV2Persistence() =>
+            EnsureWorkloadV2Persistence();
+        void IWorkloadWorldState.NotifyV2Changed() => NotifyWorkloadV2Changed();
+
         private void AuditWorkloadV2DiagnosticsIfDue()
         {
             int currentFrame = UnityEngine.Time.frameCount;
@@ -606,39 +618,6 @@ namespace Better_Work_Tab.Features.Workloads
             _nextWorkloadDiagnosticsAuditFrame =
                 unchecked(currentFrame + WorkloadDiagnosticsAuditFrameInterval);
             WorkloadsV2?.RefreshDiagnostics();
-        }
-
-        private void RefreshWorldSchemaDiagnostics()
-        {
-            WorldSchemaState = BWT20UpgradePolicy.ClassifyWorldSchema(BWTWorldSchemaVersion);
-            WorldSchemaDiagnostic = string.Empty;
-
-            switch (WorldSchemaState)
-            {
-                case BWTWorldSchemaState.Missing:
-                    WorldSchemaDiagnostic =
-                        "The Better Work Tab world schema marker is missing; legacy behavior remains active until an explicit upgrade.";
-                    break;
-                case BWTWorldSchemaState.KnownOld:
-                    WorldSchemaDiagnostic =
-                        "The Better Work Tab world schema is known-old; an explicit upgrade remains pending.";
-                    break;
-                case BWTWorldSchemaState.Newer:
-                    WorldSchemaDiagnostic =
-                        "The Better Work Tab world schema is newer than this build; world saves are blocked to prevent downgrade.";
-                    break;
-                case BWTWorldSchemaState.Unknown:
-                    WorldSchemaDiagnostic =
-                        "The Better Work Tab world schema is unknown; world saves are blocked until it is understood.";
-                    break;
-            }
-
-            if (IsWorldSchemaReadOnly)
-            {
-                Log.WarningOnce(
-                    "[BWT] " + WorldSchemaDiagnostic,
-                    154927303);
-            }
         }
 
         private static bool HasMalformedWorldSchemaMarker(XmlNode parent)

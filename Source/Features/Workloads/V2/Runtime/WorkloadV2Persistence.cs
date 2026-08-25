@@ -454,7 +454,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         : recordValidation.Code;
                     MarkReadOnly(
                         diagnosticCode,
-                        "A saved Workloads V2 record is not safe to rewrite: " + recordValidation.Message);
+                        "A saved Workloads V2 record is not safe to rewrite. Code=" + recordValidation.Code + ".");
                     return;
                 }
 

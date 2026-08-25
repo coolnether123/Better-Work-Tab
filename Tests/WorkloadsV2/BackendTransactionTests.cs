@@ -84,8 +84,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "legacy Worklist.Apply must publish one compiled application mutation");
             TestAssert.Contains(
                 pawnWorkload,
-                "PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(",
-                "legacy workload capture must use the authoritative stored-priority broker");
+                "WorkTabDomainPorts.Priority.ReadStored(",
+                "legacy workload capture must use the neutral authoritative priority port");
             TestAssert.Contains(
                 pawnWorkload,
                 "TryCompileParentPriorities(",
@@ -243,8 +243,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             TestAssert.Contains(
                 staged,
-                "WorkGiverReassignmentManager.SpecificJobBatchRollback _specificRollback",
-                "the application receipt must own the manager's complete specific-job rollback unit");
+                "IWorkTabSpecificJobRollbackReceipt _specificRollback",
+                "the application receipt must own the domain's opaque complete specific-job rollback unit");
+            TestAssert.False(
+                staged.IndexOf("SpecificJobBatchRollback", StringComparison.Ordinal) >= 0,
+                "the staged application contract must not expose the manager rollback type");
             TestAssert.Contains(
                 backend,
                 "runtimePlan.SpecificJobRevision = receipt.SpecificJobRevision",
@@ -501,20 +504,20 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "removed definitions and targets must produce structured stale diagnostics");
             TestAssert.Contains(
                 helper,
-                "TimePriorityService.CurrentVersion != baseline.ScheduleRevision",
-                "schedule service drift must block stale schedule persistence");
+                "ScheduleState.Revision != baseline.ScheduleRevision",
+                "schedule port drift must block stale schedule persistence");
             TestAssert.Contains(
                 helper,
-                "WorkGiverReassignmentManager.CurrentSyncVersion != baseline.SpecificJobRevision",
-                "specific-job service drift must block stale persistence");
+                "SpecificJobState.Revision != baseline.SpecificJobRevision",
+                "specific-job port drift must block stale persistence");
             TestAssert.Contains(
                 helper,
                 "ComputeTaxonomyFingerprint(runtime)",
                 "changed WorkGiver taxonomy must block Update/Fork persistence");
             TestAssert.Contains(
                 helper,
-                "WorkPrioritySystem.IsBwtMutationAuthorityCurrent(baseline.AuthorityRevision)",
-                "authority drift must block Update/Fork persistence without handoff");
+                "PriorityState.IsAuthorityCurrent(baseline.AuthorityRevision)",
+                "neutral priority-authority drift must block Update/Fork persistence without handoff");
             TestAssert.Contains(
                 backend,
                 "WorkloadPresentationServices.TryGetScalarKind(",

@@ -23,20 +23,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             string requestId,
             WorkloadMultiplayerCommitState state,
             WorkloadDiagnosticCode code,
-            string message,
+            WorkloadDiagnosticContext context = null,
             WorkloadV2CommitResult result = null)
         {
             RequestId = requestId ?? string.Empty;
             State = state;
             Code = code;
-            Message = message ?? string.Empty;
+            Context = context ?? WorkloadDiagnosticContext.Empty;
             Result = result;
         }
 
         public string RequestId { get; private set; }
         public WorkloadMultiplayerCommitState State { get; private set; }
         public WorkloadDiagnosticCode Code { get; private set; }
-        public string Message { get; private set; }
+        public WorkloadDiagnosticContext Context { get; private set; }
         public WorkloadV2CommitResult Result { get; private set; }
         public bool IsTerminal =>
             State == WorkloadMultiplayerCommitState.Succeeded ||
@@ -83,7 +83,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         InvalidLabel = 13,
         ExternalPriorityAuthority = 14,
         BlockedModeTransition = 15,
-        UnsupportedOperation = 16,
+        // Value 16 was the removed coarse UnsupportedOperation code. Keep the
+        // gap so existing diagnostic identifiers retain their numeric values.
         NotFound = 17,
         PersistenceConflict = 18,
         BaselineChanged = 19,
@@ -92,7 +93,49 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         UnsupportedLegacyState = 22,
         MutationCapabilityRejected = 23,
         RollbackRequired = 24,
-        RollbackFailed = 25
+        RollbackFailed = 25,
+        ModeUnavailable = 26,
+        UnsupportedDecision = 27,
+        UnsupportedClear = 28,
+        CaptureFailed = 29,
+        MultiplayerUnavailable = 30,
+        UnsupportedPresentationData = 31,
+        UnsupportedRuntimeState = 32
+    }
+
+    /// <summary>
+    /// Structured values that qualify a workload diagnostic. These values are
+    /// stable inputs to presentation and logging. They never contain completed
+    /// player-facing sentences or exception text.
+    /// </summary>
+    public sealed class WorkloadDiagnosticContext
+    {
+        private static readonly WorkloadDiagnosticContext EmptyContext =
+            new WorkloadDiagnosticContext();
+
+        public WorkloadDiagnosticContext(
+            string stableId = null,
+            string path = null,
+            string peerId = null,
+            WorkloadValidationCode? validationCode = null,
+            int? expectedVersion = null,
+            int? actualVersion = null)
+        {
+            StableId = stableId ?? string.Empty;
+            Path = path ?? string.Empty;
+            PeerId = peerId ?? string.Empty;
+            ValidationCode = validationCode;
+            ExpectedVersion = expectedVersion;
+            ActualVersion = actualVersion;
+        }
+
+        public static WorkloadDiagnosticContext Empty => EmptyContext;
+        public string StableId { get; private set; }
+        public string Path { get; private set; }
+        public string PeerId { get; private set; }
+        public WorkloadValidationCode? ValidationCode { get; private set; }
+        public int? ExpectedVersion { get; private set; }
+        public int? ActualVersion { get; private set; }
     }
 
     public sealed class WorkloadOperationResult
@@ -100,25 +143,27 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         private WorkloadOperationResult(
             bool succeeded,
             WorkloadDiagnosticCode code,
-            string message)
+            WorkloadDiagnosticContext context)
         {
             Succeeded = succeeded;
             Code = code;
-            Message = message ?? string.Empty;
+            Context = context ?? WorkloadDiagnosticContext.Empty;
         }
 
         public bool Succeeded { get; private set; }
         public WorkloadDiagnosticCode Code { get; private set; }
-        public string Message { get; private set; }
+        public WorkloadDiagnosticContext Context { get; private set; }
 
-        public static WorkloadOperationResult Ok(string message = null)
+        public static WorkloadOperationResult Ok()
         {
-            return new WorkloadOperationResult(true, WorkloadDiagnosticCode.None, message);
+            return new WorkloadOperationResult(true, WorkloadDiagnosticCode.None, null);
         }
 
-        public static WorkloadOperationResult Fail(WorkloadDiagnosticCode code, string message)
+        public static WorkloadOperationResult Fail(
+            WorkloadDiagnosticCode code,
+            WorkloadDiagnosticContext context = null)
         {
-            return new WorkloadOperationResult(false, code, message);
+            return new WorkloadOperationResult(false, code, context);
         }
     }
 
@@ -127,28 +172,30 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         private WorkloadOperationResult(
             bool succeeded,
             WorkloadDiagnosticCode code,
-            string message,
+            WorkloadDiagnosticContext context,
             T value)
         {
             Succeeded = succeeded;
             Code = code;
-            Message = message ?? string.Empty;
+            Context = context ?? WorkloadDiagnosticContext.Empty;
             Value = value;
         }
 
         public bool Succeeded { get; private set; }
         public WorkloadDiagnosticCode Code { get; private set; }
-        public string Message { get; private set; }
+        public WorkloadDiagnosticContext Context { get; private set; }
         public T Value { get; private set; }
 
-        public static WorkloadOperationResult<T> Ok(T value, string message = null)
+        public static WorkloadOperationResult<T> Ok(T value)
         {
-            return new WorkloadOperationResult<T>(true, WorkloadDiagnosticCode.None, message, value);
+            return new WorkloadOperationResult<T>(true, WorkloadDiagnosticCode.None, null, value);
         }
 
-        public static WorkloadOperationResult<T> Fail(WorkloadDiagnosticCode code, string message)
+        public static WorkloadOperationResult<T> Fail(
+            WorkloadDiagnosticCode code,
+            WorkloadDiagnosticContext context = null)
         {
-            return new WorkloadOperationResult<T>(false, code, message, default(T));
+            return new WorkloadOperationResult<T>(false, code, context, default(T));
         }
     }
 
@@ -162,8 +209,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             bool isReadOnly,
             bool hasStableId,
             int schemaVersion,
-            WorkloadDiagnosticCode diagnosticCode = WorkloadDiagnosticCode.None,
-            string diagnostic = null)
+            WorkloadDiagnosticCode diagnosticCode = WorkloadDiagnosticCode.None)
         {
             Backend = backend;
             StableId = stableId ?? string.Empty;
@@ -173,7 +219,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             HasStableId = hasStableId;
             SchemaVersion = schemaVersion;
             DiagnosticCode = diagnosticCode;
-            Diagnostic = diagnostic ?? string.Empty;
         }
 
         public WorkloadBackendMode Backend { get; private set; }
@@ -184,6 +229,5 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         public bool HasStableId { get; private set; }
         public int SchemaVersion { get; private set; }
         public WorkloadDiagnosticCode DiagnosticCode { get; private set; }
-        public string Diagnostic { get; private set; }
     }
 }

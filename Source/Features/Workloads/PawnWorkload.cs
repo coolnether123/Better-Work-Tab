@@ -99,7 +99,7 @@ namespace Better_Work_Tab.Features.Workloads
         /// <summary>
         /// Adds this entry's desired parent priorities to a pre-captured
         /// application plan. The plan captures every baseline through
-        /// PriorityAuthorityBroker before this method is called.
+        /// the priority domain before this method is called.
         /// </summary>
         internal bool TryCompileParentPriorities(
             WorkTabAtomicMutationPlan mutation,
@@ -140,9 +140,7 @@ namespace Better_Work_Tab.Features.Workloads
             foreach (var w in DefDatabase<WorkTypeDef>.AllDefsListForReading)
             {
                 WorkTypeDef worktype = w;
-                int priority = PriorityAuthorityBroker.GetBetterWorkTabStoredPriority(
-                    owningPawn.workSettings,
-                    w);
+                int priority = WorkTabDomainPorts.Priority.ReadStored(owningPawn, w);
                 //Log.Message("Saved " + owningPawn.Name + "'s " + worktype.defName + " priority of " + priority);
                 Priorities[worktype] = priority;
                 //Log.Message("Added " + owningPawn.Name + "'s " + Priorities.Last().Key + " priority of " + Priorities.Last().Value + " to Priorities");

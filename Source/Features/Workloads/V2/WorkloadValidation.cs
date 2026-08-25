@@ -133,19 +133,16 @@ namespace Better_Work_Tab.Features.Workloads.V2
         public WorkloadValidationIssue(
             WorkloadValidationSeverity severity,
             WorkloadValidationCode code,
-            string path,
-            string message)
+            string path)
         {
             Severity = severity;
             Code = code;
             Path = path ?? string.Empty;
-            Message = message ?? string.Empty;
         }
 
         public WorkloadValidationSeverity Severity { get; private set; }
         public WorkloadValidationCode Code { get; private set; }
         public string Path { get; private set; }
-        public string Message { get; private set; }
     }
 
     public sealed class WorkloadValidationResult
@@ -220,8 +217,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 issues.Add(new WorkloadValidationIssue(
                     WorkloadValidationSeverity.Error,
                     WorkloadValidationCode.MissingTemplate,
-                    "template",
-                    "The workload template is missing."));
+                    "template"));
                 return new WorkloadValidationResult(issues);
             }
 
@@ -230,32 +226,32 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadDefinition definition = template.Definition ?? WorkloadDefinition.Empty;
             if (!definition.StableId.AnyNonWhitespace())
             {
-                Add(issues, WorkloadValidationCode.MissingStableId, "definition.stableId", "A stable workload ID is required.");
+                Add(issues, WorkloadValidationCode.MissingStableId, "definition.stableId");
             }
 
             if (!definition.Label.AnyNonWhitespace())
             {
-                Add(issues, WorkloadValidationCode.MissingLabel, "definition.label", "A workload label is required.");
+                Add(issues, WorkloadValidationCode.MissingLabel, "definition.label");
             }
 
             if (definition.SchemaVersion <= 0)
             {
-                Add(issues, WorkloadValidationCode.InvalidSchemaVersion, "definition.schemaVersion", "The schema version must be positive.");
+                Add(issues, WorkloadValidationCode.InvalidSchemaVersion, "definition.schemaVersion");
             }
             else if (definition.SchemaVersion > safeContext.SupportedSchemaVersion)
             {
-                Add(issues, WorkloadValidationCode.NewerSchema, "definition.schemaVersion", "The workload uses a newer schema and is read-only until supported.");
+                Add(issues, WorkloadValidationCode.NewerSchema, "definition.schemaVersion");
             }
 
             if (!definition.Scope.IsValidMode)
             {
-                Add(issues, WorkloadValidationCode.InvalidScopeMode, "definition.scope.mode", "The workload scope mode is unknown.");
+                Add(issues, WorkloadValidationCode.InvalidScopeMode, "definition.scope.mode");
             }
 
             int knownOwnershipBits = (int)WorkloadOwnershipDimensions.All;
             if ((((int)definition.OwnershipDimensions) & ~knownOwnershipBits) != 0)
             {
-                Add(issues, WorkloadValidationCode.UnknownOwnershipDimension, "definition.ownership", "The workload declares an unknown ownership dimension.");
+                Add(issues, WorkloadValidationCode.UnknownOwnershipDimension, "definition.ownership");
             }
 
             if (definition.Scope.Mode == WorkloadScopeMode.CurrentMapFreeColonists &&
@@ -264,8 +260,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 Add(
                     issues,
                     WorkloadValidationCode.InvalidScopeMode,
-                    "definition.scope.explicitPawnIds",
-                    "Current-map scopes cannot also declare explicit pawn IDs.");
+                    "definition.scope.explicitPawnIds");
             }
 
             for (int i = 0; i < definition.Scope.ExplicitPawnIds.Count; i++)
@@ -288,8 +283,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 Add(
                     issues,
                     WorkloadValidationCode.InvalidManualModeScope,
-                    "definition.scope",
-                    "Manual-priority mode is global and requires the unexcluded current-map free-colonist scope.");
+                    "definition.scope");
             }
 
             if (state.HasAmbiguousSpecificPriorityIntents)
@@ -297,8 +291,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 Add(
                     issues,
                     WorkloadValidationCode.DuplicateSpecificJobIntent,
-                    "state.specificPriorityIntents",
-                    "The workload contains duplicate specific-job priority targets; the state is ambiguous and cannot be applied.");
+                    "state.specificPriorityIntents");
             }
 
             if (state.HasAmbiguousWorkTypeOrderIntents)
@@ -306,8 +299,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 Add(
                     issues,
                     WorkloadValidationCode.DuplicateSpecificJobOrderIntent,
-                    "state.workTypeOrderIntents",
-                    "The workload contains duplicate WorkType order targets; the state is ambiguous and cannot be applied.");
+                    "state.workTypeOrderIntents");
             }
 
             CheckOwnedDimension(
@@ -370,11 +362,11 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 CheckScopePawn(issues, definition.Scope, entry.Pawn, "state.schedules[" + i + "].pawn");
                 if (entry.Schedule == null || !entry.Schedule.IsValid)
                 {
-                    Add(issues, WorkloadValidationCode.InvalidScheduleKey, "state.schedules[" + i + "].schedule", "The schedule key is missing or invalid.");
+                    Add(issues, WorkloadValidationCode.InvalidScheduleKey, "state.schedules[" + i + "].schedule");
                 }
                 else if (catalog.HasScheduleKeys && !catalog.ContainsSchedule(entry.Schedule))
                 {
-                    Add(issues, WorkloadValidationCode.UnknownScheduleKey, "state.schedules[" + i + "].schedule", "The schedule key is not present in the supplied catalog.");
+                    Add(issues, WorkloadValidationCode.UnknownScheduleKey, "state.schedules[" + i + "].schedule");
                 }
             }
 
@@ -388,8 +380,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                     Add(
                         issues,
                         WorkloadValidationCode.InvalidSpecificJobValue,
-                        "state.specificJobOverrides[" + i + "].value",
-                        "Specific-job priority values must be integer priorities.");
+                        "state.specificJobOverrides[" + i + "].value");
                 }
             }
 
@@ -404,8 +395,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                     Add(
                         issues,
                         WorkloadValidationCode.InvalidSpecificJobOrder,
-                        "state.specificJobOrder[" + i + "].order",
-                        "Specific-job order values cannot be negative.");
+                        "state.specificJobOrder[" + i + "].order");
                 }
 
                 WorkloadParentPriorityKey parent =
@@ -421,8 +411,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                     Add(
                         issues,
                         WorkloadValidationCode.InvalidSpecificJobOrder,
-                        "state.specificJobOrder[" + i + "].order",
-                        "Specific-job order values must be unique within a pawn/work-type order.");
+                        "state.specificJobOrder[" + i + "].order");
                 }
             }
 
@@ -430,7 +419,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             {
                 if (!state.PresentationSettings[i].Key.AnyNonWhitespace())
                 {
-                    Add(issues, WorkloadValidationCode.MissingPresentationSettingKey, "state.presentationSettings[" + i + "].key", "A presentation setting key is required.");
+                    Add(issues, WorkloadValidationCode.MissingPresentationSettingKey, "state.presentationSettings[" + i + "].key");
                 }
             }
 
@@ -443,7 +432,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 CheckIntentState(issues, entry.Intent.State, "state.parentPriorityIntents[" + i + "].intent");
                 if (entry.Intent.HasValue && !entry.Intent.Value.IsValid)
                 {
-                    Add(issues, WorkloadValidationCode.InvalidSpecificJobValue, "state.parentPriorityIntents[" + i + "].value", "The typed priority payload is invalid.");
+                    Add(issues, WorkloadValidationCode.InvalidSpecificJobValue, "state.parentPriorityIntents[" + i + "].value");
                 }
             }
 
@@ -461,8 +450,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 Add(
                     issues,
                     WorkloadValidationCode.ConflictingManualModes,
-                    "state.manualModes",
-                    "Manual-priority entries disagree even though RimWorld stores one global mode.");
+                    "state.manualModes");
             }
 
             for (int i = 0; i < state.ScheduleIntents.Count; i++)
@@ -472,7 +460,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 CheckIntentState(issues, entry.Intent.State, "state.scheduleIntents[" + i + "].intent");
                 if (entry.Intent.HasValue && !entry.Intent.Value.IsValid)
                 {
-                    Add(issues, WorkloadValidationCode.InvalidSchedulePayload, "state.scheduleIntents[" + i + "].value", "A schedule payload must contain 24 valid priorities and a valid pinned-hour mask.");
+                    Add(issues, WorkloadValidationCode.InvalidSchedulePayload, "state.scheduleIntents[" + i + "].value");
                 }
             }
 
@@ -483,7 +471,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 CheckIntentState(issues, entry.Intent.State, "state.specificPriorityIntents[" + i + "].intent");
                 if (entry.Intent.HasValue && !entry.Intent.Value.IsValid)
                 {
-                    Add(issues, WorkloadValidationCode.InvalidSpecificJobValue, "state.specificPriorityIntents[" + i + "].value", "The typed specific-priority payload is invalid.");
+                    Add(issues, WorkloadValidationCode.InvalidSpecificJobValue, "state.specificPriorityIntents[" + i + "].value");
                 }
             }
 
@@ -494,7 +482,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 CheckIntentState(issues, entry.Intent.State, "state.workTypeOrderIntents[" + i + "].intent");
                 if (entry.Intent.HasValue && !entry.Intent.Value.IsValid)
                 {
-                    Add(issues, WorkloadValidationCode.InvalidOrderPayload, "state.workTypeOrderIntents[" + i + "].value", "A WorkType order payload must be a complete unique permutation.");
+                    Add(issues, WorkloadValidationCode.InvalidOrderPayload, "state.workTypeOrderIntents[" + i + "].value");
                 }
                 if (entry.Intent.HasValue && catalog.HasWorkGiverIds)
                 {
@@ -507,8 +495,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                             Add(
                                 issues,
                                 WorkloadValidationCode.UnknownWorkGiverId,
-                                "state.workTypeOrderIntents[" + i + "].value[" + orderIndex + "]",
-                                "The ordered WorkGiver ID is not present in the supplied catalog.");
+                                "state.workTypeOrderIntents[" + i + "].value[" + orderIndex + "]");
                         }
                     }
                 }
@@ -519,12 +506,12 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 WorkloadPresentationSettingIntentEntry entry = state.PresentationSettingIntents[i];
                 if (!entry.Key.AnyNonWhitespace())
                 {
-                    Add(issues, WorkloadValidationCode.MissingPresentationSettingKey, "state.presentationSettingIntents[" + i + "].key", "A typed presentation setting key is required.");
+                    Add(issues, WorkloadValidationCode.MissingPresentationSettingKey, "state.presentationSettingIntents[" + i + "].key");
                 }
                 CheckIntentState(issues, entry.Intent.State, "state.presentationSettingIntents[" + i + "].intent");
                 if (entry.Intent.HasValue && !entry.Intent.Value.IsValid)
                 {
-                    Add(issues, WorkloadValidationCode.InvalidSettingOwnership, "state.presentationSettingIntents[" + i + "].ownership", "The presentation setting ownership is invalid.");
+                    Add(issues, WorkloadValidationCode.InvalidSettingOwnership, "state.presentationSettingIntents[" + i + "].ownership");
                 }
             }
 
@@ -538,7 +525,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             if (state < WorkloadIntentState.NoOpinion || state > WorkloadIntentState.Clear)
             {
-                Add(issues, WorkloadValidationCode.InvalidIntentState, path, "The workload intent state is unknown.");
+                Add(issues, WorkloadValidationCode.InvalidIntentState, path);
             }
         }
 
@@ -556,7 +543,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 null);
             if (!safeKey.IsValid)
             {
-                Add(issues, WorkloadValidationCode.InvalidTargetScope, path, "The schedule target scope or target kind is invalid.");
+                Add(issues, WorkloadValidationCode.InvalidTargetScope, path);
                 return;
             }
 
@@ -590,7 +577,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 null);
             if (!safeKey.IsValid)
             {
-                Add(issues, WorkloadValidationCode.InvalidTargetScope, path, "The specific-job target scope is invalid.");
+                Add(issues, WorkloadValidationCode.InvalidTargetScope, path);
                 return;
             }
 
@@ -616,7 +603,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 null);
             if (!safeKey.IsValid)
             {
-                Add(issues, WorkloadValidationCode.InvalidTargetScope, path, "The WorkType order target scope is invalid.");
+                Add(issues, WorkloadValidationCode.InvalidTargetScope, path);
                 return;
             }
 
@@ -652,8 +639,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 Add(
                     issues,
                     WorkloadValidationCode.UnownedStateDimension,
-                    path,
-                    "The workload contains state for a dimension it does not own.");
+                    path);
             }
         }
 
@@ -674,8 +660,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 Add(
                     issues,
                     WorkloadValidationCode.ScopeStateMismatch,
-                    path,
-                    "The state entry is outside the workload's explicit pawn scope.");
+                    path);
             }
         }
 
@@ -698,11 +683,11 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             if (key == null || !key.IsValid)
             {
-                Add(issues, WorkloadValidationCode.MissingPawnId, path, "A pawn ID is missing.");
+                Add(issues, WorkloadValidationCode.MissingPawnId, path);
             }
             else if (catalog.HasPawnIds && !catalog.ContainsPawn(key))
             {
-                Add(issues, WorkloadValidationCode.UnknownPawnId, path, "The pawn ID is not present in the supplied catalog.");
+                Add(issues, WorkloadValidationCode.UnknownPawnId, path);
             }
         }
 
@@ -714,11 +699,11 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             if (key == null || !key.IsValid)
             {
-                Add(issues, WorkloadValidationCode.MissingWorkTypeId, path, "A work type ID is missing.");
+                Add(issues, WorkloadValidationCode.MissingWorkTypeId, path);
             }
             else if (catalog.HasWorkTypeIds && !catalog.ContainsWorkType(key))
             {
-                Add(issues, WorkloadValidationCode.UnknownWorkTypeId, path, "The work type ID is not present in the supplied catalog.");
+                Add(issues, WorkloadValidationCode.UnknownWorkTypeId, path);
             }
         }
 
@@ -730,21 +715,20 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             if (key == null || !key.IsValid)
             {
-                Add(issues, WorkloadValidationCode.MissingWorkGiverId, path, "A work giver ID is missing.");
+                Add(issues, WorkloadValidationCode.MissingWorkGiverId, path);
             }
             else if (catalog.HasWorkGiverIds && !catalog.ContainsWorkGiver(key))
             {
-                Add(issues, WorkloadValidationCode.UnknownWorkGiverId, path, "The work giver ID is not present in the supplied catalog.");
+                Add(issues, WorkloadValidationCode.UnknownWorkGiverId, path);
             }
         }
 
         private static void Add(
             List<WorkloadValidationIssue> issues,
             WorkloadValidationCode code,
-            string path,
-            string message)
+            string path)
         {
-            issues.Add(new WorkloadValidationIssue(WorkloadValidationSeverity.Error, code, path, message));
+            issues.Add(new WorkloadValidationIssue(WorkloadValidationSeverity.Error, code, path));
         }
     }
 

@@ -10,7 +10,7 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using HarmonyLib;
@@ -52,9 +52,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         }
 
         internal static FluffyWorkTabMigrationResult MigrateIfNeeded(
-            GameComponent_BWTWorldSettings component)
+            WorkTabGameRoot root)
         {
-            if (component == null)
+            IWorkTabCompatibilityMigrationState migration =
+                root?.State?.CompatibilityMigrations;
+            if (migration == null)
             {
                 return default;
             }
@@ -73,14 +75,14 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             _lastLoadingSaveName = null;
 
             bool needsSavedState =
-                component.ExternalWorkTabPriorityMigrationVersion < MigrationVersion ||
-                component.FluffyWorkTabCompatibilityPromptVersion <
+                migration.ExternalPriorityVersion < MigrationVersion ||
+                migration.CompatibilityPromptVersion <
                     FluffyWorkTabPromptPolicy.CurrentPromptVersion;
             SavedFluffyState savedState = needsSavedState
                 ? ReadSavedFluffyState(saveName)
                 : new SavedFluffyState(default, null);
             int importedEntryCount = 0;
-            if (component.ExternalWorkTabPriorityMigrationVersion < MigrationVersion)
+            if (migration.ExternalPriorityVersion < MigrationVersion)
             {
                 List<ExternalPawnWorkGiverPriorityRecord> records = ReadLiveFluffyPriorities();
                 if (records.Count == 0)
@@ -90,11 +92,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
                 if (records.Count > 0)
                 {
-                    component.EnsureWorkGiverReassignmentData();
+                    root.State.Reassignments?.EnsureData();
                     if (ExternalWorkTabPriorityImportService.TryImport(
-                            component, records, out importedEntryCount))
+                            root, records, out importedEntryCount))
                     {
-                        component.ExternalWorkTabPriorityMigrationVersion = MigrationVersion;
+                        migration.ExternalPriorityVersion = MigrationVersion;
                         if (importedEntryCount > 0)
                             Log.Message("[Better Work Tab] Imported " + importedEntryCount +
                                 " Fluffy Work Tab priority entries.");
@@ -107,11 +109,11 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 savedState.Evidence.Detected);
         }
 
-        internal static bool HasMigrationHistory(GameComponent_BWTWorldSettings component)
+        internal static bool HasMigrationHistory(WorkTabGameRoot root)
         {
             try
             {
-                return component?.ExternalWorkTabPriorityMigrationVersion > 0 ||
+                return root?.State?.CompatibilityMigrations?.ExternalPriorityVersion > 0 ||
                     AccessTools.TypeByName(FluffyWorkTabSaveDetector.PriorityManagerClass) != null;
             }
             catch

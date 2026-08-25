@@ -9,7 +9,6 @@ using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.UI.WorkGrid.Projection;
-using Better_Work_Tab.UI.Workloads;
 
 namespace Better_Work_Tab.Features
 {
@@ -34,8 +33,7 @@ namespace Better_Work_Tab.Features
 
         internal static bool CanApplyLiveRuleset(out string rejectionReason)
         {
-            if (WorkTabEffectiveStateRuntime.IsPreviewActive ||
-                WorkloadGateway.IsV2PreviewSessionActive)
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
                 rejectionReason = LiveRulesetApplicationBlockedReason;
                 WorkTabEffectiveStateRuntime.ReportBlocked(

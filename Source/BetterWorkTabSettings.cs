@@ -3,7 +3,6 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.Migration;
 using RimWorld;

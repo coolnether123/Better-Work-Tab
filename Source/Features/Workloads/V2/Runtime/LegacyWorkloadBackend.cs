@@ -14,9 +14,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
     internal sealed class LegacyWorkloadBackend
     {
         private const string LegacyIdPrefix = "legacy:";
-        private readonly GameComponent_BWTWorldSettings _component;
+        private readonly IWorkloadWorldState _component;
 
-        internal LegacyWorkloadBackend(GameComponent_BWTWorldSettings component)
+        internal LegacyWorkloadBackend(IWorkloadWorldState component)
         {
             _component = component;
         }
@@ -41,15 +41,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_component == null)
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no Better Work Tab world component.");
+                    WorkloadDiagnosticCode.NoCurrentGame);
             }
 
             if (_component.CurrentWorklist == null)
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.MissingCurrentWorkloadId,
-                    "There is no current legacy workload.");
+                    WorkloadDiagnosticCode.MissingCurrentWorkloadId);
             }
 
             return WorkloadOperationResult<WorkloadDescriptor>.Ok(
@@ -61,7 +59,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadOperationResult<Worklist> found = Find(workloadId);
             if (!found.Succeeded)
             {
-                return WorkloadOperationResult.Fail(found.Code, found.Message);
+                return WorkloadOperationResult.Fail(found.Code, found.Context);
             }
 
             _component.SelectWorklist(found.Value);
@@ -71,7 +69,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         internal WorkloadOperationResult<WorkloadDescriptor> Create(string label)
         {
             WorkloadOperationResult context = RequireMap();
-            if (!context.Succeeded) return WorkloadOperationResult<WorkloadDescriptor>.Fail(context.Code, context.Message);
+            if (!context.Succeeded) return WorkloadOperationResult<WorkloadDescriptor>.Fail(context.Code, context.Context);
 
             _component.CreateWorklist(label);
             return Current();
@@ -82,14 +80,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (string.IsNullOrEmpty(newLabel))
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.InvalidLabel,
-                    "A workload label is required.");
+                    WorkloadDiagnosticCode.InvalidLabel);
             }
 
             WorkloadOperationResult<Worklist> found = Find(workloadId);
             if (!found.Succeeded)
             {
-                return WorkloadOperationResult.Fail(found.Code, found.Message);
+                return WorkloadOperationResult.Fail(found.Code, found.Context);
             }
 
             _component.RenameWorklist(found.Value, newLabel);
@@ -101,7 +98,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadOperationResult<Worklist> found = Find(workloadId);
             if (!found.Succeeded)
             {
-                return WorkloadOperationResult.Fail(found.Code, found.Message);
+                return WorkloadOperationResult.Fail(found.Code, found.Context);
             }
 
             _component.DeleteWorklist(found.Value);
@@ -116,7 +113,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadOperationResult<WorkloadDescriptor> current = Current();
                 if (!current.Succeeded)
                 {
-                    return WorkloadOperationResult.Fail(current.Code, current.Message);
+                    return WorkloadOperationResult.Fail(current.Code, current.Context);
                 }
 
                 worklist = _component.CurrentWorklist;
@@ -126,7 +123,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadOperationResult<Worklist> found = Find(workloadId);
                 if (!found.Succeeded)
                 {
-                    return WorkloadOperationResult.Fail(found.Code, found.Message);
+                    return WorkloadOperationResult.Fail(found.Code, found.Context);
                 }
 
                 worklist = found.Value;
@@ -143,9 +140,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     return WorkloadOperationResult.Fail(
                         HasAuthorityFailure(validationError)
                             ? WorkloadDiagnosticCode.ExternalPriorityAuthority
-                            : WorkloadDiagnosticCode.InvalidState,
-                        "The legacy workload could not be applied atomically: " +
-                        (validationError ?? result.Reason ?? "the workload record is missing."));
+                            : WorkloadDiagnosticCode.InvalidState);
                 }
 
                 return WorkloadOperationResult.Ok();
@@ -154,8 +149,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 Log.Error("[BWT] Legacy workload apply failed safely: " + exception);
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The legacy workload could not be applied safely: " + exception.Message);
+                    WorkloadDiagnosticCode.InvalidState);
             }
         }
 
@@ -164,12 +158,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (string.IsNullOrEmpty(workloadId))
             {
                 return WorkloadOperationResult<Worklist>.Fail(
-                    WorkloadDiagnosticCode.MissingStableId,
-                    "A legacy workload identifier is required.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             Worklist match = null;
-            List<Worklist> worklists = _component?.SavedWorklists;
+            IReadOnlyList<Worklist> worklists = _component?.SavedWorklists;
             if (worklists != null)
             {
                 for (int i = 0; i < worklists.Count; i++)
@@ -179,8 +172,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     if (match != null)
                     {
                         return WorkloadOperationResult<Worklist>.Fail(
-                            WorkloadDiagnosticCode.AmbiguousStableId,
-                            "The legacy workload identifier matches more than one workload.");
+                            WorkloadDiagnosticCode.AmbiguousStableId);
                     }
 
                     match = candidate;
@@ -189,8 +181,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             return match == null
                 ? WorkloadOperationResult<Worklist>.Fail(
-                    WorkloadDiagnosticCode.UnknownWorkloadId,
-                    "The legacy workload identifier was not found.")
+                    WorkloadDiagnosticCode.UnknownWorkloadId)
                 : WorkloadOperationResult<Worklist>.Ok(match);
         }
 
@@ -199,14 +190,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (_component == null)
             {
                 return WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no Better Work Tab world component.");
+                    WorkloadDiagnosticCode.NoCurrentGame);
             }
 
             return Verse.Find.CurrentMap == null
                 ? WorkloadOperationResult.Fail(
-                    WorkloadDiagnosticCode.NoCurrentMap,
-                    "A current map is required for legacy workload creation.")
+                    WorkloadDiagnosticCode.NoCurrentMap)
                 : WorkloadOperationResult.Ok();
         }
 
