@@ -1,4 +1,5 @@
 using System.Reflection;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
@@ -24,6 +25,11 @@ namespace Better_Work_Tab.UI.Headers
         private static VanillaHeaderRenderer _vanillaRenderer;
         private static VanillaHeaderLayoutSolver _vanillaSolver;
         private static WorkTabInvalidationVersion _lastInvalidationVersions;
+        private static IHeaderRenderer _activeRenderer;
+        private static bool _activeRendererUsesAngledHeaders;
+        private static long _activeRendererSettingsRevision = long.MinValue;
+        private static int _activeRendererPresentationVersion = int.MinValue;
+        private static int _headerPresentationVersion;
 
         static HeaderDrawingCoordinator()
         {
@@ -41,8 +47,9 @@ namespace Better_Work_Tab.UI.Headers
         {
             if (table == null) return;
             
-            // Only solve for vanilla mode; angled headers do not require this
-            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled))
+            // Only solve for vanilla mode; angled headers do not require this.
+            // The mode is stable until the presentation boundary invalidates it.
+            if (!AreAngledHeadersEnabled())
             {
                 _vanillaSolver.SolveLayout(table);
             }
@@ -68,9 +75,38 @@ namespace Better_Work_Tab.UI.Headers
         /// <returns>An implementation of IHeaderRenderer (Angled or Vanilla).</returns>
         public static IHeaderRenderer GetActiveRenderer()
         {
-            return BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled)
+            EnsureActiveRenderer();
+            return _activeRenderer;
+        }
+
+        /// <summary>
+        /// Returns the current header mode without re-reading the prepared
+        /// settings projection for every column in a frame.
+        /// </summary>
+        internal static bool AreAngledHeadersEnabled()
+        {
+            EnsureActiveRenderer();
+            return _activeRendererUsesAngledHeaders;
+        }
+
+        private static void EnsureActiveRenderer()
+        {
+            long settingsRevision = WorkTabPresentationRevision.Current;
+            int presentationVersion = _headerPresentationVersion;
+            if (_activeRenderer != null &&
+                _activeRendererSettingsRevision == settingsRevision &&
+                _activeRendererPresentationVersion == presentationVersion)
+            {
+                return;
+            }
+
+            _activeRendererUsesAngledHeaders = BWTWorkTabEffectiveSettings.GetBool(
+                SettingIDs.HeadersAngled);
+            _activeRenderer = _activeRendererUsesAngledHeaders
                 ? (IHeaderRenderer)_angledRenderer
                 : (IHeaderRenderer)_vanillaRenderer;
+            _activeRendererSettingsRevision = settingsRevision;
+            _activeRendererPresentationVersion = presentationVersion;
         }
 
         /// <summary>
@@ -98,7 +134,7 @@ namespace Better_Work_Tab.UI.Headers
             try
             {
                 HeaderInputController.UpdateCache(Event.current);
-                bool allowNative = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled)
+                bool allowNative = AreAngledHeadersEnabled()
                     ? AngledHeaderController.DoHeader(worker, rect, table)
                     : VanillaHeaderController.DoHeader(worker, rect, table);
                 return !allowNative;
@@ -163,6 +199,9 @@ namespace Better_Work_Tab.UI.Headers
             // Create new solver (starts with _solutionValid = false, triggering recalculation)
             _vanillaSolver = new VanillaHeaderLayoutSolver();
             _vanillaRenderer = new VanillaHeaderRenderer(_vanillaSolver);
+            _activeRenderer = null;
+            _activeRendererSettingsRevision = long.MinValue;
+            _activeRendererPresentationVersion = int.MinValue;
             AngledHeaderCache.ClearCache();
         }
 
@@ -174,6 +213,11 @@ namespace Better_Work_Tab.UI.Headers
         /// </summary>
         public static void NotifyAngledHeadersChanged()
         {
+            unchecked
+            {
+                _headerPresentationVersion++;
+            }
+
             WorkTabInvalidationHub.Invalidate(
                 WorkTabDirtyFlags.HeaderText |
                 WorkTabDirtyFlags.HeaderGeometry |

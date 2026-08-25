@@ -82,6 +82,7 @@ namespace Better_Work_Tab.UI.Headers
             bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             bool showCursorHighlight = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HighlightsHover);
+            bool angledHeadersEnabled = HeaderDrawingCoordinator.AreAngledHeadersEnabled();
 
             foreach (var column in layout.Columns)
             {
@@ -111,7 +112,7 @@ namespace Better_Work_Tab.UI.Headers
                         RuleBuilderGateway.ShouldHighlightRuleBuilder2Target(workType, workGiver);
                 }
                 bool drawRuleBuilderHighlightAfterHeader =
-                    shouldHighlightRuleBuilderTarget && AreAngledHeadersEnabled();
+                    shouldHighlightRuleBuilderTarget && angledHeadersEnabled;
 
                 if (showCursorHighlight &&
                     isWorkColumn &&
@@ -151,7 +152,7 @@ namespace Better_Work_Tab.UI.Headers
                 try
                 {
                     SubWorkDrilldownState.SetDrawingColumn(column);
-                    if (!TryDrawFluffyHeader(column, headerRect, table))
+                    if (!TryDrawFluffyHeader(column, headerRect, table, angledHeadersEnabled))
                     {
                         if (column.Column?.Worker is PawnColumnWorker_WorkPriority priorityWorker &&
                             !SleekWorkTabGateway.BetterWorkTabHostsSleek)
@@ -371,7 +372,8 @@ namespace Better_Work_Tab.UI.Headers
         private bool TryDrawFluffyHeader(
             WorkTabLayoutColumn column,
             Rect headerRect,
-            PawnTable table)
+            PawnTable table,
+            bool angledHeadersEnabled)
         {
             if (!FluffyWorkTabGateway.IsFluffyColumn(column.Column))
             {
@@ -412,7 +414,7 @@ namespace Better_Work_Tab.UI.Headers
                 (resolvedFocusedWorkGiver ||
                  column.IsExpandBesideChild ||
                  FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column));
-            WorkGiverHeaderLabelStyle labelStyle = AreAngledHeadersEnabled()
+            WorkGiverHeaderLabelStyle labelStyle = angledHeadersEnabled
                 ? WorkGiverHeaderLabelStyle.Standard
                 : WorkGiverHeaderLabelStyle.VanillaStaggered;
 
@@ -447,7 +449,7 @@ namespace Better_Work_Tab.UI.Headers
                 }
             }
 
-            if (AreAngledHeadersEnabled())
+            if (angledHeadersEnabled)
             {
                 DrawHostedAngledHeader(column, headerRect, parentWorkType, label, isMouseOver, table);
             }
@@ -591,11 +593,6 @@ namespace Better_Work_Tab.UI.Headers
             }
 
             return SubWorkDrilldownState.GetExpandBesideHeaderAlpha(column.SubWorkParent);
-        }
-
-        private static bool AreAngledHeadersEnabled()
-        {
-            return BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
         }
 
         private static void DrawColumnHighlightAroundTutorialBand(
