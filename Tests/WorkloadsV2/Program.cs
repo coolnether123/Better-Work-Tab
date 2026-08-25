@@ -19,6 +19,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("work-execution-spawn-performance-contracts", WorkExecutionSpawnPerformanceContractTests.Run),
             new TestCase("work-grid-retained-sparse-audit-performance-contracts", WorkGridRetainedSparseAuditPerformanceContractTests.Run),
             new TestCase("prepared-work-row-packet-performance-contracts", PreparedWorkRowPacketPerformanceContractTests.Run),
+            new TestCase("prepared-pawn-label-performance-contracts", PreparedPawnLabelPerformanceContractTests.Run),
             new TestCase("dependency-direction-contracts", DependencyDirectionContractTests.Run),
             new TestCase("workload-feature-isolation-contracts", WorkloadFeatureIsolationContractTests.Run),
             new TestCase("legacy-world-component-dependency-contracts", LegacyWorldComponentDependencyContractTests.Run),

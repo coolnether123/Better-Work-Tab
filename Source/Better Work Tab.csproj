@@ -425,6 +425,7 @@
     <Compile Include="UI\WorkGrid\Rendering\VanillaWorkGridRenderer.cs" />
     <Compile Include="UI\WorkGrid\Rendering\OptimizedWorkGridRenderer.cs" />
     <Compile Include="UI\WorkGrid\Rendering\PreparedWorkRowPacket.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\PreparedPawnLabelPresentation.cs" />
     <Compile Include="UI\WorkGrid\Rendering\PreparedWorkBoxRenderer.cs" />
     <Compile Include="UI\WorkGrid\Rendering\RetainedWorkBoxRowCache.cs" />
     <Compile Include="UI\WorkGrid\Rendering\WorkTabBodyRenderer.cs" />

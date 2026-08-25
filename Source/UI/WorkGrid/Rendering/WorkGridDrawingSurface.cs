@@ -30,6 +30,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     {
         bool TryGetPreparedRow(int rowIndex, Rect rowRect, out PreparedWorkRowPacket packet);
         void DrawPreparedRun(PreparedWorkRowPacket packet, int runIndex, float rowOffsetY);
+        bool DrawPreparedPawnLabel(PreparedWorkRowPacket packet, float rowOffsetY);
     }
 
     public interface IWorkGridSnapshotLayer

@@ -13,6 +13,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     /// </summary>
     internal sealed class RetainedWorkBoxRowCache : IDisposable
     {
+        internal enum CellKind : byte
+        {
+            WorkBox,
+            PawnLabelText
+        }
         private const int MaximumEntries = 128;
         private const long MaximumEstimatedSurfaceBytes = 64L * 1024L * 1024L;
         private readonly Dictionary<RowKey, Entry> _entries =
@@ -32,20 +37,54 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 int displayPriority,
                 bool compactText)
             {
+                Kind = CellKind.WorkBox;
                 PawnId = pawnId;
                 ColumnIndex = columnIndex;
                 BoxRect = boxRect;
                 Visual = visual;
                 DisplayPriority = displayPriority;
                 CompactText = compactText;
+                Text = string.Empty;
+                TextColor = Color.white;
             }
 
+            private Cell(
+                int pawnId,
+                int columnIndex,
+                Rect textRect,
+                string text,
+                Color textColor)
+            {
+                Kind = CellKind.PawnLabelText;
+                PawnId = pawnId;
+                ColumnIndex = columnIndex;
+                BoxRect = textRect;
+                Visual = default;
+                DisplayPriority = 0;
+                CompactText = false;
+                Text = text ?? string.Empty;
+                TextColor = textColor;
+            }
+
+            internal static Cell PawnLabelText(
+                int pawnId,
+                int columnIndex,
+                Rect textRect,
+                string text,
+                Color textColor)
+            {
+                return new Cell(pawnId, columnIndex, textRect, text, textColor);
+            }
+
+            internal CellKind Kind { get; }
             internal int PawnId { get; }
             internal int ColumnIndex { get; }
             internal Rect BoxRect { get; }
             internal WorkBoxVisualState Visual { get; }
             internal int DisplayPriority { get; }
             internal bool CompactText { get; }
+            internal string Text { get; }
+            internal Color TextColor { get; }
         }
 
         internal sealed class PreparedRun
@@ -228,11 +267,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         localRect.x -= bounds.x;
                         localRect.y -= bounds.y;
                         Text.Font = cell.CompactText ? GameFont.Tiny : GameFont.Medium;
-                        if (!PreparedWorkBoxRenderer.DrawRetained(
+                        bool drawn = cell.Kind == CellKind.PawnLabelText
+                            ? PreparedWorkBoxRenderer.DrawRetainedText(
+                                localRect,
+                                cell.Text,
+                                cell.TextColor,
+                                GameFont.Small,
+                                TextAnchor.MiddleLeft)
+                            : PreparedWorkBoxRenderer.DrawRetained(
                                 localRect,
                                 cell.Visual,
                                 cell.DisplayPriority,
-                                baseColor))
+                                baseColor);
+                        if (!drawn)
                         {
                             return false;
                         }
@@ -282,6 +329,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 Cell cell = cells[index];
                 WorkBoxVisualState visual = cell.Visual;
+                Mix(ref hash, (int)cell.Kind);
                 Mix(ref hash, cell.PawnId);
                 Mix(ref hash, cell.ColumnIndex);
                 Mix(ref hash, cell.BoxRect.GetHashCode());
@@ -294,6 +342,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     ~(WorkCellVisualFlags.BestPawn | WorkCellVisualFlags.OverrideRing)));
                 Mix(ref hash, cell.DisplayPriority);
                 Mix(ref hash, cell.CompactText ? 1 : 0);
+                Mix(ref hash, StringComparer.Ordinal.GetHashCode(cell.Text ?? string.Empty));
+                Mix(ref hash, cell.TextColor.GetHashCode());
             }
             return hash;
         }

@@ -15,7 +15,34 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     internal enum PreparedWorkRowCommandKind : byte
     {
         NativeColumn,
-        RetainedRun
+        RetainedRun,
+        PreparedPawnLabel
+    }
+
+    internal sealed class PreparedPawnLabelCell
+    {
+        internal PreparedPawnLabelCell(
+            int columnIndex,
+            Rect cellRect,
+            Rect iconRect,
+            Rect textRect,
+            PreparedPawnLabelPresentation presentation,
+            RetainedWorkBoxRowCache.PreparedRun retained)
+        {
+            ColumnIndex = columnIndex;
+            CellRect = cellRect;
+            IconRect = iconRect;
+            TextRect = textRect;
+            Presentation = presentation;
+            Retained = retained;
+        }
+
+        internal int ColumnIndex { get; }
+        internal Rect CellRect { get; }
+        internal Rect IconRect { get; }
+        internal Rect TextRect { get; }
+        internal PreparedPawnLabelPresentation Presentation { get; }
+        internal RetainedWorkBoxRowCache.PreparedRun Retained { get; }
     }
 
     internal readonly struct PreparedWorkRowCommand
@@ -97,6 +124,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             PreparedWorkRowCommand[] commands,
             PreparedWorkRowRun[] runs,
             PreparedWorkRowCell[] slots,
+            PreparedPawnLabelCell pawnLabel,
             int[] slotByColumn,
             int[] runByColumn)
         {
@@ -111,6 +139,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Commands = commands;
             Runs = runs;
             Slots = slots;
+            PawnLabel = pawnLabel;
             SlotByColumn = slotByColumn;
             RunByColumn = runByColumn;
         }
@@ -126,6 +155,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         internal PreparedWorkRowCommand[] Commands { get; }
         internal PreparedWorkRowRun[] Runs { get; }
         internal PreparedWorkRowCell[] Slots { get; }
+        internal PreparedPawnLabelCell PawnLabel { get; }
         internal int[] SlotByColumn { get; }
         internal int[] RunByColumn { get; }
 
@@ -188,12 +218,34 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             var parentDynamicSlotIndexes = new List<int>(4);
             var subWorkRingSlotIndexes = new List<int>(4);
             var subWorkSlotIndexes = new List<int>(4);
+            PreparedPawnLabelCell pawnLabel = null;
             int visibleEnd = Math.Min(columnCount, visibleColumns.EndExclusive);
             for (int columnIndex = Math.Max(0, visibleColumns.Start);
                  columnIndex < visibleEnd;
                  columnIndex++)
             {
                 WorkGridColumnEntry column = snapshot.Columns[columnIndex];
+                if (column.WorkerKind == WorkGridColumnWorkerKind.PawnLabel &&
+                    pawnLabel == null &&
+                    rowIndex < snapshot.PawnLabels.Count &&
+                    snapshot.PawnLabels[rowIndex].IsPrepared)
+                {
+                    FlushRun(
+                        commands, runs, runCells, runSlotIndexes,
+                        parentDynamicSlotIndexes, subWorkRingSlotIndexes, subWorkSlotIndexes);
+                    pawnLabel = BuildPawnLabel(
+                        snapshot.PawnLabels[rowIndex],
+                        layoutColumns[columnIndex],
+                        columnIndex,
+                        rowHeight);
+                    if (pawnLabel != null)
+                    {
+                        commands.Add(new PreparedWorkRowCommand(
+                            PreparedWorkRowCommandKind.PreparedPawnLabel,
+                            columnIndex));
+                        continue;
+                    }
+                }
                 bool preparedKind = column.WorkerKind == WorkGridColumnWorkerKind.WorkPriority ||
                     column.WorkerKind == WorkGridColumnWorkerKind.SubWorkPriority;
                 int lookupIndex = (rowIndex * columnCount) + columnIndex;
@@ -331,7 +383,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             FlushRun(
                 commands, runs, runCells, runSlotIndexes,
                 parentDynamicSlotIndexes, subWorkRingSlotIndexes, subWorkSlotIndexes);
-            if (runs.Count == 0)
+            if (runs.Count == 0 && pawnLabel == null)
             {
                 return null;
             }
@@ -364,8 +416,64 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 commands.ToArray(),
                 preparedRuns,
                 preparedSlots,
+                pawnLabel,
                 slotByColumn,
                 runByColumn);
+        }
+
+        private static PreparedPawnLabelCell BuildPawnLabel(
+            PreparedPawnLabelPresentation presentation,
+            WorkTabLayoutColumn column,
+            int columnIndex,
+            float rowHeight)
+        {
+            Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
+                column,
+                new Rect(0f, 0f, 0f, rowHeight));
+            cellRect.height = Mathf.Min(cellRect.height, presentation.MaximumContentHeight);
+            Rect textRect = cellRect;
+            textRect.xMin += 3f;
+            Rect iconRect = default;
+            if (presentation.ShowIcon)
+            {
+                iconRect = new Rect(cellRect.x, cellRect.y, cellRect.height, cellRect.height);
+                textRect.xMin += cellRect.height;
+            }
+
+            string text = presentation.RichText;
+            GameFont previousFont = Text.Font;
+            bool previousWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = GameFont.Small;
+                Text.WordWrap = false;
+                if (Text.CalcSize(text).x > textRect.width)
+                {
+                    text = text.Truncate(textRect.width);
+                }
+            }
+            finally
+            {
+                Text.Font = previousFont;
+                Text.WordWrap = previousWrap;
+            }
+
+            var retained = new RetainedWorkBoxRowCache.PreparedRun(new[]
+            {
+                RetainedWorkBoxRowCache.Cell.PawnLabelText(
+                    presentation.Pawn.thingIDNumber,
+                    columnIndex,
+                    textRect,
+                    text,
+                    presentation.BaseTextColor)
+            });
+            return new PreparedPawnLabelCell(
+                columnIndex,
+                cellRect,
+                iconRect,
+                textRect,
+                presentation,
+                retained);
         }
 
         private static void FlushRun(
