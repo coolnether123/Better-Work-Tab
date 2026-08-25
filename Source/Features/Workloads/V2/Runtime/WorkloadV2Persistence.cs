@@ -77,6 +77,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         public string Diagnostic { get; private set; }
         public bool HasPersistedDocument { get; private set; }
         public bool HasOpaqueData { get; private set; }
+        private bool _diagnosticsCurrent;
+        private long _diagnosticsRevision;
+
+        internal long DiagnosticsRevision => _diagnosticsRevision;
         public bool ShouldPersist => HasPersistedDocument ||
                                      SchemaState != WorkloadV2SchemaState.Missing ||
                                      HasPendingData;
@@ -216,6 +220,25 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         /// document is fail-closed even if a host skipped PostLoadInit.
         /// </summary>
         public void RefreshDiagnostics()
+        {
+            _diagnosticsCurrent = false;
+            RefreshDiagnosticsCore();
+            _diagnosticsCurrent = true;
+            unchecked
+            {
+                _diagnosticsRevision++;
+            }
+        }
+
+        internal void EnsureDiagnosticsCurrent()
+        {
+            if (!_diagnosticsCurrent)
+            {
+                RefreshDiagnostics();
+            }
+        }
+
+        private void RefreshDiagnosticsCore()
         {
             IsReadOnlyDiagnostic = false;
             DiagnosticCode = WorkloadDiagnosticCode.None;

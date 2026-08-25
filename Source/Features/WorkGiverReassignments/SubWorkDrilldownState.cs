@@ -6,6 +6,7 @@ using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Input;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -1184,7 +1185,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             int defaultPriority = ParentPriorityRead.GetObserved(pawn, _activeWorkType);
-            int priority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
+            int priority = WorkloadProjectionRuntime.TryGetSpecificJobPriority(
                 WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, _activeWorkType, workGiverDef),
                 out int projectedPriority)
                 ? Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.ClampPriority(projectedPriority)

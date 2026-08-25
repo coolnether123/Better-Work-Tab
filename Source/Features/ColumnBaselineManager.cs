@@ -1,4 +1,4 @@
-using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Foundation.GameState;
 using RimWorld;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,10 +34,10 @@ namespace Better_Work_Tab.Features
         /// <summary>
         /// Returns the per-save baseline order, capturing it from the current work table if missing.
         /// </summary>
-        public static List<string> GetBaselineOrder(GameComponent_BWTWorldSettings worldSettings)
+        internal static List<string> GetBaselineOrder(IWorkTabColumnOrderState state)
         {
-            EnsureBaseline(worldSettings);
-            return worldSettings?.ColumnBaselineOrder ?? new List<string>();
+            EnsureBaseline(state);
+            return state?.BaselineOrder ?? new List<string>();
         }
 
         /// <summary>
@@ -52,19 +52,19 @@ namespace Better_Work_Tab.Features
         /// <summary>
         /// Ensures the per-save baseline list exists, capturing the current column order if none was stored yet.
         /// </summary>
-        public static void EnsureBaseline(GameComponent_BWTWorldSettings worldSettings)
+        internal static void EnsureBaseline(IWorkTabColumnOrderState state)
         {
-            if (worldSettings == null)
+            if (state == null)
             {
                 return;
             }
 
-            if (worldSettings.ColumnBaselineOrder == null)
+            if (state.BaselineOrder == null)
             {
-                worldSettings.ColumnBaselineOrder = new List<string>();
+                state.BaselineOrder = new List<string>();
             }
 
-            if (worldSettings.ColumnBaselineOrder.Count == 0)
+            if (state.BaselineOrder.Count == 0)
             {
                 var baseline = new List<string>();
                 baseline.AddRange(GetTrueVanillaOrder());
@@ -86,8 +86,8 @@ namespace Better_Work_Tab.Features
                     }
                 }
 
-                worldSettings.ColumnBaselineOrder = baseline;
-                BetterWorkTabMod.DebugLog($"[BWT] Captured column baseline order: {string.Join(", ", worldSettings.ColumnBaselineOrder)}", DebugFeature.DragDrop);
+                state.BaselineOrder = baseline;
+                BetterWorkTabMod.DebugLog($"[BWT] Captured column baseline order: {string.Join(", ", state.BaselineOrder)}", DebugFeature.DragDrop);
             }
         }
 

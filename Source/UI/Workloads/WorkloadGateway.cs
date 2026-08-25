@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
@@ -13,7 +15,9 @@ using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
+using Spine.Profiling;
 using UnityEngine;
 using Verse;
 using Verse.Sound;
@@ -580,6 +584,9 @@ namespace Better_Work_Tab.UI.Workloads
         private long _semanticDiffSessionRevision = long.MinValue;
         private WorkloadSemanticDiff _cachedTemplateDiff;
         private WorkloadSemanticDiff _cachedLiveDiff;
+        private WorkloadSession _unsupportedPresentationSession;
+        private long _unsupportedPresentationSessionRevision = long.MinValue;
+        private bool _cachedUnsupportedOwnedPresentationState;
         private WorkloadSession _inspectionIndexSession;
         private long _inspectionIndexSessionRevision = long.MinValue;
         private WorkloadInspectionContext _inspectionIndexContext;
@@ -590,8 +597,6 @@ namespace Better_Work_Tab.UI.Workloads
         private long _membershipSnapshotPawnSetRevision = long.MinValue;
         private long _projectedEditablePawnSetRevision = long.MinValue;
         private long _synchronizedProjectedProviderRevision = long.MinValue;
-        private int _availablePawnSetRevisionFrame = -1;
-        private long _availablePawnSetRevision = long.MinValue;
         private readonly BoundedUndoRedoHistory<DraftTransition> _draftHistory =
             new BoundedUndoRedoHistory<DraftTransition>(64);
         private CanceledDraftRecovery _canceledDraft;
@@ -772,8 +777,8 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
-        internal bool HasTemplateDiff => IsActive && !EffectiveTemplateDiff.IsEmpty;
-        internal bool HasLiveImpact => IsActive && !EffectiveLiveDiff.IsEmpty;
+        internal bool HasTemplateDiff => IsActive && _session.HasTemplateChanges;
+        internal bool HasLiveImpact => IsActive && _session.HasLiveChanges;
         // Kept as the template-dirty alias for existing callers. Update and
         // inspection are deliberately about the stored template, not the
         // current colony baseline.
@@ -1027,18 +1032,12 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
-            WorkloadOperationResult<WorkloadPreviewPlan> result =
-                WorkloadGateway.GetV2PreviewPlan();
-            if (!result.Succeeded || result.Value == null)
-            {
-                reason = result.Message;
-                return false;
-            }
-
             preview = new WorkTabPresentationPreviewState(
                 _session.PreviewStamp,
-                result.Value.BeforeState?.PresentationSettingIntents,
-                result.Value.AfterState?.PresentationSettingIntents);
+                ToPresentationIntents(
+                    _session.LiveBaselineState?.PresentationSettingIntents),
+                ToPresentationIntents(
+                    _session.ProjectedState?.PresentationSettingIntents));
             return true;
         }
 
@@ -1052,7 +1051,8 @@ namespace Better_Work_Tab.UI.Workloads
                     return TryMutatePresentation(
                         provider => provider.SetPresentationSetting(
                             mutation.SettingId,
-                            WorkloadSettingValue.WorkloadOwned(mutation.Value)),
+                            WorkloadSettingValue.WorkloadOwned(
+                                ToWorkloadScalar(mutation.Value))),
                         "The projected presentation setting could not be synchronized.",
                         out reason);
 
@@ -1060,7 +1060,7 @@ namespace Better_Work_Tab.UI.Workloads
                     return TryMutatePresentation(
                         provider => provider.AcquirePresentationSetting(
                             mutation.SettingId,
-                            mutation.Value),
+                            ToWorkloadScalar(mutation.Value)),
                         "The presentation ownership change could not be synchronized.",
                         out reason);
 
@@ -1073,6 +1073,77 @@ namespace Better_Work_Tab.UI.Workloads
                 default:
                     reason = "The requested presentation ownership action is not supported.";
                     return false;
+            }
+        }
+
+        private static IReadOnlyList<PresentationIntentEntry> ToPresentationIntents(
+            IReadOnlyList<WorkloadPresentationSettingIntentEntry> entries)
+        {
+            if (entries == null || entries.Count == 0)
+            {
+                return new PresentationIntentEntry[0];
+            }
+
+            var result = new List<PresentationIntentEntry>(entries.Count);
+            for (int i = 0; i < entries.Count; i++)
+            {
+                WorkloadPresentationSettingIntentEntry entry = entries[i];
+                if (entry != null)
+                {
+                    result.Add(new PresentationIntentEntry(
+                        entry.Key,
+                        ToPresentationIntent(entry.Intent)));
+                }
+            }
+            return result;
+        }
+
+        private static PresentationIntent ToPresentationIntent(
+            WorkloadIntent<WorkloadSettingValue> intent)
+        {
+            if (intent.IsClear)
+            {
+                return PresentationIntent.Clear;
+            }
+            if (!intent.HasValue)
+            {
+                return PresentationIntent.NoOpinion;
+            }
+
+            return PresentationIntent.Set(
+                ToPresentationValue(intent.Value.Scalar),
+                intent.Value.Ownership == WorkloadSettingOwnership.WorkloadOwned
+                    ? PresentationOwnership.PreviewOwned
+                    : PresentationOwnership.Global);
+        }
+
+        private static PresentationValue ToPresentationValue(WorkloadScalarValue value)
+        {
+            switch (value.Kind)
+            {
+                case WorkloadScalarKind.Boolean:
+                    return PresentationValue.FromBoolean(value.BooleanValue);
+                case WorkloadScalarKind.Integer:
+                    return PresentationValue.FromInteger(value.IntegerValue);
+                case WorkloadScalarKind.String:
+                    return PresentationValue.FromString(value.StringValue);
+                default:
+                    return PresentationValue.Empty;
+            }
+        }
+
+        private static WorkloadScalarValue ToWorkloadScalar(PresentationValue value)
+        {
+            switch (value.Kind)
+            {
+                case PresentationValueKind.Boolean:
+                    return WorkloadScalarValue.FromBoolean(value.BooleanValue);
+                case PresentationValueKind.Integer:
+                    return WorkloadScalarValue.FromInteger(value.IntegerValue);
+                case PresentationValueKind.String:
+                    return WorkloadScalarValue.FromString(value.StringValue);
+                default:
+                    return WorkloadScalarValue.Empty;
             }
         }
 
@@ -1122,43 +1193,51 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 if (!IsActive || _session.SourceTemplate?.Definition == null)
                 {
+                    _unsupportedPresentationSession = null;
+                    _unsupportedPresentationSessionRevision = long.MinValue;
+                    _cachedUnsupportedOwnedPresentationState = false;
                     return false;
                 }
 
-                if ((_session.UnsupportedClearDimensions?.Count ?? 0) > 0)
+                if (ReferenceEquals(_unsupportedPresentationSession, _session) &&
+                    _unsupportedPresentationSessionRevision == _session.SessionRevision)
                 {
-                    return true;
+                    return _cachedUnsupportedOwnedPresentationState;
                 }
 
-                WorkloadProjectedState[] states =
-                {
-                    _session.TemplateBaselineState,
-                    _session.ProjectedState
-                };
-                for (int stateIndex = 0; stateIndex < states.Length; stateIndex++)
-                {
-                    WorkloadProjectedState state = states[stateIndex];
-                    // Legacy value-only payloads are never promoted by the
-                    // resolver.  They must remain fail-closed even if an old
-                    // record omitted the ownership bit; otherwise the typed
-                    // commit path would silently drop them.
-                    if (WorkloadV2OwnershipResolver.HasLegacyPayload(
-                            state,
-                            WorkloadStateDimension.Schedules))
-                    {
-                        return true;
-                    }
-
-                    if (WorkloadV2OwnershipResolver.HasLegacyPayload(
-                            state,
-                            WorkloadStateDimension.PresentationSettings))
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
+                _cachedUnsupportedOwnedPresentationState =
+                    ComputeUnsupportedOwnedPresentationState();
+                _unsupportedPresentationSession = _session;
+                _unsupportedPresentationSessionRevision = _session.SessionRevision;
+                return _cachedUnsupportedOwnedPresentationState;
             }
+        }
+
+        private bool ComputeUnsupportedOwnedPresentationState()
+        {
+            if ((_session.UnsupportedClearDimensions?.Count ?? 0) > 0)
+            {
+                return true;
+            }
+
+            WorkloadProjectedState baseline = _session.TemplateBaselineState;
+            WorkloadProjectedState projected = _session.ProjectedState;
+
+            // Legacy value-only payloads are never promoted by the resolver.
+            // Keep the fail-closed scan at the session revision boundary rather
+            // than repeating it for every footer button on every IMGUI pass.
+            return WorkloadV2OwnershipResolver.HasLegacyPayload(
+                       baseline,
+                       WorkloadStateDimension.Schedules) ||
+                   WorkloadV2OwnershipResolver.HasLegacyPayload(
+                       baseline,
+                       WorkloadStateDimension.PresentationSettings) ||
+                   WorkloadV2OwnershipResolver.HasLegacyPayload(
+                       projected,
+                       WorkloadStateDimension.Schedules) ||
+                   WorkloadV2OwnershipResolver.HasLegacyPayload(
+                       projected,
+                       WorkloadStateDimension.PresentationSettings);
         }
 
         private string UnsupportedPresentationCommitReason
@@ -1825,14 +1904,27 @@ namespace Better_Work_Tab.UI.Workloads
                 return true;
             }
 
-            WorkloadOperationResult<WorkloadSession> result = WorkloadGateway.BeginV2Preview();
+            WorkloadOperationResult<WorkloadSession> result = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.WorkloadPreview.OpenBackend",
+                    () => WorkloadGateway.BeginV2Preview())
+                : WorkloadGateway.BeginV2Preview();
             if (!result.Succeeded)
             {
                 SetMessage(result.Message);
                 return false;
             }
 
-            OpenSession(result.Value);
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time(
+                    "WorkTab.WorkloadPreview.OpenSurface",
+                    () => OpenSession(result.Value));
+            }
+            else
+            {
+                OpenSession(result.Value);
+            }
             return true;
         }
 
@@ -2235,14 +2327,27 @@ namespace Better_Work_Tab.UI.Workloads
                     redo);
             }
 
-            WorkloadOperationResult result = WorkloadGateway.CancelV2Preview();
+            WorkloadOperationResult result = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.WorkloadPreview.CloseBackend",
+                    () => WorkloadGateway.CancelV2Preview())
+                : WorkloadGateway.CancelV2Preview();
             if (!result.Succeeded && result.Code != WorkloadDiagnosticCode.NotFound)
             {
                 SetMessage(result.Message);
                 return false;
             }
 
-            ClearLocalSession();
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time(
+                    "WorkTab.WorkloadPreview.CloseSurface",
+                    ClearLocalSession);
+            }
+            else
+            {
+                ClearLocalSession();
+            }
             if (result.Succeeded) _canceledDraft = recovery;
             SetMessage(T("BWT_Workload_PreviewCanceled"));
             return true;
@@ -3001,6 +3106,8 @@ namespace Better_Work_Tab.UI.Workloads
             _session = session;
             _boundComponent = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
             RebuildProjection(_session.ProjectedState);
+            ColumnSelectionManager.Clear();
+            BWTWorkTabTutorial.NotifyWorkloadPresentationOpened();
             SetMessage(T("BWT_Workload_PreviewOpened"));
         }
 
@@ -3051,6 +3158,7 @@ namespace Better_Work_Tab.UI.Workloads
             _inspectionActive = false;
             _inspectionContext = WorkloadInspectionContext.None;
             ClearInspectionIndex();
+            ClearSemanticDiffCache();
             ClearMultiplayerAttempt();
             _previewRecoveryBlocked = false;
             _draftHistory.Clear();
@@ -3113,10 +3221,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             if (!IsActive)
             {
-                _semanticDiffSession = null;
-                _semanticDiffSessionRevision = long.MinValue;
-                _cachedTemplateDiff = null;
-                _cachedLiveDiff = null;
+                ClearSemanticDiffCache();
                 return;
             }
 
@@ -3128,16 +3233,8 @@ namespace Better_Work_Tab.UI.Workloads
                 return;
             }
 
-            WorkloadOperationResult<WorkloadSemanticDiff> templateResult =
-                WorkloadGateway.GetV2PreviewDiff();
-            WorkloadOperationResult<WorkloadSemanticDiff> liveResult =
-                WorkloadGateway.GetV2PreviewImpactDiff();
-            _cachedTemplateDiff = templateResult.Succeeded && templateResult.Value != null
-                ? templateResult.Value
-                : _session.TemplateDiff;
-            _cachedLiveDiff = liveResult.Succeeded && liveResult.Value != null
-                ? liveResult.Value
-                : _session.LiveDiff;
+            _cachedTemplateDiff = _session.TemplateDiff;
+            _cachedLiveDiff = _session.LiveDiff;
             _semanticDiffSession = _session;
             _semanticDiffSessionRevision = _session.SessionRevision;
         }
@@ -3306,40 +3403,20 @@ namespace Better_Work_Tab.UI.Workloads
             _inspectionIndexSession = null;
             _inspectionIndexSessionRevision = long.MinValue;
             _inspectionIndexContext = WorkloadInspectionContext.None;
+            ClearCapturedPreviewView();
+        }
+
+        private void ClearSemanticDiffCache()
+        {
             _semanticDiffSession = null;
             _semanticDiffSessionRevision = long.MinValue;
             _cachedTemplateDiff = null;
             _cachedLiveDiff = null;
-            ClearCapturedPreviewView();
         }
 
         private IReadOnlyList<PawnScopeCandidate> BuildAvailableCandidates()
         {
-            var candidates = new List<PawnScopeCandidate>();
-            IReadOnlyList<Pawn> pawns = PawnsFinder.AllMapsWorldAndTemporary_Alive;
-            if (pawns == null)
-            {
-                return candidates;
-            }
-
-            for (int i = 0; i < pawns.Count; i++)
-            {
-                Pawn pawn = pawns[i];
-                if (pawn == null || pawn.thingIDNumber <= 0)
-                {
-                    continue;
-                }
-
-                bool currentMap = pawn.Map == Find.CurrentMap;
-                bool freeColonist = currentMap && pawn.IsFreeColonist;
-                candidates.Add(new PawnScopeCandidate(
-                    WorkTabEffectiveStateIds.ForPawn(pawn),
-                    currentMap,
-                    pawn.IsColonist,
-                    freeColonist));
-            }
-
-            return candidates;
+            return WorkloadPawnRosterCache.GetCandidates();
         }
 
         private static Pawn ResolvePawn(PawnKey key)
@@ -3349,71 +3426,17 @@ namespace Better_Work_Tab.UI.Workloads
                 return null;
             }
 
-            IReadOnlyList<Pawn> pawns = PawnsFinder.All_AliveOrDead;
-            if (pawns == null)
-            {
-                return null;
-            }
-
-            for (int i = 0; i < pawns.Count; i++)
-            {
-                if (pawns[i] != null && pawns[i].thingIDNumber == thingId)
-                {
-                    return pawns[i];
-                }
-            }
-
-            return null;
+            return WorkloadPawnRosterCache.ResolvePawn(thingId);
         }
 
         /// <summary>
-        /// A cheap shape token for the candidate set used by the classifier.
-        /// It observes only values that affect WorkloadScope.IsInScope. The
-        /// token is checked before a snapshot read, while the candidate list is
-        /// allocated only when the token actually changes.
+        /// Revision of the candidate set used by the classifier. Engine-owned
+        /// lifecycle hooks advance it immediately; a low-frequency audit catches
+        /// external writers that bypass those hooks.
         /// </summary>
         private long ComputeAvailablePawnSetRevision()
         {
-            int frame = Time.frameCount;
-            if (_availablePawnSetRevisionFrame == frame)
-            {
-                return _availablePawnSetRevision;
-            }
-
-            unchecked
-            {
-                long revision = 17L;
-                IReadOnlyList<Pawn> pawns = PawnsFinder.AllMapsWorldAndTemporary_Alive;
-                revision = (revision * 31L) + (pawns?.Count ?? 0);
-                Map currentMap = Find.CurrentMap;
-                if (pawns == null)
-                {
-                    _availablePawnSetRevisionFrame = frame;
-                    _availablePawnSetRevision = revision;
-                    return _availablePawnSetRevision;
-                }
-
-                for (int i = 0; i < pawns.Count; i++)
-                {
-                    Pawn pawn = pawns[i];
-                    if (pawn == null)
-                    {
-                        revision = (revision * 31L) + 1L;
-                        continue;
-                    }
-
-                    bool currentMapPawn = pawn.Map == currentMap;
-                    bool freeColonist = currentMapPawn && pawn.IsFreeColonist;
-                    revision = (revision * 31L) + pawn.thingIDNumber;
-                    revision = (revision * 31L) + (currentMapPawn ? 1L : 0L);
-                    revision = (revision * 31L) + (pawn.IsColonist ? 1L : 0L);
-                    revision = (revision * 31L) + (freeColonist ? 1L : 0L);
-                }
-
-                _availablePawnSetRevisionFrame = frame;
-                _availablePawnSetRevision = revision;
-                return _availablePawnSetRevision;
-            }
+            return WorkloadPawnRosterCache.CurrentRevision;
         }
 
         private static bool TryDecodeChangeKey(

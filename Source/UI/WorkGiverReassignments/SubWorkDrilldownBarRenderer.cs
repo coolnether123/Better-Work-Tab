@@ -218,5 +218,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();
         }
+
     }
 }

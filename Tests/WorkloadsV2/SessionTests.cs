@@ -96,6 +96,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 WorkloadSession.GetSourceIdentity(template));
             TestAssert.True(session != null, "the deterministic session must carry an explicit source identity");
             TestAssert.True(
+                object.ReferenceEquals(
+                    session.ProjectedState.CanonicalForm,
+                    session.ProjectedState.CanonicalForm),
+                "an immutable projected state must retain its canonical form");
+            TestAssert.True(
                 !string.IsNullOrWhiteSpace(session.PreviewSessionId),
                 "every preview must carry a unique stable session identity");
             TestAssert.True(
@@ -108,6 +113,28 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     secondSession.PreviewSessionId,
                     System.StringComparison.Ordinal),
                 "separate previews must never reuse a session identity");
+
+            TestAssert.Equal(0, session.UnsupportedClearDimensions.Count,
+                "an unchanged typed workload must not be reported as an unsupported clear");
+            TestAssert.True(
+                object.ReferenceEquals(
+                    session.UnsupportedClearDimensions,
+                    session.UnsupportedClearDimensions),
+                "unsupported-clear analysis must be retained by the immutable session");
+            WorkloadSession unsupportedRemoval = session.Edit(draft =>
+                draft.SetParentPriorityIntent(
+                    parent,
+                    WorkloadIntent<WorkloadSpecificPriorityPayload>.NoOpinion));
+            TestAssert.True(
+                unsupportedRemoval.HasUnsupportedClears &&
+                unsupportedRemoval.UnsupportedClearDimensions.Count == 1 &&
+                unsupportedRemoval.UnsupportedClearDimensions[0] ==
+                    WorkloadStateDimension.ParentPriorities,
+                "removing an owned value without a typed Clear must remain fail-closed");
+            WorkloadSession supportedClear = session.Edit(draft =>
+                draft.RemoveParentPriority(parent));
+            TestAssert.False(supportedClear.HasUnsupportedClears,
+                "an explicit typed Clear must remain a supported workload operation");
 
             var priorityEdited = session.Edit(draft =>
                 draft.SetParentPriorityIntent(
@@ -151,6 +178,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             });
 
             TestAssert.True(edited.IsDirty, "a preview edit must mark the template diff dirty");
+            TestAssert.True(
+                edited.HasTemplateChanges,
+                "the lightweight session dirty read must agree with the full template diff");
+            TestAssert.True(
+                object.ReferenceEquals(edited.TemplateDiff, edited.TemplateDiff),
+                "an immutable session must retain its computed template diff");
             TestAssert.True(edited.TemplateDiff.Changes.Count >= 2,
                 "priority and presentation edits must both be represented in the semantic diff");
             var preview = edited.Preview();

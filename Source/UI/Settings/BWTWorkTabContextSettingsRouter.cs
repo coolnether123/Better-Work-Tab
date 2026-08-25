@@ -27,7 +27,6 @@ namespace Better_Work_Tab.UI.Settings
     internal static class BWTWorkTabContextSettingsRouter
     {
         private const float RightEdgeMargin = 10f;
-
         internal static bool TryBuildFocusRequest(
             Rect inRect,
             IWorkTabLayoutController layout,
@@ -852,6 +851,12 @@ namespace Better_Work_Tab.UI.Settings
     internal static class BWTWorkloadSettingsOwnershipPolicy
     {
         private const string PreviewSuppressorId = "bwt.workloadPreview";
+        private static WorkTabApplication _application;
+
+        internal static void BindApplication(WorkTabApplication application)
+        {
+            _application = application;
+        }
 
         static BWTWorkloadSettingsOwnershipPolicy()
         {
@@ -1784,7 +1789,7 @@ namespace Better_Work_Tab.UI.Settings
                 new WorkTabPresentationPreviewMutation(
                     WorkTabPresentationPreviewMutationKind.Set,
                     state.Definition.Id,
-                    value),
+                    ToPresentationValue(value)),
                 "The projected presentation setting could not be changed safely.",
                 "The projected presentation setting could not be synchronized.",
                 suppressDrawerCallbacks,
@@ -1802,7 +1807,7 @@ namespace Better_Work_Tab.UI.Settings
                 new WorkTabPresentationPreviewMutation(
                     WorkTabPresentationPreviewMutationKind.Acquire,
                     settingId,
-                    globalValue),
+                    ToPresentationValue(globalValue)),
                 "The presentation setting could not be acquired safely.",
                 out reason);
         }
@@ -1816,9 +1821,24 @@ namespace Better_Work_Tab.UI.Settings
                 new WorkTabPresentationPreviewMutation(
                     WorkTabPresentationPreviewMutationKind.Release,
                     settingId,
-                    WorkloadScalarValue.Empty),
+                    PresentationValue.Empty),
                 "The presentation ownership could not be removed safely.",
                 out reason);
+        }
+
+        private static PresentationValue ToPresentationValue(WorkloadScalarValue value)
+        {
+            switch (value.Kind)
+            {
+                case WorkloadScalarKind.Boolean:
+                    return PresentationValue.FromBoolean(value.BooleanValue);
+                case WorkloadScalarKind.Integer:
+                    return PresentationValue.FromInteger(value.IntegerValue);
+                case WorkloadScalarKind.String:
+                    return PresentationValue.FromString(value.StringValue);
+                default:
+                    return PresentationValue.Empty;
+            }
         }
 
         private static bool TryChangePresentationOwnership(
@@ -2520,7 +2540,7 @@ namespace Better_Work_Tab.UI.Settings
             // as other accepted Work-tab dimensions. This is non-durable: the
             // settings store and preview port retain their own revision and
             // persistence contracts.
-            WorkTabApplication.Current?.PublishAtomicMutation(
+            (_application ?? WorkTabApplication.Current)?.PublishAtomicMutation(
                 WorkTabApplicationDimensions.Presentation,
                 durable: false,
                 broadScope: true,
@@ -2807,7 +2827,7 @@ namespace Better_Work_Tab.UI.Settings
     {
         private readonly Dictionary<string, WorkloadScalarValue> _globalValues;
         private readonly Dictionary<string, Color> _colors;
-        private readonly Dictionary<string, WorkloadIntent<WorkloadSettingValue>> _afterIntents;
+        private readonly Dictionary<string, PresentationIntent> _afterIntents;
         private readonly HashSet<string> _changedSettings;
 
         private BWTWorkloadPresentationSnapshot(
@@ -2816,8 +2836,8 @@ namespace Better_Work_Tab.UI.Settings
             string identity,
             string failureReason,
             IDictionary<string, WorkloadScalarValue> globalValues,
-            IReadOnlyList<WorkloadPresentationSettingIntentEntry> beforeIntents,
-            IReadOnlyList<WorkloadPresentationSettingIntentEntry> afterIntents)
+            IReadOnlyList<PresentationIntentEntry> beforeIntents,
+            IReadOnlyList<PresentationIntentEntry> afterIntents)
         {
             IsActive = isActive;
             ReadSucceeded = readSucceeded;
@@ -2831,13 +2851,13 @@ namespace Better_Work_Tab.UI.Settings
                 CacheColor(entry.Key, entry.Value);
             }
 
-            Dictionary<string, WorkloadIntent<WorkloadSettingValue>> beforeIntentMap =
+            Dictionary<string, PresentationIntent> beforeIntentMap =
                 CopyPresentationIntents(beforeIntents);
             _afterIntents = CopyPresentationIntents(afterIntents);
             _changedSettings = new HashSet<string>(beforeIntentMap.Keys, StringComparer.Ordinal);
-            foreach (KeyValuePair<string, WorkloadIntent<WorkloadSettingValue>> entry in _afterIntents)
+            foreach (KeyValuePair<string, PresentationIntent> entry in _afterIntents)
             {
-                if (beforeIntentMap.TryGetValue(entry.Key, out WorkloadIntent<WorkloadSettingValue> before) &&
+                if (beforeIntentMap.TryGetValue(entry.Key, out PresentationIntent before) &&
                     before.Equals(entry.Value))
                 {
                     _changedSettings.Remove(entry.Key);
@@ -2847,7 +2867,7 @@ namespace Better_Work_Tab.UI.Settings
                     _changedSettings.Add(entry.Key);
                 }
 
-                if (!IsOwned(entry.Value))
+                if (!entry.Value.IsOwned)
                 {
                     continue;
                 }
@@ -2855,7 +2875,7 @@ namespace Better_Work_Tab.UI.Settings
                 OwnsPresentationSettings = true;
                 if (entry.Value.HasValue)
                 {
-                    CacheColor(entry.Key, entry.Value.Value.Scalar);
+                    CacheColor(entry.Key, ToWorkloadScalar(entry.Value.Value));
                 }
             }
         }
@@ -2927,8 +2947,8 @@ namespace Better_Work_Tab.UI.Settings
             return !string.IsNullOrEmpty(settingId) &&
                 _afterIntents.TryGetValue(
                     settingId,
-                    out WorkloadIntent<WorkloadSettingValue> intent) &&
-                IsOwned(intent);
+                    out PresentationIntent intent) &&
+                intent.IsOwned;
         }
 
         internal bool IsChanged(string settingId)
@@ -2945,8 +2965,8 @@ namespace Better_Work_Tab.UI.Settings
             value = fallback;
             if (!_afterIntents.TryGetValue(
                     settingId,
-                    out WorkloadIntent<WorkloadSettingValue> intent) ||
-                !IsOwned(intent))
+                    out PresentationIntent intent) ||
+                !intent.IsOwned)
             {
                 return false;
             }
@@ -2956,13 +2976,12 @@ namespace Better_Work_Tab.UI.Settings
                 return true;
             }
 
-            if (!intent.HasValue ||
-                intent.Value.Scalar.Kind != expectedKind)
+            if (!intent.HasValue || !IsSameKind(intent.Value.Kind, expectedKind))
             {
                 return false;
             }
 
-            value = intent.Value.Scalar;
+            value = ToWorkloadScalar(intent.Value);
             return true;
         }
 
@@ -2991,10 +3010,10 @@ namespace Better_Work_Tab.UI.Settings
         {
             if (_afterIntents.TryGetValue(
                     settingId,
-                    out WorkloadIntent<WorkloadSettingValue> intent) &&
-                IsOwned(intent) && intent.HasValue)
+                    out PresentationIntent intent) &&
+                intent.IsOwned && intent.HasValue)
             {
-                value = intent.Value.Scalar;
+                value = ToWorkloadScalar(intent.Value);
                 return true;
             }
 
@@ -3011,18 +3030,33 @@ namespace Better_Work_Tab.UI.Settings
             _colors[settingId] = color;
         }
 
-        private static bool IsOwned(WorkloadIntent<WorkloadSettingValue> intent)
+        private static bool IsSameKind(
+            PresentationValueKind presentationKind,
+            WorkloadScalarKind workloadKind)
         {
-            return intent.IsClear ||
-                (intent.HasValue &&
-                 intent.Value.Ownership == WorkloadSettingOwnership.WorkloadOwned);
+            return (int)presentationKind == (int)workloadKind;
         }
 
-        private static Dictionary<string, WorkloadIntent<WorkloadSettingValue>>
-            CopyPresentationIntents(
-                IReadOnlyList<WorkloadPresentationSettingIntentEntry> entries)
+        private static WorkloadScalarValue ToWorkloadScalar(PresentationValue value)
         {
-            var intents = new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(
+            switch (value.Kind)
+            {
+                case PresentationValueKind.Boolean:
+                    return WorkloadScalarValue.FromBoolean(value.BooleanValue);
+                case PresentationValueKind.Integer:
+                    return WorkloadScalarValue.FromInteger(value.IntegerValue);
+                case PresentationValueKind.String:
+                    return WorkloadScalarValue.FromString(value.StringValue);
+                default:
+                    return WorkloadScalarValue.Empty;
+            }
+        }
+
+        private static Dictionary<string, PresentationIntent>
+            CopyPresentationIntents(
+                IReadOnlyList<PresentationIntentEntry> entries)
+        {
+            var intents = new Dictionary<string, PresentationIntent>(
                 StringComparer.Ordinal);
             if (entries == null)
             {
@@ -3034,7 +3068,7 @@ namespace Better_Work_Tab.UI.Settings
             // already contains every effective Set/Clear entry exactly once.
             for (int i = 0; i < entries.Count; i++)
             {
-                WorkloadPresentationSettingIntentEntry entry = entries[i];
+                PresentationIntentEntry entry = entries[i];
                 if (entry != null && !string.IsNullOrWhiteSpace(entry.Key) &&
                     !entry.Intent.IsNoOpinion)
                 {

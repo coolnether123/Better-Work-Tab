@@ -73,5 +73,10 @@ namespace Better_Work_Tab.Features.Tutorial
         {
             BWTGeneralTutorial.NotifyWorkTabClosed();
         }
+
+        internal static void NotifyWorkloadPresentationOpened()
+        {
+            BWTGeneralTutorial.NotifyWorkloadPresentationOpened();
+        }
     }
 }

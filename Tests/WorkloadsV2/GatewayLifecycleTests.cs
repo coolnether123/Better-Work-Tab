@@ -25,6 +25,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string settingIds = Read(root, "Source", "UI", "Settings", "SettingIDs.cs");
             string settingsTranslations = Read(root, "Languages", "English", "Keyed", "BWT_Settings.xml");
             string mainWindow = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
+            string tutorial = Read(
+                root,
+                "Source",
+                "Features",
+                "Tutorial",
+                "BWTGeneralTutorial.cs");
+            string tutorialCoordinator = Read(
+                root,
+                "Source",
+                "Features",
+                "Tutorial",
+                "BWTWorkTabTutorial.cs");
             string effectiveStateContracts = Read(
                 root,
                 "Source",
@@ -50,9 +62,22 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 root,
                 "Source",
                 "UI",
-                "WorkGrid",
+                "Workloads",
                 "Projection",
                 "ProjectedWorkTabEffectiveStateProvider.cs");
+            string liveProvider = Read(
+                root,
+                "Source",
+                "UI",
+                "Workloads",
+                "Projection",
+                "LiveWorkTabEffectiveStateProvider.cs");
+            string subWorkPresentationCache = Read(
+                root,
+                "Source",
+                "UI",
+                "WorkGiverReassignments",
+                "WorkGiverCellPresentationCache.cs");
             string interactionRouter = Read(root, "Source", "UI", "WorkGrid", "Interaction", "WorkGridInteractionRouter.cs");
             string footerContextController = Read(
                 root,
@@ -93,6 +118,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 footerContextController,
                 settings);
             DeletedFeedbackCopyIsAbsent(english, settings);
+            WorkloadPresentationOwnsTutorialAndSelectionLifecycle(
+                gateway,
+                tutorial,
+                tutorialCoordinator,
+                english);
             FooterActionsAcceptTypedState(gateway, session);
             InspectionUsesRevisionCachesAndContext(
                 header,
@@ -106,6 +136,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 effectiveStateRuntime,
                 effectiveStateScope,
                 projectedProvider);
+            EffectiveStateCachesFollowSemanticRevision(
+                effectiveStateRuntime,
+                effectiveStateScope,
+                liveProvider,
+                subWorkPresentationCache);
             DynamicOwnershipReachesCommitPayload(backend, session);
             IncludeUsesTheAuthoritativeBaselineAndApplyPath(gateway, backend);
             LegacyPayloadsRemainFailClosed(gateway, backend, session);
@@ -114,6 +149,113 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 gateway,
                 backend,
                 session);
+        }
+
+        private static void WorkloadPresentationOwnsTutorialAndSelectionLifecycle(
+            string gateway,
+            string tutorial,
+            string tutorialCoordinator,
+            string english)
+        {
+            string active = MethodBody(tutorial, "internal static bool IsActive");
+            TestAssert.Contains(
+                active,
+                "!WorkTabEffectiveStateRuntime.IsPreviewActive",
+                "a workload presentation must temporarily suppress tutorial drawing and input");
+
+            string openSession = MethodBody(gateway, "private void OpenSession(");
+            int projection = openSession.IndexOf(
+                "RebuildProjection(_session.ProjectedState);",
+                StringComparison.Ordinal);
+            int clearSelection = openSession.IndexOf(
+                "ColumnSelectionManager.Clear();",
+                StringComparison.Ordinal);
+            int clearTutorial = openSession.IndexOf(
+                "BWTWorkTabTutorial.NotifyWorkloadPresentationOpened();",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                projection >= 0 && clearSelection > projection && clearTutorial > clearSelection,
+                "only a successfully installed presentation may clear transient header and tutorial selection state");
+
+            string notification = MethodBody(
+                tutorial,
+                "internal static void NotifyWorkloadPresentationOpened()");
+            string transientClear = MethodBody(
+                tutorial,
+                "private static void ClearTransientInteractionState()");
+            TestAssert.Contains(
+                notification,
+                "ClearTransientInteractionState();",
+                "presentation activation must release tutorial pointer and pinned-selector ownership");
+            TestAssert.Contains(
+                notification,
+                "observedLessonId = string.Empty;",
+                "a resumed tutorial lesson must recapture its live presentation observation baseline");
+            TestAssert.Contains(
+                transientClear,
+                "Selector.ClearPinnedSelection();",
+                "a pinned tutorial popup must not reappear after the presentation closes");
+            TestAssert.Contains(
+                transientClear,
+                "BWTTutorialGestureDemo.Reset();",
+                "tutorial gesture presentation must not survive a workload presentation switch");
+            TestAssert.False(
+                notification.IndexOf("BetterWorkTabMod.Settings", StringComparison.Ordinal) >= 0 ||
+                notification.IndexOf("settings.Write", StringComparison.Ordinal) >= 0 ||
+                transientClear.IndexOf("BetterWorkTabMod.Settings", StringComparison.Ordinal) >= 0 ||
+                transientClear.IndexOf("settings.Write", StringComparison.Ordinal) >= 0,
+                "presentation activation must not mutate durable tutorial preferences or progress");
+
+            string coordinatorNotification = MethodBody(
+                tutorialCoordinator,
+                "internal static void NotifyWorkloadPresentationOpened()");
+            TestAssert.Contains(
+                coordinatorNotification,
+                "BWTGeneralTutorial.NotifyWorkloadPresentationOpened();",
+                "workload UI must release tutorial state through its existing coordinator boundary");
+
+            string closeSession = MethodBody(gateway, "private void ClearLocalSession()");
+            TestAssert.False(
+                closeSession.IndexOf("ColumnSelectionManager.Select", StringComparison.Ordinal) >= 0,
+                "closing a presentation must not restore stale header selection from the prior surface");
+            TestAssert.False(
+                tutorial.IndexOf("BWT_Tutorial_WorkloadPresentation_Body", StringComparison.Ordinal) >= 0 ||
+                english.IndexOf("BWT_Tutorial_WorkloadPresentation_Body", StringComparison.Ordinal) >= 0,
+                "the old partial tutorial-over-preview presentation must not remain reachable or translated");
+        }
+
+        private static void EffectiveStateCachesFollowSemanticRevision(
+            string effectiveStateRuntime,
+            string effectiveStateScope,
+            string liveProvider,
+            string subWorkPresentationCache)
+        {
+            TestAssert.Contains(
+                effectiveStateRuntime,
+                "pass.Revision == revision",
+                "captured effective-state views must be reused while their semantic revision is unchanged");
+            TestAssert.Contains(
+                effectiveStateRuntime,
+                "pass.CapturedView = view;",
+                "the effective-state render pass must retain its captured immutable view");
+
+            string dispose = MethodBody(effectiveStateScope, "public void Dispose()");
+            TestAssert.False(
+                dispose.IndexOf("InvalidateRenderPass", StringComparison.Ordinal) >= 0,
+                "restoring a nested scope must not manufacture a new effective-state revision");
+            TestAssert.False(
+                subWorkPresentationCache.IndexOf(
+                    "_effectiveStateRenderPassId",
+                    StringComparison.Ordinal) >= 0,
+                "sub-work presentation retention must not be keyed to transient render-pass identity");
+            TestAssert.Contains(
+                subWorkPresentationCache,
+                "_effectiveStateRevision != currentRevision",
+                "sub-work presentation retention must invalidate on the semantic effective-state revision");
+            TestAssert.Contains(
+                liveProvider,
+                "if (_specificPriorities == null)",
+                "captured live views must allocate dimension caches only when that dimension is read");
         }
 
         private static void WorkTabViewCapturesEffectiveStateBeforeInput(
@@ -188,8 +330,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the inspection index must invalidate when Apply/Update context changes");
             TestAssert.Contains(
                 gateway,
-                "_cachedLiveDiff = liveResult.Succeeded && liveResult.Value != null",
+                "_cachedLiveDiff = _session.LiveDiff;",
                 "Apply inspection must cache the live-impact diff separately");
+            TestAssert.Contains(
+                gateway,
+                "_cachedTemplateDiff = _session.TemplateDiff;",
+                "Update inspection must reuse the immutable session template diff");
             TestAssert.Contains(
                 gateway,
                 "overApply && HasLiveImpact",
@@ -412,24 +558,21 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "saving the captured Work-tab state must not reopen it as a ghost preview");
             TestAssert.Contains(
                 header,
-                "SpineEasing.Move01(",
-                "preview footer actions must use the shared easing infrastructure");
+                "if (previewActive)",
+                "preview footer geometry must switch with the active preview state");
             TestAssert.Contains(
                 header,
-                "finalRect.x += hiddenOffset * (1f - progress);",
-                "preview actions must translate horizontally from behind the workload selector");
-            TestAssert.Contains(
-                header,
-                "GUI.BeginGroup(rects.WorkloadActionClip);",
-                "the translated action lane must be clipped at the workload selector edge");
-            TestAssert.Contains(
-                header,
-                "if (previewActive || revealProgress > 0.001f)",
-                "inactive preview actions must retain geometry while the lane reverses closed");
-            TestAssert.Contains(
-                header,
-                "ClipToWorkloadActionLane(",
-                "footer hit-testing must use only the visible translated action rectangles");
+                "preview.HasSemanticDiff,",
+                "the atomic preview layout must still expose Update when the draft changed");
+            TestAssert.False(
+                header.IndexOf("SpineEasing.Move01(", StringComparison.Ordinal) >= 0,
+                "preview lifecycle state must not be prolonged by a second animated footer state");
+            TestAssert.False(
+                header.IndexOf("revealProgress", StringComparison.Ordinal) >= 0,
+                "preview footer geometry must not interpolate after the preview state changes");
+            TestAssert.False(
+                header.IndexOf("WorkloadActionClip", StringComparison.Ordinal) >= 0,
+                "atomic preview buttons must not retain the old partial-action clipping lane");
             TestAssert.False(
                 header.IndexOf("target.width * progress", StringComparison.Ordinal) >= 0,
                 "preview reveal must not scale action widths in place");
@@ -486,7 +629,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "private static void DrawWorkloadPreviewButton(",
                 StringComparison.Ordinal);
             int end = header.IndexOf(
-                "private static Rect ToWorkloadActionGroup(",
+                "private static void QueuePreviewLifecycleAction(",
                 start,
                 StringComparison.Ordinal);
             int resolver = header.IndexOf(
@@ -504,8 +647,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string resolverPath = header.Substring(resolver, resolverEnd - resolver);
             TestAssert.Contains(
                 drawPath,
-                "Widgets.ButtonText(drawRect, label, active: enabled)",
-                "preview actions must retain the native footer button rendering throughout the reveal");
+                "Widgets.ButtonText(rect, label, active: enabled)",
+                "preview actions must retain the native footer button rendering");
             TestAssert.False(
                 drawPath.IndexOf("Widgets.DrawBoxSolid(", StringComparison.Ordinal) >= 0,
                 "preview actions must not switch to a custom solid renderer while partially revealed");
@@ -515,17 +658,17 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(
                 resolverPath,
                 "rects.WorkloadApply.Contains(position)",
-                "partially revealed Apply input must use its clipped visible hit rectangle");
+                "Apply input must use the same final rectangle that is drawn");
             TestAssert.Contains(
                 resolverPath,
                 "rects.WorkloadCancel.Contains(position)",
-                "partially revealed Cancel input must use its clipped visible hit rectangle");
+                "Cancel input must use the same final rectangle that is drawn");
             TestAssert.False(
                 resolverPath.IndexOf("DrawWorkloadPreviewButton", StringComparison.Ordinal) >= 0,
-                "visible-hit resolution must not redraw preview actions while processing input");
+                "hit resolution must not redraw preview actions while processing input");
             TestAssert.False(
-                drawPath.IndexOf("Widgets.ButtonInvisible(hitRect)", StringComparison.Ordinal) >= 0,
-                "preview actions must not switch to a custom invisible control while partially revealed");
+                drawPath.IndexOf("GUI.BeginGroup(", StringComparison.Ordinal) >= 0,
+                "atomic preview actions must not carry a stale clipping group");
         }
 
         private static void WorkloadSelectorUsesOnlyTheWorkloadName(string header)
@@ -735,10 +878,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.True(
                 tutorialDraw >= 0 && workloadPopoverDraw > tutorialDraw,
                 "the workload editor must be painted after the tutorial overlay so its Save button owns the first click");
-            TestAssert.Contains(
-                header,
-                "animated: animated",
-                "preview reveal animation must be controlled by the effective workload setting");
+            TestAssert.False(
+                header.IndexOf("animated: animated", StringComparison.Ordinal) >= 0,
+                "preview lifecycle must not leave an animated footer state behind the active presentation");
             TestAssert.Contains(
                 settingsTranslations,
                 "BWT_Settings_workloads.previewRevealAnimation",
@@ -902,7 +1044,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "include must retain captured 24-hour schedule state through the shared capture path");
             TestAssert.Contains(
                 backend,
-                "draft.SetManualMode(parentKey, manualMode)",
+                "bool liveManualMode = ownsManualMode &&",
+                "the shared capture path must read one coherent manual-mode baseline per pawn");
+            TestAssert.Contains(
+                backend,
+                "draft.SetManualMode(parentKey, liveManualMode)",
                 "the shared capture path must retain manual-mode baselines");
             TestAssert.Contains(
                 backend,

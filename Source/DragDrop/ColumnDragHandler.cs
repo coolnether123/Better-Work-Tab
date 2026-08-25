@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Application;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
@@ -462,7 +463,7 @@ namespace Better_Work_Tab.DragDrop
                     .Where(c => c.workType != null)
                     .Select(c => c.workType.defName)
                     .ToList();
-                WorkTabApplicationResult result = WorkTabApplication.Current?.SubmitColumnOrder(
+                WorkTabApplicationResult result = WorkTabGameRoots.For(Current.Game)?.Application?.SubmitColumnOrder(
                     finalOrder,
                     movedNames) ?? default;
                 if (!result.Accepted)

@@ -5,6 +5,7 @@ using RimWorld;
 using UnityEngine;
 using Verse;
 using Better_Work_Tab.Features.Application;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Features.Rules;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.UI.WorkGrid.Projection;
@@ -256,7 +257,8 @@ namespace Better_Work_Tab.Features
                 }
             }
 
-            WorkTabApplicationResult result = WorkTabApplication.Current?.ApplyAtomicMutationPlan(mutation) ??
+            WorkTabApplicationResult result = WorkTabGameRoots.For(Current.Game)?.Application?
+                .ApplyAtomicMutationPlan(mutation) ??
                 WorkTabApplicationResult.Rejected(LiveRulesetPriorityWriteFailedReason, default);
             if (!result.Accepted)
             {

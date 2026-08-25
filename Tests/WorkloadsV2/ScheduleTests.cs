@@ -202,60 +202,42 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     "Runtime",
                     "Workload2Backend.cs"));
             string backend = File.ReadAllText(backendPath);
-            int applyTypedLive = backend.IndexOf(
-                "private static void ApplyTypedLive(",
-                StringComparison.Ordinal);
+            string staged = File.ReadAllText(FindRepositoryFile(Path.Combine(
+                "Source", "Features", "Application", "WorkTabStagedMutation.cs")));
             int registration = backend.IndexOf(
-                "transaction.Schedules.Add(appliedMutation);",
-                applyTypedLive,
+                "CompileSchedules(",
                 StringComparison.Ordinal);
             int writer = backend.IndexOf(
-                "atomicMutation.ApplySchedule(",
+                "application?.StageMutation(",
                 registration,
                 StringComparison.Ordinal);
-            int verification = backend.IndexOf(
-                "WorkloadTimePriorityAdapter.TryCaptureLiveScheduleSnapshot(",
+            int receipt = backend.IndexOf(
+                "transaction.StagedMutation = receipt;",
                 writer,
                 StringComparison.Ordinal);
-            int noOpRemoval = backend.IndexOf(
-                "transaction.Schedules.Remove(appliedMutation);",
-                verification,
+            int stagedRegistration = staged.IndexOf(
+                "_appliedSchedules.Add(entry);",
+                StringComparison.Ordinal);
+            int stagedWriter = staged.IndexOf(
+                "_scope.ApplySchedule(",
+                stagedRegistration,
+                StringComparison.Ordinal);
+            int noOpRemoval = staged.IndexOf(
+                "_appliedSchedules.RemoveAt(_appliedSchedules.Count - 1);",
+                stagedWriter,
                 StringComparison.Ordinal);
 
             TestAssert.True(
-                applyTypedLive >= 0 &&
-                registration > applyTypedLive &&
-                writer > registration &&
-                verification > writer &&
-                noOpRemoval > verification,
-                "schedule rollback entries must be registered before writer and post-write verification");
+                registration >= 0 && writer > registration && receipt > writer &&
+                stagedRegistration >= 0 && stagedWriter > stagedRegistration &&
+                noOpRemoval > stagedWriter,
+                "V2 must compile schedules into one application receipt, which registers rollback ownership before the writer and removes exact no-ops");
 
-            int restore = backend.IndexOf(
-                "atomicMutation.TryRestoreSchedule(",
-                noOpRemoval,
-                StringComparison.Ordinal);
-            int authorizationUse = backend.IndexOf(
-                "applied.Authorization",
-                restore,
-                StringComparison.Ordinal);
-            TestAssert.True(
-                restore >= 0 && authorizationUse > restore,
-                "schedule rollback must carry the transaction-bound authorization");
-
-            int batchedRestore = backend.IndexOf(
-                "private static bool RestoreSchedules(",
-                StringComparison.Ordinal);
             string atomic = File.ReadAllText(FindRepositoryFile(Path.Combine(
                 "Source", "Features", "Application", "WorkTabAtomicMutation.cs")));
-            int rollbackWriter = backend.IndexOf(
-                "RestoreSchedule(",
-                batchedRestore,
-                StringComparison.Ordinal);
-            TestAssert.True(
-                batchedRestore >= 0 && rollbackWriter > batchedRestore &&
-                backend.Contains("WorkTabMutationScope atomicMutation = transaction.AtomicMutation ??") &&
-                backend.Contains("atomicMutation.Dispose();"),
-                "schedule rollback must reuse and discard the unpublished transaction batch");
+            TestAssert.Contains(staged,
+                "scope.TryRestoreSchedule(",
+                "the application receipt must own exact schedule rollback");
             TestAssert.Contains(atomic,
                 "TimePriorityService.CommitMutationBatch()",
                 "the application atomic mutation must own schedule batch commit");
@@ -263,6 +245,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the domain batch scope must not publish before the compound transaction succeeds");
             TestAssert.False(backend.Contains("PublishScheduleMutation("),
                 "the workload backend must not retain a schedule publication adapter");
+            TestAssert.False(backend.Contains("RestoreSchedules("),
+                "the workload backend must not retain a second schedule rollback executor");
             TestAssert.False(backend.Contains("TimePriorityService.BeginMutationBatch()"),
                 "the workload backend must not open a schedule batch directly");
             TestAssert.False(backend.Contains("WorkGiverReassignmentManager.BeginMutationBatch()"),

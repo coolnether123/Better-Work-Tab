@@ -16,6 +16,7 @@ using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Workloads;
 using RimWorld;
 using Spine.UI.Tutorial;
 using UnityEngine;
@@ -174,6 +175,8 @@ namespace Better_Work_Tab.Features.Tutorial
             {
                 BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
                 return settings != null &&
+                       !WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                       WorkloadPreviewController.Current?.IsActive != true &&
                        TutorialVisibilityPolicy.AllowsWorkTabTutorial(
                            Find.WindowStack?.IsOpen<Dialog_ModSettings>() == true) &&
                        FluffyWorkTabPromptPolicy.AllowsTutorial(
@@ -637,16 +640,13 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             CountCourseProgress(settings, out int completed, out int total);
-            string workloadPresentationBody = WorkTabEffectiveStateRuntime.IsPreviewActive
-                ? T("BWT_Tutorial_WorkloadPresentation_Body")
-                : null;
             if (presentation == TutorialPresentation.Lesson)
             {
                 string lessonId = settings.activeTutorialLessonId;
                 bool complete = IsShowingCompletionOutcome(lessonId);
                 return new BWTTutorialStripContent(
                     complete ? BWTTutorialStripMode.Complete : BWTTutorialStripMode.Lesson,
-                    workloadPresentationBody ?? GetLessonBody(lessonId, settings.tutorialLessonPhase),
+                    GetLessonBody(lessonId, settings.tutorialLessonPhase),
                     completed,
                     total);
             }
@@ -659,7 +659,7 @@ namespace Better_Work_Tab.Features.Tutorial
                 int disabled = BWTTutorialFeatureDiscovery.CountOffer(settings);
                 return new BWTTutorialStripContent(
                     BWTTutorialStripMode.Browse,
-                    workloadPresentationBody ?? T(disabled > 0
+                    T(disabled > 0
                         ? "BWT_Tutorial_Selector_AllDoneBody"
                         : "BWT_Tutorial_Selector_DefaultBody"),
                     completed,
@@ -866,6 +866,25 @@ namespace Better_Work_Tab.Features.Tutorial
                 skillVisibleStartedAt = -1f;
             }
 
+            ClearTransientInteractionState();
+        }
+
+        /// <summary>
+        /// Releases tutorial interaction state when a workload presentation
+        /// takes ownership of the Work tab. Durable tutorial preferences and
+        /// progress remain untouched so an explicitly enabled lesson can resume
+        /// against the live presentation after the preview closes.
+        /// </summary>
+        internal static void NotifyWorkloadPresentationOpened()
+        {
+            ClearTransientInteractionState();
+            lessonAnchor = default(BWTTutorialAnchor);
+            lessonAnchorIsLive = false;
+            observedLessonId = string.Empty;
+        }
+
+        private static void ClearTransientInteractionState()
+        {
             ownsCurrentPointer = false;
             Selector.ClearPinnedSelection();
             BWTTutorialGestureDemo.Reset();

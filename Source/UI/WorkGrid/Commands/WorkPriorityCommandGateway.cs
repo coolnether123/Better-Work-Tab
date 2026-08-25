@@ -6,6 +6,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -58,7 +59,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
             return WorkTabActionability.CanApplySpecific(pawn, workType, workGiver);
         }
 
-        internal static bool SetWorkGiverPriority(int pawnId, WorkGiverDef workGiver, int priority)
+        internal static bool SetWorkGiverPriority(
+            WorkTabApplication application,
+            int pawnId,
+            WorkGiverDef workGiver,
+            int priority)
         {
             bool accepted = (pawnId >= 0 || pawnId == -1) &&
                             workGiver != null &&
@@ -81,11 +86,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
             if (accepted && WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
                 accepted = pawnId == -1
-                    ? WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(
+                    ? WorkloadProjectionRuntime.TrySetSpecificJobPriority(
                         WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(workType, workGiver),
                         priority,
                         out _)
-                    : WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(
+                    : WorkloadProjectionRuntime.TrySetSpecificJobPriority(
                         pawnId,
                         workType,
                         workGiver,
@@ -96,7 +101,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
 
             if (accepted)
             {
-                accepted = WorkTabApplication.Current?
+                accepted = application?
                     .SubmitSpecificPriority(pawnId, workGiver, priority).Accepted == true;
             }
 
@@ -147,7 +152,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
             return accepted;
         }
 
-        internal static bool TryClearPreviewSpecificJobOverrides(Pawn pawn, WorkTypeDef workType)
+        internal static bool TryClearPreviewSpecificJobOverrides(
+            WorkTabApplication application,
+            Pawn pawn,
+            WorkTypeDef workType)
         {
             if (pawn == null || workType == null)
             {
@@ -164,7 +172,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
 
             if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
-                return WorkTabApplication.Current?
+                return application?
                     .ClearSpecificPriorities(pawn, workType).Accepted == true;
             }
 
@@ -180,7 +188,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 }
 
                 attempted = true;
-                if (!WorkTabEffectiveStateRuntime.TryClearSpecificJobPriority(
+                if (!WorkloadProjectionRuntime.TryClearSpecificJobPriority(
                         pawn,
                         workType,
                         workGiver,
@@ -201,7 +209,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Commands
                 }
 
                 attempted = true;
-                if (!WorkTabEffectiveStateRuntime.TryClearSpecificJobPriority(
+                if (!WorkloadProjectionRuntime.TryClearSpecificJobPriority(
                         pawn,
                         workType,
                         workGiver,

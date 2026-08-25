@@ -5,20 +5,28 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.ModSupport;
-using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.PawnOrganizer;
-using Better_Work_Tab.UI;
-using Better_Work_Tab.UI.WorkGrid.Contracts;
-using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Better_Work_Tab.UI.Settings;
 using Multiplayer.API;
 using RimWorld;
 using Verse;
 
 namespace Better_Work_Tab.Features.Application
 {
-    internal enum WorkTabApplicationOutcome { Rejected, NoOp, Submitted, Applied, AppliedAfterAuthorityChange, Partial }
+    internal enum WorkTabApplicationOutcome
+    {
+        Rejected,
+        NoOp,
+        Submitted,
+        Applied,
+        AppliedAfterAuthorityChange,
+        Partial,
+        FailedRolledBack,
+        RecoveryRequired
+    }
     [System.Flags]
     internal enum WorkTabApplicationDimensions
     {
@@ -28,7 +36,8 @@ namespace Better_Work_Tab.Features.Application
         SpecificPriority = 4,
         ExecutionOrder = 8,
         SpecificOrder = 16,
-        Presentation = 32
+        Presentation = 32,
+        ColumnPresentation = 64
     }
 
     internal readonly struct WorkTabApplicationRevision
@@ -38,24 +47,6 @@ namespace Better_Work_Tab.Features.Application
         internal int Value { get; }
     }
 
-    internal readonly struct WorkTabApplicationChange
-    {
-        internal WorkTabApplicationChange(
-            TimePriorityTarget target,
-            WorkTabApplicationDimensions dimensions,
-            bool broadScope)
-        {
-            Target = target;
-            Dimensions = dimensions;
-            BroadScope = broadScope;
-        }
-
-        internal TimePriorityTarget Target { get; }
-        internal WorkTabApplicationDimensions Dimensions { get; }
-        internal bool BroadScope { get; }
-        internal bool IsEmpty => Dimensions == WorkTabApplicationDimensions.None;
-    }
-
     internal readonly struct WorkTabApplicationResult
     {
         internal WorkTabApplicationResult(
@@ -63,16 +54,39 @@ namespace Better_Work_Tab.Features.Application
             string reason,
             WorkTabApplicationChange change,
             WorkTabApplicationRevision revision)
+            : this(
+                outcome,
+                reason,
+                change,
+                WorkTabRevisionVector.FromApplication(revision))
+        {
+        }
+
+        internal WorkTabApplicationResult(
+            WorkTabApplicationOutcome outcome,
+            string reason,
+            WorkTabApplicationChange change,
+            WorkTabRevisionVector revision)
         {
             Outcome = outcome;
             Reason = reason;
             Change = change;
-            Revision = revision;
+            RevisionVector = revision;
+            Revision = revision.Application;
+            BeforeRevisionVector = change.IsEmpty ? revision : change.BeforeRevisionVector;
+            AfterRevisionVector = change.IsEmpty ? revision : change.AfterRevisionVector;
+            BeforeRevision = BeforeRevisionVector.Application;
+            AfterRevision = AfterRevisionVector.Application;
         }
         internal WorkTabApplicationOutcome Outcome { get; }
         internal string Reason { get; }
         internal WorkTabApplicationChange Change { get; }
         internal WorkTabApplicationRevision Revision { get; }
+        internal WorkTabRevisionVector RevisionVector { get; }
+        internal WorkTabApplicationRevision BeforeRevision { get; }
+        internal WorkTabApplicationRevision AfterRevision { get; }
+        internal WorkTabRevisionVector BeforeRevisionVector { get; }
+        internal WorkTabRevisionVector AfterRevisionVector { get; }
         internal bool Changed => !Change.IsEmpty;
         internal bool Accepted => Outcome == WorkTabApplicationOutcome.NoOp ||
                                   Outcome == WorkTabApplicationOutcome.Submitted ||
@@ -203,10 +217,11 @@ namespace Better_Work_Tab.Features.Application
     }
 
     /// <summary>Per-world command boundary for priority and schedule writes.</summary>
-    internal sealed class WorkTabApplication
+    internal sealed partial class WorkTabApplication
     {
         private readonly Game _game;
         private readonly TimePriorityScheduleRuntime _scheduleRuntime;
+        private readonly WorkTabApplicationPublisher _publisher;
         private bool _applying;
         private bool _ownsParentPrioritySetter;
         private int _epoch;
@@ -216,14 +231,16 @@ namespace Better_Work_Tab.Features.Application
         {
             _game = game;
             _scheduleRuntime = scheduleRuntime;
+            _publisher = new WorkTabApplicationPublisher();
             _epoch = epoch;
         }
 
         internal static WorkTabApplication Current =>
-            Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.Application;
+            WorkTabGameRoots.For(Verse.Current.Game)?.Application;
         internal static bool OwnsCurrentParentPrioritySetter =>
             Current?._ownsParentPrioritySetter == true;
         internal WorkTabApplicationRevision Revision => new WorkTabApplicationRevision(_epoch, _revision);
+        internal WorkTabRevisionVector RevisionVector => CaptureRevisionVector();
         internal void SetRevisionEpoch(int epoch) { _epoch = epoch; }
 
         internal bool SetStoredParentPriority(Pawn pawn, WorkTypeDef workType, int priority) =>
@@ -356,15 +373,15 @@ namespace Better_Work_Tab.Features.Application
             bool applyToWorkTable,
             bool clearResetPresentation)
         {
-            GameComponent_BWTWorldSettings component =
-                _game?.GetComponent<GameComponent_BWTWorldSettings>();
-            if (!IsCurrent || component == null || orderedWorkTypes == null ||
+            IWorkTabColumnOrderState columnOrder =
+                WorkTabGameRoots.For(_game)?.State?.ColumnOrder;
+            if (!IsCurrent || columnOrder == null || orderedWorkTypes == null ||
                 orderedWorkTypes.Count == 0)
             {
                 return Reject("The work-column order command is not available for this world.");
             }
 
-            int expectedGeneration = component.ColumnOrderGeneration;
+            int expectedGeneration = columnOrder.Generation;
             if (MultiplayerBridge.Active)
             {
                 SyncApplyColumnOrder(
@@ -589,266 +606,185 @@ namespace Better_Work_Tab.Features.Application
             if (!IsCurrent || mutation == null ||
                 (MultiplayerBridge.Active && !synchronizedReplay))
                 return Reject("The atomic mutation belongs to another world or transport.");
-
-            IReadOnlyList<WorkTabRuleParentPriority> parents = mutation.ParentPriorities;
-            IReadOnlyList<WorkTabRuleSpecificPriority> specifics = mutation.SpecificPriorities;
-            IReadOnlyList<WorkTabRuleSpecificOrder> orders = mutation.SpecificOrders;
-            IReadOnlyList<WorkTabRuleSchedule> schedules = mutation.Schedules;
-            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(out long authorityRevision))
+            if (!WorkPrioritySystem.TryCaptureBwtMutationAuthority(
+                    out long authorityRevision))
                 return Reject("The priority authority changed.");
 
+            WorkTabStagedMutation staged = LowerAtomicMutationPlan(
+                mutation,
+                authorityRevision,
+                synchronizedReplay,
+                out string reason);
+            if (staged == null)
+                return Reject(reason ?? "The atomic mutation baseline changed.");
+
+            if (!Enter())
+                return Reject("Another work-tab command is active.");
+            if (!staged.HasChanges)
+            {
+                Exit();
+                return Result(WorkTabApplicationOutcome.NoOp);
+            }
+
+            WorkTabStagedMutationReceipt receipt = StageMutation(
+                staged,
+                out bool stageSucceeded,
+                out reason,
+                applicationLockHeld: true);
+            if (!stageSucceeded)
+            {
+                if (receipt?.RecoveryRequired == true)
+                {
+                    WorkTabApplicationChange recoveryChange = Publish(
+                        default,
+                        staged.Dimensions,
+                        true,
+                        true,
+                        affectedTargetChanges: staged.AffectedTargets);
+                    changedCount = -1;
+                    return Result(
+                        WorkTabApplicationOutcome.RecoveryRequired,
+                        recoveryChange,
+                        reason);
+                }
+                return Result(
+                    WorkTabApplicationOutcome.Rejected,
+                    reason: reason);
+            }
+
+            if (!receipt.Commit(out WorkTabApplicationChange change, out reason))
+            {
+                bool restored = receipt.Rollback(out string rollbackReason);
+                if (!restored)
+                {
+                    changedCount = -1;
+                    return Result(
+                        WorkTabApplicationOutcome.RecoveryRequired,
+                        change,
+                        reason + " " + rollbackReason);
+                }
+                return Result(
+                    WorkTabApplicationOutcome.FailedRolledBack,
+                    reason: reason);
+            }
+
+            if (change.IsEmpty)
+                return Result(WorkTabApplicationOutcome.NoOp);
+
+            changedCount = staged.ParentPriorities.Count +
+                staged.ExternalSpecificPriorities.Count +
+                staged.SpecificPriorities.Count +
+                staged.SpecificOrders.Count + staged.Schedules.Count +
+                (staged.ManualPriorityTarget.HasValue ? 1 : 0) +
+                (staged.RequiredPriorityMaximum.HasValue ? 1 : 0);
+            return Result(WorkTabApplicationOutcome.Applied, change);
+        }
+
+        private static WorkTabStagedMutation LowerAtomicMutationPlan(
+            WorkTabAtomicMutationPlan mutation,
+            long authorityRevision,
+            bool synchronizedReplay,
+            out string reason)
+        {
+            reason = null;
+            var staged = new WorkTabStagedMutation
+            {
+                AuthorityRevision = authorityRevision,
+                SpecificJobRevision = WorkGiverReassignmentManager.CurrentSyncVersion,
+                SynchronizedReplay = synchronizedReplay,
+                RequiredPriorityMaximum = mutation.RequiredPriorityMaximum,
+                ExpectedManualPriorityMode = Find.PlaySettings?.useWorkPriorities == true,
+                ManualPriorityTarget = mutation.ManualPrioritiesTarget ??
+                    (mutation.RequiresManualPriorities ? true : (bool?)null)
+            };
+            IReadOnlyList<WorkTabRuleParentPriority> parents = mutation.ParentPriorities;
             for (int i = 0; i < parents.Count; i++)
             {
                 WorkTabRuleParentPriority entry = parents[i];
                 if (!WorkTabActionability.CanApplyParent(entry.Pawn, entry.WorkType) ||
                     !WorkPrioritySystem.TryGetRawStoredPriority(
-                        entry.Pawn.workSettings, entry.WorkType, out int observed) ||
-                    observed != entry.Expected)
-                    return Reject("A parent-priority baseline changed.");
+                        entry.Pawn.workSettings,
+                        entry.WorkType,
+                        out int observed) || observed != entry.Expected)
+                {
+                    reason = "A parent-priority baseline changed.";
+                    return null;
+                }
+                staged.ParentPriorities.Add(new WorkTabStagedParentPriority(
+                    entry.Pawn,
+                    entry.WorkType,
+                    entry.Expected,
+                    WorkPrioritySystem.ClampPriority(entry.Desired)));
+                staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
+                    TimePriorityTarget.ForWorkType(entry.Pawn, entry.WorkType),
+                    WorkTabApplicationDimensions.ParentPriority));
             }
 
+            IReadOnlyList<WorkTabRuleSpecificPriority> specifics = mutation.SpecificPriorities;
             for (int i = 0; i < specifics.Count; i++)
             {
                 WorkTabRuleSpecificPriority entry = specifics[i];
-                WorkTypeDef workType = WorkGiverReassignmentManager.GetTargetWorkType(entry.WorkGiver);
-                if (!WorkTabActionability.CanApplySpecific(entry.Pawn, workType, entry.WorkGiver))
-                    return Reject("A specific-job baseline changed.");
-                if (!entry.UseSleek) continue;
-                bool present = SleekWorkTabGateway.TryGetSleekWorkGiverOverride(
-                    entry.Pawn, entry.WorkGiver, out int observed) && observed >= 0;
-                if (present != entry.HadOverride || present && observed != entry.Initial)
-                    return Reject("A Sleek specific-job baseline changed.");
-            }
-
-            if (!Enter()) return Reject("Another work-tab command is active.");
-            bool originalManual = Find.PlaySettings?.useWorkPriorities == true;
-            bool? manualTarget = mutation.ManualPrioritiesTarget ??
-                (mutation.RequiresManualPriorities ? true : (bool?)null);
-            bool manualChanged = false;
-            bool configurationChanged = false;
-            var configuration = new PriorityConfigurationSnapshot(BetterWorkTabMod.Settings);
-            var appliedParents = new List<WorkTabRuleParentPriority>();
-            var appliedSleek = new List<WorkTabRuleSpecificPriority>();
-            var appliedSchedules = new List<WorkTabRuleSchedule>();
-            WorkGiverReassignmentManager.SpecificJobBatchRollback specificRollback = null;
-            string failure = null;
-            try
-            {
-                using (WorkTabMutationScope scope = BeginMutationScope(
-                           schedules.Count > 0,
-                           specifics.Any(entry => !entry.UseSleek) || orders.Count > 0))
+                WorkTypeDef workType = WorkGiverReassignmentManager.GetTargetWorkType(
+                    entry.WorkGiver);
+                if (!WorkTabActionability.CanApplySpecific(
+                        entry.Pawn,
+                        workType,
+                        entry.WorkGiver))
                 {
-                    if (!TryApplyRequiredPriorityMaximum(
-                            mutation.RequiredPriorityMaximum,
-                            configuration,
-                            out configurationChanged) ||
-                        !WorkPrioritySystem.TryCaptureBwtMutationAuthority(out authorityRevision))
-                        failure = "The requested priority configuration is unavailable.";
-                    else if (configurationChanged)
-                        changedCount++;
-
-                    if (failure == null && manualTarget.HasValue &&
-                        originalManual != manualTarget.Value)
-                    {
-                        if (!scope.TrySetManualPriorityMode(manualTarget.Value, out bool observed) ||
-                            observed != manualTarget.Value)
-                            failure = "Manual work priorities could not be updated.";
-                        else
-                        {
-                            manualChanged = true;
-                            changedCount++;
-                        }
-                    }
-
-                    for (int i = 0; failure == null && i < parents.Count; i++)
-                    {
-                        WorkTabRuleParentPriority entry = parents[i];
-                        int desired = WorkPrioritySystem.ClampPriority(entry.Desired);
-                        if (!WorkPrioritySystem.IsBwtMutationAuthorityCurrent(authorityRevision) ||
-                            !scope.TrySetParentPriority(
-                                entry.Pawn, entry.WorkType, desired, out int observed) ||
-                            observed != desired)
-                            failure = "A parent priority could not be written.";
-                        else
-                        {
-                            appliedParents.Add(entry);
-                            changedCount++;
-                        }
-                    }
-
-                    var priorityEntries =
-                        new List<WorkGiverReassignmentManager.SpecificPriorityBatchEntry>();
-                    for (int i = 0; failure == null && i < specifics.Count; i++)
-                    {
-                        WorkTabRuleSpecificPriority entry = specifics[i];
-                        int desired = WorkPrioritySystem.ClampPriority(entry.Desired);
-                        if (entry.UseSleek)
-                        {
-                            bool accepted = entry.Clear
-                                ? SleekWorkTabGateway.TryClearSleekWorkGiverOverride(
-                                    entry.Pawn, entry.WorkGiver)
-                                : SleekWorkTabGateway.TrySetSleekWorkGiverOverride(
-                                    entry.Pawn, entry.WorkGiver, desired);
-                            if (!accepted) failure = "A Sleek specific-job priority could not be written.";
-                            else
-                            {
-                                appliedSleek.Add(entry);
-                                changedCount++;
-                            }
-                            continue;
-                        }
-
-                        priorityEntries.Add(
-                            new WorkGiverReassignmentManager.SpecificPriorityBatchEntry(
-                                false,
-                                entry.Pawn.thingIDNumber,
-                                entry.WorkGiver.defName,
-                                entry.Clear
-                                    ? WorkGiverReassignmentManager.ExactGlobalStateKind.Clear
-                                    : WorkGiverReassignmentManager.ExactGlobalStateKind.Set,
-                                desired,
-                                null,
-                                entry.HadOverride,
-                                entry.Initial));
-                    }
-
-                    var orderEntries =
-                        new List<WorkGiverReassignmentManager.SpecificOrderBatchEntry>();
-                    for (int i = 0; i < orders.Count; i++)
-                    {
-                        WorkTabRuleSpecificOrder entry = orders[i];
-                        orderEntries.Add(
-                            new WorkGiverReassignmentManager.SpecificOrderBatchEntry(
-                                false,
-                                entry.Pawn.thingIDNumber,
-                                entry.WorkType.defName,
-                                WorkGiverReassignmentManager.ExactGlobalStateKind.Set,
-                                entry.Desired,
-                                null,
-                                entry.Expected));
-                    }
-
-                    if (failure == null && (priorityEntries.Count > 0 || orderEntries.Count > 0) &&
-                        !scope.TryApplySpecificJobs(
-                            priorityEntries,
-                            orderEntries,
-                            WorkGiverReassignmentManager.CurrentSyncVersion,
-                            authorityRevision,
-                            synchronizedReplay,
-                            null,
-                            out specificRollback,
-                            out failure))
-                        failure = failure ?? "The specific-job batch was rejected.";
-                    if (specificRollback != null)
-                        changedCount += priorityEntries.Count + orderEntries.Count;
-
-                    for (int i = 0; failure == null && i < schedules.Count; i++)
-                    {
-                        WorkTabRuleSchedule entry = schedules[i];
-                        if (scope.ApplySchedule(
-                                entry.Expected, entry.Desired, synchronizedReplay, null,
-                                out _, out failure) == TimePriorityScheduleMutationOutcome.Rejected)
-                            failure = failure ?? "A schedule could not be written.";
-                        else
-                        {
-                            appliedSchedules.Add(entry);
-                            changedCount++;
-                        }
-                    }
-
-                    WorkTabScheduleRevisionReceipt scheduleReceipt = schedules.Count == 0
-                        ? null
-                        : new WorkTabScheduleRevisionReceipt(schedules[0].Expected.ServiceVersion);
-                    if (failure != null)
-                    {
-                        bool restored = true;
-                        for (int i = appliedSchedules.Count - 1; i >= 0; i--)
-                            restored &= scope.TryRestoreSchedule(
-                                appliedSchedules[i].Expected,
-                                null,
-                                synchronizedReplay,
-                                null,
-                                0,
-                                0,
-                                out _);
-                        if (specificRollback != null)
-                            restored &= scope.TryRestoreSpecificJobs(specificRollback, out _);
-                        for (int i = appliedSleek.Count - 1; i >= 0; i--)
-                        {
-                            WorkTabRuleSpecificPriority entry = appliedSleek[i];
-                            restored &= entry.HadOverride
-                                ? SleekWorkTabGateway.TrySetSleekWorkGiverOverride(
-                                    entry.Pawn, entry.WorkGiver, entry.Initial)
-                                : SleekWorkTabGateway.TryClearSleekWorkGiverOverride(
-                                    entry.Pawn, entry.WorkGiver);
-                        }
-                        for (int i = appliedParents.Count - 1; i >= 0; i--)
-                            restored &= scope.TryRestoreParentPriority(
-                                appliedParents[i].Pawn,
-                                appliedParents[i].WorkType,
-                                appliedParents[i].Expected);
-                        if (manualChanged)
-                            restored &= scope.TrySetManualPriorityMode(originalManual, out _);
-                        if (configurationChanged)
-                            restored &= configuration.Restore();
-
-                        if (restored)
-                        {
-                            changedCount = 0;
-                            return Reject(failure);
-                        }
-
-                        scope.Complete(scheduleReceipt);
-                        WorkTabApplicationChange partialChange = Publish(
-                            default,
-                            DimensionsFor(mutation, true),
-                            true,
-                            true,
-                            affectedTargets: TargetsFor(mutation));
-                        changedCount = -1;
-                        return Result(WorkTabApplicationOutcome.Partial, partialChange, failure);
-                    }
-
-                    WorkTabMutationCommit commit = scope.Complete(scheduleReceipt);
-                    if (schedules.Count > 0 && !commit.ScheduleRevisionOwned)
-                    {
-                        WorkTabApplicationChange partialChange = Publish(
-                            default,
-                            DimensionsFor(mutation, true),
-                            true,
-                            true,
-                            affectedTargets: TargetsFor(mutation));
-                        changedCount = -1;
-                        return Result(
-                            WorkTabApplicationOutcome.Partial,
-                            partialChange,
-                            "The schedule transaction lost its application-owned revision.");
-                    }
-
-                    WorkTabApplicationDimensions dimensions = DimensionsFor(
-                        mutation,
-                        configurationChanged || manualChanged || appliedParents.Count > 0 ||
-                        appliedSleek.Count > 0 || commit.SpecificJobsChanged ||
-                        commit.ScheduleChanged);
-                    if (dimensions == WorkTabApplicationDimensions.None)
-                    {
-                        changedCount = 0;
-                        return Result(WorkTabApplicationOutcome.NoOp);
-                    }
-
-                    WorkTabApplicationChange change = Publish(
-                        default,
-                        dimensions,
-                        true,
-                        true,
-                        affectedTargets: TargetsFor(mutation));
-                    return Result(WorkTabApplicationOutcome.Applied, change);
+                    reason = "A specific-job baseline changed.";
+                    return null;
                 }
+                if (entry.StorageKind == SpecificJobPriorityStorageKind.ExternalAuthority)
+                    staged.ExternalSpecificPriorities.Add(entry);
+                else
+                    staged.SpecificPriorities.Add(
+                        new WorkGiverReassignmentManager.SpecificPriorityBatchEntry(
+                            false,
+                            entry.Pawn.thingIDNumber,
+                            entry.WorkGiver.defName,
+                            entry.Clear
+                                ? WorkGiverReassignmentManager.ExactGlobalStateKind.Clear
+                                : WorkGiverReassignmentManager.ExactGlobalStateKind.Set,
+                            entry.Desired,
+                            null,
+                            entry.HadOverride,
+                            entry.Initial));
+                staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
+                    TimePriorityTarget.ForWorkGiver(entry.Pawn, entry.WorkGiver),
+                    WorkTabApplicationDimensions.SpecificPriority));
             }
-            finally
+
+            IReadOnlyList<WorkTabRuleSpecificOrder> orders = mutation.SpecificOrders;
+            for (int i = 0; i < orders.Count; i++)
             {
-                Exit();
+                WorkTabRuleSpecificOrder entry = orders[i];
+                staged.SpecificOrders.Add(
+                    new WorkGiverReassignmentManager.SpecificOrderBatchEntry(
+                        false,
+                        entry.Pawn.thingIDNumber,
+                        entry.WorkType.defName,
+                        WorkGiverReassignmentManager.ExactGlobalStateKind.Set,
+                        entry.Desired,
+                        null,
+                        entry.Expected));
+                staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
+                    TimePriorityTarget.ForWorkType(entry.Pawn, entry.WorkType),
+                    WorkTabApplicationDimensions.SpecificOrder |
+                    WorkTabApplicationDimensions.ExecutionOrder));
             }
+
+            IReadOnlyList<WorkTabRuleSchedule> schedules = mutation.Schedules;
+            for (int i = 0; i < schedules.Count; i++)
+            {
+                WorkTabRuleSchedule entry = schedules[i];
+                staged.Schedules.Add(new WorkTabStagedSchedule(
+                    entry.Expected,
+                    entry.Desired));
+                staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
+                    entry.Target,
+                    WorkTabApplicationDimensions.Schedule));
+            }
+            return staged;
         }
 
         private static bool TryApplyRequiredPriorityMaximum(
@@ -880,42 +816,7 @@ namespace Better_Work_Tab.Features.Application
             return true;
         }
 
-        private static WorkTabApplicationDimensions DimensionsFor(
-            WorkTabAtomicMutationPlan mutation,
-            bool changed)
-        {
-            if (!changed || mutation == null) return WorkTabApplicationDimensions.None;
-            WorkTabApplicationDimensions dimensions = WorkTabApplicationDimensions.None;
-            if (mutation.RequiresManualPriorities || mutation.ManualPrioritiesTarget.HasValue ||
-                mutation.RequiredPriorityMaximum.HasValue ||
-                mutation.ParentPriorities.Count > 0)
-                dimensions |= WorkTabApplicationDimensions.ParentPriority;
-            if (mutation.SpecificPriorities.Count > 0)
-                dimensions |= WorkTabApplicationDimensions.SpecificPriority;
-            if (mutation.SpecificOrders.Count > 0)
-                dimensions |= WorkTabApplicationDimensions.SpecificOrder |
-                    WorkTabApplicationDimensions.ExecutionOrder;
-            if (mutation.Schedules.Count > 0)
-                dimensions |= WorkTabApplicationDimensions.Schedule;
-            return dimensions;
-        }
-
-        private static List<TimePriorityTarget> TargetsFor(WorkTabAtomicMutationPlan mutation)
-        {
-            var targets = new List<TimePriorityTarget>();
-            if (mutation == null) return targets;
-            foreach (WorkTabRuleParentPriority entry in mutation.ParentPriorities)
-                targets.Add(TimePriorityTarget.ForWorkType(entry.Pawn, entry.WorkType));
-            foreach (WorkTabRuleSpecificPriority entry in mutation.SpecificPriorities)
-                targets.Add(TimePriorityTarget.ForWorkGiver(entry.Pawn, entry.WorkGiver));
-            foreach (WorkTabRuleSpecificOrder entry in mutation.SpecificOrders)
-                targets.Add(TimePriorityTarget.ForWorkType(entry.Pawn, entry.WorkType));
-            foreach (WorkTabRuleSchedule entry in mutation.Schedules)
-                targets.Add(entry.Target);
-            return targets;
-        }
-
-        private readonly struct PriorityConfigurationSnapshot
+        internal readonly struct PriorityConfigurationSnapshot
         {
             internal PriorityConfigurationSnapshot(BetterWorkTabSettings settings)
             {
@@ -948,6 +849,17 @@ namespace Better_Work_Tab.Features.Application
                     Settings.enableExtendedPriorities == Extended &&
                     Settings.delegateToExternalPriorityMods == Delegated &&
                     StringComparer.Ordinal.Equals(Settings.selectedPriorityProviderId, ProviderId);
+            }
+
+            internal bool MatchesCurrent()
+            {
+                return Settings != null && Settings.maxPriorityInt == Maximum &&
+                    Settings.priorityMode == Mode &&
+                    Settings.enableExtendedPriorities == Extended &&
+                    Settings.delegateToExternalPriorityMods == Delegated &&
+                    StringComparer.Ordinal.Equals(
+                        Settings.selectedPriorityProviderId,
+                        ProviderId);
             }
         }
 
@@ -1092,9 +1004,9 @@ namespace Better_Work_Tab.Features.Application
             bool applyToWorkTable,
             bool clearResetPresentation)
         {
-            GameComponent_BWTWorldSettings component =
-                _game?.GetComponent<GameComponent_BWTWorldSettings>();
-            if (component == null || component.ColumnOrderGeneration != expectedGeneration)
+            IWorkTabColumnOrderState columnOrder =
+                WorkTabGameRoots.For(_game)?.State?.ColumnOrder;
+            if (columnOrder == null || columnOrder.Generation != expectedGeneration)
             {
                 return Reject("The work-column order changed before this command was applied.");
             }
@@ -1127,10 +1039,14 @@ namespace Better_Work_Tab.Features.Application
                     return Result(WorkTabApplicationOutcome.Applied, change);
                 }
 
-                WorkTabInvalidationHub.Invalidate(
-                    WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
-                MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-                return Result(WorkTabApplicationOutcome.Applied);
+                WorkTabApplicationChange presentationChange = Publish(
+                    default,
+                    WorkTabApplicationDimensions.ColumnPresentation,
+                    true,
+                    false,
+                    mirrorExternal: false,
+                    notifyPawnTables: true);
+                return Result(WorkTabApplicationOutcome.Applied, presentationChange);
             }
             finally
             {
@@ -1347,9 +1263,40 @@ namespace Better_Work_Tab.Features.Application
                                 out int observed) ||
                             observed != defaultParentPriority)
                         {
+                            bool restored = true;
                             if (specificRollback != null)
-                                scope.TryRestoreSpecificJobs(specificRollback, out _);
-                            return Reject("The parent priority changed before it could be enabled.");
+                                restored = scope.TryRestoreSpecificJobs(specificRollback, out _);
+                            const string failure =
+                                "The parent priority changed before it could be enabled.";
+                            if (specificRollback == null)
+                            {
+                                return Reject(failure);
+                            }
+                            if (restored)
+                            {
+                                return Result(
+                                    WorkTabApplicationOutcome.FailedRolledBack,
+                                    reason: failure);
+                            }
+
+                            WorkTabMutationCommit recoveryCommit = scope.Complete();
+                            WorkTabApplicationDimensions recoveryDimensions =
+                                recoveryCommit.SpecificJobsChanged
+                                    ? WorkTabApplicationDimensions.SpecificPriority
+                                    : WorkTabApplicationDimensions.None;
+                            WorkTabApplicationChange recoveryChange =
+                                recoveryDimensions == WorkTabApplicationDimensions.None
+                                    ? default
+                                    : Publish(
+                                        TimePriorityTarget.ForWorkGiver(pawn, workGiver),
+                                        recoveryDimensions,
+                                        true,
+                                        true,
+                                        affectedTargets);
+                            return Result(
+                                WorkTabApplicationOutcome.RecoveryRequired,
+                                recoveryChange,
+                                failure);
                         }
 
                         parentChanged = true;
@@ -1644,8 +1591,11 @@ namespace Better_Work_Tab.Features.Application
                     (schedulesChanged ? WorkTabApplicationDimensions.Schedule : WorkTabApplicationDimensions.None);
                 TimePriorityTarget target = TimePriorityTarget.ForWorkGiver(null, workGiver);
                 WorkTabApplicationChange change = Publish(
-                    target, dimensions, true, true, mirrorExternal: false);
-                TimePriorityService.NotifyExternalMirror(target, broadScope: false, scheduleOnly: false);
+                    target,
+                    dimensions,
+                    true,
+                    true,
+                    forceExternalMirror: true);
                 return Result(WorkTabApplicationOutcome.Applied, change);
             }
             finally { Exit(); }
@@ -1736,9 +1686,13 @@ namespace Better_Work_Tab.Features.Application
                     if (!applied)
                     {
                         reason = reason ?? "The priority baseline changed; the hourly schedule was restored.";
-                        if (!scheduleChanged || scope.TryRestoreSchedule(
-                                request.Schedule, null, synchronizedReplay, null, 0, 0, out _))
+                        if (!scheduleChanged)
                             return Reject(reason);
+                        if (scope.TryRestoreSchedule(
+                                request.Schedule, null, synchronizedReplay, null, 0, 0, out _))
+                            return Result(
+                                WorkTabApplicationOutcome.FailedRolledBack,
+                                reason: reason);
                     }
 
                     WorkTabMutationCommit commit = scope.Complete(
@@ -1756,7 +1710,10 @@ namespace Better_Work_Tab.Features.Application
                     if (!applied && resultChange.IsEmpty)
                         return Reject(reason);
                     if (!applied)
-                        return Result(WorkTabApplicationOutcome.Partial, resultChange, reason);
+                        return Result(
+                            WorkTabApplicationOutcome.RecoveryRequired,
+                            resultChange,
+                            reason);
                     if (resultChange.IsEmpty)
                         return Result(WorkTabApplicationOutcome.NoOp);
                     return Result(outcome == PriorityMutationOutcome.AppliedAfterAuthorityChange
@@ -1918,69 +1875,151 @@ namespace Better_Work_Tab.Features.Application
             bool broad,
             bool durable,
             IEnumerable<TimePriorityTarget> affectedTargets = null,
-            bool mirrorExternal = true)
+            bool mirrorExternal = true,
+            IEnumerable<WorkTabApplicationTargetChange> affectedTargetChanges = null,
+            bool forceExternalMirror = false,
+            bool? notifyPawnTables = null)
         {
-            if (durable) _revision = unchecked(_revision + 1);
-            WorkTabDirtyFlags flags = WorkTabDirtyFlags.None;
-            if ((dimensions & WorkTabApplicationDimensions.Schedule) != 0)
-                flags |= WorkTabDirtyFlags.Priority | WorkTabDirtyFlags.ScheduleHour | WorkTabDirtyFlags.Presentation;
-            if ((dimensions & WorkTabApplicationDimensions.ParentPriority) != 0)
-                flags |= WorkTabDirtyFlags.Priority | WorkTabDirtyFlags.Presentation;
-            if ((dimensions & WorkTabApplicationDimensions.SpecificPriority) != 0)
-                flags |= WorkTabDirtyFlags.Priority | WorkTabDirtyFlags.Presentation |
-                    WorkTabDirtyFlags.SubWorkOverride |
-                    WorkTabDirtyFlags.Columns |
-                    WorkTabDirtyFlags.HeaderGeometry;
-            if ((dimensions & WorkTabApplicationDimensions.SpecificOrder) != 0)
-                flags |= WorkTabDirtyFlags.SubWorkOverride |
-                    WorkTabDirtyFlags.Columns |
-                    WorkTabDirtyFlags.HeaderGeometry;
-            if ((dimensions & WorkTabApplicationDimensions.ExecutionOrder) != 0)
-                flags |= WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry;
-            if ((dimensions & WorkTabApplicationDimensions.Presentation) != 0)
-                flags |= WorkTabDirtyFlags.Presentation |
-                    WorkTabDirtyFlags.HeaderText |
-                    WorkTabDirtyFlags.HeaderGeometry |
-                    WorkTabDirtyFlags.RenderResources |
-                    WorkTabDirtyFlags.SettingsThemeLanguageScale;
-            WorkTabInvalidationHub.Invalidate(flags);
-            if ((dimensions & WorkTabApplicationDimensions.ExecutionOrder) != 0 &&
-                PawnOrganizerSystem.Instance?.Layout is WorkTabLayoutController layout)
+            WorkTabRevisionVector beforeRevision = CaptureRevisionVector();
+            if (durable)
             {
-                layout.InvalidateRowDescriptors();
+                _revision = unchecked(_revision + 1);
             }
+            WorkTabRevisionVector afterRevision = CaptureRevisionVector();
+            IEnumerable<WorkTabApplicationTargetChange> targets = affectedTargetChanges ??
+                BuildTargetChanges(target, dimensions, affectedTargets);
+            WorkTabApplicationEffects effects = EffectsFor(
+                dimensions,
+                broad,
+                durable,
+                notifyPawnTables ?? durable,
+                mirrorExternal && durable,
+                forceExternalMirror);
+            return _publisher.Publish(
+                target,
+                dimensions,
+                broad,
+                effects,
+                beforeRevision,
+                afterRevision,
+                targets);
+        }
+
+        private static WorkTabApplicationEffects EffectsFor(
+            WorkTabApplicationDimensions dimensions,
+            bool broad,
+            bool durable,
+            bool notifyPawnTables,
+            bool mirrorExternal,
+            bool forceExternalMirror)
+        {
+            WorkTabApplicationEffects effects = WorkTabApplicationEffects.None;
+            if (durable)
+                effects |= WorkTabApplicationEffects.Persistence;
+            if ((dimensions & (WorkTabApplicationDimensions.Schedule |
+                               WorkTabApplicationDimensions.ParentPriority |
+                               WorkTabApplicationDimensions.SpecificPriority)) != 0)
+                effects |= WorkTabApplicationEffects.PriorityInvalidation |
+                    WorkTabApplicationEffects.PresentationInvalidation;
+            if ((dimensions & WorkTabApplicationDimensions.Schedule) != 0)
+                effects |= WorkTabApplicationEffects.ScheduleHourInvalidation;
+            if ((dimensions & (WorkTabApplicationDimensions.SpecificPriority |
+                               WorkTabApplicationDimensions.SpecificOrder)) != 0)
+                effects |= WorkTabApplicationEffects.SubWorkInvalidation |
+                    WorkTabApplicationEffects.ColumnLayoutInvalidation |
+                    WorkTabApplicationEffects.HeaderGeometryInvalidation;
+            if ((dimensions & WorkTabApplicationDimensions.ExecutionOrder) != 0)
+                effects |= WorkTabApplicationEffects.ColumnLayoutInvalidation |
+                    WorkTabApplicationEffects.HeaderGeometryInvalidation |
+                    WorkTabApplicationEffects.RowDescriptorRecache;
+            if ((dimensions & WorkTabApplicationDimensions.Presentation) != 0)
+                effects |= WorkTabApplicationEffects.PresentationInvalidation |
+                    WorkTabApplicationEffects.HeaderTextInvalidation |
+                    WorkTabApplicationEffects.HeaderGeometryInvalidation |
+                    WorkTabApplicationEffects.RenderResourceInvalidation |
+                    WorkTabApplicationEffects.ThemeSettingsInvalidation;
+            if ((dimensions & WorkTabApplicationDimensions.ColumnPresentation) != 0)
+                effects |= WorkTabApplicationEffects.ColumnLayoutInvalidation |
+                    WorkTabApplicationEffects.HeaderGeometryInvalidation;
             if ((dimensions & (WorkTabApplicationDimensions.Schedule |
                                WorkTabApplicationDimensions.ParentPriority |
                                WorkTabApplicationDimensions.SpecificPriority |
                                WorkTabApplicationDimensions.SpecificOrder |
                                WorkTabApplicationDimensions.ExecutionOrder)) != 0)
+                effects |= WorkTabApplicationEffects.ExecutionRecache;
+            if (notifyPawnTables)
+                effects |= WorkTabApplicationEffects.PawnTableRecache;
+            if (mirrorExternal &&
+                (forceExternalMirror ||
+                 (dimensions & (WorkTabApplicationDimensions.Schedule |
+                                WorkTabApplicationDimensions.ParentPriority |
+                                WorkTabApplicationDimensions.SpecificPriority)) != 0))
+                effects |= WorkTabApplicationEffects.ExternalMirror;
+            if (!broad && dimensions == WorkTabApplicationDimensions.ParentPriority)
+                effects |= WorkTabApplicationEffects.SparseParentPriorityInvalidation;
+            return effects;
+        }
+
+        private WorkTabRevisionVector CaptureRevisionVector() =>
+            new WorkTabRevisionVector(
+                Revision,
+                PriorityAuthorityBroker.GetObservationalAuthorityRevision(),
+                TimePriorityService.CurrentVersion,
+                WorkGiverReassignmentManager.CurrentSyncVersion,
+                BWTWorkloadSettingsOwnershipPolicy.GlobalSettingsRevision);
+
+        private static IEnumerable<WorkTabApplicationTargetChange> BuildTargetChanges(
+            TimePriorityTarget primaryTarget,
+            WorkTabApplicationDimensions dimensions,
+            IEnumerable<TimePriorityTarget> affectedTargets)
+        {
+            if (affectedTargets != null)
             {
-                WorkExecutionOrder.MarkAllPawnsWorkGiversDirty();
-            }
-            if (durable) MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-            bool publishesPriorityOrSchedule =
-                (dimensions & (WorkTabApplicationDimensions.Schedule |
-                               WorkTabApplicationDimensions.ParentPriority |
-                               WorkTabApplicationDimensions.SpecificPriority)) != 0;
-            bool scheduleOnly =
-                dimensions == WorkTabApplicationDimensions.Schedule;
-            if (durable && mirrorExternal && publishesPriorityOrSchedule && affectedTargets == null)
-            {
-                TimePriorityService.NotifyExternalMirror(target, broad, scheduleOnly);
-            }
-            else if (durable && mirrorExternal && publishesPriorityOrSchedule)
-            {
-                var mirrored = new HashSet<TimePriorityCacheKey>();
+                var changes = new List<WorkTabApplicationTargetChange>();
                 foreach (TimePriorityTarget affectedTarget in affectedTargets)
                 {
-                    if (mirrored.Add(affectedTarget.CacheKey))
-                        TimePriorityService.NotifyExternalMirror(
+                    WorkTabApplicationDimensions targetDimensions =
+                        DimensionsForTarget(affectedTarget, dimensions);
+                    if (targetDimensions != WorkTabApplicationDimensions.None)
+                    {
+                        changes.Add(new WorkTabApplicationTargetChange(
                             affectedTarget,
-                            false,
-                            scheduleOnly);
+                            targetDimensions));
+                    }
                 }
+                return changes;
             }
-            return new WorkTabApplicationChange(target, dimensions, broad);
+
+            WorkTabApplicationDimensions primaryDimensions =
+                DimensionsForTarget(primaryTarget, dimensions);
+            return primaryDimensions == WorkTabApplicationDimensions.None
+                ? new WorkTabApplicationTargetChange[0]
+                : new[]
+                {
+                    new WorkTabApplicationTargetChange(
+                        primaryTarget,
+                        primaryDimensions)
+                };
+        }
+
+        private static WorkTabApplicationDimensions DimensionsForTarget(
+            TimePriorityTarget target,
+            WorkTabApplicationDimensions dimensions)
+        {
+            if (string.IsNullOrEmpty(target.TargetDefName))
+            {
+                return WorkTabApplicationDimensions.None;
+            }
+
+            const WorkTabApplicationDimensions shared =
+                WorkTabApplicationDimensions.Schedule |
+                WorkTabApplicationDimensions.SpecificOrder |
+                WorkTabApplicationDimensions.ExecutionOrder;
+            return target.Kind == TimePriorityTargetKind.WorkType
+                ? dimensions & (shared | WorkTabApplicationDimensions.ParentPriority)
+                : target.Kind == TimePriorityTargetKind.WorkGiver
+                    ? dimensions & (shared | WorkTabApplicationDimensions.SpecificPriority)
+                    : WorkTabApplicationDimensions.None;
         }
 
         private bool Enter() => IsCurrent && !_applying && (_applying = true);
@@ -1988,7 +2027,7 @@ namespace Better_Work_Tab.Features.Application
         private bool IsCurrent => ReferenceEquals(_game, Verse.Current.Game) && _scheduleRuntime != null;
         private WorkTabApplicationResult Result(WorkTabApplicationOutcome outcome,
             WorkTabApplicationChange change = default, string reason = null) =>
-            new WorkTabApplicationResult(outcome, reason, change, Revision);
+            new WorkTabApplicationResult(outcome, reason, change, RevisionVector);
         private static WorkTabApplicationResult Reject(string reason) =>
             WorkTabApplicationResult.Rejected(reason, Current?.Revision ?? default);
         [SyncMethod]

@@ -134,7 +134,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 {
                     WorkTabEffectiveStateRuntime.ClearPreviewCacheResidue();
                 }
-                WorkTabEffectiveStateRuntime.InvalidateRenderPass();
             }
 
             private void RestoreNearestLiveParent()

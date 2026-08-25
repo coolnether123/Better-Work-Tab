@@ -7,6 +7,7 @@ using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.PawnOrganizer;
@@ -61,6 +62,7 @@ namespace Better_Work_Tab.UI
         private readonly WorkTabWindowSessionState _windowSession;
         private readonly WorkTabWindowSizingController _windowSizingController;
         private readonly WorkloadPreviewController _workloadPreviewController;
+        private WorkTabApplication _application;
 
         public MainTabWindow_BetterWork()
         {
@@ -84,19 +86,23 @@ namespace Better_Work_Tab.UI
             WorkGridDrawingSurface drawingSurface = new WorkGridDrawingSurface(
                 _viewportController,
                 _bodyRenderer,
-                new WorkTabHeaderRenderer());
+                new WorkTabHeaderRenderer(() => _application));
             _workGridRenderer = new WorkGridRendererFacade(
                 drawingSurface,
                 () => BetterWorkTabMod.Settings?.workGridRendererMode ?? DefaultSettings.workGridRendererMode);
             _workGridRenderer.Register(new OptimizedWorkGridRenderer(drawingSurface));
             _tutorialInteractionController = new WorkTabTutorialInteractionController(_bodyRenderer);
-            _priorityInputHandler = new WorkTabPriorityInputHandler(_bodyRenderer);
+            _priorityInputHandler = new WorkTabPriorityInputHandler(
+                _bodyRenderer,
+                () => _application);
             _ruleBuilder2InteractionController = new RuleBuilder2WorkTabInteractionController(_bodyRenderer);
             _contextSettingsInteractionController = new WorkTabContextSettingsInteractionController();
             _subWorkInteractionController = new SubWorkInteractionController(
                 _bodyRenderer,
                 _priorityInputHandler);
-            _workTabChrome = new WorkTabChrome(_subWorkInteractionController);
+            _workTabChrome = new WorkTabChrome(
+                _subWorkInteractionController,
+                () => _application);
             _contextActionController = new WorkGridContextActionController(
                 _bodyRenderer,
                 () => SetDirty(),
@@ -140,6 +146,8 @@ namespace Better_Work_Tab.UI
         public override void PreOpen()
         {
             base.PreOpen();
+            _application = WorkTabGameRoots.For(Current.Game)?.Application;
+            BWTWorkloadSettingsOwnershipPolicy.BindApplication(_application);
             var settings = BetterWorkTabMod.Settings;
             bool keepOpen = settings?.disableLeftClickClose ?? false;
             bool allowMapClose = settings?.closeOnMapClick ?? true;
@@ -158,7 +166,7 @@ namespace Better_Work_Tab.UI
             // Auto-enable manual priorities if setting is enabled
             if (settings?.autoEnableManualPriorities ?? false)
             {
-                WorkTabApplication.Current?.SetManualPriorityMode(true);
+                _application?.SetManualPriorityMode(true);
             }
 
             // Sub-work is the one thing here a player cannot find by looking:
@@ -510,13 +518,30 @@ namespace Better_Work_Tab.UI
                     0x42575453);
             }
 
-            WorkTabEffectiveStateRevision effectiveRevision = WorkTabEffectiveStateRuntime.BeginRenderPass();
-            IWorkTabEffectiveStateProvider effectiveState =
-                WorkTabEffectiveStateRuntime.CaptureCurrentView(effectiveRevision);
+            WorkTabEffectiveStateRevision effectiveRevision;
+            IWorkTabEffectiveStateProvider effectiveState;
+            if (SpineTiming.Enabled)
+            {
+                effectiveRevision = SpineTiming.Time(
+                    "WorkTab.EffectiveState.BeginPass",
+                    WorkTabEffectiveStateRuntime.BeginRenderPass);
+                effectiveState = SpineTiming.Time(
+                    "WorkTab.EffectiveState.CaptureView",
+                    () => WorkTabEffectiveStateRuntime.CaptureCurrentView(effectiveRevision));
+            }
+            else
+            {
+                effectiveRevision = WorkTabEffectiveStateRuntime.BeginRenderPass();
+                effectiveState = WorkTabEffectiveStateRuntime.CaptureCurrentView(effectiveRevision);
+            }
             IWorkGridPreviewPort preview = WorkTabEffectiveStateScope.CurrentPreview;
             if (preview is IWorkGridPreviewViewSource previewViewSource)
             {
-                preview = previewViewSource.CapturePreviewView();
+                preview = SpineTiming.Enabled
+                    ? SpineTiming.Time(
+                        "WorkTab.WorkloadPreview.CaptureView",
+                        previewViewSource.CapturePreviewView)
+                    : previewViewSource.CapturePreviewView();
             }
             return new WorkTabView(
                 ImGuiEventPhases.Classify(evt.type),
@@ -547,12 +572,60 @@ namespace Better_Work_Tab.UI
             PawnOrganizerSystem organizer,
             Event evt)
         {
+            if (SpineTiming.Enabled)
+            {
+                WorkTabView capturedView = view;
+                SpineTiming.Time(
+                    "WorkTab.DrawOverlaysAndChrome",
+                    () => DrawFrameOverlaysAndChromeCore(in capturedView, organizer, evt));
+                return;
+            }
+
+            DrawFrameOverlaysAndChromeCore(in view, organizer, evt);
+        }
+
+        private void DrawFrameOverlaysAndChromeCore(
+            in WorkTabView view,
+            PawnOrganizerSystem organizer,
+            Event evt)
+        {
+            WorkTabView profiledView = view;
             if (!_workloadPreviewController.IsUnsafePreviewInputBlocked)
             {
-                TimePriorityScheduleEditor.Draw(view.Layout);
-                FluffyTimeScheduleAssigner.Draw(view.WindowRect, view.Layout, view.ExtraBottomSpace);
+                if (SpineTiming.Enabled)
+                {
+                    SpineTiming.Time(
+                        "WorkTab.DrawTimePrioritySchedule",
+                        () => TimePriorityScheduleEditor.Draw(profiledView.Layout));
+                    SpineTiming.Time(
+                        "WorkTab.DrawFluffyTimeSchedule",
+                        () => FluffyTimeScheduleAssigner.Draw(
+                            profiledView.WindowRect,
+                            profiledView.Layout,
+                            profiledView.ExtraBottomSpace));
+                }
+                else
+                {
+                    TimePriorityScheduleEditor.Draw(view.Layout);
+                    FluffyTimeScheduleAssigner.Draw(
+                        view.WindowRect,
+                        view.Layout,
+                        view.ExtraBottomSpace);
+                }
             }
-            _subWorkStyleChooserPresenter.Draw(view.Layout, windowRect, view.WindowRect);
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time(
+                    "WorkTab.DrawSubWorkStyleChooser",
+                    () => _subWorkStyleChooserPresenter.Draw(
+                        profiledView.Layout,
+                        windowRect,
+                        profiledView.WindowRect));
+            }
+            else
+            {
+                _subWorkStyleChooserPresenter.Draw(view.Layout, windowRect, view.WindowRect);
+            }
 
             if (SpineTiming.Enabled)
             {
@@ -563,11 +636,38 @@ namespace Better_Work_Tab.UI
                 organizer?.DrawDragOverlays();
             }
 
-            _workTabChrome.DrawTopControls(view.Layout, view.WindowRect);
-            _workTabChrome.DrawBottomControls(in view);
-            _workTabChrome.DrawSubWorkExitButton(view.WindowRect);
-            _workTabChrome.DrawBottomCounters(view.WindowRect, view.Table);
-            BWTWorkTabTutorial.TickAndDraw(view.WindowRect, view.Layout);
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time(
+                    "WorkTab.DrawChrome.Top",
+                    () => _workTabChrome.DrawTopControls(
+                        profiledView.Layout,
+                        profiledView.WindowRect));
+                SpineTiming.Time(
+                    "WorkTab.DrawChrome.Bottom",
+                    () => _workTabChrome.DrawBottomControls(in profiledView));
+                SpineTiming.Time(
+                    "WorkTab.DrawChrome.SubWorkExit",
+                    () => _workTabChrome.DrawSubWorkExitButton(profiledView.WindowRect));
+                SpineTiming.Time(
+                    "WorkTab.DrawChrome.Counters",
+                    () => _workTabChrome.DrawBottomCounters(
+                        profiledView.WindowRect,
+                        profiledView.Table));
+                SpineTiming.Time(
+                    "WorkTab.DrawTutorial",
+                    () => BWTWorkTabTutorial.TickAndDraw(
+                        profiledView.WindowRect,
+                        profiledView.Layout));
+            }
+            else
+            {
+                _workTabChrome.DrawTopControls(view.Layout, view.WindowRect);
+                _workTabChrome.DrawBottomControls(in view);
+                _workTabChrome.DrawSubWorkExitButton(view.WindowRect);
+                _workTabChrome.DrawBottomCounters(view.WindowRect, view.Table);
+                BWTWorkTabTutorial.TickAndDraw(view.WindowRect, view.Layout);
+            }
             // Serviced after the tutorial has drawn, so the harness resolves
             // targets against the geometry the player is actually looking at.
             if (BWTWorkTabTutorial.OwnsCurrentPointer && evt.type == EventType.Repaint)
@@ -575,9 +675,20 @@ namespace Better_Work_Tab.UI
                 Vector2 pointer = evt.mousePosition;
                 TooltipHandler.ClearTooltipsFrom(new Rect(pointer.x - 1f, pointer.y - 1f, 2f, 2f));
             }
-            HeaderButtons.DrawWorkloadFooterPopoverOnTop(
-                view.WindowRect,
-                WorkTabChromeGeometry.GetInfoIconRect(view.WindowRect));
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time(
+                    "WorkTab.DrawWorkloadFooterPopover",
+                    () => HeaderButtons.DrawWorkloadFooterPopoverOnTop(
+                        profiledView.WindowRect,
+                        WorkTabChromeGeometry.GetInfoIconRect(profiledView.WindowRect)));
+            }
+            else
+            {
+                HeaderButtons.DrawWorkloadFooterPopoverOnTop(
+                    view.WindowRect,
+                    WorkTabChromeGeometry.GetInfoIconRect(view.WindowRect));
+            }
             NativeCursorPosition.ProcessPendingMove();
             NativeCursorPosition.DrawPendingMoveCue();
         }
@@ -705,9 +816,7 @@ namespace Better_Work_Tab.UI
                 Verse.UI.screenHeight,
                 PawnOrganizerSystem.Instance?.Layout?.LayoutRevision ?? -1);
             WorkTabUsageState.NotifyOpen(true);
-            BWT20UpgradePrompt.ShowIfNeeded(
-                BetterWorkTabMod.Settings,
-                Current.Game?.GetComponent<GameComponent_BWTWorldSettings>());
+            BWT20UpgradePrompt.ShowIfNeeded(BetterWorkTabMod.Settings);
         }
 
         public override void WindowOnGUI()
@@ -754,6 +863,7 @@ namespace Better_Work_Tab.UI
         public override void PostClose()
         {
             base.PostClose();
+            BWTWorkloadSettingsOwnershipPolicy.BindApplication(null);
             BWTWorkTabTutorial.NotifyWorkTabClosed();
             // Clear float menu highlights when Work tab is closed
             HighlightState.ClearWorktypeHighlight();

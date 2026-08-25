@@ -30,6 +30,7 @@
     <!-- This project links only pure model/projection/protocol contracts. It
          is deliberately outside Source and is never included by the shipping
          Better Work Tab project or package manifests. -->
+    <Compile Include="..\..\Source\Foundation\Canonicalization\DeterministicCanonical.cs" Link="Production\DeterministicCanonical.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadCanonical.cs" Link="Production\WorkloadCanonical.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadKeys.cs" Link="Production\WorkloadKeys.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadDefinition.cs" Link="Production\WorkloadDefinition.cs" />
@@ -44,19 +45,20 @@
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadBackendContracts.cs" Link="Production\WorkloadBackendContracts.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadPresentationSettingsTransaction.cs" Link="Production\WorkloadPresentationSettingsTransaction.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadV2Persistence.cs" Link="Production\WorkloadV2Persistence.cs" />
+    <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadV2DescriptorCatalog.cs" Link="Production\WorkloadV2DescriptorCatalog.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadV2RecordConverter.cs" Link="Production\WorkloadV2RecordConverter.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadLiveCapturePolicy.cs" Link="Production\WorkloadLiveCapturePolicy.cs" />
     <Compile Include="..\..\Source\Features\TimePriority\TimePriorityScheduleValue.cs" Link="Production\TimePriorityScheduleValue.cs" />
     <Compile Include="..\..\Source\Features\Application\WorkTabScheduleRevisionReceipt.cs" Link="Production\WorkTabScheduleRevisionReceipt.cs" />
-    <Compile Include="..\..\Source\Features\Application\WorkTabMutationAuthorization.cs" Link="Production\WorkTabMutationAuthorization.cs" />
+    <Compile Include="..\..\Source\Foundation\Transactions\WorkTabMutationLease.cs" Link="Production\WorkTabMutationLease.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadMutationAuthorization.cs" Link="Production\WorkloadMutationAuthorization.cs" />
     <Compile Include="..\..\Source\Features\RaisedPriorityMaximum\PriorityConstants.cs" Link="Production\PriorityConstants.cs" />
     <Compile Include="..\..\Source\Features\RaisedPriorityMaximum\PriorityCycleMath.cs" Link="Production\PriorityCycleMath.cs" />
     <Compile Include="..\..\Source\Features\RaisedPriorityMaximum\ParentPriorityReadPolicy.cs" Link="Production\ParentPriorityReadPolicy.cs" />
     <Compile Include="..\..\Source\UI\WorkGrid\Projection\WorkTabEffectiveStateContracts.cs" Link="Production\WorkTabEffectiveStateContracts.cs" />
     <Compile Include="..\..\Source\UI\Workloads\Projection\WorkloadProjectionContracts.cs" Link="Production\WorkloadProjectionContracts.cs" />
-    <Compile Include="..\..\Source\UI\WorkGrid\Projection\LiveWorkTabEffectiveStateProvider.cs" Link="Production\LiveWorkTabEffectiveStateProvider.cs" />
-    <Compile Include="..\..\Source\UI\WorkGrid\Projection\ProjectedWorkTabEffectiveStateProvider.cs" Link="Production\ProjectedWorkTabEffectiveStateProvider.cs" />
+    <Compile Include="..\..\Source\UI\Workloads\Projection\LiveWorkTabEffectiveStateProvider.cs" Link="Production\LiveWorkTabEffectiveStateProvider.cs" />
+    <Compile Include="..\..\Source\UI\Workloads\Projection\ProjectedWorkTabEffectiveStateProvider.cs" Link="Production\ProjectedWorkTabEffectiveStateProvider.cs" />
     <Compile Include="..\..\Source\UI\Settings\WorkTabPresentationPreviewPort.cs" Link="Production\WorkTabPresentationPreviewPort.cs" />
     <!-- The synchronized transaction protocol is linked directly. Multiplayer
          API types are supplied only by the test stub below. -->
@@ -77,6 +79,13 @@
     <Compile Include="PersistenceReceiptRecoveryTests.cs" />
     <Compile Include="InspectionSemanticsTests.cs" />
     <Compile Include="PersistenceTests.cs" />
+    <Compile Include="WorkloadReadCatalogPerformanceTests.cs" />
+    <Compile Include="WorkloadPawnRosterRevisionContractTests.cs" />
+    <Compile Include="WorkExecutionSpawnPerformanceContractTests.cs" />
+    <Compile Include="WorkGridRetainedSparseAuditPerformanceContractTests.cs" />
+    <Compile Include="DependencyDirectionContractTests.cs" />
+    <Compile Include="LegacyWorldComponentDependencyContractTests.cs" />
+    <Compile Include="ApplicationPublicationContractTests.cs" />
     <Compile Include="ReassignmentCleanupTests.cs" />
     <Compile Include="MpProtocolTests.cs" />
     <Compile Include="GatewayMultiplayerTests.cs" />

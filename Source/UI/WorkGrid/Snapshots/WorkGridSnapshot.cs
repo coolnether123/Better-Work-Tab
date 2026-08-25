@@ -84,7 +84,33 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             string workTypeName,
             string workGiverName,
             string workerClass,
-            WorkGridColumnWorkerKind workerKind)
+            WorkGridColumnWorkerKind workerKind,
+            bool isExpandBesideChild = false)
+            : this(
+                columnIndex,
+                workTypeId,
+                workGiverId,
+                workTypeName,
+                workGiverName,
+                workerClass,
+                workerKind,
+                isExpandBesideChild,
+                null,
+                null)
+        {
+        }
+
+        internal WorkGridColumnEntry(
+            ushort columnIndex,
+            ushort workTypeId,
+            ushort workGiverId,
+            string workTypeName,
+            string workGiverName,
+            string workerClass,
+            WorkGridColumnWorkerKind workerKind,
+            bool isExpandBesideChild,
+            WorkTypeDef workType,
+            WorkGiver subWorkGiver)
         {
             ColumnIndex = columnIndex;
             WorkTypeId = workTypeId;
@@ -93,6 +119,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             WorkGiverName = workGiverName ?? string.Empty;
             WorkerClass = workerClass ?? string.Empty;
             WorkerKind = workerKind;
+            IsExpandBesideChild = isExpandBesideChild;
+            WorkType = workType;
+            SubWorkGiver = subWorkGiver;
         }
 
         public ushort ColumnIndex { get; }
@@ -102,6 +131,35 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         public string WorkGiverName { get; }
         public string WorkerClass { get; }
         public WorkGridColumnWorkerKind WorkerKind { get; }
+        public bool IsExpandBesideChild { get; }
+        internal WorkTypeDef WorkType { get; }
+        internal WorkGiver SubWorkGiver { get; }
+    }
+
+    internal readonly struct WorkBoxVisualState
+    {
+        internal WorkBoxVisualState(
+            byte priority,
+            byte skillBand,
+            float skillBlend,
+            byte passion,
+            uint priorityColor,
+            WorkCellVisualFlags flags)
+        {
+            Priority = priority;
+            SkillBand = skillBand;
+            SkillBlend = skillBlend;
+            Passion = passion;
+            PriorityColor = priorityColor;
+            Flags = flags;
+        }
+
+        internal byte Priority { get; }
+        internal byte SkillBand { get; }
+        internal float SkillBlend { get; }
+        internal byte Passion { get; }
+        internal uint PriorityColor { get; }
+        internal WorkCellVisualFlags Flags { get; }
     }
 
     public readonly struct WorkCellVisualState
@@ -154,6 +212,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             presentation = _subWorkPresentation;
             return presentation != null;
         }
+
     }
 
     public sealed class WorkGridSnapshot

@@ -334,6 +334,77 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 true, persist, persisted, true, true, Array.Empty<string>(), string.Empty);
         }
 
+        internal WorkloadPresentationSettingsMutationReceipt TryPersistOwned(
+            WorkloadPresentationSettingsSnapshot snapshot)
+        {
+            if (!ValidateSnapshot(snapshot, out string reason) ||
+                snapshot.RecoveryRequired || !snapshot.HasOwnedValues)
+            {
+                return new WorkloadPresentationSettingsMutationReceipt(
+                    false,
+                    true,
+                    false,
+                    false,
+                    false,
+                    null,
+                    string.IsNullOrEmpty(reason)
+                        ? "The workload presentation writer has no provisional values to persist."
+                        : reason,
+                    snapshot?.RecoveryRequired == true);
+            }
+
+            if (snapshot.OwnedRevision != _store.Revision)
+            {
+                return new WorkloadPresentationSettingsMutationReceipt(
+                    false, true, false, false, false, null,
+                    "Global Better Work Tab settings changed before provisional confirmation.",
+                    recoveryRequired: true);
+            }
+
+            foreach (KeyValuePair<string, WorkloadScalarValue> owned in
+                     snapshot.OwnedValues)
+            {
+                if (!_store.TryRead(owned.Key, out WorkloadScalarValue current) ||
+                    !owned.Value.Equals(current))
+                {
+                    return new WorkloadPresentationSettingsMutationReceipt(
+                        false, true, false, false, false, null,
+                        "A concurrent setting write replaced '" + owned.Key +
+                        "' before provisional confirmation.",
+                        recoveryRequired: true);
+                }
+            }
+
+            using (_store.BeginWriteLease())
+            {
+                try
+                {
+                    if (!_store.TryPersist(out reason))
+                    {
+                        return new WorkloadPresentationSettingsMutationReceipt(
+                            false, true, false, false, false, null,
+                            string.IsNullOrEmpty(reason)
+                                ? "The provisional workload presentation settings could not be persisted."
+                                : reason);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    return new WorkloadPresentationSettingsMutationReceipt(
+                        false, true, false, false, false, null,
+                        "The provisional workload presentation persistence failed: " +
+                        ex.Message);
+                }
+            }
+
+            var changed = new List<string>(snapshot.OwnedValues.Keys);
+            changed.Sort(StringComparer.Ordinal);
+            snapshot.OwnedValues.Clear();
+            snapshot.OwnedRevision = 0L;
+            return new WorkloadPresentationSettingsMutationReceipt(
+                true, true, true, false, false, changed, string.Empty);
+        }
+
         private bool TryPrepare(
             WorkloadPresentationSettingsSnapshot snapshot,
             IReadOnlyDictionary<string, WorkloadScalarValue> values,

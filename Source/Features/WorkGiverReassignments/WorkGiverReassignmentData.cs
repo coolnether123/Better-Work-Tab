@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.Foundation.Canonicalization;
 using Verse;
 
 namespace Better_Work_Tab.Features.WorkGiverReassignments
@@ -108,28 +108,28 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             var builder = new StringBuilder();
             foreach (var entry in WorkGiverToWorkTypeMap.OrderBy(value => value.Key, StringComparer.Ordinal))
             {
-                builder.Append("map:").Append(WorkloadCanonical.Pair(entry.Key, entry.Value)).Append('\n');
+                builder.Append("map:").Append(DeterministicCanonical.Pair(entry.Key, entry.Value)).Append('\n');
             }
 
             foreach (var entry in WorkTypeWorkGiverOrder.OrderBy(value => value.Key, StringComparer.Ordinal))
             {
-                builder.Append("global-order:").Append(WorkloadCanonical.Encode(entry.Key));
+                builder.Append("global-order:").Append(DeterministicCanonical.Encode(entry.Key));
                 AppendNames(builder, entry.Value);
             }
 
             foreach (string name in GlobalWorkTypeOrderClears.OrderBy(value => value, StringComparer.Ordinal))
             {
-                builder.Append("global-order-clear:").Append(WorkloadCanonical.Encode(name)).Append('\n');
+                builder.Append("global-order-clear:").Append(DeterministicCanonical.Encode(name)).Append('\n');
             }
 
             foreach (string name in GlobalWorkGiverPriorityClears.OrderBy(value => value, StringComparer.Ordinal))
             {
-                builder.Append("global-priority-clear:").Append(WorkloadCanonical.Encode(name)).Append('\n');
+                builder.Append("global-priority-clear:").Append(DeterministicCanonical.Encode(name)).Append('\n');
             }
 
             foreach (var entry in PlayerMovedWorkGiversByWorkType.OrderBy(value => value.Key, StringComparer.Ordinal))
             {
-                builder.Append("moved:").Append(WorkloadCanonical.Encode(entry.Key));
+                builder.Append("moved:").Append(DeterministicCanonical.Encode(entry.Key));
                 AppendNames(builder, entry.Value);
             }
 
@@ -138,7 +138,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 builder.Append("priority-pawn:").Append(pawn.Key).Append(':');
                 foreach (var entry in (pawn.Value ?? new Dictionary<string, int>()).OrderBy(value => value.Key, StringComparer.Ordinal))
                 {
-                    builder.Append(WorkloadCanonical.Pair(entry.Key, WorkloadCanonical.Integer(entry.Value))).Append(';');
+                    builder.Append(DeterministicCanonical.Pair(
+                        entry.Key,
+                        DeterministicCanonical.Integer(entry.Value))).Append(';');
                 }
 
                 builder.Append('\n');
@@ -149,12 +151,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 builder.Append("order-pawn:").Append(pawn.Key).Append(':');
                 foreach (var entry in (pawn.Value ?? new Dictionary<string, List<string>>()).OrderBy(value => value.Key, StringComparer.Ordinal))
                 {
-                    builder.Append(WorkloadCanonical.Encode(entry.Key));
+                    builder.Append(DeterministicCanonical.Encode(entry.Key));
                     AppendNames(builder, entry.Value);
                 }
             }
 
-            return WorkloadCanonical.Fingerprint(builder.ToString());
+            return DeterministicCanonical.Fingerprint(builder.ToString());
         }
 
         private static void AppendNames(StringBuilder builder, IEnumerable<string> names)
@@ -162,7 +164,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             builder.Append('[');
             foreach (string name in names ?? Enumerable.Empty<string>())
             {
-                builder.Append(WorkloadCanonical.Encode(name));
+                builder.Append(DeterministicCanonical.Encode(name));
             }
 
             builder.Append("]\n");

@@ -84,6 +84,10 @@
     <Compile Include="Spine\Core\Diagnostics\SpineApi.cs" />
     <Compile Include="Spine\Core\Diagnostics\SpineRuntimeFacade.cs" />
     <Compile Include="Spine\Core\Rendering\RenderPipeline.cs" />
+    <Compile Include="Foundation\Canonicalization\DeterministicCanonical.cs" />
+    <Compile Include="Foundation\GameState\WorkTabGameRoot.cs" />
+    <Compile Include="Foundation\GameState\WorkTabPersistencePorts.cs" />
+    <Compile Include="Foundation\Transactions\WorkTabMutationLease.cs" />
     <Compile Include="BetterWorkTab.cs" />
     <Compile Include="BetterWorkTabLocalState.cs" />
     <Compile Include="Features\Migration\BWT20CohortPolicy.cs" />
@@ -165,6 +169,8 @@
     <Compile Include="Features\WorkExecutionOrder.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentData.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentManager.cs" />
+    <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentMigrationAdapter.cs" />
+    <Compile Include="Features\WorkGiverReassignments\SpecificJobPriorityAuthorityAdapter.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverLayoutHistory.cs" />
     <Compile Include="Features\WorkGiverReassignments\WorkGiverReassignmentPatches.cs" />
     <Compile Include="Features\WorkGiverReassignments\CustomLabelStore.cs" />
@@ -184,6 +190,7 @@
     <Compile Include="Features\Workloads\V2\Runtime\WorkloadBackendContracts.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\WorkloadPresentationSettingsTransaction.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\WorkloadV2Persistence.cs" />
+    <Compile Include="Features\Workloads\V2\Runtime\WorkloadV2DescriptorCatalog.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\WorkloadV2RecordConverter.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\WorkloadLiveCapturePolicy.cs" />
     <Compile Include="Features\Workloads\V2\Runtime\WorkloadRuntimeIds.cs" />
@@ -213,8 +220,11 @@
     <Compile Include="UI\Schedule\ScheduleProjection.cs" />
     <Compile Include="Features\Application\WorkTabActionability.cs" />
     <Compile Include="Features\Application\BoundedUndoRedoHistory.cs" />
+    <Compile Include="Features\Application\WorkTabApplicationChange.cs" />
+    <Compile Include="Features\Application\WorkTabApplicationPublisher.cs" />
+    <Compile Include="Features\Application\WorkTabStagedMutation.cs" />
     <Compile Include="Features\Application\WorkTabApplication.cs" />
-    <Compile Include="Features\Application\WorkTabMutationAuthorization.cs" />
+    <Compile Include="Features\Application\WorkTabRuleSpecificPriority.cs" />
     <Compile Include="Features\Tutorial\BWTConcepts.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialAnchor.cs" />
     <Compile Include="Features\Tutorial\BWTTutorialSelector.cs" />
@@ -381,11 +391,12 @@
     <Compile Include="UI\WorkGrid\Contracts\WorkGridRenderContracts.cs" />
     <Compile Include="UI\WorkGrid\Projection\WorkTabEffectiveStateContracts.cs" />
     <Compile Include="UI\Workloads\Projection\WorkloadProjectionContracts.cs" />
+    <Compile Include="UI\Workloads\Projection\WorkloadProjectionRuntime.cs" />
+    <Compile Include="UI\Workloads\Projection\LiveWorkTabEffectiveStateProvider.cs" />
+    <Compile Include="UI\Workloads\Projection\BwtLiveWorkTabEffectiveStateAdapter.cs" />
+    <Compile Include="UI\Workloads\Projection\ProjectedWorkTabEffectiveStateProvider.cs" />
     <Compile Include="UI\WorkGrid\Projection\WorkTabEffectiveStateScope.cs" />
     <Compile Include="UI\WorkGrid\Projection\WorkTabEffectiveStateRuntime.cs" />
-    <Compile Include="UI\WorkGrid\Projection\LiveWorkTabEffectiveStateProvider.cs" />
-    <Compile Include="UI\WorkGrid\Projection\BwtLiveWorkTabEffectiveStateAdapter.cs" />
-    <Compile Include="UI\WorkGrid\Projection\ProjectedWorkTabEffectiveStateProvider.cs" />
     <Compile Include="UI\WorkGrid\Commands\WorkPriorityCommandGateway.cs" />
     <Compile Include="UI\WorkGrid\Compatibility\WorkGridVanillaCompatibilityPolicy.cs" />
     <Compile Include="UI\WorkGrid\Interaction\WorkGridContextActionController.cs" />
@@ -410,6 +421,8 @@
     <Compile Include="UI\WorkGrid\Rendering\WorkGridDrawingSurface.cs" />
     <Compile Include="UI\WorkGrid\Rendering\VanillaWorkGridRenderer.cs" />
     <Compile Include="UI\WorkGrid\Rendering\OptimizedWorkGridRenderer.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\PreparedWorkBoxRenderer.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\RetainedWorkBoxRowCache.cs" />
     <Compile Include="UI\WorkGrid\Rendering\WorkTabBodyRenderer.cs" />
     <Compile Include="UI\WorkGrid\Rendering\WorkGridInspectionSemantics.cs" />
     <Compile Include="UI\WorkGrid\Rendering\WorkGridRenderPrimitives.cs" />
@@ -483,6 +496,7 @@
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />
     <Compile Include="UI\Workloads\WorkloadGateway.cs" />
+    <Compile Include="UI\Workloads\WorkloadPawnRosterCache.cs" />
     <Compile Include="UI\Workloads\WorkloadParentPriorityProjection.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderGateway.cs" />
     <Compile Include="UI\RuleBuilder\Window_PriorityNumberPicker.cs" />

@@ -1453,11 +1453,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         continue;
                     }
 
-                    // Expand-beside children are owned by BWT. Sending them through the
-                    // vanilla WorkPriority worker only for Harmony to intercept and route
-                    // them back here adds a prefix, global drawing scope, and virtual call
-                    // per cell. Focus-view columns still use the worker because their
-                    // parent/sub-work crossfade is implemented by that patch.
+                    // The optimized layer owns this cell when it has a completed snapshot.
+                    // Reaching this branch means the native live path owns the cell.
                     if (column.IsExpandBesideChild &&
                         SubWorkDrilldownState.TryGetWorkGiverForColumn(
                             column,
@@ -1467,38 +1464,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     {
                         Rect priorityBoxRect =
                             WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect);
-                        if (snapshotLayer is IWorkGridSubWorkPresentationLayer presentationLayer &&
-                            presentationLayer.TryGetSubWorkPresentation(
-                                rowIndex,
-                                columnIndex,
-                                out WorkGiverCellPresentationCache.CellPresentation presentation))
+                        if (expandedParentPriorityWorkType != expandedParentWorkType)
                         {
-                            WorkGiverPriorityBoxRenderer.DrawPreparedPriorityBox(
-                                expandedWorkGiver,
-                                expandedParentWorkType,
+                            expandedParentPriorityWorkType = expandedParentWorkType;
+                            expandedParentPriority = ParentPriorityRead.GetObserved(
                                 pawn,
-                                priorityBoxRect,
-                                presentation);
+                                expandedParentWorkType);
                         }
-                        else
-                        {
-                            if (expandedParentPriorityWorkType != expandedParentWorkType)
-                            {
-                                expandedParentPriorityWorkType = expandedParentWorkType;
-                                expandedParentPriority = ParentPriorityRead.GetObserved(
-                                    pawn,
-                                    expandedParentWorkType);
-                            }
 
-                            // Vanilla/Harmony fallback has no completed BWT
-                            // snapshot layer. Preserve its live renderer path.
-                            WorkGiverPriorityBoxRenderer.DrawPriorityBox(
-                                expandedWorkGiver,
-                                expandedParentWorkType,
-                                pawn,
-                                priorityBoxRect,
-                                knownParentPriority: expandedParentPriority);
-                        }
+                        WorkGiverPriorityBoxRenderer.DrawPriorityBox(
+                            expandedWorkGiver,
+                            expandedParentWorkType,
+                            pawn,
+                            priorityBoxRect,
+                            knownParentPriority: expandedParentPriority);
                         continue;
                     }
 

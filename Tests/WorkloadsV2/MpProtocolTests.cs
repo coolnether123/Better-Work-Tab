@@ -16,6 +16,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PendingIdempotentReplayRetainsCanonicalTransaction();
             TerminalFailureReplaysUseTheIdempotencyContract();
             ConfirmationBarrierWaitsForEveryPeer();
+            FinalDeliveryRetriesWithoutRollbackAfterCommitDecision();
+            DuplicateFinalConfirmationIsAcknowledgedIdempotently();
             TimeoutAndRosterChangeAbortCoherently();
             RollbackFailureRemainsTerminalAndReplayable();
             InvalidRostersDoNotPoisonTransactionCapacity();
@@ -58,10 +60,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             var confirmationPeerB = Confirm(protocol, request, "peer-b", 9L, true, false);
             TestAssert.Equal(WorkloadTransactionTransitionAction.SendFinalConfirmation, confirmationPeerB.Action,
                 "the complete confirmation barrier must dispatch final confirmation");
-            TestAssert.Equal(WorkloadTransactionTerminalState.Succeeded, confirmationPeerB.State.TerminalState,
-                "the host becomes successful only after the full acknowledgement barrier");
+            TestAssert.Equal(WorkloadTransactionTerminalState.Pending, confirmationPeerB.State.TerminalState,
+                "the ready barrier is not terminal until every peer reports final delivery");
+            TestAssert.True(protocol.LastResult == null,
+                "the host must not publish terminal success before final delivery");
+            var deliveredPeerA = FinalDelivery(protocol, request, "peer-a", 10L);
+            TestAssert.Equal(WorkloadTransactionTerminalState.Pending, deliveredPeerA.State.TerminalState,
+                "one final delivery report cannot complete a multi-peer transaction");
+            var deliveredPeerB = FinalDelivery(protocol, request, "peer-b", 11L);
+            TestAssert.Equal(WorkloadTransactionTerminalState.Succeeded, deliveredPeerB.State.TerminalState,
+                "the host succeeds after every peer reports the final commit decision");
             TestAssert.NotNull(protocol.LastResult,
-                "terminal host success must retain an idempotent result");
+                "final-delivery success must retain an idempotent result");
 
             var peerProtocol = new WorkloadTransactionProtocol();
             var incoming = peerProtocol.AcceptIncoming(
@@ -171,8 +181,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             Execute(protocol, original, "host", 5L, true, false);
             Execute(protocol, original, "peer-a", 6L, true, false);
             Confirm(protocol, original, "peer-a", 7L, true, false);
+            FinalDelivery(protocol, original, "peer-a", 8L);
 
-            var terminalReplay = protocol.TryBegin(replay, 8L, "host");
+            var terminalReplay = protocol.TryBegin(replay, 9L, "host");
             TestAssert.Equal(WorkloadTransactionAdmissionCode.Duplicate, terminalReplay.Code,
                 "the same pending retry must remain replayable after completion");
             TestAssert.NotNull(terminalReplay.TerminalResult,
@@ -370,8 +381,100 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.True(protocol.LastResult == null,
                 "no terminal result may be published before the confirmation barrier completes");
             var second = Confirm(protocol, request, "peer-b", 9L, true, false);
-            TestAssert.Equal(WorkloadTransactionTerminalState.Succeeded, second.State.TerminalState,
-                "the last peer acknowledgement completes the barrier");
+            TestAssert.Equal(WorkloadTransactionTerminalState.Pending, second.State.TerminalState,
+                "the last readiness acknowledgement reaches a commit decision but is not terminal");
+            TestAssert.True(protocol.LastResult == null,
+                "the commit decision must remain nonterminal before final delivery reports");
+            FinalDelivery(protocol, request, "peer-a", 10L);
+            var delivered = FinalDelivery(protocol, request, "peer-b", 11L);
+            TestAssert.Equal(WorkloadTransactionTerminalState.Succeeded, delivered.State.TerminalState,
+                "the last final delivery report completes the transaction");
+        }
+
+        private static void FinalDeliveryRetriesWithoutRollbackAfterCommitDecision()
+        {
+            var request = Request(
+                "final-delivery-retry", "final-delivery-retry-idempotency", "host",
+                "host", "peer-a");
+            var protocol = BeginHost(request, "host");
+            var callbacks = new ThrowingFinalSendCallbacks();
+            protocol.SetCallbacks(callbacks);
+            Prepare(protocol, request, "host", 2L);
+            Prepare(protocol, request, "peer-a", 3L);
+            Execute(protocol, request, "host", 4L, true, false);
+            Execute(protocol, request, "peer-a", 5L, true, false);
+            var decision = Confirm(protocol, request, "peer-a", 6L, true, false);
+
+            TestAssert.Equal(1, callbacks.FinalSendAttempts,
+                "the commit decision must attempt final delivery once");
+            TestAssert.Equal(WorkloadTransactionTerminalState.Pending, decision.State.TerminalState,
+                "a failed final send callback must leave the commit decision pending");
+            TestAssert.True(decision.State.CommitDecisionReached,
+                "the irreversible commit decision must remain explicit while delivery is pending");
+
+            var retry = protocol.CheckTimeout(decision.State.DeadlineSequence);
+            TestAssert.Equal(WorkloadTransactionTransitionAction.SendFinalConfirmation, retry.Action,
+                "a post-decision timeout must retry final delivery");
+            TestAssert.Equal(WorkloadTransactionTerminalState.Pending, retry.State.TerminalState,
+                "a post-decision timeout must never request rollback");
+            TestAssert.Equal(2, callbacks.FinalSendAttempts,
+                "the retry must invoke final delivery again");
+            TestAssert.Equal(0, retry.State.RollbackParticipants.Count,
+                "final delivery retry must not enroll committed peers for rollback");
+
+            var delivered = FinalDelivery(protocol, request, "peer-a", retry.State.Sequence + 1L);
+            TestAssert.Equal(WorkloadTransactionTerminalState.Succeeded, delivered.State.TerminalState,
+                "a later delivery acknowledgement must complete the retained decision");
+
+            var peerProtocol = new WorkloadTransactionProtocol();
+            peerProtocol.AcceptIncoming(
+                request, 0L, true, WorkloadTransactionAdmissionCode.Accepted, null, "host");
+            peerProtocol.RecordExecuteControl(
+                request.RequestId, request.RequestFingerprint, true, "execute", string.Empty, 2L, true);
+            peerProtocol.RecordConfirmationControl(
+                request.RequestId, request.RequestFingerprint, true, "confirm", string.Empty,
+                "confirm-report", 3L, true);
+            var peerTimeout = peerProtocol.CheckTimeout(
+                peerProtocol.CurrentState.DeadlineSequence);
+            TestAssert.Equal(WorkloadTransactionTerminalState.Pending,
+                peerTimeout.State.TerminalState,
+                "a peer that voted ready must not roll back unilaterally while the host decision is delayed");
+            TestAssert.Equal(WorkloadTransactionTransitionAction.ConfirmLocally,
+                peerTimeout.Action,
+                "a ready peer timeout must re-acknowledge readiness and keep its rollback lease");
+            TestAssert.Equal(0, peerTimeout.State.RollbackParticipants.Count,
+                "a ready peer timeout must not enroll itself for rollback");
+        }
+
+        private static void DuplicateFinalConfirmationIsAcknowledgedIdempotently()
+        {
+            var request = Request(
+                "duplicate-final-control", "duplicate-final-control-idempotency", "host",
+                "host", "peer-a");
+            var peerProtocol = new WorkloadTransactionProtocol();
+            TestAssert.True(
+                peerProtocol.AcceptIncoming(
+                    request, 0L, true, WorkloadTransactionAdmissionCode.Accepted, null, "host").Accepted,
+                "the peer fixture must admit the authenticated request");
+            peerProtocol.RecordExecuteControl(
+                request.RequestId, request.RequestFingerprint, true, "execute", string.Empty, 2L, true);
+            peerProtocol.RecordConfirmationControl(
+                request.RequestId, request.RequestFingerprint, true, "confirm", string.Empty,
+                "confirm-report", 3L, true);
+            var first = peerProtocol.RecordFinalConfirmation(
+                request.RequestId, request.RequestFingerprint, true, "confirmed", string.Empty, 4L, true);
+            TestAssert.Equal(
+                WorkloadTransactionTransitionAction.SendFinalConfirmationAcknowledgement,
+                first.Action,
+                "the peer must acknowledge the first final commit decision after applying it");
+            var duplicate = peerProtocol.RecordFinalConfirmation(
+                request.RequestId, request.RequestFingerprint, true, "confirmed", string.Empty, 5L, true);
+            TestAssert.Equal(WorkloadTransactionTransitionDisposition.Ignored, duplicate.Disposition,
+                "a duplicate final control must not apply the commit twice");
+            TestAssert.Equal(
+                WorkloadTransactionTransitionAction.SendFinalConfirmationAcknowledgement,
+                duplicate.Action,
+                "a duplicate final control must still be acknowledged so a lost acknowledgement can recover");
         }
 
         private static void TimeoutAndRosterChangeAbortCoherently()
@@ -589,9 +692,13 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             Execute(protocol, request, host, 4L, true, false);
             Execute(protocol, request, peer, 5L, true, false);
             var confirmation = Confirm(protocol, request, peer, 6L, true, false);
-            TestAssert.Equal(WorkloadTransactionTerminalState.Succeeded,
+            TestAssert.Equal(WorkloadTransactionTerminalState.Pending,
                 confirmation.State.TerminalState,
-                "two-party success must complete after the peer confirmation acknowledgement");
+                "two-party success must wait for final delivery after readiness");
+            var delivery = FinalDelivery(protocol, request, peer, 7L);
+            TestAssert.Equal(WorkloadTransactionTerminalState.Succeeded,
+                delivery.State.TerminalState,
+                "two-party success completes after the peer reports final delivery");
             return protocol;
         }
 
@@ -646,6 +753,46 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 sequence,
                 true,
                 requiresRollback);
+        }
+
+        private static WorkloadTransactionTransitionResult FinalDelivery(
+            WorkloadTransactionProtocol protocol,
+            WorkloadTransactionRequest request,
+            string participant,
+            long sequence)
+        {
+            return protocol.RecordFinalConfirmationAcknowledgement(
+                request.RequestId,
+                request.RequestFingerprint,
+                participant,
+                true,
+                "final-confirmation-delivered",
+                string.Empty,
+                sequence,
+                true);
+        }
+
+        private sealed class ThrowingFinalSendCallbacks : IWorkloadTransactionCallbacks
+        {
+            internal int FinalSendAttempts { get; private set; }
+
+            public void OnRequestAccepted(WorkloadTransactionRequest request) { }
+            public void OnAdmissionRejected(WorkloadTransactionAdmission admission) { }
+            public void OnPrepareRequested(WorkloadTransactionRequest request, WorkloadTransactionState state) { }
+            public void OnExecuteRequested(WorkloadTransactionRequest request, WorkloadTransactionState state) { }
+            public void OnConfirmationControlReceived(WorkloadTransactionRequest request, WorkloadTransactionState state) { }
+            public void OnConfirmRequested(WorkloadTransactionRequest request, WorkloadTransactionState state) { }
+            public void OnAbortRequested(WorkloadTransactionRequest request, WorkloadTransactionState state) { }
+            public void OnRollbackRequired(WorkloadTransactionRequest request, WorkloadTransactionState state) { }
+            public void OnTerminal(WorkloadTransactionResult result) { }
+
+            public void OnFinalConfirmationRequested(
+                WorkloadTransactionRequest request,
+                WorkloadTransactionState state)
+            {
+                FinalSendAttempts++;
+                throw new InvalidOperationException("injected final-delivery send failure");
+            }
         }
 
         private sealed class TestAuthentication : IWorkloadTransactionAuthentication

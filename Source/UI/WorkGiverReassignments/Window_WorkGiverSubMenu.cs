@@ -5,11 +5,14 @@ using System.Text;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
+using Better_Work_Tab.Features.Application;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Workloads;
+using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -24,6 +27,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private readonly WorkTypeDef _workType;
         private readonly Pawn _pawn;
         private readonly Vector2 _triggerPos;
+        private readonly WorkTabApplication _application;
 
         public WorkTypeDef WorkType => _workType;
         public Pawn Pawn => _pawn;
@@ -63,6 +67,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             _workType = workType;
             _pawn = pawn;
             _triggerPos = triggerPos;
+            _application = WorkTabGameRoots.For(Current.Game)?.Application;
             
             RefreshWorkGivers();
             
@@ -117,7 +122,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
             if (_dragHandler == null)
             {
-                _dragHandler = new WorkGiverDragHandler(this, _workType);
+                _dragHandler = new WorkGiverDragHandler(
+                    this,
+                    _workType,
+                    _application);
             }
             
             CalculateHeaderHeight();
@@ -169,8 +177,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 ? WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(_workType)
                 : WorkTabEffectiveStateIds.ForWorkTypeOrder(_pawn, _workType);
             WorkloadWorkTypeOrderPayload projectedOrder =
-                WorkTabEffectiveStateRuntime.ResolveWorkTypeOrder(orderKey).IsSet
-                    ? WorkTabEffectiveStateRuntime.ResolveWorkTypeOrder(orderKey).Value
+                WorkloadProjectionRuntime.ResolveWorkTypeOrder(orderKey).IsSet
+                    ? WorkloadProjectionRuntime.ResolveWorkTypeOrder(orderKey).Value
                     : null;
 
             var fallbackIndices = new Dictionary<string, int>(StringComparer.Ordinal);

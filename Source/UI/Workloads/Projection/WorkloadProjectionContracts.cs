@@ -1,7 +1,7 @@
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 
-namespace Better_Work_Tab.UI.WorkGrid.Projection
+namespace Better_Work_Tab.UI.Workloads.Projection
 {
     /// <summary>
     /// Workload-owned extension of the neutral effective-state provider.

@@ -15,6 +15,7 @@ using Better_Work_Tab.UI.Input;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Workloads.Projection;
 using HarmonyLib;
 using RimWorld;
 using Spine.Profiling;
@@ -915,7 +916,7 @@ namespace Better_Work_Tab.Patches
                 for (int i = 0; i < workGivers.Count; i++)
                 {
                     WorkGiverDef workGiver = workGivers[i]?.def;
-                    if (WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
+                    if (WorkloadProjectionRuntime.TryGetSpecificJobPriority(
                             WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiver),
                             out int priority) &&
                         priority > WorkPrioritySystem.DisabledPriority)
@@ -1032,7 +1033,10 @@ namespace Better_Work_Tab.Patches
                 return false;
             }
 
-            if (!WorkPriorityCommandGateway.TryClearPreviewSpecificJobOverrides(pawn, workType))
+            if (!WorkPriorityCommandGateway.TryClearPreviewSpecificJobOverrides(
+                    WorkTabApplication.Current,
+                    pawn,
+                    workType))
             {
                 evt.Use();
                 return true;
@@ -1042,7 +1046,11 @@ namespace Better_Work_Tab.Patches
             return true;
         }
 
-        internal static bool TryHandleRootPriorityInput(Rect rootCellRect, Pawn pawn, WorkTypeDef workType)
+        internal static bool TryHandleRootPriorityInput(
+            Rect rootCellRect,
+            Pawn pawn,
+            WorkTypeDef workType,
+            WorkTabApplication application)
         {
             if (!WorkPriorityCommandGateway.CanHandleParentPriorityInput(pawn, workType))
             {
@@ -1052,15 +1060,26 @@ namespace Better_Work_Tab.Patches
 
             return TryHandleParentSubWorkOverrideInput(rootCellRect, pawn, workType) ||
                 TryHandleScheduleIndicatorInput(rootCellRect, pawn, workType) ||
-                TryHandleWorkPriorityScroll(rootCellRect, pawn, workType, trustHit: true) ||
-                TryHandleWorkPriorityInput(rootCellRect, pawn, workType, trustHit: true);
+                TryHandleWorkPriorityScroll(
+                    rootCellRect,
+                    pawn,
+                    workType,
+                    trustHit: true,
+                    application: application) ||
+                TryHandleWorkPriorityInput(
+                    rootCellRect,
+                    pawn,
+                    workType,
+                    trustHit: true,
+                    application: application);
         }
 
         private static bool TryHandleWorkPriorityScroll(
             Rect cellRect,
             Pawn pawn,
             WorkTypeDef workType,
-            bool trustHit = false)
+            bool trustHit = false,
+            WorkTabApplication application = null)
         {
             Event evt = Event.current;
             if (evt == null ||
@@ -1090,7 +1109,7 @@ namespace Better_Work_Tab.Patches
                         pawn,
                         workType,
                         nextPriority)
-                    : WorkTabApplication.Current?.SetDisplayedParentPriority(
+                    : (application ?? WorkTabApplication.Current)?.SetDisplayedParentPriority(
                         pawn,
                         workType,
                         nextPriority) == true)
@@ -1107,7 +1126,8 @@ namespace Better_Work_Tab.Patches
             Rect cellRect,
             Pawn pawn,
             WorkTypeDef workType,
-            bool trustHit = false)
+            bool trustHit = false,
+            WorkTabApplication application = null)
         {
             Event evt = Event.current;
             if (evt == null ||
@@ -1151,7 +1171,7 @@ namespace Better_Work_Tab.Patches
                         pawn,
                         workType,
                         nextPriority)
-                    : WorkTabApplication.Current?.SetDisplayedParentPriority(
+                    : (application ?? WorkTabApplication.Current)?.SetDisplayedParentPriority(
                         pawn,
                         workType,
                         nextPriority) == true))

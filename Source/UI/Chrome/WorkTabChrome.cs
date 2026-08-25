@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.ModSupport.Mods.WorkManager;
@@ -34,6 +35,7 @@ namespace Better_Work_Tab.UI.Chrome
     internal sealed class WorkTabChrome
     {
         private readonly SubWorkInteractionController _subWorkInteractionController;
+        private readonly Func<WorkTabApplication> _application;
 
         private static string _cachedUiTextLanguage;
         private static int _cachedUiTextMaxPriority = -1;
@@ -42,10 +44,13 @@ namespace Better_Work_Tab.UI.Chrome
         private static string _higherPriorityText;
         private static string _lowerPriorityText;
 
-        internal WorkTabChrome(SubWorkInteractionController subWorkInteractionController)
+        internal WorkTabChrome(
+            SubWorkInteractionController subWorkInteractionController,
+            Func<WorkTabApplication> application)
         {
             _subWorkInteractionController = subWorkInteractionController ??
                 throw new ArgumentNullException(nameof(subWorkInteractionController));
+            _application = application ?? throw new ArgumentNullException(nameof(application));
         }
 
         internal void DrawTopControls(IWorkTabLayoutController layout, Rect inRect)
@@ -105,15 +110,46 @@ namespace Better_Work_Tab.UI.Chrome
         {
             IWorkTabLayoutController layout = view.Layout;
             Rect inRect = view.WindowRect;
-            WorkManagerCompatibility.DrawControls(inRect);
-            WorkTabColorPreviewRenderer.Draw(layout, inRect);
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time(
+                    "WorkTab.DrawChrome.WorkManager",
+                    () => WorkManagerCompatibility.DrawControls(inRect));
+                SpineTiming.Time(
+                    "WorkTab.DrawChrome.ColorPreview",
+                    () => WorkTabColorPreviewRenderer.Draw(layout, inRect));
+            }
+            else
+            {
+                WorkManagerCompatibility.DrawControls(inRect);
+                WorkTabColorPreviewRenderer.Draw(layout, inRect);
+            }
 
             bool mouseInside = !BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(inRect);
             Rect infoRect = WorkTabChromeGeometry.GetInfoIconRect(inRect);
-            DrawBottomRightButtons(in view, infoRect);
+            if (SpineTiming.Enabled)
+            {
+                WorkTabView profiledView = view;
+                SpineTiming.Time(
+                    "WorkTab.DrawChrome.BottomRightButtons",
+                    () => DrawBottomRightButtons(in profiledView, infoRect));
+            }
+            else
+            {
+                DrawBottomRightButtons(in view, infoRect);
+            }
             if (mouseInside)
             {
-                DrawInfoButton(infoRect);
+                if (SpineTiming.Enabled)
+                {
+                    SpineTiming.Time(
+                        "WorkTab.DrawChrome.InfoButton",
+                        () => DrawInfoButton(infoRect));
+                }
+                else
+                {
+                    DrawInfoButton(infoRect);
+                }
             }
         }
 
@@ -248,7 +284,9 @@ namespace Better_Work_Tab.UI.Chrome
             bool requestedEnabled = wasEnabled;
             Widgets.CheckboxLabeled(rect, _manualPrioritiesText, ref requestedEnabled);
             if (wasEnabled != requestedEnabled &&
-                !WorkTabEffectiveStateRuntime.TrySetManualMode(requestedEnabled))
+                !WorkTabEffectiveStateRuntime.TrySetManualMode(
+                    requestedEnabled,
+                    _application()))
             {
                 // A preview mutation that the active provider cannot own is
                 // rejected without ever touching PlaySettings.

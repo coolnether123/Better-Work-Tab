@@ -6,9 +6,11 @@ using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.WorkGrid.Rendering;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.Workloads;
+using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -34,6 +36,10 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static readonly string[] PriorityLabels = new string[PriorityConstants.ExtendedHardMax + 1];
         private static float _visualAlpha = 1f;
         private static bool _trustedRootInputHit;
+        private static WorkTabApplication _inputApplication;
+
+        private static WorkTabApplication InputApplication =>
+            _inputApplication ?? WorkTabApplication.Current;
 
         internal static void ResetForWindowClose()
         {
@@ -41,6 +47,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             GlobalPriorityTargets.Clear();
             _visualAlpha = 1f;
             _trustedRootInputHit = false;
+            _inputApplication = null;
         }
 
         public static void DrawPriorityBox(
@@ -150,6 +157,42 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         }
 
         /// <summary>
+        /// Draws the live portion of a stable pawn sub-work cell after its base
+        /// pixels were presented by the retained row cache.
+        /// </summary>
+        internal static void DrawPreparedPriorityOverlay(
+            WorkGiver workGiver,
+            Pawn pawn,
+            Rect boxRect,
+            WorkGiverCellPresentationCache.CellPresentation presentation)
+        {
+            if (workGiver?.def == null || pawn == null || presentation == null)
+            {
+                return;
+            }
+
+            bool hasGoldRing = presentation.HasPawnOverride || presentation.HasScheduleIndicator;
+            if (!hasGoldRing && MouseOverPriorityBox(boxRect))
+            {
+                Widgets.DrawHighlight(boxRect);
+            }
+
+            DrawOverrideResetAnimation(pawn.thingIDNumber, workGiver.def, boxRect);
+            if (hasGoldRing)
+            {
+                DrawOverrideRingIfVisible(boxRect);
+            }
+
+            Event current = Event.current;
+            if (current != null &&
+                boxRect.Contains(current.mousePosition) &&
+                MouseOverPriorityBox(boxRect))
+            {
+                TooltipHandler.TipRegion(boxRect, workGiver.def.LabelCap);
+            }
+        }
+
+        /// <summary>
         /// Handles a priority-box event whose hit was already resolved in the work
         /// tab's root coordinate space. Scroll views maintain their own mouse-over
         /// stack, so root-routed input must not be rejected by the nested stack.
@@ -159,6 +202,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WorkTypeDef workType,
             Pawn pawn,
             Rect rootBoxRect,
+            WorkTabApplication application,
             int knownParentPriority = int.MinValue)
         {
             Event evt = Event.current;
@@ -170,7 +214,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             bool oldTrustedRootInputHit = _trustedRootInputHit;
+            WorkTabApplication oldInputApplication = _inputApplication;
             _trustedRootInputHit = true;
+            _inputApplication = application;
             try
             {
                 DrawPriorityBox(
@@ -184,6 +230,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             finally
             {
                 _trustedRootInputHit = oldTrustedRootInputHit;
+                _inputApplication = oldInputApplication;
             }
         }
 
@@ -416,7 +463,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             priority = WorkPrioritySystem.ClampPriority(priority);
-            Color oldColor = GUI.color;
             if (presentation.WorkTypeDisabled)
             {
                 if (presentation.DisabledByAge)
@@ -436,56 +482,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                         Event.current.Use();
                     }
 
-                    GUI.color = WithVisualAlpha(oldColor);
-                    GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxBGTex_AgeDisabled);
-                    GUI.color = oldColor;
                 }
+            }
 
+            if (!PreparedWorkBoxRenderer.Draw(
+                    boxRect,
+                    presentation.WorkBoxVisual,
+                    priority,
+                    _visualAlpha))
+            {
                 return false;
             }
-
-            TextAnchor oldAnchor = Text.Anchor;
-            GameFont oldFont = Text.Font;
-            bool oldWordWrap = Text.WordWrap;
-            Text.WordWrap = false;
-
-            if (presentation.Incapable)
-            {
-                GUI.color = WithVisualAlpha(new Color(1f, 0.3f, 0.3f));
-            }
-            else
-            {
-                GUI.color = WithVisualAlpha(oldColor);
-            }
-
-            WidgetsWork.DrawWorkBoxBackground(boxRect, pawn, workType);
-            GUI.color = oldColor;
-
-            if (ParentPriorityRead.GetObservedManualMode(
-                    pawn,
-                    workType,
-                    true))
-            {
-                if (priority > WorkPrioritySystem.DisabledPriority)
-                {
-                    Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
-                        ? GameFont.Tiny
-                        : GameFont.Medium;
-                    Text.Anchor = TextAnchor.MiddleCenter;
-                    GUI.color = WithVisualAlpha(WorkPrioritySystem.GetPriorityColor(priority));
-                    Widgets.Label(boxRect.ContractedBy(-3f), GetPriorityLabel(priority));
-                }
-            }
-            else if (priority > WorkPrioritySystem.DisabledPriority)
-            {
-                GUI.color = WithVisualAlpha(oldColor);
-                GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxCheckTex);
-            }
-
-            GUI.color = oldColor;
-            Text.Anchor = oldAnchor;
-            Text.Font = oldFont;
-            Text.WordWrap = oldWordWrap;
 
             if (!suppressHover && MouseOverPriorityBox(boxRect))
             {
@@ -655,6 +662,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 if (WorkTabEffectiveStateRuntime.IsPreviewActive)
                 {
                     accepted = WorkPriorityCommandGateway.TryClearPreviewSpecificJobOverrides(
+                        InputApplication,
                         pawn,
                         workType) &&
                         WorkPriorityCommandGateway.TrySetPreviewParentPriority(
@@ -662,13 +670,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                             workType,
                             WorkPrioritySystem.GetDefaultEnabledPriority()) &&
                         WorkPriorityCommandGateway.SetWorkGiverPriority(
+                            InputApplication,
                             pawn.thingIDNumber,
                             wg.def,
                             newPriority);
                 }
                 else
                 {
-                    accepted = WorkTabApplication.Current?
+                    accepted = InputApplication?
                         .EnableParentFromSpecific(
                             pawn,
                             wg.def,
@@ -950,6 +959,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (WorkTabEffectiveStateRuntime.IsPreviewActive)
             {
                 return WorkPriorityCommandGateway.SetWorkGiverPriority(
+                    InputApplication,
                     pawnId,
                     workGiverDef,
                     priority);
@@ -964,6 +974,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             return WorkPriorityCommandGateway.SetWorkGiverPriority(
+                InputApplication,
                 pawnId,
                 workGiverDef,
                 priority);
@@ -1016,7 +1027,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             bool accepted = WorkTabEffectiveStateRuntime.IsPreviewActive
-                ? WorkTabEffectiveStateRuntime.TryClearSpecificJobPriority(
+                ? WorkloadProjectionRuntime.TryClearSpecificJobPriority(
                     pawn,
                     workType ?? WorkGiverReassignmentManager.GetTargetWorkType(workGiverDef) ??
                     workGiverDef.workType,
@@ -1057,7 +1068,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            return WorkTabApplication.Current?
+            return InputApplication?
                 .EnableParentFromSpecific(pawn, workGiver, null).Accepted == true;
         }
 
@@ -1068,7 +1079,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            return WorkTabApplication.Current?
+            return InputApplication?
                 .RemoveSpecificPriority(
                     pawn.thingIDNumber,
                     workGiverDef).Accepted == true;

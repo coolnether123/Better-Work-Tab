@@ -7,6 +7,7 @@ using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using RimWorld;
 using Verse;
@@ -26,8 +27,8 @@ namespace Better_Work_Tab.ModSupport
     {
         internal static int Import(IEnumerable<ExternalPawnWorkGiverPriorityRecord> records)
         {
-            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            return component == null ? 0 : Import(component, records);
+            WorkTabApplication application = WorkTabGameRoots.For(Current.Game)?.Application;
+            return application == null ? 0 : Import(application, records);
         }
 
         internal static int Import(
@@ -42,8 +43,23 @@ namespace Better_Work_Tab.ModSupport
             IEnumerable<ExternalPawnWorkGiverPriorityRecord> records,
             out int changed)
         {
+            return TryImport(component?.Root?.Application, records, out changed);
+        }
+
+        private static int Import(
+            WorkTabApplication application,
+            IEnumerable<ExternalPawnWorkGiverPriorityRecord> records)
+        {
+            return TryImport(application, records, out int changed) ? changed : 0;
+        }
+
+        private static bool TryImport(
+            WorkTabApplication application,
+            IEnumerable<ExternalPawnWorkGiverPriorityRecord> records,
+            out int changed)
+        {
             changed = 0;
-            if (component == null || MultiplayerBridge.Active)
+            if (application == null || MultiplayerBridge.Active)
             {
                 return false;
             }
@@ -62,7 +78,7 @@ namespace Better_Work_Tab.ModSupport
             BuildImport(
                 (records ?? Enumerable.Empty<ExternalPawnWorkGiverPriorityRecord>()).ToList(),
                 import);
-            changed = component.Application.ApplyTrustedCompatibilityImport(import);
+            changed = application.ApplyTrustedCompatibilityImport(import);
             return changed >= 0;
         }
 
