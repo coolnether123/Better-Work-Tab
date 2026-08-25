@@ -67,6 +67,7 @@ namespace Better_Work_Tab.UI
         public MainTabWindow_BetterWork()
         {
             _workloadPreviewController = new WorkloadPreviewController();
+            HeaderFooterFeatureRegistry.Register(WorkloadFooterFeature.Instance);
             _windowSession = new WorkTabWindowSessionState(this);
             _windowSizingController = new WorkTabWindowSizingController(
                 () => _windowSession.GetPawnTable(Current.Game),
@@ -417,7 +418,7 @@ namespace Better_Work_Tab.UI
                 evt.alt &&
                 !_workloadPreviewController.IsUnsafePreviewInputBlocked &&
                 HeaderButtons.GetBottomButtonRects(view.WindowRect, gearRect)
-                    .ContainsWorkloadFooter(evt.mousePosition) &&
+                    .ContainsOptionalFooter(evt.mousePosition) &&
                 _workGridInteractionRouter.TryHandleFooterContextSettings(
                     view.WindowRect,
                     evt))
@@ -425,17 +426,17 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            bool routedWorkloadFooterInput = HeaderButtons.TryHandleWorkloadFooterInput(
+            bool routedOptionalFooterInput = HeaderButtons.TryHandleOptionalFooterInput(
                 view.WindowRect,
                 gearRect,
                 evt);
-            bool routedPreviewScroll = !routedWorkloadFooterInput &&
+            bool routedPreviewScroll = !routedOptionalFooterInput &&
                 TryRouteWorkloadPreviewScroll(
                      evt,
                      view.Table,
                      view.WindowRect,
                     gearRect);
-            if (!routedWorkloadFooterInput &&
+            if (!routedOptionalFooterInput &&
                 !routedPreviewScroll &&
                 _workloadPreviewController.IsUnsafePreviewInputBlocked)
             {
@@ -446,7 +447,7 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
-            if (!routedWorkloadFooterInput &&
+            if (!routedOptionalFooterInput &&
                 !routedPreviewScroll &&
                 SpineTiming.Enabled)
             {
@@ -455,7 +456,7 @@ namespace Better_Work_Tab.UI
                     "WorkTab.Input",
                     () => _workGridInteractionRouter.Route(in routedView, organizer, evt));
             }
-            else if (!routedWorkloadFooterInput &&
+            else if (!routedOptionalFooterInput &&
                      !routedPreviewScroll)
             {
                 _workGridInteractionRouter.Route(in view, organizer, evt);
@@ -678,14 +679,14 @@ namespace Better_Work_Tab.UI
             if (SpineTiming.Enabled)
             {
                 SpineTiming.Time(
-                    "WorkTab.DrawWorkloadFooterPopover",
-                    () => HeaderButtons.DrawWorkloadFooterPopoverOnTop(
+                    "WorkTab.DrawOptionalFooterPopover",
+                    () => HeaderButtons.DrawOptionalFooterPopoverOnTop(
                         profiledView.WindowRect,
                         WorkTabChromeGeometry.GetInfoIconRect(profiledView.WindowRect)));
             }
             else
             {
-                HeaderButtons.DrawWorkloadFooterPopoverOnTop(
+                HeaderButtons.DrawOptionalFooterPopoverOnTop(
                     view.WindowRect,
                     WorkTabChromeGeometry.GetInfoIconRect(view.WindowRect));
             }
@@ -704,7 +705,7 @@ namespace Better_Work_Tab.UI
             if (!_workloadPreviewController.IsActive ||
                 evt == null ||
                 evt.type != EventType.ScrollWheel ||
-                !buttonRects.ContainsWorkloadFooter(evt.mousePosition) ||
+                !buttonRects.ContainsOptionalFooter(evt.mousePosition) ||
                 table == null)
             {
                 return false;
@@ -902,7 +903,7 @@ namespace Better_Work_Tab.UI
             WorkGiverPriorityBoxRenderer.ResetForWindowClose();
             NativeCursorPosition.CancelPendingMove();
             _workloadPreviewController.ResetForWindowClose();
-            HeaderButtons.ResetWorkloadFooterState();
+            HeaderButtons.ResetOptionalFooterState();
             // Work-grid snapshots and audit state belong to the game session, not this window.
             // GameCacheResetUtility owns their load/new-game teardown boundary.
         }

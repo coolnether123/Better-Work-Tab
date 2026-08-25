@@ -15,7 +15,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         public static void Run()
         {
             string root = FindRepositoryRoot();
-            string header = Read(root, "Source", "UI", "HeaderButtons.cs");
+            string headerHost = Read(root, "Source", "UI", "HeaderButtons.cs");
+            string workloadFooter = Read(
+                root,
+                "Source",
+                "UI",
+                "Workloads",
+                "WorkloadFooterFeature.cs");
+            string header = headerHost + "\n" + workloadFooter;
             string selector = Read(root, "Source", "UI", "BWTBottomBarSelector.cs");
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
             string renderer = Read(root, "Source", "UI", "WorkGrid", "Rendering", "WorkTabBodyRenderer.cs");
@@ -417,7 +424,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "sub-work semantic resolution must not occur inside the row/cell hot loop");
             TestAssert.Contains(
                 header,
-                "rects.HasWorkloadSaveAs ? rects.WorkloadSaveAs : Rect.zero",
+                "rects.HasOptionalSaveAs ? rects.OptionalSaveAs : Rect.zero",
                 "Save As inspection routing must use its clipped visible hit rectangle");
 
             TestAssert.Contains(
@@ -460,52 +467,48 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string mainWindow)
         {
             string frameInput = MethodBody(mainWindow, "private void RouteFrameInput(");
-            string inputPath = MethodBody(header, "public static bool TryHandleWorkloadFooterInput(");
+            string inputPath = MethodBody(header, "public bool TryHandleInput(");
             string footerDrawPath = MethodBody(header, "public static void DrawBottomRightGrouped(");
-            string drawPath = MethodBody(header, "private static void DrawWorkloadGroup(");
-            string previewDrawPath = MethodBody(header, "private static void DrawWorkloadPreviewActions(");
-            string executionPath = MethodBody(header, "private static void ExecuteWorkloadFooterControl(");
+            string drawPath = MethodBody(header, "private void DrawWorkloadGroup(");
+            string previewDrawPath = MethodBody(header, "private void DrawPreviewActions(");
+            string executionPath = MethodBody(header, "private void ExecuteFooterControl(");
 
             TestAssert.Contains(
                 footerDrawPath,
-                "DrawWorkloadGroup(",
+                "HeaderFooterFeatureRegistry.Current?.Draw(rects)",
                 "footer drawing must retain the visible workload selector");
-            TestAssert.Contains(
-                footerDrawPath,
-                "DrawWorkloadPreviewActions(",
-                "footer drawing must retain the visible preview-action lane");
             TestAssert.False(
-                footerDrawPath.IndexOf("ExecuteWorkloadFooterControl(", StringComparison.Ordinal) >= 0 ||
+                footerDrawPath.IndexOf("ExecuteFooterControl(", StringComparison.Ordinal) >= 0 ||
                 footerDrawPath.IndexOf("QueuePreviewLifecycleAction(", StringComparison.Ordinal) >= 0,
                 "footer drawing must not execute lifecycle actions");
             TestAssert.False(
                 inputPath.IndexOf("DrawWorkloadGroup(", StringComparison.Ordinal) >= 0 ||
-                inputPath.IndexOf("DrawWorkloadPreviewActions(", StringComparison.Ordinal) >= 0,
+                inputPath.IndexOf("DrawPreviewActions(", StringComparison.Ordinal) >= 0,
                 "footer input dispatch must not redraw controls");
             TestAssert.Contains(
                 inputPath,
-                "TryResolveWorkloadFooterControl(",
+                "TryResolveFooterControl(",
                 "footer input must resolve a visible control before executing it");
             TestAssert.Contains(
                 inputPath,
                 "overFooterControl && pressedControl == hoveredFooterControl",
                 "footer input must dispatch only the completed click on the same visible control");
             TestAssert.True(
-                CountOccurrences(inputPath, "ExecuteWorkloadFooterControl(hoveredFooterControl, preview)") == 1,
+                CountOccurrences(inputPath, "ExecuteFooterControl(hoveredFooterControl, preview)") == 1,
                 "each resolved footer control must have one reachable input dispatch");
             TestAssert.True(
-                CountOccurrences(frameInput, "HeaderButtons.TryHandleWorkloadFooterInput(") == 1,
+                CountOccurrences(frameInput, "HeaderButtons.TryHandleOptionalFooterInput(") == 1,
                 "the Work window must dispatch footer input exactly once per input pass");
             TestAssert.Contains(
                 drawPath,
-                "DrawWorkloadMainControl(",
+                "DrawOptionalMainControl(",
                 "the workload name control must retain a dedicated draw call");
             TestAssert.Contains(
                 drawPath,
-                "DrawWorkloadMenuControl(",
+                "DrawOptionalMenuControl(",
                 "the workload ellipsis control must retain a dedicated draw call");
             TestAssert.False(
-                drawPath.IndexOf("ExecuteWorkloadFooterControl", StringComparison.Ordinal) >= 0,
+                drawPath.IndexOf("ExecuteFooterControl", StringComparison.Ordinal) >= 0,
                 "selector drawing must not execute footer lifecycle actions");
             TestAssert.False(
                 previewDrawPath.IndexOf("QueuePreviewLifecycleAction(", StringComparison.Ordinal) >= 0,
@@ -519,7 +522,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "BeginWorkloadFooterEditor(createNew: true)",
                 "the empty name button must open the save-workload editor");
             int menuBranch = executionPath.IndexOf(
-                "if (control == WorkloadFooterControl.Menu)",
+                "if (control == FooterControl.Menu)",
                 StringComparison.Ordinal);
             int pickerAction = executionPath.IndexOf(
                 "OpenWorkloadFooterPicker();",
@@ -536,11 +539,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the menu branch must return through the picker before main-control preview or editor actions");
             TestAssert.Contains(
                 header,
-                "rects.HasWorkloadPreview ? rects.WorkloadApply : Rect.zero",
+                "rects.HasOptionalPreview ? rects.OptionalApply : Rect.zero",
                 "Apply must share the footer inspection hover geometry");
             TestAssert.Contains(
                 header,
-                "rects.HasWorkloadUpdate ? rects.WorkloadUpdate : Rect.zero",
+                "rects.HasOptionalUpdate ? rects.OptionalUpdate : Rect.zero",
                 "Update must retain the footer inspection hover geometry");
             int createStart = gateway.IndexOf(
                 "internal bool CreateWorkload(string label, out WorkloadDescriptor descriptor)",
@@ -585,10 +588,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         private static void WorkloadMenuUsesStableIds(string header)
         {
             int start = header.IndexOf(
-                "private static List<FloatMenuOption> BuildWorkloadPickerOptions(",
+                "private List<FloatMenuOption> BuildWorkloadPickerOptions(",
                 StringComparison.Ordinal);
             int end = header.IndexOf(
-                "private static void OpenWorkloadManagementMenu(",
+                "private void OpenWorkloadManagementMenu(",
                 start,
                 StringComparison.Ordinal);
             TestAssert.True(
@@ -630,17 +633,17 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         private static void PreviewActionsUseVisibleHitRects(string header)
         {
             int start = header.IndexOf(
-                "private static void DrawWorkloadPreviewButton(",
+                "private void DrawWorkloadPreviewButton(",
                 StringComparison.Ordinal);
             int end = header.IndexOf(
-                "private static void QueuePreviewLifecycleAction(",
+                "private void QueuePreviewLifecycleAction(",
                 start,
                 StringComparison.Ordinal);
             int resolver = header.IndexOf(
-                "private static bool TryResolveWorkloadPreviewAction(",
+                "private bool TryResolvePreviewAction(",
                 StringComparison.Ordinal);
             int resolverEnd = header.IndexOf(
-                "private static bool TryResolveWorkloadFooterPopoverAction(",
+                "private bool TryResolveFooterPopoverAction(",
                 resolver,
                 StringComparison.Ordinal);
             TestAssert.True(
@@ -661,11 +664,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "preview action drawing must not consume input events");
             TestAssert.Contains(
                 resolverPath,
-                "rects.WorkloadApply.Contains(position)",
+                "rects.OptionalApply.Contains(position)",
                 "Apply input must use the same final rectangle that is drawn");
             TestAssert.Contains(
                 resolverPath,
-                "rects.WorkloadCancel.Contains(position)",
+                "rects.OptionalCancel.Contains(position)",
                 "Cancel input must use the same final rectangle that is drawn");
             TestAssert.False(
                 resolverPath.IndexOf("DrawWorkloadPreviewButton", StringComparison.Ordinal) >= 0,
@@ -678,10 +681,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         private static void WorkloadSelectorUsesOnlyTheWorkloadName(string header)
         {
             int start = header.IndexOf(
-                "private static string WorkloadLabel()",
+                "private string WorkloadLabel()",
                 StringComparison.Ordinal);
             int end = header.IndexOf(
-                "private static string WorkloadGeometryLabel()",
+                "private string WorkloadGeometryLabel()",
                 start,
                 StringComparison.Ordinal);
             TestAssert.True(
@@ -723,7 +726,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             TestAssert.Contains(
                 header,
-                "private const float PreferredSelectorMainWidth = 150f;",
+                "internal const float PreferredSelectorMainWidth = 150f;",
                 "selector main buttons must keep the 1.0.5 minimum width");
             TestAssert.Contains(
                 header,
@@ -779,7 +782,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             TestAssert.Contains(
                 contextRouter,
-                "rects.ContainsWorkloadFooter(mousePosition)",
+                "rects.ContainsOptionalFooter(mousePosition)",
                 "workload contextual settings must include the visible footer, not only the selector");
             TestAssert.Contains(
                 contextRouter,
@@ -826,11 +829,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "workload presentation settings must remain inside the preview ownership boundary");
             TestAssert.Contains(
                 header,
-                "rects.ContainsWorkloadFooter(evt.mousePosition)",
+                "rects.ContainsOptionalFooter(evt.mousePosition)",
                 "the normal footer input path must reserve Alt-clicks over visible workload controls");
             TestAssert.Contains(
                 header,
-                "evt.type == EventType.MouseUp &&\n                    (overPopoverAction || _pressedWorkloadFooterPopoverAction.HasValue)",
+                "evt.type == EventType.MouseUp &&\n                    (overPopoverAction || _pressedFooterPopoverAction.HasValue)",
                 "footer editor cancellation must be handled on the completed click");
             TestAssert.Contains(
                 header,
@@ -844,7 +847,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "_workGridInteractionRouter.TryHandleFooterContextSettings(\n                    view.WindowRect,",
                 StringComparison.Ordinal);
             int normalFooter = mainWindow.IndexOf(
-                "HeaderButtons.TryHandleWorkloadFooterInput(\n                view.WindowRect,",
+                "HeaderButtons.TryHandleOptionalFooterInput(\n                view.WindowRect,",
                 StringComparison.Ordinal);
             TestAssert.True(
                 contextualFooter >= 0 && normalFooter > contextualFooter,
@@ -855,29 +858,29 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "footer contextual routing must reuse the existing context-settings controller");
             TestAssert.Contains(
                 footerContextController,
-                "rects.ContainsWorkloadFooter(evt.mousePosition)",
+                "rects.ContainsOptionalFooter(evt.mousePosition)",
                 "footer registration must use the authoritative visible footer hit helper");
             TestAssert.Contains(
                 footerContextController,
-                "rects.HasWorkloadSaveAs ? rects.WorkloadSaveAs : Rect.zero",
+                "rects.HasOptionalSaveAs ? rects.OptionalSaveAs : Rect.zero",
                 "Save As contextual routing must use its clipped visible rectangle");
             TestAssert.Contains(
                 footerContextController,
-                "rects.HasWorkloadUpdate ? rects.WorkloadUpdate : Rect.zero",
+                "rects.HasOptionalUpdate ? rects.OptionalUpdate : Rect.zero",
                 "Save contextual routing must use its clipped visible rectangle");
             TestAssert.Contains(
                 footerContextController,
-                "rects.WorkloadCancel",
+                "rects.OptionalCancel",
                 "Cancel contextual routing must use the shared footer geometry");
             TestAssert.Contains(
                 footerContextController,
-                "rects.WorkloadApply",
+                "rects.OptionalApply",
                 "Apply contextual routing must use the shared footer geometry");
             int tutorialDraw = mainWindow.IndexOf(
                 "BWTWorkTabTutorial.TickAndDraw(",
                 StringComparison.Ordinal);
             int workloadPopoverDraw = mainWindow.IndexOf(
-                "HeaderButtons.DrawWorkloadFooterPopoverOnTop(",
+                "HeaderButtons.DrawOptionalFooterPopoverOnTop(",
                 StringComparison.Ordinal);
             TestAssert.True(
                 tutorialDraw >= 0 && workloadPopoverDraw > tutorialDraw,
@@ -899,7 +902,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             TestAssert.Contains(
                 header,
-                "private static void LayoutNormalFooter(",
+                "private void LayoutNormal(",
                 "normal footer geometry must have an explicit bounded layout pass");
             TestAssert.Contains(
                 header,
