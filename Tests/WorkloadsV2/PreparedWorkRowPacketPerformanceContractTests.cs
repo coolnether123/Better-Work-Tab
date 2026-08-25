@@ -17,12 +17,13 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string subWork = Read(root, "Source", "UI", "WorkGiverReassignments", "WorkGiverPriorityBoxRenderer.cs");
             string snapshot = Read(root, "Source", "UI", "WorkGrid", "Snapshots", "WorkGridSnapshot.cs");
             string provider = Read(root, "Source", "UI", "WorkGrid", "Snapshots", "WorkGridSnapshotProvider.cs");
+            string window = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
 
             StableRepaintUsesOrderedRowCommands(body, optimized, subWork);
             PacketBuilderConsumesPreparedStateOnly(packet);
             SparseUpdatesAdvanceOnlyDirtyRows(snapshot, provider);
             RetainedHitsUsePrecomputedBoundsAndFingerprint(retained);
-            ResourceOwnershipIsBounded(retained);
+            ResourceOwnershipIsBounded(retained, optimized, window);
             RepresentativeStableWorkIsRemoved();
         }
 
@@ -98,7 +99,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(fingerprint.IndexOf("Text.CurFontStyle", StringComparison.Ordinal) >= 0, "steady hits must not depend on ambient GUI font state");
         }
 
-        private static void ResourceOwnershipIsBounded(string retained)
+        private static void ResourceOwnershipIsBounded(
+            string retained,
+            string optimized,
+            string window)
         {
             TestAssert.Contains(retained, "MaximumEntries = 128", "retained surfaces need a hard entry bound");
             TestAssert.Contains(retained, "MaximumEstimatedSurfaceBytes = 64L * 1024L * 1024L", "retained surfaces need a hard estimated-byte bound");
@@ -108,6 +112,20 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(retained, "IsResourceFailureLatched(renderResourcesRevision)", "steady repaint must not retry a failed surface allocation");
             TestAssert.Contains(retained, "_estimatedSurfaceBytes -= entry.EstimatedBytes", "surface release must return its accounted bytes");
             TestAssert.Contains(retained, "UnityEngine.Object.Destroy(surface)", "released Unity surfaces must be destroyed");
+
+            string release = MemberBody(optimized, "internal void ReleaseRetainedResources(");
+            TestAssert.Contains(release, "EndCellBatch();", "resource release must first restore any active retained render target");
+            TestAssert.Contains(release, "_retainedRows.Dispose();", "the optimized renderer must release every retained row surface");
+            string resolution = MemberBody(window, "public override void Notify_ResolutionChanged()");
+            TestAssert.Contains(
+                resolution,
+                "_optimizedWorkGridRenderer.ReleaseRetainedResources();",
+                "resolution changes must release retained row surfaces");
+            string close = MemberBody(window, "private void ResetTransientWindowState()");
+            TestAssert.Contains(
+                close,
+                "_optimizedWorkGridRenderer.ReleaseRetainedResources();",
+                "closing the Work tab must release retained row surfaces");
         }
 
         private static void RepresentativeStableWorkIsRemoved()
