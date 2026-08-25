@@ -32,6 +32,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private readonly ContiguousBuffer<WorkGridRowEntry> _rows = new ContiguousBuffer<WorkGridRowEntry>(64);
         private readonly ContiguousBuffer<WorkGridColumnEntry> _columns = new ContiguousBuffer<WorkGridColumnEntry>(32);
         private readonly ContiguousBuffer<WorkCellVisualState> _cells = new ContiguousBuffer<WorkCellVisualState>(512);
+        private readonly ContiguousBuffer<WorkGridPreparedRowSpan> _preparedRows =
+            new ContiguousBuffer<WorkGridPreparedRowSpan>(64);
         private readonly SnapshotSlot<WorkGridSnapshot> _slot = new SnapshotSlot<WorkGridSnapshot>();
         private readonly Dictionary<ushort, int> _bestPawnIds = new Dictionary<ushort, int>();
         private readonly HashSet<int> _snapshotPawnIds = new HashSet<int>();
@@ -42,6 +44,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private bool _hasLayoutSignature;
         private WorkGridRevisionSet _revisions;
         private long _snapshotRevision;
+        private long _topologyRevision;
         private WorkTabEffectiveStateRevision _effectiveStateRevision;
         private bool _hasEffectiveStateRevision;
 
@@ -192,8 +195,50 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 dirty.Add(dirtyKeys[i]);
             }
 
+            var affectedWorkTypeIds = new HashSet<ushort>();
+            foreach (WorkGridPriorityKey key in dirty)
+            {
+                affectedWorkTypeIds.Add(key.WorkTypeId);
+            }
+
             IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
+            var bestPawnIds = new Dictionary<ushort, int>(_bestPawnIds);
+            var changedBestPawnIds = new Dictionary<ushort, BestPawnChange>();
+            foreach (ushort workTypeId in affectedWorkTypeIds)
+            {
+                if (!TryResolvePriorityWorker(
+                        columns,
+                        workTypeId,
+                        out WorkTypeDef workType,
+                        out PawnColumnWorker_WorkPriority worker))
+                {
+                    return false;
+                }
+
+                int previousBestPawnId = bestPawnIds.TryGetValue(workTypeId, out int resolved)
+                    ? resolved
+                    : -1;
+                int currentBestPawnId = FindBestPawnId(table, workType, worker);
+                bestPawnIds[workTypeId] = currentBestPawnId;
+                if (previousBestPawnId != currentBestPawnId)
+                {
+                    changedBestPawnIds[workTypeId] = new BestPawnChange(
+                        previousBestPawnId,
+                        currentBestPawnId);
+                }
+            }
+
             var replacements = new Dictionary<int, WorkCellVisualState>();
+            var preparedRowReplacements = new Dictionary<int, WorkGridPreparedRowSpan>();
+            var rowIndexByPawnId = new Dictionary<int, int>();
+            for (int rowIndex = 0; rowIndex < previous.Rows.Count; rowIndex++)
+            {
+                int pawnId = previous.Rows[rowIndex].PawnId;
+                if (pawnId >= 0)
+                {
+                    rowIndexByPawnId[pawnId] = rowIndex;
+                }
+            }
             uint cellRevision = unchecked((uint)(_snapshotRevision + 1));
             for (int i = 0; i < previous.Cells.Count; i++)
             {
@@ -201,7 +246,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 ushort workTypeId = cell.WorkType?.shortHash ?? 0;
                 bool dirtyCell = dirty.Contains(
                     new WorkGridPriorityKey(cell.PawnId, workTypeId));
-                if (!dirtyCell)
+                bool bestPawnChanged = changedBestPawnIds.TryGetValue(
+                    workTypeId,
+                    out BestPawnChange bestPawnChange) &&
+                    (cell.PawnId == bestPawnChange.PreviousPawnId ||
+                     cell.PawnId == bestPawnChange.CurrentPawnId);
+                if (!dirtyCell && !bestPawnChanged)
                 {
                     continue;
                 }
@@ -230,19 +280,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     return false;
                 }
 
-                // Parent-priority edits do not change the skill/actionability
-                // comparison that selected the best pawn. Preserve that stable
-                // presentation bit instead of rescanning the whole column.
-                int bestPawnId =
-                    (cell.Flags & WorkCellVisualFlags.BestPawn) != 0
-                        ? cell.PawnId
-                        : -1;
-
                 WorkGiver subWorkGiver = snapshotColumn.SubWorkGiver;
                 WorkTypeDef parentVisualWorkType = subWorkGiver == null ||
                     !snapshotColumn.IsExpandBesideChild
                         ? column.Column?.workType
                         : null;
+                int bestPawnId = parentVisualWorkType != null &&
+                    bestPawnIds.TryGetValue(
+                        parentVisualWorkType.shortHash,
+                        out int resolvedBestPawnId)
+                        ? resolvedBestPawnId
+                        : -1;
 
                 replacements[i] = BuildCell(
                     cell.Pawn,
@@ -253,19 +301,31 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     bestPawnId,
                     cellRevision);
                 updatedCellCount++;
+                if (rowIndexByPawnId.TryGetValue(cell.PawnId, out int preparedRowIndex) &&
+                    preparedRowIndex < previous.PreparedRows.Count)
+                {
+                    preparedRowReplacements[preparedRowIndex] =
+                        previous.PreparedRows[preparedRowIndex].WithRevision(cellRevision);
+                }
             }
 
             _revisions = revisions;
+            foreach (ushort workTypeId in affectedWorkTypeIds)
+            {
+                _bestPawnIds[workTypeId] = bestPawnIds[workTypeId];
+            }
             _effectiveStateRevision = effectiveStateRevision;
             _hasEffectiveStateRevision = true;
             _snapshotRevision++;
             _slot.Publish(new WorkGridSnapshot(
                 _snapshotRevision,
+                previous.TopologyRevision,
                 layout.LayoutRevision,
                 revisions,
                 previous.Rows,
                 previous.Columns,
                 previous.Cells.WithReplacements(replacements),
+                previous.PreparedRows.WithReplacements(preparedRowReplacements),
                 previous.RetainedCapacityBytes,
                 ParentPriorityRead.GetObservedManualModeForDisplay(
                     previous.ManualPriorities),
@@ -276,12 +336,50 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             return true;
         }
 
+        private static bool TryResolvePriorityWorker(
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            ushort workTypeId,
+            out WorkTypeDef workType,
+            out PawnColumnWorker_WorkPriority worker)
+        {
+            for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
+            {
+                WorkTabLayoutColumn column = columns[columnIndex];
+                WorkTypeDef candidate = column.Column?.workType;
+                if (!column.IsExpandBesideChild &&
+                    candidate?.shortHash == workTypeId &&
+                    column.Column?.Worker is PawnColumnWorker_WorkPriority candidateWorker)
+                {
+                    workType = candidate;
+                    worker = candidateWorker;
+                    return true;
+                }
+            }
+
+            workType = null;
+            worker = null;
+            return false;
+        }
+
+        private readonly struct BestPawnChange
+        {
+            internal BestPawnChange(int previousPawnId, int currentPawnId)
+            {
+                PreviousPawnId = previousPawnId;
+                CurrentPawnId = currentPawnId;
+            }
+
+            internal int PreviousPawnId { get; }
+            internal int CurrentPawnId { get; }
+        }
+
         internal void Clear()
         {
             _slot.Clear();
             _rows.Clear();
             _columns.Clear();
             _cells.Clear();
+            _preparedRows.Clear();
             _bestPawnIds.Clear();
             _snapshotPawnIds.Clear();
             _pawnDynamicVersions.Clear();
@@ -311,6 +409,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _rows.Clear();
             _columns.Clear();
             _cells.Clear();
+            _preparedRows.Clear();
 
             IReadOnlyList<WorkTabLayoutRow> layoutRows = layout.Rows;
             for (int i = 0; i < layoutRows.Count; i++)
@@ -524,6 +623,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 }
             }
 
+            BuildPreparedRowSpans(cellRevision);
+
             _layoutSignature = layoutSignature;
             _layout = layout;
             _hasLayoutSignature = true;
@@ -531,6 +632,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _effectiveStateRevision = effectiveStateRevision;
             _hasEffectiveStateRevision = true;
             _snapshotRevision++;
+            _topologyRevision++;
             _bestPawnIds.Clear();
             foreach (KeyValuePair<ushort, int> entry in bestPawnIds)
             {
@@ -538,16 +640,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
             CaptureSnapshotPawnIds(table);
             CapturePawnPresentationVersions(table);
-            int retainedBytes = (_rows.Capacity * 40) + (_columns.Capacity * 56) + (_cells.Capacity * 56);
+            int retainedBytes = (_rows.Capacity * 40) + (_columns.Capacity * 56) +
+                (_cells.Capacity * 56) + (_preparedRows.Capacity * 12);
             int maxPriority = WorkPrioritySystem.GetMaxPriority();
             int presentationRevision = unchecked((int)revisions.SettingsThemeLanguageScale);
             _slot.Publish(new WorkGridSnapshot(
                 _snapshotRevision,
+                _topologyRevision,
                 layout.LayoutRevision,
                 revisions,
                 _rows.ToSnapshot(),
                 _columns.ToSnapshot(),
                 _cells.ToSnapshot(),
+                _preparedRows.ToSnapshot(),
                 retainedBytes,
                 ParentPriorityRead.GetObservedManualModeForDisplay(
                     true),
@@ -555,6 +660,25 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 Mathf.RoundToInt(Prefs.UIScale * 1000f),
                 presentationRevision,
                 unchecked((presentationRevision * 397) ^ maxPriority)));
+        }
+
+        private void BuildPreparedRowSpans(uint revision)
+        {
+            int cellIndex = 0;
+            for (int rowIndex = 0; rowIndex < _rows.Count; rowIndex++)
+            {
+                int firstCellIndex = cellIndex;
+                int pawnId = _rows[rowIndex].PawnId;
+                while (cellIndex < _cells.Count && _cells[cellIndex].PawnId == pawnId)
+                {
+                    cellIndex++;
+                }
+
+                _preparedRows.Add(new WorkGridPreparedRowSpan(
+                    firstCellIndex,
+                    cellIndex - firstCellIndex,
+                    pawnId >= 0 ? revision : 0U));
+            }
         }
 
         private bool CanReuseRosterCellVisuals(

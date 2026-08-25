@@ -1408,6 +1408,40 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             bool scheduleOpen = FluffyTimeScheduleAssigner.IsOpen;
             WorkTypeDef expandedParentPriorityWorkType = null;
             int expandedParentPriority = WorkPrioritySystem.DisabledPriority;
+            if (Event.current.type == EventType.Repaint &&
+                snapshotLayer is IPreparedWorkGridRowLayer preparedLayer &&
+                preparedLayer.TryGetPreparedRow(rowIndex, rowRect, out PreparedWorkRowPacket packet))
+            {
+                for (int commandIndex = 0; commandIndex < packet.Commands.Length; commandIndex++)
+                {
+                    PreparedWorkRowCommand command = packet.Commands[commandIndex];
+                    if (command.Kind == PreparedWorkRowCommandKind.RetainedRun)
+                    {
+                        preparedLayer.DrawPreparedRun(packet, command.Index, rowRect.y);
+                        continue;
+                    }
+
+                    int columnIndex = command.Index;
+                    if (columnIndex < 0 || columnIndex >= columns.Count)
+                    {
+                        continue;
+                    }
+                    WorkTabLayoutColumn column = columns[columnIndex];
+                    Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
+                        column,
+                        rowRect);
+                    DrawNativePawnCell(
+                        table,
+                        pawn,
+                        column,
+                        cellRect,
+                        scheduleOpen,
+                        ref expandedParentPriorityWorkType,
+                        ref expandedParentPriority);
+                }
+                return;
+            }
+
             snapshotLayer?.BeginRow();
             try
             {
@@ -1430,66 +1464,85 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         continue;
                     }
 
-                    // BWT still publishes active sub-work geometry and owns its header labels,
-                    // but mixed mode lets Sleek draw and edit its per-job value in this cell.
-                    if (WorkTabEffectiveStateRuntime.IsPreviewActive &&
-                        SleekWorkTabGateway.BetterWorkTabHostsSleek &&
-                        SubWorkDrilldownState.TryGetWorkGiverForColumn(
-                            column,
-                            out _,
-                            out _,
-                            out _))
-                    {
-                        WorkTabEffectiveStateRuntime.ReportBlocked(
-                            WorkTabEffectiveStateDimension.SpecificJobOverride,
-                            "BWT_Preview_SleekCellUnavailable".Translate());
-                        continue;
-                    }
-
-                    // The optimized layer owns this cell when it has a completed snapshot.
-                    // Reaching this branch means the native live path owns the cell.
-                    if (column.IsExpandBesideChild &&
-                        SubWorkDrilldownState.TryGetWorkGiverForColumn(
-                            column,
-                            out WorkGiver expandedWorkGiver,
-                            out WorkTypeDef expandedParentWorkType,
-                            out _))
-                    {
-                        Rect priorityBoxRect =
-                            WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect);
-                        if (expandedParentPriorityWorkType != expandedParentWorkType)
-                        {
-                            expandedParentPriorityWorkType = expandedParentWorkType;
-                            expandedParentPriority = ParentPriorityRead.GetObserved(
-                                pawn,
-                                expandedParentWorkType);
-                        }
-
-                        WorkGiverPriorityBoxRenderer.DrawPriorityBox(
-                            expandedWorkGiver,
-                            expandedParentWorkType,
-                            pawn,
-                            priorityBoxRect,
-                            knownParentPriority: expandedParentPriority);
-                        continue;
-                    }
-
-                    if (!WorkTabEffectiveStateRuntime.IsPreviewActive &&
-                        scheduleOpen &&
-                        !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column) &&
-                        column.Column?.workType != null &&
-                        FluffyTimeScheduleAssigner.TryDrawWorkTypeCell(cellRect, pawn, column.Column.workType))
-                    {
-                        continue;
-                    }
-
-                    column.Column.Worker.DoCell(cellRect, pawn, table);
+                    DrawNativePawnCell(
+                        table,
+                        pawn,
+                        column,
+                        cellRect,
+                        scheduleOpen,
+                        ref expandedParentPriorityWorkType,
+                        ref expandedParentPriority);
                 }
             }
             finally
             {
                 snapshotLayer?.EndRow();
             }
+        }
+
+        private static void DrawNativePawnCell(
+            PawnTable table,
+            Pawn pawn,
+            WorkTabLayoutColumn column,
+            Rect cellRect,
+            bool scheduleOpen,
+            ref WorkTypeDef expandedParentPriorityWorkType,
+            ref int expandedParentPriority)
+        {
+            // BWT still publishes active sub-work geometry and owns its header labels,
+            // but mixed mode lets Sleek draw and edit its per-job value in this cell.
+            if (WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                SleekWorkTabGateway.BetterWorkTabHostsSleek &&
+                SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                    column,
+                    out _,
+                    out _,
+                    out _))
+            {
+                WorkTabEffectiveStateRuntime.ReportBlocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOverride,
+                    "BWT_Preview_SleekCellUnavailable".Translate());
+                return;
+            }
+
+            // The optimized layer owns this cell when it has a completed snapshot.
+            // Reaching this branch means the native live path owns the cell.
+            if (column.IsExpandBesideChild &&
+                SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                    column,
+                    out WorkGiver expandedWorkGiver,
+                    out WorkTypeDef expandedParentWorkType,
+                    out _))
+            {
+                Rect priorityBoxRect =
+                    WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect);
+                if (expandedParentPriorityWorkType != expandedParentWorkType)
+                {
+                    expandedParentPriorityWorkType = expandedParentWorkType;
+                    expandedParentPriority = ParentPriorityRead.GetObserved(
+                        pawn,
+                        expandedParentWorkType);
+                }
+
+                WorkGiverPriorityBoxRenderer.DrawPriorityBox(
+                    expandedWorkGiver,
+                    expandedParentWorkType,
+                    pawn,
+                    priorityBoxRect,
+                    knownParentPriority: expandedParentPriority);
+                return;
+            }
+
+            if (!WorkTabEffectiveStateRuntime.IsPreviewActive &&
+                scheduleOpen &&
+                !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column) &&
+                column.Column?.workType != null &&
+                FluffyTimeScheduleAssigner.TryDrawWorkTypeCell(cellRect, pawn, column.Column.workType))
+            {
+                return;
+            }
+
+            column.Column.Worker.DoCell(cellRect, pawn, table);
         }
 
         private static WorkGridIndexRange ClampRange(WorkGridIndexRange range, int count)

@@ -32,6 +32,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static readonly Dictionary<string, Rect> GlobalPriorityTargets = new Dictionary<string, Rect>(StringComparer.Ordinal);
         private static readonly string[] PriorityLabels = new string[PriorityConstants.ExtendedHardMax + 1];
         private static float _visualAlpha = 1f;
+        private static float _resetAnimationsExpireAt;
         private static bool _trustedRootInputHit;
         private static WorkTabApplication _inputApplication;
 
@@ -41,10 +42,31 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         internal static void ResetForWindowClose()
         {
             ResetAnimations.Clear();
+            _resetAnimationsExpireAt = 0f;
             GlobalPriorityTargets.Clear();
             _visualAlpha = 1f;
             _trustedRootInputHit = false;
             _inputApplication = null;
+        }
+
+        internal static bool HasActiveResetAnimations => ResetAnimations.Count > 0;
+
+        internal static bool HasResetAnimation(int pawnId, WorkGiverDef workGiverDef)
+        {
+            return workGiverDef != null &&
+                ResetAnimations.ContainsKey(BuildAnimationKey(pawnId, workGiverDef));
+        }
+
+        internal static void MaintainResetAnimations()
+        {
+            if (ResetAnimations.Count == 0 ||
+                Time.realtimeSinceStartup < _resetAnimationsExpireAt)
+            {
+                return;
+            }
+
+            ResetAnimations.Clear();
+            _resetAnimationsExpireAt = 0f;
         }
 
         public static void DrawPriorityBox(
@@ -1042,13 +1064,17 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     ResetAnimations.Clear();
                 }
 
+                float startedAt = Time.realtimeSinceStartup;
                 ResetAnimations[BuildAnimationKey(pawnId, workGiverDef)] = new ResetAnimationState
                 {
-                    StartedAt = Time.realtimeSinceStartup,
+                    StartedAt = startedAt,
                     FromPriority = WorkPrioritySystem.ClampPriority(fromPriority),
                     ToPriority = WorkPrioritySystem.ClampPriority(toPriority),
                     TargetBoxScreen = GetGlobalTargetBox(workGiverDef)
                 };
+                _resetAnimationsExpireAt = Mathf.Max(
+                    _resetAnimationsExpireAt,
+                    startedAt + OverrideResetAnimationSeconds);
             }
 
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();

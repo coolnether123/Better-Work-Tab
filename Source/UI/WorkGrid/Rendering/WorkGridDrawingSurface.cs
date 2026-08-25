@@ -26,6 +26,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         WorkGridIndexRange VisibleColumnRange { get; }
     }
 
+    internal interface IPreparedWorkGridRowLayer
+    {
+        bool TryGetPreparedRow(int rowIndex, Rect rowRect, out PreparedWorkRowPacket packet);
+        void DrawPreparedRun(PreparedWorkRowPacket packet, int runIndex, float rowOffsetY);
+    }
+
     public interface IWorkGridSnapshotLayer
     {
         void BeginRow();
