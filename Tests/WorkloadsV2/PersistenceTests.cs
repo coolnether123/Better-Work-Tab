@@ -53,7 +53,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.True(
                 templateValidation.CanApply,
                 "typed persistence fixture must validate: " +
-                (templateValidation.Issues.Count == 0 ? "no diagnostic" : templateValidation.Issues[0].Message));
+                (templateValidation.Issues.Count == 0 ? "no diagnostic" : templateValidation.Issues[0].Code.ToString()));
 
             var recordResult = WorkloadV2RecordConverter.TryFromTemplate(template);
             TestAssert.True(recordResult.Succeeded, "typed V2 template must convert to a persistence record");
@@ -274,8 +274,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "ordinary conversion must reject schema-2 records before document-load migration");
             TestAssert.Equal(WorkloadDiagnosticCode.UnsupportedSchema, unmigratedResult.Code,
                 "an unmigrated schema-2 record must report the document-load migration boundary");
-            TestAssert.Contains(unmigratedResult.Message, "document-load migration",
-                "the schema-2 runtime diagnostic must direct callers to document-load migration");
+            TestAssert.Equal(WorkloadDiagnosticCode.UnsupportedSchema, unmigratedResult.Code,
+                "the schema-2 runtime diagnostic must remain structured");
             TestAssert.Equal(WorkloadSchema.PresentationIntentVersion, unmigrated.SchemaVersion,
                 "ordinary conversion must not promote an unmigrated schema-2 record");
 
@@ -513,8 +513,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "schema-2 legacy schedule data must not serialize as nominal schema 3 without typed schedule intent");
             TestAssert.Equal(WorkloadDiagnosticCode.UnsupportedSchema, result.Code,
                 "unmigrated schema-2 templates must report the document-load migration boundary");
-            TestAssert.Contains(result.Message, "document-load migration",
-                "the schema-2 serialization diagnostic must direct callers to document-load migration");
+            TestAssert.Equal(WorkloadDiagnosticCode.UnsupportedSchema, result.Code,
+                "the schema-2 serialization diagnostic must remain structured");
         }
 
         private static WorkloadV2PersistenceEnvelope MigrateDuringDocumentLoad(

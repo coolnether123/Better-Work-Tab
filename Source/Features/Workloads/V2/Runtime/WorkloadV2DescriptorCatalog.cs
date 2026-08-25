@@ -22,8 +22,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         private IReadOnlyList<WorkloadDescriptor> _descriptors = EmptyDescriptors;
         private WorkloadOperationResult<WorkloadDescriptor> _current =
             WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                WorkloadDiagnosticCode.MissingCurrentWorkloadId,
-                "There is no current V2 workload ID.");
+                WorkloadDiagnosticCode.MissingCurrentWorkloadId);
 
         internal IReadOnlyList<WorkloadDescriptor> Descriptors => _descriptors;
         internal WorkloadOperationResult<WorkloadDescriptor> Current => _current;
@@ -40,8 +39,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 _currentWorkloadId = string.Empty;
                 _descriptors = EmptyDescriptors;
                 _current = WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "There is no Better Work Tab world component.");
+                    WorkloadDiagnosticCode.NoCurrentGame);
                 return;
             }
 
@@ -115,22 +113,19 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (string.IsNullOrEmpty(currentWorkloadId))
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.MissingCurrentWorkloadId,
-                    "There is no current V2 workload ID.");
+                    WorkloadDiagnosticCode.MissingCurrentWorkloadId);
             }
 
             if (stableIdCounts.TryGetValue(currentWorkloadId, out int count) && count > 1)
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.AmbiguousStableId,
-                    "The current V2 workload ID is duplicated.");
+                    WorkloadDiagnosticCode.AmbiguousStableId);
             }
 
             return uniqueByStableId.TryGetValue(currentWorkloadId, out WorkloadDescriptor descriptor)
                 ? WorkloadOperationResult<WorkloadDescriptor>.Ok(descriptor)
                 : WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    WorkloadDiagnosticCode.UnknownWorkloadId,
-                    "The current V2 workload ID was not found.");
+                    WorkloadDiagnosticCode.UnknownWorkloadId);
         }
 
         internal static WorkloadDescriptor CreateDescriptor(
@@ -143,10 +138,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadDiagnosticCode code = store.IsReadOnlyDiagnostic
                 ? store.DiagnosticCode
                 : newerRecord ? WorkloadDiagnosticCode.NewerSchema : WorkloadDiagnosticCode.None;
-            string diagnostic = store.IsReadOnlyDiagnostic
-                ? store.Diagnostic
-                : newerRecord ? "The workload record uses a newer schema." : string.Empty;
-
             return new WorkloadDescriptor(
                 WorkloadBackendMode.Modern,
                 record.StableId,
@@ -155,8 +146,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 readOnly,
                 !string.IsNullOrWhiteSpace(record.StableId),
                 record.SchemaVersion,
-                code,
-                diagnostic);
+                code);
         }
     }
 }

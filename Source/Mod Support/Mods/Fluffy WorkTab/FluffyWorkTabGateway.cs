@@ -1,7 +1,7 @@
 using System;
 using Better_Work_Tab.API;
-using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.DragDrop;
@@ -396,15 +396,15 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             FluffyWorkTabCoexistence.ApplyColumnVisibility();
         }
 
-        internal static void MigratePriorityDataIfNeeded(GameComponent_BWTWorldSettings component)
+        internal static void MigratePriorityDataIfNeeded(WorkTabGameRoot root)
         {
-            FluffyWorkTabMigrationResult result = FluffyWorkTabMigration.MigrateIfNeeded(component);
-            FluffyWorkTabMigrationPrompt.QueueIfNeeded(component, result);
+            FluffyWorkTabMigrationResult result = FluffyWorkTabMigration.MigrateIfNeeded(root);
+            FluffyWorkTabMigrationPrompt.QueueIfNeeded(root, result);
         }
 
-        internal static bool HasPriorityMigrationHistory(GameComponent_BWTWorldSettings component)
+        internal static bool HasPriorityMigrationHistory(WorkTabGameRoot root)
         {
-            return FluffyWorkTabMigration.HasMigrationHistory(component);
+            return FluffyWorkTabMigration.HasMigrationHistory(root);
         }
 
         internal static void ExposePriorityMigrationVersion(ref int version)

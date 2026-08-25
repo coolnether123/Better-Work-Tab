@@ -1,4 +1,4 @@
-using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Foundation.GameState;
 using Verse;
 
 namespace Better_Work_Tab.Features.WorkGiverReassignments
@@ -10,23 +10,23 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     internal static class WorkGiverReassignmentMigrationAdapter
     {
         internal static void MigrateLegacySettingsDataIfNeeded(
-            GameComponent_BWTWorldSettings component)
+            IWorkTabReassignmentState state)
         {
-            if (component == null)
+            if (state == null)
             {
                 WorkGiverReassignmentManager.OnSettingsLoaded();
                 return;
             }
 
-            component.EnsureWorkGiverReassignmentData();
+            WorkGiverReassignmentData current = state.EnsureData();
 
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             WorkGiverReassignmentData legacy = settings?.LegacyWorkGiverReassignments;
             if (legacy != null && legacy.HasAnyData())
             {
-                if (!component.WorkGiverReassignments.HasAnyData())
+                if (current == null || !current.HasAnyData())
                 {
-                    component.WorkGiverReassignments = legacy.Clone();
+                    state.Data = legacy.Clone();
                     BetterWorkTabMod.DebugLog(
                         "Migrated legacy global sub-work reassignment settings into this save.",
                         DebugFeature.General);

@@ -2,11 +2,10 @@ using System;
 using System.Collections.Generic;
 using Better_Work_Tab.DragDrop;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.UI.Input;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Projection;
-using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -1185,10 +1184,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             int defaultPriority = ParentPriorityRead.GetObserved(pawn, _activeWorkType);
-            int priority = WorkloadProjectionRuntime.TryGetSpecificJobPriority(
-                WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, _activeWorkType, workGiverDef),
-                out int projectedPriority)
-                ? Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.ClampPriority(projectedPriority)
+            WorkTabEffectiveStateResolution<int> projectedResolution =
+                WorkTabEffectiveStateRuntime.ResolvePreviewSpecificJobPriority(
+                    WorkTabSpecificJobTarget.For(pawn, _activeWorkType, workGiverDef));
+            int priority = projectedResolution.IsSet
+                ? Better_Work_Tab.Features.RaisedPriorityMaximum.WorkPrioritySystem.ClampPriority(projectedResolution.Value)
                 : WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiverDef, defaultPriority);
             if (!WorkTabEffectiveStateRuntime.IsPreviewDimensionOwned(
                     WorkTabEffectiveStateDimension.Schedule))

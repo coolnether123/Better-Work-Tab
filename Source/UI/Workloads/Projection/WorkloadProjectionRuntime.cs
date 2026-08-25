@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using RimWorld;
 using Verse;
@@ -438,6 +440,160 @@ namespace Better_Work_Tab.UI.Workloads.Projection
             string reason)
         {
             return WorkTabEffectiveStateRuntime.Blocked(dimension, reason);
+        }
+    }
+
+    /// <summary>
+    /// Workload-owned translation boundary for the small neutral preview
+    /// capability. Providers use this helper at their typed capability edge;
+    /// normal Work-grid callers never construct workload keys or payloads.
+    /// </summary>
+    internal static class WorkloadPreviewStateAdapter
+    {
+        internal static bool TryGetScheduleKey(
+            TimePriorityTarget target,
+            out WorkloadScheduleTargetKey key,
+            out string reason)
+        {
+            return WorkloadTimePriorityAdapter.TryGetScheduleTarget(
+                target,
+                out key,
+                out reason);
+        }
+
+        internal static bool TryGetSpecificJobKey(
+            WorkTabSpecificJobTarget target,
+            out WorkloadSpecificJobTargetKey key)
+        {
+            key = null;
+            if (!target.IsValid)
+            {
+                return false;
+            }
+
+            key = target.IsGlobal
+                ? WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(
+                    target.WorkType,
+                    target.WorkGiver)
+                : WorkTabEffectiveStateIds.ForSpecificJobTarget(
+                    target.Pawn,
+                    target.WorkType,
+                    target.WorkGiver);
+            return key != null && key.IsValid;
+        }
+
+        internal static bool TryGetWorkTypeOrderKey(
+            WorkTabWorkTypeOrderTarget target,
+            out WorkloadWorkTypeOrderKey key)
+        {
+            key = null;
+            if (!target.IsValid)
+            {
+                return false;
+            }
+
+            key = target.IsGlobal
+                ? WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(target.WorkType)
+                : WorkTabEffectiveStateIds.ForWorkTypeOrder(
+                    target.Pawn,
+                    target.WorkType);
+            return key != null && key.IsValid;
+        }
+
+        internal static WorkTabEffectiveStateResolution<TimePriorityScheduleValue>
+            ToScheduleResolution(
+                WorkTabEffectiveStateResolution<WorkloadSchedulePayload> resolution)
+        {
+            if (resolution.IsClear)
+            {
+                return WorkTabEffectiveStateResolution<TimePriorityScheduleValue>.Clear;
+            }
+
+            if (!resolution.IsSet || resolution.Value == null ||
+                !resolution.Value.IsValid ||
+                !WorkloadTimePriorityAdapter.TryGetScheduleValue(
+                    resolution.Value,
+                    out TimePriorityScheduleValue value,
+                    out _))
+            {
+                return WorkTabEffectiveStateResolution<TimePriorityScheduleValue>.NoOpinion;
+            }
+
+            return WorkTabEffectiveStateResolution<TimePriorityScheduleValue>.Set(value);
+        }
+
+        internal static WorkTabEffectiveStateResolution<int>
+            ToSpecificPriorityResolution(
+                WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload> resolution)
+        {
+            if (resolution.IsClear)
+            {
+                return WorkTabEffectiveStateResolution<int>.Clear;
+            }
+
+            if (!resolution.IsSet || !resolution.Value.IsValid)
+            {
+                return WorkTabEffectiveStateResolution<int>.NoOpinion;
+            }
+
+            return WorkTabEffectiveStateResolution<int>.Set(resolution.Value.Priority);
+        }
+
+        internal static WorkTabEffectiveStateResolution<IReadOnlyList<string>>
+            ToWorkTypeOrderResolution(
+                WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload> resolution)
+        {
+            if (resolution.IsClear)
+            {
+                return WorkTabEffectiveStateResolution<IReadOnlyList<string>>.Clear;
+            }
+
+            if (!resolution.IsSet || resolution.Value == null ||
+                !resolution.Value.IsValid)
+            {
+                return WorkTabEffectiveStateResolution<IReadOnlyList<string>>.NoOpinion;
+            }
+
+            WorkloadWorkTypeOrderPayload payload = resolution.Value;
+            var names = new string[payload.OrderedWorkGivers.Count];
+            for (int i = 0; i < names.Length; i++)
+            {
+                WorkGiverKey key = payload.OrderedWorkGivers[i];
+                if (key == null || !key.IsValid)
+                {
+                    return WorkTabEffectiveStateResolution<IReadOnlyList<string>>.NoOpinion;
+                }
+
+                names[i] = key.Value;
+            }
+
+            return WorkTabEffectiveStateResolution<IReadOnlyList<string>>.Set(names);
+        }
+
+        internal static WorkloadSchedulePayload ToSchedulePayload(
+            TimePriorityScheduleValue value)
+        {
+            return value == null || !value.IsValid
+                ? null
+                : WorkloadTimePriorityAdapter.ToPayload(value);
+        }
+
+        internal static WorkloadWorkTypeOrderPayload ToWorkTypeOrderPayload(
+            IReadOnlyList<string> orderedWorkGiverNames)
+        {
+            if (orderedWorkGiverNames == null)
+            {
+                return null;
+            }
+
+            var keys = new List<WorkGiverKey>(orderedWorkGiverNames.Count);
+            for (int i = 0; i < orderedWorkGiverNames.Count; i++)
+            {
+                keys.Add(new WorkGiverKey(orderedWorkGiverNames[i]));
+            }
+
+            var payload = new WorkloadWorkTypeOrderPayload(keys);
+            return payload.IsValid ? payload : null;
         }
     }
 }

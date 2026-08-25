@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -15,7 +14,6 @@ using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Schedule;
-using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -334,10 +332,11 @@ namespace Better_Work_Tab.Features.TimePriority
             if (workGiver != null)
             {
                 int parentPriority = ParentPriorityRead.GetObserved(pawn, workType);
-                currentPriority = WorkloadProjectionRuntime.TryGetSpecificJobPriority(
-                    WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiver),
-                    out int specificPriority)
-                    ? WorkPrioritySystem.ClampPriority(specificPriority)
+                WorkTabEffectiveStateResolution<int> specificResolution =
+                    WorkTabEffectiveStateRuntime.ResolvePreviewSpecificJobPriority(
+                        WorkTabSpecificJobTarget.For(pawn, workType, workGiver));
+                currentPriority = specificResolution.IsSet
+                    ? WorkPrioritySystem.ClampPriority(specificResolution.Value)
                     : WorkGiverReassignmentManager.GetWorkGiverPriority(pawn, workGiver, parentPriority);
                 target = TimePriorityTarget.ForWorkGiver(pawn, workGiver);
                 targetLabel = WorkGiverDisplayNameService.HeaderLabel(workGiver);
@@ -2096,11 +2095,12 @@ namespace Better_Work_Tab.Features.TimePriority
             WorkGiverDef workGiver,
             int parentPriority)
         {
-            if (WorkloadProjectionRuntime.TryGetSpecificJobPriority(
-                    WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiver),
-                    out int specificPriority))
+            WorkTabEffectiveStateResolution<int> specificResolution =
+                WorkTabEffectiveStateRuntime.ResolvePreviewSpecificJobPriority(
+                    WorkTabSpecificJobTarget.For(pawn, workType, workGiver));
+            if (specificResolution.IsSet)
             {
-                return WorkPrioritySystem.ClampPriority(specificPriority);
+                return WorkPrioritySystem.ClampPriority(specificResolution.Value);
             }
 
             return WorkGiverReassignmentManager.GetWorkGiverPriority(

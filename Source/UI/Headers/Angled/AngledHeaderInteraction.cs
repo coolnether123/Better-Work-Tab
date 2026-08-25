@@ -6,12 +6,11 @@ using Verse.Sound;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Commands;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Settings;
-using Better_Work_Tab.UI.Workloads.Projection;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -605,10 +604,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     }
 
                     int parentPriority = ParentPriorityRead.GetObserved(pawn, workType);
-                    int currentPriority = WorkloadProjectionRuntime.TryGetSpecificJobPriority(
-                        WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiverDef),
-                        out int projectedPriority)
-                        ? WorkPrioritySystem.ClampPriority(projectedPriority)
+                    WorkTabEffectiveStateResolution<int> resolution =
+                        WorkTabEffectiveStateRuntime.ResolvePreviewSpecificJobPriority(
+                            WorkTabSpecificJobTarget.For(pawn, workType, workGiverDef));
+                    int currentPriority = resolution.IsSet
+                        ? WorkPrioritySystem.ClampPriority(resolution.Value)
                         : WorkGiverReassignmentManager.GetWorkGiverPriority(
                             pawn,
                             workGiverDef,

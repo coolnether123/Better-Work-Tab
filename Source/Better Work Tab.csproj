@@ -177,6 +177,7 @@
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownInput.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
+    <Compile Include="Features\Workloads\WorkloadWorldState.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadCanonical.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadDefinition.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadDiff.cs" />
@@ -222,6 +223,7 @@
     <Compile Include="Features\Application\BoundedUndoRedoHistory.cs" />
     <Compile Include="Features\Application\WorkTabApplicationChange.cs" />
     <Compile Include="Features\Application\WorkTabApplicationPublisher.cs" />
+    <Compile Include="Features\Application\WorkTabDomainPorts.cs" />
     <Compile Include="Features\Application\WorkTabStagedMutation.cs" />
     <Compile Include="Features\Application\WorkTabApplication.cs" />
     <Compile Include="Features\Application\WorkTabRuleSpecificPriority.cs" />
@@ -388,6 +390,7 @@
     <Compile Include="UI\WorkGiverReassignments\SubWorkInteractionController.cs" />
     <Compile Include="UI\WorkGiverReassignments\SubWorkStyleChooserPresenter.cs" />
     <Compile Include="UI\WorkGrid\Contracts\WorkGridPreviewContracts.cs" />
+    <Compile Include="UI\WorkGrid\Contracts\WorkGridPreviewStateContracts.cs" />
     <Compile Include="UI\WorkGrid\Contracts\WorkGridRenderContracts.cs" />
     <Compile Include="UI\WorkGrid\Projection\WorkTabEffectiveStateContracts.cs" />
     <Compile Include="UI\Workloads\Projection\WorkloadProjectionContracts.cs" />
@@ -496,6 +499,8 @@
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />
     <Compile Include="UI\Workloads\WorkloadGateway.cs" />
+    <Compile Include="UI\Workloads\WorkloadPresentationResolver.cs" />
+    <Compile Include="UI\Workloads\WorkloadPresentationSettingsAdapter.cs" />
     <Compile Include="UI\Workloads\WorkloadPawnRosterCache.cs" />
     <Compile Include="UI\Workloads\WorkloadParentPriorityProjection.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderGateway.cs" />

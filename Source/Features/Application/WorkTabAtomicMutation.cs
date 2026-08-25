@@ -38,9 +38,9 @@ namespace Better_Work_Tab.Features.Application
         private IDisposable _scheduleBatch;
         private IDisposable _specificJobBatch;
         private IDisposable _externalMirror;
-        private readonly HashSet<WorkGiverReassignmentManager.SpecificJobBatchRollback>
+        private readonly HashSet<IWorkTabSpecificJobRollbackReceipt>
             _unpublishedSpecificJobs =
-                new HashSet<WorkGiverReassignmentManager.SpecificJobBatchRollback>();
+                new HashSet<IWorkTabSpecificJobRollbackReceipt>();
         private readonly HashSet<TimePriorityCacheKey> _unpublishedSchedules =
             new HashSet<TimePriorityCacheKey>();
 
@@ -116,13 +116,13 @@ namespace Better_Work_Tab.Features.Application
         }
 
         internal bool TryApplySpecificJobs(
-            IReadOnlyList<WorkGiverReassignmentManager.SpecificPriorityBatchEntry> priorities,
-            IReadOnlyList<WorkGiverReassignmentManager.SpecificOrderBatchEntry> orders,
+            IReadOnlyList<WorkTabStagedSpecificPriority> priorities,
+            IReadOnlyList<WorkTabStagedSpecificOrder> orders,
             int expectedRevision,
             long authorityRevision,
             bool synchronizedReplay,
             WorkTabMutationLease authorization,
-            out WorkGiverReassignmentManager.SpecificJobBatchRollback rollback,
+            out IWorkTabSpecificJobRollbackReceipt rollback,
             out string reason)
         {
             bool applied = WorkGiverReassignmentManager.TryApplySpecificJobBatch(
@@ -139,7 +139,7 @@ namespace Better_Work_Tab.Features.Application
         }
 
         internal bool TryRestoreSpecificJobs(
-            WorkGiverReassignmentManager.SpecificJobBatchRollback rollback,
+            IWorkTabSpecificJobRollbackReceipt rollback,
             out string reason)
         {
             if (!_unpublishedSpecificJobs.Contains(rollback))

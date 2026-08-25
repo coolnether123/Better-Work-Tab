@@ -247,8 +247,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "pending idempotent retries must correlate status to the registered request ID");
             TestAssert.Contains(
                 backend,
-                "The idempotent workload transaction is already in progress.",
-                "pending idempotent retries must report an attached pending operation");
+                "WorkloadMultiplayerCommitState.Pending",
+                "pending idempotent retries must retain structured pending state");
         }
 
         private static void MismatchedTerminalReplaysRemainConflicts(string backend)
@@ -472,8 +472,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 state,
                 state == WorkloadMultiplayerCommitState.None
                     ? WorkloadDiagnosticCode.InvalidState
-                    : WorkloadDiagnosticCode.None,
-                "status message");
+                    : WorkloadDiagnosticCode.None);
         }
 
         private static string FindRepositoryRoot()

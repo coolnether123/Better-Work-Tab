@@ -18,15 +18,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (record == null)
             {
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.NotFound,
-                    "The workload record is missing.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             if (string.IsNullOrWhiteSpace(record.StableId))
             {
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.MissingStableId,
-                    "The workload record has no stable ID.");
+                    WorkloadDiagnosticCode.MissingStableId);
             }
 
             WorkloadV2SchemaState schemaState =
@@ -35,27 +33,22 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 case WorkloadV2SchemaState.Missing:
                     return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                        WorkloadDiagnosticCode.UnsupportedSchema,
-                        "The workload record schema version is missing; an explicit migration is required.");
+                        WorkloadDiagnosticCode.UnsupportedSchema);
                 case WorkloadV2SchemaState.KnownOld:
                     return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                        WorkloadDiagnosticCode.UnsupportedSchema,
-                        "The workload record has not completed the required document-load migration.");
+                        WorkloadDiagnosticCode.UnsupportedSchema);
                 case WorkloadV2SchemaState.Newer:
                     return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                        WorkloadDiagnosticCode.NewerSchema,
-                        "The workload record uses a newer schema and is read-only.");
+                        WorkloadDiagnosticCode.NewerSchema);
                 case WorkloadV2SchemaState.Unsupported:
                     return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                        WorkloadDiagnosticCode.UnsupportedSchema,
-                        "The workload record schema version is unsupported.");
+                        WorkloadDiagnosticCode.UnsupportedSchema);
             }
 
             if (readOnlyDocument)
             {
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.ReadOnlyDiagnostic,
-                    "The workload is read-only for diagnostics.");
+                    WorkloadDiagnosticCode.ReadOnlyDiagnostic);
             }
 
             record.EnsureCollections();
@@ -65,32 +58,26 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (HasDuplicateTypedSpecificTargets(record, out duplicateSpecificTargetError))
             {
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    duplicateSpecificTargetError);
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (record.LegacyScheduleRequiresReview || record.LegacyOrderRequiresReview)
             {
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.ReadOnlyDiagnostic,
-                    string.IsNullOrWhiteSpace(record.MigrationDiagnostic)
-                        ? "The workload contains legacy schedule or order data that cannot be losslessly converted."
-                        : record.MigrationDiagnostic);
+                    WorkloadDiagnosticCode.ReadOnlyDiagnostic);
             }
 
             int knownOwnershipBits = (int)WorkloadOwnershipDimensions.All;
             if ((record.OwnershipDimensions & ~knownOwnershipBits) != 0)
             {
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedSchema,
-                    "The workload declares an unknown ownership dimension.");
+                    WorkloadDiagnosticCode.UnsupportedSchema);
             }
 
             if (!TryReadScope(record, out WorkloadScope scope, out string scopeError))
             {
                 return WorkloadOperationResult<WorkloadTemplate>.Fail(
-                    WorkloadDiagnosticCode.InvalidScopeMode,
-                    scopeError);
+                    WorkloadDiagnosticCode.InvalidScopeMode);
             }
 
             var priorities = new List<WorkloadParentPriorityEntry>();
@@ -99,7 +86,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2ParentPriorityRecord value = record.ParentPriorities[i];
                 if (value == null || !HasIdentity(value.PawnId, value.WorkTypeDefName))
                 {
-                    return InvalidState("A parent-priority record has a missing pawn or work type identity.");
+                    return InvalidState();
                 }
 
                 priorities.Add(new WorkloadParentPriorityEntry(
@@ -114,7 +101,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2ManualModeRecord value = record.ManualModes[i];
                 if (value == null || !HasIdentity(value.PawnId, value.WorkTypeDefName))
                 {
-                    return InvalidState("A manual-mode record has a missing pawn or work type identity.");
+                    return InvalidState();
                 }
 
                 manualModes.Add(new WorkloadManualModeEntry(
@@ -129,7 +116,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2ScheduleRecord value = record.Schedules[i];
                 if (value == null || string.IsNullOrWhiteSpace(value.PawnId) || value.Schedule < 0)
                 {
-                    return InvalidState("A schedule record has a missing pawn identity or invalid schedule.");
+                    return InvalidState();
                 }
 
                 schedules.Add(new WorkloadScheduleEntry(value.PawnId, value.Schedule));
@@ -141,12 +128,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2SpecificJobOverrideRecord value = record.SpecificJobOverrides[i];
                 if (value == null || !HasIdentity(value.PawnId, value.WorkTypeDefName, value.WorkGiverDefName))
                 {
-                    return InvalidState("A specific-job override has a missing identity.");
+                    return InvalidState();
                 }
 
                 if (!TryReadScalar(value.Value, out WorkloadScalarValue scalar, out string scalarError))
                 {
-                    return InvalidState(scalarError);
+                    return InvalidState();
                 }
 
                 overrides.Add(new WorkloadSpecificJobOverrideEntry(
@@ -162,7 +149,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2SpecificJobOrderRecord value = record.SpecificJobOrder[i];
                 if (value == null || !HasIdentity(value.PawnId, value.WorkTypeDefName, value.WorkGiverDefName))
                 {
-                    return InvalidState("A specific-job order record has a missing identity.");
+                    return InvalidState();
                 }
 
                 order.Add(new WorkloadSpecificJobOrderEntry(
@@ -178,12 +165,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2PresentationSettingRecord value = record.PresentationSettings[i];
                 if (value == null || string.IsNullOrWhiteSpace(value.Key))
                 {
-                    return InvalidState("A presentation setting has no key.");
+                    return InvalidState();
                 }
 
                 if (!TryReadScalar(value.Value, out WorkloadScalarValue scalar, out string scalarError))
                 {
-                    return InvalidState(scalarError);
+                    return InvalidState();
                 }
 
                 presentation.Add(new WorkloadPresentationSettingEntry(value.Key, scalar));
@@ -195,7 +182,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2ParentPriorityIntentRecord value = record.ParentPriorityIntents[i];
                 if (value == null || !HasIdentity(value.PawnId, value.WorkTypeDefName))
                 {
-                    return InvalidState("A typed parent-priority intent has a missing identity.");
+                    return InvalidState();
                 }
 
                 if (!TryReadPriorityIntent(
@@ -204,7 +191,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     out WorkloadIntent<WorkloadSpecificPriorityPayload> intent,
                     out string intentError))
                 {
-                    return InvalidState(intentError);
+                    return InvalidState();
                 }
 
                 parentPriorityIntents.Add(new WorkloadParentPriorityIntentEntry(
@@ -218,7 +205,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2ManualModeIntentRecord value = record.ManualModeIntents[i];
                 if (value == null || !HasIdentity(value.PawnId, value.WorkTypeDefName))
                 {
-                    return InvalidState("A typed manual-mode intent has a missing identity.");
+                    return InvalidState();
                 }
 
                 if (!TryReadManualIntent(
@@ -227,7 +214,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     out WorkloadIntent<bool> intent,
                     out string intentError))
                 {
-                    return InvalidState(intentError);
+                    return InvalidState();
                 }
 
                 manualModeIntents.Add(new WorkloadManualModeIntentEntry(
@@ -241,7 +228,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2ScheduleIntentRecord value = record.ScheduleIntents[i];
                 if (!TryReadScheduleIntent(value, out WorkloadScheduleIntentEntry intent, out string intentError))
                 {
-                    return InvalidState(intentError);
+                    return InvalidState();
                 }
 
                 scheduleIntents.Add(intent);
@@ -256,7 +243,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     out WorkloadSpecificPriorityIntentEntry intent,
                     out string intentError))
                 {
-                    return InvalidState(intentError);
+                    return InvalidState();
                 }
 
                 if (!intent.Intent.IsNoOpinion)
@@ -274,7 +261,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     out WorkloadWorkTypeOrderIntentEntry intent,
                     out string intentError))
                 {
-                    return InvalidState(intentError);
+                    return InvalidState();
                 }
 
                 if (!intent.Intent.IsNoOpinion)
@@ -292,7 +279,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     out WorkloadPresentationSettingIntentEntry intent,
                     out string intentError))
                 {
-                    return InvalidState(intentError);
+                    return InvalidState();
                 }
 
                 presentationSettingIntents.Add(intent);
@@ -321,7 +308,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadValidationResult validation = WorkloadValidator.Validate(template);
             if (validation.HasErrors)
             {
-                return InvalidState(GetFirstValidationMessage(validation));
+                return InvalidState(
+                    validation.Issues.Count > 0 ? validation.Issues[0] : null,
+                    record.StableId,
+                    record.SchemaVersion);
             }
 
             return WorkloadOperationResult<WorkloadTemplate>.Ok(template);
@@ -333,8 +323,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (template == null)
             {
                 return WorkloadOperationResult<WorkloadV2PersistenceRecord>.Fail(
-                    WorkloadDiagnosticCode.NotFound,
-                    "The workload template is missing.");
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             WorkloadValidationResult validation = WorkloadValidator.Validate(template);
@@ -345,7 +334,16 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     : WorkloadDiagnosticCode.InvalidState;
                 return WorkloadOperationResult<WorkloadV2PersistenceRecord>.Fail(
                     code,
-                    GetFirstValidationMessage(validation));
+                    new WorkloadDiagnosticContext(
+                        stableId: template.StableId,
+                        path: validation.Issues.Count > 0
+                            ? validation.Issues[0].Path
+                            : null,
+                        validationCode: validation.Issues.Count > 0
+                            ? validation.Issues[0].Code
+                            : (WorkloadValidationCode?)null,
+                        expectedVersion: WorkloadSchema.CurrentVersion,
+                        actualVersion: template.SchemaVersion));
             }
 
             WorkloadDefinition definition = template.Definition;
@@ -353,8 +351,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadV2SchemaState.KnownOld)
             {
                 return WorkloadOperationResult<WorkloadV2PersistenceRecord>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedSchema,
-                    "The workload template has not completed the required document-load migration and cannot be serialized.");
+                    WorkloadDiagnosticCode.UnsupportedSchema);
             }
 
             WorkloadScope scope = definition.Scope ?? WorkloadScope.Empty;
@@ -1064,18 +1061,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return HasIdentity(pawnId, workTypeDefName) && !string.IsNullOrWhiteSpace(workGiverDefName);
         }
 
-        private static WorkloadOperationResult<WorkloadTemplate> InvalidState(string message)
+        private static WorkloadOperationResult<WorkloadTemplate> InvalidState(
+            WorkloadValidationIssue issue = null,
+            string stableId = null,
+            int? actualVersion = null)
         {
             return WorkloadOperationResult<WorkloadTemplate>.Fail(
                 WorkloadDiagnosticCode.InvalidState,
-                message);
+                new WorkloadDiagnosticContext(
+                    stableId: stableId,
+                    path: issue?.Path,
+                    validationCode: issue?.Code,
+                    expectedVersion: WorkloadSchema.CurrentVersion,
+                    actualVersion: actualVersion));
         }
 
-        private static string GetFirstValidationMessage(WorkloadValidationResult validation)
-        {
-            return validation?.Issues != null && validation.Issues.Count > 0
-                ? validation.Issues[0].Message
-                : "The workload failed validation.";
-        }
     }
 }

@@ -17,24 +17,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         {
             if (string.IsNullOrWhiteSpace(stableId))
                 return Failure(
-                    WorkloadDiagnosticCode.MissingStableId,
-                    "A stable workload ID is required for capture.");
+                    WorkloadDiagnosticCode.MissingStableId);
 
             if (!hasCurrentMap)
                 return Failure(
-                    WorkloadDiagnosticCode.NoCurrentMap,
-                    "A current map is required to capture a workload.");
+                    WorkloadDiagnosticCode.NoCurrentMap);
 
             if (hasBwtMutationAuthority == null || !hasBwtMutationAuthority())
                 return Failure(
-                    WorkloadDiagnosticCode.ExternalPriorityAuthority,
-                    "BWT cannot capture priority state while an external priority authority is active.");
+                    WorkloadDiagnosticCode.ExternalPriorityAuthority);
 
             return hasPlaySettings
                 ? WorkloadOperationResult.Ok()
                 : Failure(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    "Global manual-priority state is unavailable for workload capture.");
+                    WorkloadDiagnosticCode.NoCurrentGame);
         }
 
         internal static int SelectParentPriority(
@@ -106,7 +102,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         }
 
         private static WorkloadOperationResult Failure(
-            WorkloadDiagnosticCode code,
-            string message) => WorkloadOperationResult.Fail(code, message);
+            WorkloadDiagnosticCode code) => WorkloadOperationResult.Fail(code);
     }
 }

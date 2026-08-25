@@ -3,12 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads.V2;
-using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Projection;
-using Better_Work_Tab.UI.Workloads;
-using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -228,30 +225,19 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     }
                 }
 
-                var orderKeys = new List<WorkGiverKey>(reordered.Count);
+                var orderedNames = new List<string>(reordered.Count);
                 for (int i = 0; i < reordered.Count; i++)
                 {
-                    orderKeys.Add(new WorkGiverKey(reordered[i].def.defName));
+                    orderedNames.Add(reordered[i].def.defName);
                 }
 
-                WorkloadWorkTypeOrderKey orderKey = pawn == null
-                    ? WorkTabEffectiveStateIds.ForGlobalWorkTypeOrder(_workType)
-                    : WorkTabEffectiveStateIds.ForWorkTypeOrder(pawn, _workType);
-                WorkloadWorkTypeOrderPayload payload =
-                    new WorkloadWorkTypeOrderPayload(orderKeys);
-                if (!payload.IsValid ||
-                    !WorkloadProjectionRuntime.TrySetWorkTypeOrder(
-                        orderKey,
-                        payload,
+                if (!WorkTabEffectiveStateRuntime.TrySetPreviewWorkTypeOrder(
+                        WorkTabWorkTypeOrderTarget.For(pawn, _workType),
+                        orderedNames,
                         out _))
                 {
                     RestoreOriginalOrder(workGivers);
                     return;
-                }
-
-                if (WorkloadPreviewController.Current != null)
-                {
-                    WorkloadPreviewController.Current.SynchronizeAfterInput();
                 }
 
                 workGivers.Clear();

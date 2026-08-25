@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 
 namespace Better_Work_Tab.UI.Workloads.Projection
@@ -35,6 +37,7 @@ namespace Better_Work_Tab.UI.Workloads.Projection
     public sealed class LiveWorkTabEffectiveStateProvider :
         IWorkTabEffectiveStateProvider,
         IWorkTabEffectiveStateV2Provider,
+        IWorkTabPreviewStateReader,
         IWorkTabEffectiveStateViewSource
     {
         private readonly LiveWorkTabEffectiveStateCallbacks _callbacks;
@@ -122,6 +125,79 @@ namespace Better_Work_Tab.UI.Workloads.Projection
                 : WorkTabEffectiveStateResolution<WorkloadSettingValue>.NoOpinion;
         }
 
+        WorkTabEffectiveStateResolution<TimePriorityScheduleValue>
+            IWorkTabPreviewStateReader.ResolveSchedule(TimePriorityTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToScheduleResolution(
+                WorkloadPreviewStateAdapter.TryGetScheduleKey(
+                    target,
+                    out WorkloadScheduleTargetKey key,
+                    out _)
+                    ? ResolveSchedule(key)
+                    : WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion);
+        }
+
+        WorkTabEffectiveStateResolution<TimePriorityScheduleValue>
+            IWorkTabPreviewStateReader.ResolvePreviewScheduleIntent(
+                TimePriorityTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToScheduleResolution(
+                WorkloadPreviewStateAdapter.TryGetScheduleKey(
+                    target,
+                    out WorkloadScheduleTargetKey key,
+                    out _)
+                    ? ResolveSchedule(key)
+                    : WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion);
+        }
+
+        WorkTabEffectiveStateResolution<int>
+            IWorkTabPreviewStateReader.ResolveSpecificJobPriority(
+                WorkTabSpecificJobTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToSpecificPriorityResolution(
+                WorkloadPreviewStateAdapter.TryGetSpecificJobKey(
+                    target,
+                    out WorkloadSpecificJobTargetKey key)
+                    ? ResolveSpecificJobPriority(key)
+                    : WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion);
+        }
+
+        WorkTabEffectiveStateResolution<int>
+            IWorkTabPreviewStateReader.ResolvePreviewSpecificJobPriorityIntent(
+                WorkTabSpecificJobTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToSpecificPriorityResolution(
+                WorkloadPreviewStateAdapter.TryGetSpecificJobKey(
+                    target,
+                    out WorkloadSpecificJobTargetKey key)
+                    ? ResolveSpecificJobPriority(key)
+                    : WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion);
+        }
+
+        WorkTabEffectiveStateResolution<IReadOnlyList<string>>
+            IWorkTabPreviewStateReader.ResolveWorkTypeOrder(
+                WorkTabWorkTypeOrderTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToWorkTypeOrderResolution(
+                WorkloadPreviewStateAdapter.TryGetWorkTypeOrderKey(
+                    target,
+                    out WorkloadWorkTypeOrderKey key)
+                    ? ResolveWorkTypeOrder(key)
+                    : WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion);
+        }
+
+        WorkTabEffectiveStateResolution<IReadOnlyList<string>>
+            IWorkTabPreviewStateReader.ResolvePreviewWorkTypeOrderIntent(
+                WorkTabWorkTypeOrderTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToWorkTypeOrderResolution(
+                WorkloadPreviewStateAdapter.TryGetWorkTypeOrderKey(
+                    target,
+                    out WorkloadWorkTypeOrderKey key)
+                    ? ResolveWorkTypeOrder(key)
+                    : WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion);
+        }
+
     }
 
     /// <summary>
@@ -131,7 +207,8 @@ namespace Better_Work_Tab.UI.Workloads.Projection
     /// </summary>
     internal sealed class CapturedLiveWorkTabEffectiveStateProvider :
         IWorkTabEffectiveStateProvider,
-        IWorkTabEffectiveStateV2Provider
+        IWorkTabEffectiveStateV2Provider,
+        IWorkTabPreviewStateReader
     {
         private readonly LiveWorkTabEffectiveStateProvider _live;
         private readonly WorkTabEffectiveStateRevision _revision;
@@ -253,6 +330,79 @@ namespace Better_Work_Tab.UI.Workloads.Projection
             }
 
             return value;
+        }
+
+        WorkTabEffectiveStateResolution<TimePriorityScheduleValue>
+            IWorkTabPreviewStateReader.ResolveSchedule(TimePriorityTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToScheduleResolution(
+                WorkloadPreviewStateAdapter.TryGetScheduleKey(
+                    target,
+                    out WorkloadScheduleTargetKey key,
+                    out _)
+                    ? ResolveSchedule(key)
+                    : WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion);
+        }
+
+        WorkTabEffectiveStateResolution<TimePriorityScheduleValue>
+            IWorkTabPreviewStateReader.ResolvePreviewScheduleIntent(
+                TimePriorityTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToScheduleResolution(
+                WorkloadPreviewStateAdapter.TryGetScheduleKey(
+                    target,
+                    out WorkloadScheduleTargetKey key,
+                    out _)
+                    ? ResolveSchedule(key)
+                    : WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion);
+        }
+
+        WorkTabEffectiveStateResolution<int>
+            IWorkTabPreviewStateReader.ResolveSpecificJobPriority(
+                WorkTabSpecificJobTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToSpecificPriorityResolution(
+                WorkloadPreviewStateAdapter.TryGetSpecificJobKey(
+                    target,
+                    out WorkloadSpecificJobTargetKey key)
+                    ? ResolveSpecificJobPriority(key)
+                    : WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion);
+        }
+
+        WorkTabEffectiveStateResolution<int>
+            IWorkTabPreviewStateReader.ResolvePreviewSpecificJobPriorityIntent(
+                WorkTabSpecificJobTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToSpecificPriorityResolution(
+                WorkloadPreviewStateAdapter.TryGetSpecificJobKey(
+                    target,
+                    out WorkloadSpecificJobTargetKey key)
+                    ? ResolveSpecificJobPriority(key)
+                    : WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion);
+        }
+
+        WorkTabEffectiveStateResolution<IReadOnlyList<string>>
+            IWorkTabPreviewStateReader.ResolveWorkTypeOrder(
+                WorkTabWorkTypeOrderTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToWorkTypeOrderResolution(
+                WorkloadPreviewStateAdapter.TryGetWorkTypeOrderKey(
+                    target,
+                    out WorkloadWorkTypeOrderKey key)
+                    ? ResolveWorkTypeOrder(key)
+                    : WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion);
+        }
+
+        WorkTabEffectiveStateResolution<IReadOnlyList<string>>
+            IWorkTabPreviewStateReader.ResolvePreviewWorkTypeOrderIntent(
+                WorkTabWorkTypeOrderTarget target)
+        {
+            return WorkloadPreviewStateAdapter.ToWorkTypeOrderResolution(
+                WorkloadPreviewStateAdapter.TryGetWorkTypeOrderKey(
+                    target,
+                    out WorkloadWorkTypeOrderKey key)
+                    ? ResolveWorkTypeOrder(key)
+                    : WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion);
         }
     }
 

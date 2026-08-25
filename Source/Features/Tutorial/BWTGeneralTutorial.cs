@@ -16,7 +16,6 @@ using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.RuleBuilder;
 using Better_Work_Tab.UI.WorkGrid.Projection;
-using Better_Work_Tab.UI.Workloads;
 using RimWorld;
 using Spine.UI.Tutorial;
 using UnityEngine;
@@ -176,7 +175,6 @@ namespace Better_Work_Tab.Features.Tutorial
                 BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
                 return settings != null &&
                        !WorkTabEffectiveStateRuntime.IsPreviewActive &&
-                       WorkloadPreviewController.Current?.IsActive != true &&
                        TutorialVisibilityPolicy.AllowsWorkTabTutorial(
                            Find.WindowStack?.IsOpen<Dialog_ModSettings>() == true) &&
                        FluffyWorkTabPromptPolicy.AllowsTutorial(

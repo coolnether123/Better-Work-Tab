@@ -115,12 +115,9 @@ namespace Better_Work_Tab.UI.Workloads
     /// </summary>
     internal static class WorkloadGateway
     {
-        private static GameComponent_BWTWorldSettings _boundComponent;
+        private static IWorkloadWorldState _boundComponent;
         private static LegacyWorkloadBackend _legacyBackend;
         private static Workload2Backend _modernBackend;
-
-        private static string NoCurrentGameMessage =>
-            "BWT_Workload_NoCurrentGame".Translate();
 
         private static TResult Dispatch<TResult>(
             Func<LegacyWorkloadBackend, TResult> legacyOperation,
@@ -151,41 +148,35 @@ namespace Better_Work_Tab.UI.Workloads
         private static WorkloadOperationResult NoCurrentGame()
         {
             return WorkloadOperationResult.Fail(
-                WorkloadDiagnosticCode.NoCurrentGame,
-                NoCurrentGameMessage);
+                WorkloadDiagnosticCode.NoCurrentGame);
         }
 
         private static WorkloadOperationResult<T> NoCurrentGame<T>()
         {
             return WorkloadOperationResult<T>.Fail(
-                WorkloadDiagnosticCode.NoCurrentGame,
-                NoCurrentGameMessage);
+                WorkloadDiagnosticCode.NoCurrentGame);
         }
 
-        private static WorkloadOperationResult<T> V2Unavailable<T>(string message)
+        private static WorkloadOperationResult<T> V2Unavailable<T>()
         {
             return WorkloadOperationResult<T>.Fail(
-                WorkloadDiagnosticCode.UnsupportedOperation,
-                message);
+                WorkloadDiagnosticCode.ModeUnavailable);
         }
 
         private static WorkloadV2CommitResult DispatchV2Commit(
             WorkloadDecisionKind decisionKind,
-            Func<Workload2Backend, WorkloadV2CommitResult> modernOperation,
-            string unavailableMessage)
+            Func<Workload2Backend, WorkloadV2CommitResult> modernOperation)
         {
             return DispatchV2(
                 modernOperation,
                 () => WorkloadV2ApplyService.GatewayFailure(
                     decisionKind,
                     WorkloadDiagnosticCode.NoCurrentGame,
-                    "gateway.game",
-                    NoCurrentGameMessage),
+                    "gateway.game"),
                 () => WorkloadV2ApplyService.GatewayFailure(
                     decisionKind,
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "gateway.mode",
-                    unavailableMessage));
+                    WorkloadDiagnosticCode.ModeUnavailable,
+                    "gateway.mode"));
         }
 
         internal static WorkloadBackendMode ResolveMode()
@@ -296,8 +287,7 @@ namespace Better_Work_Tab.UI.Workloads
             return DispatchV2(
                 modern => modern.BeginPreview(stableId),
                 NoCurrentGame<WorkloadSession>,
-                () => V2Unavailable<WorkloadSession>(
-                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
+                () => V2Unavailable<WorkloadSession>());
         }
 
         internal static WorkloadOperationResult<WorkloadSession> SetV2PreviewSession(WorkloadSession session)
@@ -305,8 +295,7 @@ namespace Better_Work_Tab.UI.Workloads
             return DispatchV2(
                 modern => modern.SetPreviewSession(session),
                 NoCurrentGame<WorkloadSession>,
-                () => V2Unavailable<WorkloadSession>(
-                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
+                () => V2Unavailable<WorkloadSession>());
         }
 
         internal static WorkloadOperationResult<WorkloadSession> AdoptV2PreviewSession(
@@ -328,8 +317,7 @@ namespace Better_Work_Tab.UI.Workloads
 
             if (ResolveMode() != WorkloadBackendMode.Modern)
             {
-                return V2Unavailable<WorkloadSession>(
-                    "BWT_Workload_PreviewLegacyUnavailable".Translate());
+                return V2Unavailable<WorkloadSession>();
             }
 
             if (receipt == null &&
@@ -350,7 +338,7 @@ namespace Better_Work_Tab.UI.Workloads
                 {
                     return WorkloadOperationResult<WorkloadSession>.Fail(
                         recovered.Code,
-                        recovered.Message);
+                        recovered.Context);
                 }
 
                 receipt = recovered.Value;
@@ -370,8 +358,7 @@ namespace Better_Work_Tab.UI.Workloads
                 modern.PreviewSession == null)
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.NotFound,
-                    "BWT_Workload_PreviewRefreshFailed".Translate());
+                    WorkloadDiagnosticCode.NotFound);
             }
 
             // Read the session from the active UI backend. Temporary peer
@@ -385,8 +372,7 @@ namespace Better_Work_Tab.UI.Workloads
             return DispatchV2(
                 modern => modern.EditPreview(edit),
                 NoCurrentGame<WorkloadSession>,
-                () => V2Unavailable<WorkloadSession>(
-                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
+                () => V2Unavailable<WorkloadSession>());
         }
 
         internal static WorkloadOperationResult<WorkloadSession> SetV2PreviewState(
@@ -395,8 +381,7 @@ namespace Better_Work_Tab.UI.Workloads
             return DispatchV2(
                 modern => modern.SetPreviewState(projectedState),
                 NoCurrentGame<WorkloadSession>,
-                () => V2Unavailable<WorkloadSession>(
-                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
+                () => V2Unavailable<WorkloadSession>());
         }
 
         internal static WorkloadOperationResult<WorkloadSession> ExtendV2PreviewBaseline(
@@ -406,15 +391,13 @@ namespace Better_Work_Tab.UI.Workloads
             if (!TryBind(out LegacyWorkloadBackend unusedLegacy, out Workload2Backend modern))
             {
                 return WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.NoCurrentGame,
-                    NoCurrentGameMessage);
+                    WorkloadDiagnosticCode.NoCurrentGame);
             }
 
             return ResolveMode() == WorkloadBackendMode.Modern
                 ? modern.ExtendPreviewBaseline(candidate, pawn)
                 : WorkloadOperationResult<WorkloadSession>.Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "BWT_Workload_PreviewLegacyUnavailable".Translate());
+                    WorkloadDiagnosticCode.ModeUnavailable);
         }
 
         internal static WorkloadOperationResult<WorkloadPreviewPlan> GetV2PreviewPlan(
@@ -423,8 +406,7 @@ namespace Better_Work_Tab.UI.Workloads
             return DispatchV2(
                 modern => modern.PreviewPlan(decisionKind),
                 NoCurrentGame<WorkloadPreviewPlan>,
-                () => V2Unavailable<WorkloadPreviewPlan>(
-                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
+                () => V2Unavailable<WorkloadPreviewPlan>());
         }
 
         internal static WorkloadOperationResult<WorkloadSemanticDiff> GetV2PreviewDiff()
@@ -432,8 +414,7 @@ namespace Better_Work_Tab.UI.Workloads
             return DispatchV2(
                 modern => modern.PreviewDiff(),
                 NoCurrentGame<WorkloadSemanticDiff>,
-                () => V2Unavailable<WorkloadSemanticDiff>(
-                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
+                () => V2Unavailable<WorkloadSemanticDiff>());
         }
 
         internal static WorkloadOperationResult<WorkloadSemanticDiff> GetV2PreviewImpactDiff()
@@ -441,24 +422,21 @@ namespace Better_Work_Tab.UI.Workloads
             return DispatchV2(
                 modern => modern.PreviewImpactDiff(),
                 NoCurrentGame<WorkloadSemanticDiff>,
-                () => V2Unavailable<WorkloadSemanticDiff>(
-                    "BWT_Workload_PreviewLegacyUnavailable".Translate()));
+                () => V2Unavailable<WorkloadSemanticDiff>());
         }
 
         internal static WorkloadV2CommitResult CommitV2Apply()
         {
             return DispatchV2Commit(
                 WorkloadDecisionKind.Apply,
-                modern => modern.CommitApply(),
-                "BWT_Workload_PreviewLegacyUnavailable".Translate());
+                modern => modern.CommitApply());
         }
 
         internal static WorkloadV2CommitResult CommitV2Update()
         {
             return DispatchV2Commit(
                 WorkloadDecisionKind.Update,
-                modern => modern.CommitUpdate(),
-                "BWT_Workload_PreviewLegacyUnavailable".Translate());
+                modern => modern.CommitUpdate());
         }
 
         internal static WorkloadV2CommitResult CommitV2Fork(
@@ -467,8 +445,7 @@ namespace Better_Work_Tab.UI.Workloads
         {
             return DispatchV2Commit(
                 WorkloadDecisionKind.Fork,
-                modern => modern.CommitFork(stableId, label),
-                "BWT_Workload_PreviewLegacyUnavailable".Translate());
+                modern => modern.CommitFork(stableId, label));
         }
 
         /// <summary>
@@ -516,8 +493,7 @@ namespace Better_Work_Tab.UI.Workloads
             out LegacyWorkloadBackend legacy,
             out Workload2Backend modern)
         {
-            GameComponent_BWTWorldSettings component =
-                Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            IWorkloadWorldState component = WorkloadWorldStates.Current;
             if (component == null)
             {
                 if (_boundComponent != null)
@@ -565,7 +541,7 @@ namespace Better_Work_Tab.UI.Workloads
         private WorkloadSession _session;
         private ProjectedWorkTabEffectiveStateProvider _projectedProvider;
         private WorkloadParentPriorityProjection _parentPriorityProjection;
-        private GameComponent_BWTWorldSettings _boundComponent;
+        private IWorkloadWorldState _boundComponent;
         private bool _hasMultiplayerAttempt;
         private string _multiplayerRequestId = string.Empty;
         private string _multiplayerIdempotencyKey = string.Empty;
@@ -611,6 +587,11 @@ namespace Better_Work_Tab.UI.Workloads
         private WorkloadMembershipSnapshot _capturedPreviewMembership;
         private InspectionReadState _capturedPreviewInspection;
         private WorkloadScope _capturedPreviewScope;
+        private bool _capturedPreviewInspectionHighlightsEnabled;
+        private float _capturedPreviewInspectionOpacity;
+        private MembershipTooltipCatalog _capturedPreviewMembershipTooltips;
+        private MembershipTooltipCatalog _membershipTooltipCatalog;
+        private string _membershipTooltipLanguage = string.Empty;
 
         private sealed class DraftTransition
         {
@@ -695,14 +676,14 @@ namespace Better_Work_Tab.UI.Workloads
                 RequestId = status?.RequestId ?? string.Empty;
                 State = status?.State ?? WorkloadMultiplayerCommitState.None;
                 Code = status?.Code ?? WorkloadDiagnosticCode.InvalidState;
-                Message = status?.Message ?? string.Empty;
+                Context = status?.Context ?? WorkloadDiagnosticContext.Empty;
                 Result = status?.Result;
             }
 
             internal string RequestId { get; }
             internal WorkloadMultiplayerCommitState State { get; }
             internal WorkloadDiagnosticCode Code { get; }
-            internal string Message { get; }
+            internal WorkloadDiagnosticContext Context { get; }
             internal WorkloadV2CommitResult Result { get; }
         }
 
@@ -714,6 +695,61 @@ namespace Better_Work_Tab.UI.Workloads
             None = 0,
             Template = 1,
             Live = 2
+        }
+
+        /// <summary>
+        /// Language-local membership labels shared by the live and captured
+        /// preview ports. Keeping them beside the captured state prevents the
+        /// grid from translating a label for every visible row.
+        /// </summary>
+        private sealed class MembershipTooltipCatalog
+        {
+            internal static readonly MembershipTooltipCatalog Empty =
+                new MembershipTooltipCatalog(
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty);
+
+            internal MembershipTooltipCatalog(
+                string included,
+                string @new,
+                string outside,
+                string excluded,
+                string missing)
+            {
+                Included = included ?? string.Empty;
+                New = @new ?? string.Empty;
+                Outside = outside ?? string.Empty;
+                Excluded = excluded ?? string.Empty;
+                Missing = missing ?? string.Empty;
+            }
+
+            internal string Included { get; }
+            internal string New { get; }
+            internal string Outside { get; }
+            internal string Excluded { get; }
+            internal string Missing { get; }
+
+            internal string Get(WorkGridPreviewMembershipState state)
+            {
+                switch (state)
+                {
+                    case WorkGridPreviewMembershipState.Included:
+                        return Included;
+                    case WorkGridPreviewMembershipState.New:
+                        return New;
+                    case WorkGridPreviewMembershipState.OutsideScope:
+                        return Outside;
+                    case WorkGridPreviewMembershipState.ExplicitlyExcluded:
+                        return Excluded;
+                    case WorkGridPreviewMembershipState.Missing:
+                        return Missing;
+                    default:
+                        return string.Empty;
+                }
+            }
         }
 
         internal WorkloadPreviewController()
@@ -732,6 +768,8 @@ namespace Better_Work_Tab.UI.Workloads
                 () => IsActive,
                 message => SetMessage(message));
             BWTWorkloadSettingsOwnershipPolicy.RegisterPresentationPreviewPort(this);
+            WorkTabEffectiveStateRuntime.RegisterPreviewScopePusher(
+                () => Current?.PushEffectiveStateScope());
             Current = this;
         }
 
@@ -798,6 +836,17 @@ namespace Better_Work_Tab.UI.Workloads
                     : HasTemplateDiff;
             }
         }
+
+        public bool InspectionHighlightsEnabled =>
+            IsActive &&
+            BWTWorkTabEffectiveSettings.GetBool(SettingIDs.WorkloadsInspectionHighlights);
+
+        public float InspectionOpacity =>
+            IsActive
+                ? BetterWorkTabSettings.ClampWorkloadInspectionOpacity(
+                    BWTWorkTabEffectiveSettings.GetInt(SettingIDs.WorkloadsInspectionOpacity)) / 100f
+                : 0f;
+
         public bool HasInspectionCellTargets
         {
             get
@@ -812,7 +861,7 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
-        internal bool HasManualModeInspectionChange
+        public bool HasManualModeInspectionChange
         {
             get
             {
@@ -886,6 +935,9 @@ namespace Better_Work_Tab.UI.Workloads
             private readonly WorkloadMembershipSnapshot _membership;
             private readonly InspectionReadState _inspection;
             private readonly WorkloadScope _scope;
+            private readonly bool _inspectionHighlightsEnabled;
+            private readonly float _inspectionOpacity;
+            private readonly MembershipTooltipCatalog _membershipTooltips;
 
             internal CapturedWorkGridPreviewPort(
                 WorkloadPreviewController live,
@@ -894,7 +946,10 @@ namespace Better_Work_Tab.UI.Workloads
                 string lastMessage,
                 WorkloadMembershipSnapshot membership,
                 InspectionReadState inspection,
-                WorkloadScope scope)
+                WorkloadScope scope,
+                bool inspectionHighlightsEnabled,
+                float inspectionOpacity,
+                MembershipTooltipCatalog membershipTooltips)
             {
                 _live = live;
                 _scopedProvider = scopedProvider;
@@ -903,12 +958,18 @@ namespace Better_Work_Tab.UI.Workloads
                 _membership = membership;
                 _inspection = inspection ?? InspectionReadState.Empty;
                 _scope = scope ?? WorkloadScope.Empty;
+                _inspectionHighlightsEnabled = inspectionHighlightsEnabled;
+                _inspectionOpacity = inspectionOpacity;
+                _membershipTooltips = membershipTooltips ?? MembershipTooltipCatalog.Empty;
             }
 
             public IWorkTabEffectiveStateProvider ScopedProvider => _scopedProvider;
             public bool IsActive => _isActive;
             public string LastMessage => _lastMessage;
             public bool IsInspectionActive => _inspection.IsActive;
+            public bool InspectionHighlightsEnabled => _inspectionHighlightsEnabled;
+            public float InspectionOpacity => _inspectionOpacity;
+            public bool HasManualModeInspectionChange => _inspection.HasManualModeChange;
             public bool HasInspectionRowLevelChanges => _inspection.HasRowLevelChanges;
             public bool HasInspectionCellTargets => _inspection.HasCellTargets;
             public IReadOnlyList<WorkGridInspectionTarget> InspectionTargets => _inspection.Targets;
@@ -926,11 +987,26 @@ namespace Better_Work_Tab.UI.Workloads
                 Pawn pawn,
                 out WorkGridPreviewMembershipState state)
             {
+                return TryGetMembershipPresentation(pawn, out state, out _);
+            }
+
+            public bool TryGetMembershipPresentation(
+                Pawn pawn,
+                out WorkGridPreviewMembershipState state,
+                out string tooltip)
+            {
                 state = WorkGridPreviewMembershipState.None;
-                return _isActive && WorkloadPreviewController.TryGetMembershipPresentation(
-                    _membership,
-                    pawn,
-                    out state);
+                tooltip = string.Empty;
+                if (!_isActive || !WorkloadPreviewController.TryGetMembershipPresentation(
+                        _membership,
+                        pawn,
+                        out state))
+                {
+                    return false;
+                }
+
+                tooltip = _membershipTooltips.Get(state);
+                return true;
             }
 
             public bool IsInspectionRowLevelChanged(Pawn pawn) =>
@@ -942,7 +1018,16 @@ namespace Better_Work_Tab.UI.Workloads
             Pawn pawn,
             out WorkGridPreviewMembershipState state)
         {
+            return TryGetMembershipPresentation(pawn, out state, out _);
+        }
+
+        public bool TryGetMembershipPresentation(
+            Pawn pawn,
+            out WorkGridPreviewMembershipState state,
+            out string tooltip)
+        {
             state = WorkGridPreviewMembershipState.None;
+            tooltip = string.Empty;
             if (!IsActive)
             {
                 return false;
@@ -950,10 +1035,16 @@ namespace Better_Work_Tab.UI.Workloads
 
             try
             {
-                return TryGetMembershipPresentation(
-                    GetMembershipSnapshot(),
-                    pawn,
-                    out state);
+                if (!TryGetMembershipPresentation(
+                        GetMembershipSnapshot(),
+                        pawn,
+                        out state))
+                {
+                    return false;
+                }
+
+                tooltip = GetMembershipTooltipCatalog().Get(state);
+                return true;
             }
             catch (Exception exception)
             {
@@ -988,6 +1079,11 @@ namespace Better_Work_Tab.UI.Workloads
             WorkloadMembershipSnapshot membership = active ? GetMembershipSnapshot() : null;
             WorkloadScope scope = _session?.SourceTemplate?.Definition?.Scope;
             string message = LastMessage;
+            bool inspectionHighlightsEnabled = active && InspectionHighlightsEnabled;
+            float inspectionOpacity = active ? InspectionOpacity : 0f;
+            MembershipTooltipCatalog membershipTooltips = active
+                ? GetMembershipTooltipCatalog()
+                : MembershipTooltipCatalog.Empty;
             if (_capturedPreviewView != null &&
                 ReferenceEquals(_capturedPreviewProvider, provider) &&
                 _capturedPreviewRevision == revision &&
@@ -995,7 +1091,10 @@ namespace Better_Work_Tab.UI.Workloads
                 StringComparer.Ordinal.Equals(_capturedPreviewMessage, message) &&
                 ReferenceEquals(_capturedPreviewMembership, membership) &&
                 ReferenceEquals(_capturedPreviewInspection, inspection) &&
-                ReferenceEquals(_capturedPreviewScope, scope))
+                ReferenceEquals(_capturedPreviewScope, scope) &&
+                _capturedPreviewInspectionHighlightsEnabled == inspectionHighlightsEnabled &&
+                _capturedPreviewInspectionOpacity == inspectionOpacity &&
+                ReferenceEquals(_capturedPreviewMembershipTooltips, membershipTooltips))
             {
                 return _capturedPreviewView;
             }
@@ -1007,6 +1106,9 @@ namespace Better_Work_Tab.UI.Workloads
             _capturedPreviewMembership = membership;
             _capturedPreviewInspection = inspection;
             _capturedPreviewScope = scope;
+            _capturedPreviewInspectionHighlightsEnabled = inspectionHighlightsEnabled;
+            _capturedPreviewInspectionOpacity = inspectionOpacity;
+            _capturedPreviewMembershipTooltips = membershipTooltips;
             _capturedPreviewView = new CapturedWorkGridPreviewPort(
                 this,
                 provider,
@@ -1014,7 +1116,10 @@ namespace Better_Work_Tab.UI.Workloads
                 message,
                 membership,
                 inspection,
-                scope);
+                scope,
+                inspectionHighlightsEnabled,
+                inspectionOpacity,
+                membershipTooltips);
             return _capturedPreviewView;
         }
 
@@ -1244,10 +1349,10 @@ namespace Better_Work_Tab.UI.Workloads
         {
             get
             {
-                string clearMessage = _session?.GetUnsupportedClearMessage() ?? string.Empty;
-                return clearMessage.AnyNonWhitespace()
-                    ? clearMessage
-                      : T("BWT_Workload_UnsupportedData");
+                return (_session?.UnsupportedClearDimensions?.Count ?? 0) > 0
+                    ? WorkloadPresentationResolver.ResolveUnsupportedClear(
+                        _session.UnsupportedClearDimensions)
+                    : T("BWT_Workload_UnsupportedData");
             }
         }
 
@@ -1418,7 +1523,15 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             _multiplayerCommitState = status.State;
-            _multiplayerCommitMessage = status.Message ?? string.Empty;
+            _multiplayerCommitMessage =
+                status.State != WorkloadMultiplayerCommitState.ExecutedAwaitingConfirmation &&
+                status.Result != null &&
+                (status.State == WorkloadMultiplayerCommitState.Succeeded ||
+                 !status.Result.Succeeded)
+                    ? WorkloadPresentationResolver.Resolve(status.Result)
+                    : WorkloadPresentationResolver.Resolve(
+                        status.Code,
+                        status.Context);
 
             switch (status.State)
             {
@@ -1501,7 +1614,11 @@ namespace Better_Work_Tab.UI.Workloads
                 _session = adopted.Value;
                 RebuildProjection(_session.ProjectedState);
                 _multiplayerTerminalHandled = true;
-                string saveMessage = status?.Message;
+                string saveMessage = status?.Result != null
+                    ? WorkloadPresentationResolver.Resolve(status.Result)
+                    : WorkloadPresentationResolver.Resolve(
+                        status?.Code ?? WorkloadDiagnosticCode.InvalidState,
+                        status?.Context);
                 string confirmedDecision = MultiplayerDecisionLabel(_multiplayerDecision);
                 ClearMultiplayerAttempt();
                 SetMessage(
@@ -1522,7 +1639,11 @@ namespace Better_Work_Tab.UI.Workloads
                 return;
             }
 
-            string message = status?.Message;
+            string message = status?.Result != null
+                ? WorkloadPresentationResolver.Resolve(status.Result)
+                : WorkloadPresentationResolver.Resolve(
+                    status?.Code ?? WorkloadDiagnosticCode.InvalidState,
+                    status?.Context);
             ClearLocalSession();
             SetMessage(
                 (message ?? string.Empty).AnyNonWhitespace()
@@ -1631,8 +1752,7 @@ namespace Better_Work_Tab.UI.Workloads
             DrainMultiplayerStatusQueue();
             PollMultiplayerRollbackState();
 
-            GameComponent_BWTWorldSettings component =
-                Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            IWorkloadWorldState component = WorkloadWorldStates.Current;
             if (!ReferenceEquals(component, _boundComponent))
             {
                 if (IsMultiplayerCommitInFlight)
@@ -1839,7 +1959,7 @@ namespace Better_Work_Tab.UI.Workloads
                 WorkloadGateway.SetV2PreviewState(projected);
             if (!result.Succeeded)
             {
-                SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 RebuildProjection(_session.ProjectedState);
                 return false;
             }
@@ -1911,7 +2031,7 @@ namespace Better_Work_Tab.UI.Workloads
                 : WorkloadGateway.BeginV2Preview();
             if (!result.Succeeded)
             {
-                SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
@@ -1983,7 +2103,7 @@ namespace Better_Work_Tab.UI.Workloads
                     target,
                     WorkloadOwnershipDimensions.All))
             {
-                SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
@@ -2006,7 +2126,7 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 ClearLocalSession();
                 _canceledDraft = recovery;
-                SetMessage(opened.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(opened));
                 return false;
             }
             if (!StringComparer.Ordinal.Equals(
@@ -2029,7 +2149,7 @@ namespace Better_Work_Tab.UI.Workloads
                 WorkloadGateway.CancelV2Preview();
                 ClearLocalSession();
                 _canceledDraft = recovery;
-                SetMessage(restored.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(restored));
                 return false;
             }
 
@@ -2101,7 +2221,7 @@ namespace Better_Work_Tab.UI.Workloads
             WorkloadOperationResult selected = WorkloadGateway.SelectWorkload(stableId);
             if (!selected.Succeeded)
             {
-                SetMessage(selected.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(selected));
                 return false;
             }
 
@@ -2131,7 +2251,7 @@ namespace Better_Work_Tab.UI.Workloads
                 WorkloadGateway.CreateWorkload(label);
             if (!result.Succeeded)
             {
-                SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
@@ -2167,7 +2287,7 @@ namespace Better_Work_Tab.UI.Workloads
             WorkloadOperationResult result = WorkloadGateway.RenameWorkload(stableId, label.Trim());
             if (!result.Succeeded)
             {
-                SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
@@ -2206,7 +2326,7 @@ namespace Better_Work_Tab.UI.Workloads
             WorkloadOperationResult result = WorkloadGateway.DeleteWorkload(stableId);
             if (!result.Succeeded)
             {
-                SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
@@ -2263,7 +2383,7 @@ namespace Better_Work_Tab.UI.Workloads
 
             _multiplayerRequestId = status.RequestId ?? string.Empty;
             _multiplayerCommitState = status.State;
-            _multiplayerCommitMessage = status.Message ?? string.Empty;
+            _multiplayerCommitMessage = WorkloadPresentationResolver.Resolve(status);
             bool accepted = status.IsAccepted;
             if (status.IsTerminal)
             {
@@ -2334,7 +2454,7 @@ namespace Better_Work_Tab.UI.Workloads
                 : WorkloadGateway.CancelV2Preview();
             if (!result.Succeeded && result.Code != WorkloadDiagnosticCode.NotFound)
             {
-                SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
@@ -2390,12 +2510,12 @@ namespace Better_Work_Tab.UI.Workloads
             WorkloadV2CommitResult result = WorkloadGateway.CommitV2Apply();
             if (!result.Succeeded)
             {
-                SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
             ClearLocalSession();
-            SetMessage(result.Message);
+            SetMessage(WorkloadPresentationResolver.Resolve(result));
             return true;
         }
 
@@ -2480,7 +2600,7 @@ namespace Better_Work_Tab.UI.Workloads
             WorkloadV2CommitResult result = WorkloadGateway.CommitV2Update();
             if (!result.Succeeded)
             {
-                SetMessage(result.Message);
+            SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
@@ -2489,7 +2609,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
-            SetMessage(result.Message);
+            SetMessage(WorkloadPresentationResolver.Resolve(result));
             return true;
         }
 
@@ -2531,7 +2651,7 @@ namespace Better_Work_Tab.UI.Workloads
             WorkloadV2CommitResult result = WorkloadGateway.CommitV2Fork(forkId, label);
             if (!result.Succeeded)
             {
-                SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
@@ -2540,7 +2660,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
-            SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
             return true;
         }
 
@@ -2733,7 +2853,7 @@ namespace Better_Work_Tab.UI.Workloads
                 WorkloadGateway.EditV2Preview(edit);
             if (!result.Succeeded || result.Value == null)
             {
-                SetMessage(string.IsNullOrEmpty(result.Message) ? failureMessage : result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result, failureMessage));
                 return false;
             }
 
@@ -2823,6 +2943,25 @@ namespace Better_Work_Tab.UI.Workloads
             return record.Classification == WorkloadMembershipClassification.UnchangedOutsideScope
                 ? WorkGridPreviewMembershipAction.OutsideScope
                 : WorkGridPreviewMembershipAction.Unavailable;
+        }
+
+        private MembershipTooltipCatalog GetMembershipTooltipCatalog()
+        {
+            string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
+            if (_membershipTooltipCatalog != null &&
+                StringComparer.Ordinal.Equals(_membershipTooltipLanguage, language))
+            {
+                return _membershipTooltipCatalog;
+            }
+
+            _membershipTooltipLanguage = language;
+            _membershipTooltipCatalog = new MembershipTooltipCatalog(
+                T("BWT_Workload_PawnIncludedTooltip"),
+                T("BWT_Workload_PawnNewTooltip"),
+                T("BWT_Workload_PawnOutsideTooltip"),
+                T("BWT_Workload_PawnExcludedTooltip"),
+                T("BWT_Workload_PawnMissingTooltip"));
+            return _membershipTooltipCatalog;
         }
 
         private static bool TryGetMembershipPresentation(
@@ -3044,7 +3183,7 @@ namespace Better_Work_Tab.UI.Workloads
                 WorkloadGateway.SetV2PreviewState(changed.ProjectedState);
             if (!result.Succeeded)
             {
-                SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
@@ -3085,7 +3224,7 @@ namespace Better_Work_Tab.UI.Workloads
                 WorkloadGateway.ExtendV2PreviewBaseline(candidate, pawnKey);
             if (!result.Succeeded)
             {
-                SetMessage(result.Message);
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
@@ -3104,7 +3243,7 @@ namespace Better_Work_Tab.UI.Workloads
             ClearMultiplayerAttempt();
             _previewRecoveryBlocked = false;
             _session = session;
-            _boundComponent = Verse.Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+            _boundComponent = WorkloadWorldStates.Current;
             RebuildProjection(_session.ProjectedState);
             ColumnSelectionManager.Clear();
             BWTWorkTabTutorial.NotifyWorkloadPresentationOpened();
@@ -3196,6 +3335,9 @@ namespace Better_Work_Tab.UI.Workloads
             _capturedPreviewMembership = null;
             _capturedPreviewInspection = null;
             _capturedPreviewScope = null;
+            _capturedPreviewInspectionHighlightsEnabled = false;
+            _capturedPreviewInspectionOpacity = 0f;
+            _capturedPreviewMembershipTooltips = null;
         }
 
         private IReadOnlyList<PawnKey> BuildEditablePawnIds()

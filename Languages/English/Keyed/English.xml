@@ -370,6 +370,20 @@
 <BWT_Workload_NameRequired>Enter a workload name.</BWT_Workload_NameRequired>
 <BWT_Workload_PreviewEnded>This workload preview is no longer open.</BWT_Workload_PreviewEnded>
 <BWT_Workload_OperationFailed>Better Work Tab could not finish that workload action.</BWT_Workload_OperationFailed>
+<BWT_Workload_OperationCompleted>Workload action completed.</BWT_Workload_OperationCompleted>
+<BWT_Workload_Applied>Workload applied.</BWT_Workload_Applied>
+<BWT_Workload_AppliedPartial>Workload applied, but some entries were skipped.</BWT_Workload_AppliedPartial>
+<BWT_Workload_Updated>Workload saved.</BWT_Workload_Updated>
+<BWT_Workload_UpdateNoOp>The workload was already up to date.</BWT_Workload_UpdateNoOp>
+<BWT_Workload_UpdatedWithExclusions>Workload saved. Temporary colonist exclusions were not saved.</BWT_Workload_UpdatedWithExclusions>
+<BWT_Workload_Forked>New workload saved.</BWT_Workload_Forked>
+<BWT_Workload_ForkedWithExclusions>New workload saved. Temporary colonist exclusions were not saved.</BWT_Workload_ForkedWithExclusions>
+<BWT_Workload_Conflict>The workload changed or conflicts with another saved workload. Refresh the preview and try again.</BWT_Workload_Conflict>
+<BWT_Workload_AuthorityBlocked>Another Work-tab system controls the affected priorities, so Better Work Tab cannot change them.</BWT_Workload_AuthorityBlocked>
+<BWT_Workload_ValidationAtPath>Cannot apply this workload because the saved data at {0} is invalid.</BWT_Workload_ValidationAtPath>
+<BWT_Workload_ValidationMissingAtPath>Cannot apply this workload because required data is missing at {0}.</BWT_Workload_ValidationMissingAtPath>
+<BWT_Workload_ValidationUnknownAtPath>Cannot apply this workload because {0} refers to something that is no longer available.</BWT_Workload_ValidationUnknownAtPath>
+<BWT_Workload_ValidationConflictAtPath>Cannot apply this workload because saved entries conflict at {0}.</BWT_Workload_ValidationConflictAtPath>
 <BWT_Workload_FinishBeforeOpeningList>Finish or cancel the current workload preview before opening the workload list.</BWT_Workload_FinishBeforeOpeningList>
 <BWT_Workload_NoCurrentGame>Load or start a game before using workloads.</BWT_Workload_NoCurrentGame>
 <BWT_Workload_NotReady>Workloads are not ready yet.</BWT_Workload_NotReady>
@@ -379,6 +393,17 @@
 <BWT_Workload_ModeUnavailable>That workload mode is unavailable.</BWT_Workload_ModeUnavailable>
 <BWT_Workload_CloseBeforeModeChange>Close the workload preview before changing workload mode.</BWT_Workload_CloseBeforeModeChange>
 <BWT_Workload_UnsupportedData>This workload contains data from an older or unsupported format. Apply and save are disabled to avoid losing it.</BWT_Workload_UnsupportedData>
+<BWT_Workload_UnsupportedClear>This preview cannot clear {0} yet. No changes were made.</BWT_Workload_UnsupportedClear>
+<BWT_Workload_UnsupportedClearGeneric>This preview contains a clear operation that Better Work Tab cannot apply safely. No changes were made.</BWT_Workload_UnsupportedClearGeneric>
+<BWT_Workload_UnsupportedRuntimeState>The current Work-tab state cannot represent part of this workload. No changes were made.</BWT_Workload_UnsupportedRuntimeState>
+<BWT_Workload_DimensionParentPriorities>Work priorities</BWT_Workload_DimensionParentPriorities>
+<BWT_Workload_DimensionManualModes>manual-priority mode</BWT_Workload_DimensionManualModes>
+<BWT_Workload_DimensionSchedules>hourly priorities</BWT_Workload_DimensionSchedules>
+<BWT_Workload_DimensionSpecificJobPriorities>specific-job priorities</BWT_Workload_DimensionSpecificJobPriorities>
+<BWT_Workload_DimensionSpecificJobOrder>specific-job order</BWT_Workload_DimensionSpecificJobOrder>
+<BWT_Workload_DimensionPresentationSettings>display settings</BWT_Workload_DimensionPresentationSettings>
+<BWT_Workload_DimensionMembership>colonist membership</BWT_Workload_DimensionMembership>
+<BWT_Workload_DimensionSettings>workload settings</BWT_Workload_DimensionSettings>
 <BWT_Workload_UnsupportedDataShort>older or unsupported data</BWT_Workload_UnsupportedDataShort>
 <BWT_Workload_PreviewRefreshFailed>The workload was saved, but Better Work Tab could not refresh the preview. Cancel it before trying again.</BWT_Workload_PreviewRefreshFailed>
 <BWT_Workload_MultiplayerRecovery>Multiplayer is still finishing the previous workload action. You cannot edit this preview yet.</BWT_Workload_MultiplayerRecovery>
@@ -444,7 +469,8 @@
 <BWT_Workload_PawnMissingTooltip>This workload includes a colonist who is not currently available.</BWT_Workload_PawnMissingTooltip>
 <BWT_Workload_OrderUndoUnavailable>You cannot undo or redo specific-job order while previewing a workload.</BWT_Workload_OrderUndoUnavailable>
 <BWT_Workload_FluffyScheduleUnavailable>Fluffy controls these hourly priorities, so Better Work Tab cannot change them here.</BWT_Workload_FluffyScheduleUnavailable>
-<BWT_Workload_SleekCellUnavailable>Sleek controls this priority cell, so Better Work Tab cannot change it in the workload preview.</BWT_Workload_SleekCellUnavailable>
+<BWT_Preview_SleekCellUnavailable>Sleek controls this priority cell, so Better Work Tab cannot change it in the workload preview.</BWT_Preview_SleekCellUnavailable>
+<BWT_Preview_OperationFailed>Better Work Tab could not finish that preview action.</BWT_Preview_OperationFailed>
 <BWT_Workload_FluffySpecificJobUnavailable>Fluffy controls this specific-job column, so Better Work Tab cannot change it in the workload preview.</BWT_Workload_FluffySpecificJobUnavailable>
 <BWT_Workload_FluffySchedulePreviewBlocked>Close the workload preview before changing Fluffy's hourly priorities.</BWT_Workload_FluffySchedulePreviewBlocked>
 <BWT_Workload_FluffyScheduleHidden>Fluffy's hourly-priority editor is hidden while the workload preview is open.</BWT_Workload_FluffyScheduleHidden>

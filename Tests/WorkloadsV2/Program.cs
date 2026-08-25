@@ -19,6 +19,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("work-execution-spawn-performance-contracts", WorkExecutionSpawnPerformanceContractTests.Run),
             new TestCase("work-grid-retained-sparse-audit-performance-contracts", WorkGridRetainedSparseAuditPerformanceContractTests.Run),
             new TestCase("dependency-direction-contracts", DependencyDirectionContractTests.Run),
+            new TestCase("workload-feature-isolation-contracts", WorkloadFeatureIsolationContractTests.Run),
             new TestCase("legacy-world-component-dependency-contracts", LegacyWorldComponentDependencyContractTests.Run),
             new TestCase("application-publication-contracts", ApplicationPublicationContractTests.Run),
             new TestCase("reassignment-cleanup", ReassignmentCleanupTests.Run),
@@ -27,7 +28,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("gateway-lifecycle-contracts", GatewayLifecycleTests.Run),
             new TestCase("backend-transaction-contracts", BackendTransactionTests.Run),
             new TestCase("presentation-settings-consolidation", PresentationSettingsConsolidationTests.Run),
-            new TestCase("layout-history-transaction-contracts", LayoutHistoryTransactionTests.Run)
+            new TestCase("layout-history-transaction-contracts", LayoutHistoryTransactionTests.Run),
+            new TestCase("presentation-boundary-contracts", PresentationBoundaryTests.Run)
         };
 
         private static int Main()

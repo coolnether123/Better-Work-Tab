@@ -362,7 +362,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "membership changes must remain outside the priority-cell overlay index");
 
             int drawStart = renderer.IndexOf(
-                "private void DrawWorkloadInspectionHighlights(",
+                "private void DrawPreviewInspectionHighlights(",
                 StringComparison.Ordinal);
             int bindingStart = renderer.IndexOf(
                 "private void EnsureInspectionColumnBindings(",
@@ -396,6 +396,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 drawPath,
                 "preview.InspectionTargets",
                 "cell inspection must enumerate the cached changed targets");
+            TestAssert.False(
+                drawPath.IndexOf("Workload", StringComparison.Ordinal) >= 0 ||
+                drawPath.IndexOf("BWTWorkTabEffectiveSettings", StringComparison.Ordinal) >= 0,
+                "renderer inspection must consume only captured neutral preview state");
             TestAssert.Contains(
                 drawPath,
                 "_inspectionGlobalColumns",

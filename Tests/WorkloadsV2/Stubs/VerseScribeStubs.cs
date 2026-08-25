@@ -3,6 +3,99 @@ using System.Xml;
 
 namespace Verse
 {
+    public readonly struct TaggedString
+    {
+        private readonly string _value;
+
+        public TaggedString(string value)
+        {
+            _value = value ?? string.Empty;
+        }
+
+        public override string ToString() => _value;
+    }
+
+    public static class TestTranslationExtensions
+    {
+        public static TaggedString Translate(this string key, params object[] args)
+        {
+            string value;
+            switch (key)
+            {
+                case "BWT_Workload_NoCurrentGame":
+                    value = "Load or start a game before using workloads.";
+                    break;
+                case "BWT_Workload_NameRequired":
+                    value = "Enter a workload name.";
+                    break;
+                case "BWT_Workload_Conflict":
+                    value = "The workload changed or conflicts with another saved workload. Refresh the preview and try again.";
+                    break;
+                case "BWT_Workload_ValidationAtPath":
+                    value = "Cannot apply this workload because the saved data at {0} is invalid.";
+                    break;
+                case "BWT_Workload_ValidationMissingAtPath":
+                    value = "Cannot apply this workload because required data is missing at {0}.";
+                    break;
+                case "BWT_Workload_ValidationUnknownAtPath":
+                    value = "Cannot apply this workload because {0} refers to something that is no longer available.";
+                    break;
+                case "BWT_Workload_ValidationConflictAtPath":
+                    value = "Cannot apply this workload because saved entries conflict at {0}.";
+                    break;
+                case "BWT_Workload_Applied":
+                    value = "Workload applied.";
+                    break;
+                case "BWT_Workload_AppliedPartial":
+                    value = "Workload applied, but some entries were skipped.";
+                    break;
+                case "BWT_Workload_Updated":
+                    value = "Workload saved.";
+                    break;
+                case "BWT_Workload_Forked":
+                    value = "New workload saved.";
+                    break;
+                case "BWT_Workload_ModeUnavailable":
+                    value = "That workload mode is unavailable.";
+                    break;
+                case "BWT_Workload_UnsupportedData":
+                    value = "This workload contains data from an older or unsupported format. Apply and save are disabled to avoid losing it.";
+                    break;
+                case "BWT_Workload_MultiplayerStartFailed":
+                    value = "Better Work Tab could not start the multiplayer workload action.";
+                    break;
+                case "BWT_Workload_CaptureFailed":
+                    value = "Better Work Tab could not read all current Work-tab settings.";
+                    break;
+                case "BWT_Workload_AuthorityBlocked":
+                    value = "Another Work-tab system controls the affected priorities, so Better Work Tab cannot change them.";
+                    break;
+                case "BWT_Workload_MultiplayerRecovery":
+                    value = "Multiplayer is still finishing the previous workload action. You cannot edit this preview yet.";
+                    break;
+                case "BWT_Workload_NotFound":
+                    value = "Better Work Tab could not find that workload.";
+                    break;
+                case "BWT_Workload_OperationFailed":
+                    value = "Better Work Tab could not finish that workload action.";
+                    break;
+                case "BWT_Workload_UnsupportedClear":
+                    value = "This preview cannot clear {0} yet. No changes were made.";
+                    break;
+                case "BWT_Workload_DimensionSchedules":
+                    value = "hourly priorities";
+                    break;
+                default:
+                    value = key ?? string.Empty;
+                    break;
+            }
+
+            return new TaggedString(args == null || args.Length == 0
+                ? value
+                : string.Format(value, args));
+        }
+    }
+
     public interface IExposable
     {
         void ExposeData();

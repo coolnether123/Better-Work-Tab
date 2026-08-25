@@ -346,7 +346,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 }
             }
 
-            TestAssert.Equal(117, callCount, "all presentation facade calls must use the fallback-free cache");
+            TestAssert.Equal(115, callCount,
+                "all remaining presentation facade calls must use the fallback-free cache; preview renderer values are captured on its neutral port");
             TestAssert.Equal(52, usage.Count, "facade calls must resolve exactly 52 active registry setting IDs");
             return usage;
         }
@@ -420,7 +421,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             {
                 "IWorkTabPresentationPreviewPort previewPort = _previewPort;",
                 "previewPort.TryReadPresentationPreview(",
-                "BWTWorkloadPresentationSnapshot.Failed("
+                "BWTPresentationSnapshot.Failed("
             })
             {
                 TestAssert.Contains(refresh, fragment,
@@ -479,7 +480,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             string facade = Slice(router,
                 "internal static class BWTWorkTabEffectiveSettings",
-                "internal sealed class BWTWorkloadSettingDefinitionState");
+                "internal sealed class BWTPresentationSettingDefinitionState");
             foreach (string fragment in new[]
             {
                 "PresentationSnapshot.GetBool(settingId)",
@@ -506,7 +507,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the complete settings drawer path must not rebuild every Layout/Repaint");
 
             string ensureFresh = MethodBody(router, "internal static void EnsureFresh()");
-            TestAssert.Contains(ensureFresh, "_snapshotSettingsRevision != _globalSettingsRevision",
+            TestAssert.Contains(
+                ensureFresh,
+                "_snapshotSettingsRevision != WorkTabPresentationRevision.Current",
                 "the drawer refresh gate must use only the semantic session/revision token");
             TestAssert.False(ensureFresh.Contains("Capture") ||
                 ensureFresh.Contains("Field.GetValue") ||
@@ -520,20 +523,19 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "visible color rows must not allocate a capturing picker callback per draw");
 
             string defaults = Slice(router,
-                "internal sealed class BWTWorkloadSettingDefinitionState",
-                "internal sealed class BWTWorkloadPresentationSettingsStore");
+                "internal sealed class BWTPresentationSettingDefinitionState",
+                "internal struct BWTPresentationSettingOwnershipState");
             TestAssert.Contains(defaults, "DefaultScalar",
                 "reset and non-default checks must consume prepared scalar defaults");
             TestAssert.False(draw.Contains("ToColorScalar"),
                 "color defaults must not be formatted during Layout/Repaint");
             TestAssert.Contains(MethodBody(router, "private static void InstallStageableDefinition("),
-                "WorkloadScalarValue defaultValue = state.DefaultScalar;",
+                "PresentationValue defaultValue = state.DefaultScalar;",
                 "visible reset controls must reuse their prepared scalar default");
-            TestAssert.False(router.Contains("class BWTWorkloadSettingsApplyWriter"),
-                "the behaviorless one-caller writer subclass must stay inlined");
-            TestAssert.Contains(MethodBody(router, "internal static WorkloadPresentationSettingsTransaction CreateApplyWriter()"),
-                "new BWTWorkloadPresentationSettingsStore()",
-                "the writer factory must compose the store-neutral transaction directly");
+            TestAssert.False(
+                router.Contains("WorkloadPresentationSettingsTransaction") ||
+                router.Contains("IWorkloadPresentationSettingsStore"),
+                "normal settings code must not compose workload persistence writers");
         }
 
         private static void AllGlobalWriteRoutesAdvanceTheSnapshotToken(

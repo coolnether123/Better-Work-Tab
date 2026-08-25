@@ -8,6 +8,113 @@ using Verse;
 
 namespace Better_Work_Tab.Features.Application
 {
+    internal enum WorkTabSpecificPriorityState
+    {
+        GlobalAbsent = 0,
+        GlobalSet = 1,
+        GlobalClear = 2,
+        LocalInherit = 3,
+        LocalSet = 4
+    }
+
+    internal enum WorkTabSpecificOrderState
+    {
+        GlobalAbsent = 0,
+        GlobalSet = 1,
+        GlobalClear = 2,
+        LocalInherit = 3,
+        LocalStored = 4
+    }
+
+    internal readonly struct WorkTabSpecificPriorityBaseline
+    {
+        internal WorkTabSpecificPriorityBaseline(
+            WorkTabSpecificPriorityState state,
+            int priority)
+        {
+            State = state;
+            Priority = priority;
+        }
+
+        internal WorkTabSpecificPriorityState State { get; }
+        internal int Priority { get; }
+    }
+
+    internal readonly struct WorkTabSpecificOrderBaseline
+    {
+        internal WorkTabSpecificOrderBaseline(
+            WorkTabSpecificOrderState state,
+            IReadOnlyList<string> orderedWorkGiverNames)
+        {
+            State = state;
+            OrderedWorkGiverNames = orderedWorkGiverNames ?? new string[0];
+        }
+
+        internal WorkTabSpecificOrderState State { get; }
+        internal IReadOnlyList<string> OrderedWorkGiverNames { get; }
+    }
+
+    internal sealed class WorkTabStagedSpecificPriority
+    {
+        internal WorkTabStagedSpecificPriority(
+            int pawnId,
+            string workGiverDefName,
+            WorkTabSpecificPriorityState desiredState,
+            int desiredPriority,
+            WorkTabSpecificPriorityBaseline expected)
+        {
+            PawnId = pawnId;
+            WorkGiverDefName = workGiverDefName ?? string.Empty;
+            DesiredState = desiredState;
+            DesiredPriority = desiredPriority;
+            Expected = expected;
+        }
+
+        internal bool IsGlobal => DesiredState == WorkTabSpecificPriorityState.GlobalAbsent ||
+            DesiredState == WorkTabSpecificPriorityState.GlobalSet ||
+            DesiredState == WorkTabSpecificPriorityState.GlobalClear;
+        internal int PawnId { get; }
+        internal string WorkGiverDefName { get; }
+        internal WorkTabSpecificPriorityState DesiredState { get; }
+        internal int DesiredPriority { get; }
+        internal WorkTabSpecificPriorityBaseline Expected { get; }
+        internal string CanonicalKey =>
+            (IsGlobal ? "global" : "local:" + PawnId) + ":priority:" + WorkGiverDefName;
+    }
+
+    internal sealed class WorkTabStagedSpecificOrder
+    {
+        internal WorkTabStagedSpecificOrder(
+            int pawnId,
+            string workTypeDefName,
+            WorkTabSpecificOrderState desiredState,
+            IReadOnlyList<string> desiredOrder,
+            WorkTabSpecificOrderBaseline expected)
+        {
+            PawnId = pawnId;
+            WorkTypeDefName = workTypeDefName ?? string.Empty;
+            DesiredState = desiredState;
+            DesiredOrder = desiredOrder ?? new string[0];
+            Expected = expected;
+        }
+
+        internal bool IsGlobal => DesiredState == WorkTabSpecificOrderState.GlobalAbsent ||
+            DesiredState == WorkTabSpecificOrderState.GlobalSet ||
+            DesiredState == WorkTabSpecificOrderState.GlobalClear;
+        internal int PawnId { get; }
+        internal string WorkTypeDefName { get; }
+        internal WorkTabSpecificOrderState DesiredState { get; }
+        internal IReadOnlyList<string> DesiredOrder { get; }
+        internal WorkTabSpecificOrderBaseline Expected { get; }
+        internal string CanonicalKey =>
+            (IsGlobal ? "global" : "local:" + PawnId) + ":order:" + WorkTypeDefName;
+    }
+
+    internal interface IWorkTabSpecificJobRollbackReceipt
+    {
+        int AppliedRevision { get; }
+    }
+
     internal readonly struct WorkTabStagedParentPriority
     {
         internal WorkTabStagedParentPriority(
@@ -51,14 +158,12 @@ namespace Better_Work_Tab.Features.Application
     {
         internal readonly List<WorkTabStagedParentPriority> ParentPriorities =
             new List<WorkTabStagedParentPriority>();
-        internal readonly List<WorkGiverReassignmentManager.SpecificPriorityBatchEntry>
-            SpecificPriorities =
-                new List<WorkGiverReassignmentManager.SpecificPriorityBatchEntry>();
+        internal readonly List<WorkTabStagedSpecificPriority> SpecificPriorities =
+            new List<WorkTabStagedSpecificPriority>();
         internal readonly List<WorkTabRuleSpecificPriority> ExternalSpecificPriorities =
             new List<WorkTabRuleSpecificPriority>();
-        internal readonly List<WorkGiverReassignmentManager.SpecificOrderBatchEntry>
-            SpecificOrders =
-                new List<WorkGiverReassignmentManager.SpecificOrderBatchEntry>();
+        internal readonly List<WorkTabStagedSpecificOrder> SpecificOrders =
+            new List<WorkTabStagedSpecificOrder>();
         internal readonly List<WorkTabStagedSchedule> Schedules =
             new List<WorkTabStagedSchedule>();
         internal readonly List<WorkTabApplicationTargetChange> AffectedTargets =
@@ -112,7 +217,7 @@ namespace Better_Work_Tab.Features.Application
         private readonly List<WorkTabRuleSpecificPriority> _appliedExternalSpecific =
             new List<WorkTabRuleSpecificPriority>();
         private WorkTabMutationScope _scope;
-        private WorkGiverReassignmentManager.SpecificJobBatchRollback _specificRollback;
+        private IWorkTabSpecificJobRollbackReceipt _specificRollback;
         private WorkTabScheduleRevisionReceipt _scheduleRevision;
         private int _committedSpecificRevision;
         private bool _manualChanged;
@@ -156,6 +261,29 @@ namespace Better_Work_Tab.Features.Application
         internal bool TryStage(out string reason)
         {
             reason = null;
+            if (_mutation.Schedules.Count > 0)
+            {
+                TimePriorityLiveScheduleSnapshot first =
+                    _mutation.Schedules[0].Expected;
+                if (first == null)
+                {
+                    reason = "A staged schedule baseline is missing.";
+                    return false;
+                }
+
+                for (int i = 1; i < _mutation.Schedules.Count; i++)
+                {
+                    TimePriorityLiveScheduleSnapshot expected =
+                        _mutation.Schedules[i].Expected;
+                    if (expected == null ||
+                        expected.ServiceVersion != first.ServiceVersion)
+                    {
+                        reason = "The staged schedules were not captured from one service revision.";
+                        return false;
+                    }
+                }
+            }
+
             if (!_application.TryStagePriorityConfiguration(
                     _mutation.RequiredPriorityMaximum,
                     out _configuration,
@@ -311,7 +439,7 @@ namespace Better_Work_Tab.Features.Application
             _scope = null;
             _committed = true;
             _provisional = provisional;
-            _committedSpecificRevision = WorkGiverReassignmentManager.CurrentSyncVersion;
+            _committedSpecificRevision = WorkTabDomainPorts.SpecificJobs.Revision;
             if (_mutation.Schedules.Count > 0 && !commit.ScheduleRevisionOwned)
             {
                 reason = "The staged schedule transaction lost its owned revision.";
@@ -488,7 +616,7 @@ namespace Better_Work_Tab.Features.Application
             if (_specificRollback != null)
             {
                 bool ownsSpecificState = !committed ||
-                    WorkGiverReassignmentManager.CurrentSyncVersion ==
+                    WorkTabDomainPorts.SpecificJobs.Revision ==
                         _committedSpecificRevision;
                 bool specificRestored = ownsSpecificState &&
                     scope.TryRestoreSpecificJobs(
@@ -500,8 +628,7 @@ namespace Better_Work_Tab.Features.Application
                 if (specificRestored)
                 {
                     _specificRollback = null;
-                    _committedSpecificRevision =
-                        WorkGiverReassignmentManager.CurrentSyncVersion;
+                    _committedSpecificRevision = WorkTabDomainPorts.SpecificJobs.Revision;
                 }
             }
             for (int i = _appliedExternalSpecific.Count - 1; i >= 0; i--)

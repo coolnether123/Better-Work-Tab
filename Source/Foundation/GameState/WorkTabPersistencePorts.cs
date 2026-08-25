@@ -40,6 +40,41 @@ namespace Better_Work_Tab.Foundation.GameState
         int Version { get; set; }
     }
 
+    internal interface IWorkTabCompatibilityMigrationState
+    {
+        int ExternalPriorityVersion { get; set; }
+        int CompatibilityPromptVersion { get; set; }
+    }
+
+    /// <summary>
+    /// Compatibility-shell callbacks used by the per-game lifecycle owner.
+    /// The root coordinates lifecycle order without depending on the concrete
+    /// save component or any feature record type.
+    /// </summary>
+    internal interface IWorkTabGameLifecyclePort
+    {
+        bool MultiplayerActive { get; }
+        bool IsLocalProfileLoaded { get; }
+        void LoadOrCreateLocalProfile();
+        void LoadLocalUiStateIntoRuntime();
+        void EnsurePersistenceBoundary();
+        void RefreshPersistenceDiagnostics();
+        void EnsureCurrentWorklist();
+        void MigrateLegacyReassignmentData();
+        void MigrateFluffyPriorityData();
+        void ReconcilePostLoad(string currentWorklistName);
+    }
+
+    /// <summary>
+    /// Runtime maintenance callbacks that must stay at the GameComponent
+    /// boundary because their implementations bridge optional/local profile
+    /// state. The root owns when the callbacks run.
+    /// </summary>
+    internal interface IWorkTabGameMaintenancePort
+    {
+        void MaintainLocalProfile();
+    }
+
     internal sealed class WorkTabGameState
     {
         internal WorkTabGameState(
@@ -48,7 +83,8 @@ namespace Better_Work_Tab.Foundation.GameState
             IWorkTabReassignmentState reassignments,
             IWorkTabCustomLabelState customLabels,
             IWorkTabDividerState dividers,
-            IWorkTabWorldSchemaState worldSchema)
+            IWorkTabWorldSchemaState worldSchema,
+            IWorkTabCompatibilityMigrationState compatibilityMigrations)
         {
             Schedules = schedules;
             ColumnOrder = columnOrder;
@@ -56,6 +92,7 @@ namespace Better_Work_Tab.Foundation.GameState
             CustomLabels = customLabels;
             Dividers = dividers;
             WorldSchema = worldSchema;
+            CompatibilityMigrations = compatibilityMigrations;
         }
 
         internal IWorkTabScheduleStore<TimePriorityScheduleData> Schedules { get; }
@@ -64,5 +101,6 @@ namespace Better_Work_Tab.Foundation.GameState
         internal IWorkTabCustomLabelState CustomLabels { get; }
         internal IWorkTabDividerState Dividers { get; }
         internal IWorkTabWorldSchemaState WorldSchema { get; }
+        internal IWorkTabCompatibilityMigrationState CompatibilityMigrations { get; }
     }
 }

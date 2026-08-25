@@ -83,6 +83,14 @@ namespace Better_Work_Tab.Features.Workloads.V2
         Fork = 2
     }
 
+    public enum WorkloadSessionDecisionCode
+    {
+        None = 0,
+        ValidationFailed = 1,
+        MissingForkStableId = 2,
+        ConflictingForkStableId = 3
+    }
+
     public sealed class WorkloadPreviewPlan
     {
         internal WorkloadPreviewPlan(
@@ -126,7 +134,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadSession session,
             WorkloadTemplate resultTemplate,
             WorkloadProjectedState appliedState,
-            string rejectionReason)
+            WorkloadSessionDecisionCode rejectionCode,
+            WorkloadValidationIssue validationIssue)
         {
             Kind = kind;
             Accepted = accepted;
@@ -134,7 +143,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             Session = session;
             ResultTemplate = resultTemplate;
             AppliedState = appliedState;
-            RejectionReason = rejectionReason ?? string.Empty;
+            RejectionCode = rejectionCode;
+            ValidationIssue = validationIssue;
         }
 
         public WorkloadDecisionKind Kind { get; private set; }
@@ -144,7 +154,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
         public WorkloadTemplate ResultTemplate { get; private set; }
         public WorkloadTemplate TargetTemplate => ResultTemplate;
         public WorkloadProjectedState AppliedState { get; private set; }
-        public string RejectionReason { get; private set; }
+        public WorkloadSessionDecisionCode RejectionCode { get; private set; }
+        public WorkloadValidationIssue ValidationIssue { get; private set; }
         public bool IsSideEffectFree => true;
     }
 
@@ -856,7 +867,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadPreviewPlan plan = BuildPlan(WorkloadDecisionKind.Apply);
             if (!plan.CanProceed)
             {
-                return Rejected(WorkloadDecisionKind.Apply, plan, "The projected state did not pass validation.");
+                return Rejected(
+                    WorkloadDecisionKind.Apply,
+                    plan,
+                    WorkloadSessionDecisionCode.ValidationFailed);
             }
 
             WorkloadTemplate resultTemplate = BuildApplyTemplate();
@@ -868,6 +882,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 applied,
                 resultTemplate,
                 plan.AfterState,
+                WorkloadSessionDecisionCode.None,
                 null);
         }
 
@@ -876,7 +891,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadPreviewPlan plan = BuildPlan(WorkloadDecisionKind.Update);
             if (!plan.CanProceed)
             {
-                return Rejected(WorkloadDecisionKind.Update, plan, "The workload template did not pass validation.");
+                return Rejected(
+                    WorkloadDecisionKind.Update,
+                    plan,
+                    WorkloadSessionDecisionCode.ValidationFailed);
             }
 
             WorkloadTemplate updatedTemplate = TargetTemplate;
@@ -887,6 +905,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 this,
                 updatedTemplate,
                 null,
+                WorkloadSessionDecisionCode.None,
                 null);
         }
 
@@ -896,17 +915,26 @@ namespace Better_Work_Tab.Features.Workloads.V2
             string safeId = stableId ?? string.Empty;
             if (!safeId.AnyNonWhitespace())
             {
-                return Rejected(WorkloadDecisionKind.Fork, plan, "A fork must have a stable ID.");
+                return Rejected(
+                    WorkloadDecisionKind.Fork,
+                    plan,
+                    WorkloadSessionDecisionCode.MissingForkStableId);
             }
 
             if (StringComparer.Ordinal.Equals(safeId, SourceTemplate.StableId))
             {
-                return Rejected(WorkloadDecisionKind.Fork, plan, "A fork must use a different stable ID.");
+                return Rejected(
+                    WorkloadDecisionKind.Fork,
+                    plan,
+                    WorkloadSessionDecisionCode.ConflictingForkStableId);
             }
 
             if (!plan.CanProceed)
             {
-                return Rejected(WorkloadDecisionKind.Fork, plan, "The forked template did not pass validation.");
+                return Rejected(
+                    WorkloadDecisionKind.Fork,
+                    plan,
+                    WorkloadSessionDecisionCode.ValidationFailed);
             }
 
             string safeLabel = (label ?? string.Empty).AnyNonWhitespace() ? label : SourceTemplate.Label;
@@ -918,6 +946,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 this,
                 forkedTemplate,
                 null,
+                WorkloadSessionDecisionCode.None,
                 null);
         }
 
@@ -1034,8 +1063,16 @@ namespace Better_Work_Tab.Features.Workloads.V2
         private WorkloadSessionDecision Rejected(
             WorkloadDecisionKind kind,
             WorkloadPreviewPlan plan,
-            string reason)
+            WorkloadSessionDecisionCode code)
         {
+            WorkloadValidationIssue issue = null;
+            if (code == WorkloadSessionDecisionCode.ValidationFailed &&
+                plan?.Validation?.Issues != null &&
+                plan.Validation.Issues.Count > 0)
+            {
+                issue = plan.Validation.Issues[0];
+            }
+
             return new WorkloadSessionDecision(
                 kind,
                 false,
@@ -1043,7 +1080,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 NewSession(ProjectedState, WorkloadSessionStatus.Rejected),
                 null,
                 null,
-                reason);
+                code,
+                issue);
         }
 
         private WorkloadSession NewSession(WorkloadProjectedState projectedState, WorkloadSessionStatus status)
@@ -1480,27 +1518,6 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
             _unsupportedClearDimensions = dimensions.AsReadOnly();
             return _unsupportedClearDimensions;
-        }
-
-        internal string GetUnsupportedClearMessage()
-        {
-            IReadOnlyList<WorkloadStateDimension> dimensions =
-                GetUnsupportedClearDimensions();
-            if (dimensions.Count == 0)
-            {
-                return string.Empty;
-            }
-
-            var labels = new List<string>();
-            for (int i = 0; i < dimensions.Count; i++)
-            {
-                labels.Add(dimensions[i].ToString());
-            }
-
-            return "The preview cannot clear owned values yet (" +
-                string.Join(", ", labels.ToArray()) +
-                "). The staged state was not accepted because a clear would " +
-                "otherwise fall through to live state.";
         }
 
         private bool HasRemovedParentPriority()

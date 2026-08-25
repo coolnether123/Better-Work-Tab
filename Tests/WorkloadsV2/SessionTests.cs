@@ -194,7 +194,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.True(
                 edited.Validation.CanApply,
                 "edited session must validate before Apply: " +
-                (edited.Validation.Issues.Count == 0 ? "no diagnostic" : edited.Validation.Issues[0].Message));
+                (edited.Validation.Issues.Count == 0 ? "no diagnostic" : edited.Validation.Issues[0].Code.ToString()));
 
             var canceled = edited.Revert();
             TestAssert.True(canceled.TemplateDiff.IsEmpty,

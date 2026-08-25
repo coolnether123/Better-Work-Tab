@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 
 namespace Better_Work_Tab.UI.Workloads.Projection
@@ -16,6 +18,8 @@ namespace Better_Work_Tab.UI.Workloads.Projection
         IWorkTabEffectiveStateProvider,
         IWorkTabEffectiveStateV2Provider,
         IWorkTabEffectiveStateV2Editor,
+        IWorkTabPreviewStateReader,
+        IWorkTabPreviewStateEditor,
         IWorkTabComposedEffectiveStateProvider,
         IWorkTabPreviewOwnership,
         IWorkTabEffectiveStatePassParticipant,
@@ -427,6 +431,273 @@ namespace Better_Work_Tab.UI.Workloads.Projection
                 : WorkTabEffectiveStateResolution<WorkloadSettingValue>.NoOpinion;
         }
 
+        WorkTabEffectiveStateResolution<TimePriorityScheduleValue>
+            IWorkTabPreviewStateReader.ResolveSchedule(TimePriorityTarget target)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetScheduleKey(
+                    target,
+                    out WorkloadScheduleTargetKey key,
+                    out _))
+            {
+                return WorkTabEffectiveStateResolution<TimePriorityScheduleValue>.NoOpinion;
+            }
+
+            return WorkloadPreviewStateAdapter.ToScheduleResolution(
+                ResolveEffectiveSchedule(key));
+        }
+
+        WorkTabEffectiveStateResolution<TimePriorityScheduleValue>
+            IWorkTabPreviewStateReader.ResolvePreviewScheduleIntent(
+                TimePriorityTarget target)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetScheduleKey(
+                    target,
+                    out WorkloadScheduleTargetKey key,
+                    out _))
+            {
+                return WorkTabEffectiveStateResolution<TimePriorityScheduleValue>.NoOpinion;
+            }
+
+            return WorkloadPreviewStateAdapter.ToScheduleResolution(
+                ResolveSchedule(key));
+        }
+
+        WorkTabEffectiveStateResolution<int>
+            IWorkTabPreviewStateReader.ResolveSpecificJobPriority(
+                WorkTabSpecificJobTarget target)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetSpecificJobKey(
+                    target,
+                    out WorkloadSpecificJobTargetKey key))
+            {
+                return WorkTabEffectiveStateResolution<int>.NoOpinion;
+            }
+
+            return WorkloadPreviewStateAdapter.ToSpecificPriorityResolution(
+                ResolveEffectiveSpecificJobPriority(key));
+        }
+
+        WorkTabEffectiveStateResolution<int>
+            IWorkTabPreviewStateReader.ResolvePreviewSpecificJobPriorityIntent(
+                WorkTabSpecificJobTarget target)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetSpecificJobKey(
+                    target,
+                    out WorkloadSpecificJobTargetKey key))
+            {
+                return WorkTabEffectiveStateResolution<int>.NoOpinion;
+            }
+
+            return WorkloadPreviewStateAdapter.ToSpecificPriorityResolution(
+                ResolveSpecificJobPriority(key));
+        }
+
+        WorkTabEffectiveStateResolution<IReadOnlyList<string>>
+            IWorkTabPreviewStateReader.ResolveWorkTypeOrder(
+                WorkTabWorkTypeOrderTarget target)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetWorkTypeOrderKey(
+                    target,
+                    out WorkloadWorkTypeOrderKey key))
+            {
+                return WorkTabEffectiveStateResolution<IReadOnlyList<string>>.NoOpinion;
+            }
+
+            return WorkloadPreviewStateAdapter.ToWorkTypeOrderResolution(
+                ResolveEffectiveWorkTypeOrder(key));
+        }
+
+        WorkTabEffectiveStateResolution<IReadOnlyList<string>>
+            IWorkTabPreviewStateReader.ResolvePreviewWorkTypeOrderIntent(
+                WorkTabWorkTypeOrderTarget target)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetWorkTypeOrderKey(
+                    target,
+                    out WorkloadWorkTypeOrderKey key))
+            {
+                return WorkTabEffectiveStateResolution<IReadOnlyList<string>>.NoOpinion;
+            }
+
+            return WorkloadPreviewStateAdapter.ToWorkTypeOrderResolution(
+                ResolveWorkTypeOrder(key));
+        }
+
+        WorkTabEffectiveStateMutationResult IWorkTabPreviewStateEditor.SetScheduleIntent(
+            TimePriorityTarget target,
+            WorkTabEffectiveStateResolution<TimePriorityScheduleValue> intent)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetScheduleKey(
+                    target,
+                    out WorkloadScheduleTargetKey key,
+                    out string reason))
+            {
+                return WorkTabEffectiveStateMutationResult.Blocked(
+                    WorkTabEffectiveStateDimension.Schedule,
+                    Revision,
+                    reason ?? "A valid schedule target is required.");
+            }
+
+            if (intent.IsSet)
+            {
+                WorkloadSchedulePayload payload =
+                    WorkloadPreviewStateAdapter.ToSchedulePayload(intent.Value);
+                if (payload == null)
+                {
+                    return WorkTabEffectiveStateMutationResult.Blocked(
+                        WorkTabEffectiveStateDimension.Schedule,
+                        Revision,
+                        "A complete 24-hour schedule value is required.");
+                }
+
+                return SetSchedule(key, payload);
+            }
+
+            return intent.IsClear
+                ? ClearSchedule(key)
+                : SetScheduleNoOpinion(key);
+        }
+
+        WorkTabEffectiveStateMutationResult IWorkTabPreviewStateEditor.SetSpecificJobPriority(
+            WorkTabSpecificJobTarget target,
+            int priority)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetSpecificJobKey(
+                    target,
+                    out WorkloadSpecificJobTargetKey key))
+            {
+                return WorkTabEffectiveStateMutationResult.Blocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOverride,
+                    Revision,
+                    "A valid specific-job target is required.");
+            }
+
+            return SetSpecificJobPriority(
+                key,
+                new WorkloadSpecificPriorityPayload(priority));
+        }
+
+        WorkTabEffectiveStateMutationResult IWorkTabPreviewStateEditor.SetSpecificJobPriorityIntent(
+            WorkTabSpecificJobTarget target,
+            WorkTabEffectiveStateResolution<int> intent)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetSpecificJobKey(
+                    target,
+                    out WorkloadSpecificJobTargetKey key))
+            {
+                return WorkTabEffectiveStateMutationResult.Blocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOverride,
+                    Revision,
+                    "A valid specific-job target is required.");
+            }
+
+            if (intent.IsSet)
+            {
+                if (intent.Value < 0)
+                {
+                    return WorkTabEffectiveStateMutationResult.Blocked(
+                        WorkTabEffectiveStateDimension.SpecificJobOverride,
+                        Revision,
+                        "A valid specific-job priority is required.");
+                }
+
+                return SetSpecificJobPriority(
+                    key,
+                    new WorkloadSpecificPriorityPayload(intent.Value));
+            }
+
+            return intent.IsClear
+                ? ClearSpecificJobPriority(key)
+                : SetSpecificJobPriorityNoOpinion(key);
+        }
+
+        WorkTabEffectiveStateMutationResult IWorkTabPreviewStateEditor.ClearSpecificJobPriority(
+            WorkTabSpecificJobTarget target)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetSpecificJobKey(
+                    target,
+                    out WorkloadSpecificJobTargetKey key))
+            {
+                return WorkTabEffectiveStateMutationResult.Blocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOverride,
+                    Revision,
+                    "A valid specific-job target is required.");
+            }
+
+            return ClearSpecificJobPriority(key);
+        }
+
+        WorkTabEffectiveStateMutationResult IWorkTabPreviewStateEditor.SetWorkTypeOrder(
+            WorkTabWorkTypeOrderTarget target,
+            IReadOnlyList<string> orderedWorkGiverNames)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetWorkTypeOrderKey(
+                    target,
+                    out WorkloadWorkTypeOrderKey key))
+            {
+                return WorkTabEffectiveStateMutationResult.Blocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder,
+                    Revision,
+                    "A valid WorkType order target is required.");
+            }
+
+            WorkloadWorkTypeOrderPayload payload =
+                WorkloadPreviewStateAdapter.ToWorkTypeOrderPayload(
+                    orderedWorkGiverNames);
+            return payload == null
+                ? WorkTabEffectiveStateMutationResult.Blocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder,
+                    Revision,
+                    "A complete WorkType order is required.")
+                : SetWorkTypeOrder(key, payload);
+        }
+
+        WorkTabEffectiveStateMutationResult IWorkTabPreviewStateEditor.SetWorkTypeOrderIntent(
+            WorkTabWorkTypeOrderTarget target,
+            WorkTabEffectiveStateResolution<IReadOnlyList<string>> intent)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetWorkTypeOrderKey(
+                    target,
+                    out WorkloadWorkTypeOrderKey key))
+            {
+                return WorkTabEffectiveStateMutationResult.Blocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder,
+                    Revision,
+                    "A valid WorkType order target is required.");
+            }
+
+            if (intent.IsSet)
+            {
+                WorkloadWorkTypeOrderPayload payload =
+                    WorkloadPreviewStateAdapter.ToWorkTypeOrderPayload(intent.Value);
+                return payload == null
+                    ? WorkTabEffectiveStateMutationResult.Blocked(
+                        WorkTabEffectiveStateDimension.SpecificJobOrder,
+                        Revision,
+                        "A complete WorkType order is required.")
+                    : SetWorkTypeOrder(key, payload);
+            }
+
+            return intent.IsClear
+                ? ClearWorkTypeOrder(key)
+                : SetWorkTypeOrderNoOpinion(key);
+        }
+
+        WorkTabEffectiveStateMutationResult IWorkTabPreviewStateEditor.ClearWorkTypeOrder(
+            WorkTabWorkTypeOrderTarget target)
+        {
+            if (!WorkloadPreviewStateAdapter.TryGetWorkTypeOrderKey(
+                    target,
+                    out WorkloadWorkTypeOrderKey key))
+            {
+                return WorkTabEffectiveStateMutationResult.Blocked(
+                    WorkTabEffectiveStateDimension.SpecificJobOrder,
+                    Revision,
+                    "A valid WorkType order target is required.");
+            }
+
+            return ClearWorkTypeOrder(key);
+        }
+
         private static WorkTabEffectiveStateResolution<TResult> ToResolution<TValue, TResult>(
             WorkloadIntent<TValue> intent,
             Func<TValue, TResult> selector)
@@ -811,6 +1082,18 @@ namespace Better_Work_Tab.UI.Workloads.Projection
                 draft => draft.ClearSpecificPriority(key));
         }
 
+        public WorkTabEffectiveStateMutationResult SetSpecificJobPriorityNoOpinion(
+            WorkloadSpecificJobTargetKey key)
+        {
+            return Apply(
+                WorkTabEffectiveStateDimension.SpecificJobOverride,
+                WorkloadOwnershipDimensions.SpecificJobOverrides,
+                key?.IsGlobal == true ? null : key?.Pawn,
+                key != null && key.IsValid,
+                "A valid specific-job target is required.",
+                draft => draft.SetSpecificPriorityNoOpinion(key));
+        }
+
         public WorkTabEffectiveStateMutationResult SetWorkTypeOrder(
             WorkloadWorkTypeOrderKey key,
             WorkloadWorkTypeOrderPayload payload)
@@ -834,6 +1117,18 @@ namespace Better_Work_Tab.UI.Workloads.Projection
                 key != null && key.IsValid,
                 "A valid WorkType order target is required.",
                 draft => draft.ClearWorkTypeOrder(key));
+        }
+
+        public WorkTabEffectiveStateMutationResult SetWorkTypeOrderNoOpinion(
+            WorkloadWorkTypeOrderKey key)
+        {
+            return Apply(
+                WorkTabEffectiveStateDimension.SpecificJobOrder,
+                WorkloadOwnershipDimensions.SpecificJobOrder,
+                key?.IsGlobal == true ? null : key?.Pawn,
+                key != null && key.IsValid,
+                "A valid WorkType order target is required.",
+                draft => draft.SetWorkTypeOrderNoOpinion(key));
         }
 
         public WorkTabEffectiveStateMutationResult SetPresentationSetting(
@@ -1005,6 +1300,10 @@ namespace Better_Work_Tab.UI.Workloads.Projection
             string afterFingerprint = _projectedState.GetSemanticFingerprint(afterDimensions);
             if (StringComparer.Ordinal.Equals(beforeFingerprint, afterFingerprint))
             {
+                // The draft and dimension revisions are part of the captured
+                // revision vector even when the projected semantics are equal.
+                // Keep the pass cache coherent with that newly published token.
+                WorkTabEffectiveStateRuntime.InvalidateRenderPass();
                 return WorkTabEffectiveStateMutationResult.NoOp(
                     dimension,
                     _revision,

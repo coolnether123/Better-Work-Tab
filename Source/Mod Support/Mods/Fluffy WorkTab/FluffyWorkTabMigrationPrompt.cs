@@ -1,5 +1,5 @@
 using System;
-using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;
 using Verse;
@@ -17,7 +17,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         internal static bool BlocksTutorialPresentation => Presence.IsPending;
 
         internal static void QueueIfNeeded(
-            GameComponent_BWTWorldSettings component,
+            WorkTabGameRoot root,
             FluffyWorkTabMigrationResult result)
         {
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
@@ -26,12 +26,12 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             // prompt version is only bumped once the player answers.
             if (Presence.IsPending ||
                 settings == null ||
-                component == null ||
+                root?.State?.CompatibilityMigrations == null ||
                 !FluffyWorkTabPromptPolicy.ShouldPrompt(
                     result.IsCurrentlyActive,
                     result.HasSaveEvidence,
                     settings.fluffyWorkTabActivePromptVersion,
-                    component.FluffyWorkTabCompatibilityPromptVersion))
+                    root.State.CompatibilityMigrations.CompatibilityPromptVersion))
             {
                 return;
             }
@@ -41,12 +41,12 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             {
                 Presence.Queued = false;
                 if (Find.WindowStack == null ||
-                    Current.Game?.GetComponent<GameComponent_BWTWorldSettings>() != component ||
+                    !ReferenceEquals(WorkTabGameRoots.For(Current.Game), root) ||
                     !FluffyWorkTabPromptPolicy.ShouldPrompt(
                         result.IsCurrentlyActive,
                         result.HasSaveEvidence,
                         settings.fluffyWorkTabActivePromptVersion,
-                        component.FluffyWorkTabCompatibilityPromptVersion))
+                        root.State.CompatibilityMigrations.CompatibilityPromptVersion))
                 {
                     return;
                 }
@@ -56,8 +56,8 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                     : result.IsCurrentlyActive
                         ? "BWT_FluffyMigration_ActiveBody"
                         : "BWT_FluffyMigration_HistoricalBody";
-                Action reviewSettings = () => Resolve(component, result, openSettings: true);
-                Action keepCurrentSetup = () => Resolve(component, result, openSettings: false);
+                Action reviewSettings = () => Resolve(root, result, openSettings: true);
+                Action keepCurrentSetup = () => Resolve(root, result, openSettings: false);
 #if v0_18 || v0_17 || v0_16 || v0_15 || v0_14 || v0_13 || vAlpha4
                 Dialog_MessageBox dialog = new Dialog_MessageBox(
                     promptBodyKey.Translate(),
@@ -83,7 +83,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         }
 
         private static void Resolve(
-            GameComponent_BWTWorldSettings component,
+            WorkTabGameRoot root,
             FluffyWorkTabMigrationResult result,
             bool openSettings)
         {
@@ -104,7 +104,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
             if (result.HasSaveEvidence)
             {
-                component.FluffyWorkTabCompatibilityPromptVersion =
+                root.State.CompatibilityMigrations.CompatibilityPromptVersion =
                     FluffyWorkTabPromptPolicy.CurrentPromptVersion;
             }
 

@@ -1,4 +1,5 @@
 using Better_Work_Tab;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
@@ -6,8 +7,6 @@ using Better_Work_Tab.Foundation.Canonicalization;
 using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Foundation.Transactions;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Features.Workloads.V2;
-using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport;
 using Multiplayer.API;
 using RimWorld;
@@ -64,7 +63,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             internal IReadOnlyList<string> OrderedWorkGiverNames { get; private set; }
         }
 
-        internal sealed class SpecificPriorityBatchEntry
+        private sealed class SpecificPriorityBatchEntry
         {
             internal SpecificPriorityBatchEntry(
                 bool isGlobal,
@@ -98,7 +97,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 (IsGlobal ? "global" : "local:" + PawnId.ToString()) + ":priority:" + WorkGiverDefName;
         }
 
-        internal sealed class SpecificOrderBatchEntry
+        private sealed class SpecificOrderBatchEntry
         {
             internal SpecificOrderBatchEntry(
                 bool isGlobal,
@@ -131,7 +130,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 (IsGlobal ? "global" : "local:" + PawnId.ToString()) + ":order:" + WorkTypeDefName;
         }
 
-        internal sealed class SpecificJobBatchRollback
+        private sealed class SpecificJobBatchRollback : IWorkTabSpecificJobRollbackReceipt
         {
             internal SpecificJobBatchRollback(
                 WorkGiverReassignmentData previousData,
@@ -161,6 +160,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             internal long AuthorityRevision { get; private set; }
             internal bool SynchronizedReplay { get; private set; }
             internal WorkTabMutationLease Authorization { get; private set; }
+            int IWorkTabSpecificJobRollbackReceipt.AppliedRevision => AppliedRevision;
         }
 
         /// <summary>
@@ -338,24 +338,32 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         /// partially applied local/global batch.
         /// </summary>
         internal static bool TryApplySpecificJobBatch(
-            IReadOnlyList<SpecificPriorityBatchEntry> priorityEntries,
-            IReadOnlyList<SpecificOrderBatchEntry> orderEntries,
+            IReadOnlyList<WorkTabStagedSpecificPriority> priorityEntries,
+            IReadOnlyList<WorkTabStagedSpecificOrder> orderEntries,
             int expectedSyncVersion,
             long expectedAuthorityRevision,
             bool synchronizedReplay,
             WorkTabMutationLease authorization,
-            out SpecificJobBatchRollback rollback,
+            out IWorkTabSpecificJobRollbackReceipt rollback,
             out string reason)
         {
             rollback = null;
             reason = string.Empty;
-            var priorities = (priorityEntries ?? new SpecificPriorityBatchEntry[0])
+            var priorities = (priorityEntries ?? new WorkTabStagedSpecificPriority[0])
                 .Where(entry => entry != null)
                 .OrderBy(entry => entry.CanonicalKey, StringComparer.Ordinal)
+                .Select(entry => ToManagerEntry(
+                    entry,
+                    expectedSyncVersion,
+                    expectedAuthorityRevision))
                 .ToList();
-            var orders = (orderEntries ?? new SpecificOrderBatchEntry[0])
+            var orders = (orderEntries ?? new WorkTabStagedSpecificOrder[0])
                 .Where(entry => entry != null)
                 .OrderBy(entry => entry.CanonicalKey, StringComparer.Ordinal)
+                .Select(entry => ToManagerEntry(
+                    entry,
+                    expectedSyncVersion,
+                    expectedAuthorityRevision))
                 .ToList();
             if (priorities.Count == 0 && orders.Count == 0)
             {
@@ -485,16 +493,23 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         internal static bool TryRestoreSpecificJobBatch(
-            SpecificJobBatchRollback rollback,
+            IWorkTabSpecificJobRollbackReceipt receipt,
             out string reason)
         {
             reason = string.Empty;
-            if (rollback == null)
+            if (receipt == null)
             {
                 return true;
             }
 
-            if (!CanUseWorkloadSpecificRollbackCapability(rollback))
+            SpecificJobBatchRollback rollback = receipt as SpecificJobBatchRollback;
+            if (rollback == null)
+            {
+                reason = "The specific-job rollback receipt is not owned by this domain.";
+                return false;
+            }
+
+            if (!CanUseSpecificRollbackCapability(rollback))
             {
                 reason = "The specific-job rollback capability is stale or unavailable.";
                 return false;
@@ -538,10 +553,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         }
 
         internal static bool RestoreUnpublishedSpecificJobBatch(
-            SpecificJobBatchRollback rollback,
+            IWorkTabSpecificJobRollbackReceipt receipt,
             out string reason)
         {
             reason = string.Empty;
+            SpecificJobBatchRollback rollback = receipt as SpecificJobBatchRollback;
             WorkGiverReassignmentData data = Data;
             if (_mutationBatchDepth <= 0 || rollback == null || data == null ||
                 CurrentSyncVersion != rollback.AppliedRevision ||
@@ -580,6 +596,91 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                              synchronizedExecution: true,
                              expectedAuthorityRevision,
                              expectedSyncVersion));
+        }
+
+        private static SpecificPriorityBatchEntry ToManagerEntry(
+            WorkTabStagedSpecificPriority entry,
+            int expectedSyncVersion,
+            long expectedAuthorityRevision)
+        {
+            WorkTabSpecificPriorityBaseline baseline = entry.Expected;
+            return new SpecificPriorityBatchEntry(
+                entry.IsGlobal,
+                entry.PawnId,
+                entry.WorkGiverDefName,
+                ToManagerState(entry.DesiredState),
+                entry.DesiredPriority,
+                entry.IsGlobal
+                    ? new GlobalWorkGiverPrioritySnapshot(
+                        entry.WorkGiverDefName,
+                        ToManagerState(baseline.State),
+                        baseline.Priority,
+                        expectedSyncVersion,
+                        expectedAuthorityRevision)
+                    : null,
+                baseline.State == WorkTabSpecificPriorityState.LocalSet,
+                baseline.Priority);
+        }
+
+        private static SpecificOrderBatchEntry ToManagerEntry(
+            WorkTabStagedSpecificOrder entry,
+            int expectedSyncVersion,
+            long expectedAuthorityRevision)
+        {
+            WorkTabSpecificOrderBaseline baseline = entry.Expected;
+            return new SpecificOrderBatchEntry(
+                entry.IsGlobal,
+                entry.PawnId,
+                entry.WorkTypeDefName,
+                ToManagerState(entry.DesiredState),
+                entry.DesiredOrder,
+                entry.IsGlobal
+                    ? new GlobalWorkTypeOrderSnapshot(
+                        entry.WorkTypeDefName,
+                        ToManagerState(baseline.State),
+                        baseline.OrderedWorkGiverNames,
+                        expectedSyncVersion,
+                        expectedAuthorityRevision)
+                    : null,
+                entry.IsGlobal
+                    ? null
+                    : new PawnWorkGiverOrderSnapshot(
+                        entry.PawnId,
+                        entry.WorkTypeDefName,
+                        baseline.State == WorkTabSpecificOrderState.LocalStored,
+                        baseline.OrderedWorkGiverNames));
+        }
+
+        private static ExactGlobalStateKind ToManagerState(
+            WorkTabSpecificPriorityState state)
+        {
+            switch (state)
+            {
+                case WorkTabSpecificPriorityState.GlobalSet:
+                case WorkTabSpecificPriorityState.LocalSet:
+                    return ExactGlobalStateKind.Set;
+                case WorkTabSpecificPriorityState.GlobalClear:
+                case WorkTabSpecificPriorityState.LocalInherit:
+                    return ExactGlobalStateKind.Clear;
+                default:
+                    return ExactGlobalStateKind.Absent;
+            }
+        }
+
+        private static ExactGlobalStateKind ToManagerState(
+            WorkTabSpecificOrderState state)
+        {
+            switch (state)
+            {
+                case WorkTabSpecificOrderState.GlobalSet:
+                case WorkTabSpecificOrderState.LocalStored:
+                    return ExactGlobalStateKind.Set;
+                case WorkTabSpecificOrderState.GlobalClear:
+                case WorkTabSpecificOrderState.LocalInherit:
+                    return ExactGlobalStateKind.Clear;
+                default:
+                    return ExactGlobalStateKind.Absent;
+            }
         }
 
         private static bool TryValidateDistinctBatchKeys(
@@ -976,7 +1077,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             // Display order differs per pawn only when that pawn actually has
-            // an order stored for this work type. Workload capture asks for
+            // an order stored for this work type. Exact-state capture asks for
             // display lists across the whole roster, so retaining a non-null
             // pawn here otherwise defeats the shared cache thousands of times.
             if (!applyPrioritySort && pawn != null && !HasPawnOrdering(pawn, workType))
@@ -1672,7 +1773,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             return TryGetPawnWorkGiverOverride(pawn, workGiver, out _);
         }
 
-        private static bool CanUseWorkloadSpecificRollbackCapability(
+        private static bool CanUseSpecificRollbackCapability(
             SpecificJobBatchRollback rollback)
         {
             return WorkPrioritySystem.IsBwtMutationAuthorityCurrent(rollback.AuthorityRevision) &&

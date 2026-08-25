@@ -95,6 +95,8 @@ Column drag and reset mutate both persisted order and live pawn-table columns. S
 
 Workload-owned template, session, intent, and projection state is distinct from normal Work Tab state. The current implementation concentrates several responsibilities in four large files: `Workload2Backend.cs` at 9,658 lines, `MultiplayerBridge.cs` at 4,129 lines, `WorkloadGateway.cs` at 3,749 lines, and `WorkGiverReassignmentManager.cs` at 3,168 lines.
 
+Workloads V2 runtime results cross into UI code as structured facts. Operation results, validation issues, descriptors, multiplayer status, and commit reports contain codes, identities, paths, values, and state. `WorkloadPresentationResolver` maps those facts to localized messages and tooltips. Runtime exceptions, persistence diagnostics, and multiplayer protocol details remain technical data and never become player-facing text.
+
 The current V2 apply path performs strong validation and rollback, but it is oversized. Its order is:
 
 1. validate session, source identity, decision, plan, typed state, repository identity, and multiplayer capability;
@@ -152,19 +154,29 @@ The current application has several overlapping revision systems:
 
 The target keeps independent concurrency components but removes renderer invalidation as a source of durable truth. Accepted application transactions advance affected domain revisions once and return the combined vector in one state change. Hover, drag, animation, tutorial, viewport, and window activity retain UI-only revisions.
 
-## Current dependency violations
+## Workload dependency boundary
 
-- `UI/WorkGrid/Projection/WorkTabEffectiveStateContracts.cs` imports Workload V2 and exposes workload keys, payloads, intents, and scalar values as shared WorkGrid contracts.
-- A workload UI controller composes the live shared state provider.
-- Feature and integration code calls `WorkTabInvalidationHub` directly instead of returning domain changes.
-- Rules call domain writers directly.
-- Workloads coordinates normal priority, schedule, specific-job, settings, persistence, invalidation, and multiplayer behavior inside its backend.
-- Contextual settings routing participates in workload commit and rollback.
-- Presentation metadata advertises 80 IDs while the workload transaction can stage only 14.
-- Settings import derives its mutation scope from public reflection and lacks a complete inverse journal.
-- Specific-job persistent hashing depends on a Workload canonicalization helper.
+Normal BWT features do not import Workload feature or UI types. Workloads consumes
+the same neutral seams available to other feature clients:
 
-Temporary adapters must narrow these edges while callers migrate. The end state forbids Workload types in shared application contracts and prevents WorkGrid, rules, persistence, or compatibility layers from owning another domain's policy.
+- `WorkTabEffectiveStateRuntime` and the typed WorkGrid preview contracts provide
+  pass-stable reads and preview edits without exposing Workload sessions, keys,
+  payloads, or persistence types;
+- `WorkTabDomainPorts` provides exact priority, schedule, and specific-job capture
+  plus optimistic validation while keeping concrete managers behind application
+  adapters;
+- `WorkTabStagedMutation` is the shared live mutation vocabulary and exposes only
+  application-owned values and an opaque rollback receipt;
+- presentation preview uses the neutral presentation value, intent, ownership, and
+  revision contracts; and
+- `WorkTabGameRoot` is the per-game runtime boundary. The historical
+  `GameComponent_BWTWorldSettings` remains a save-compatible composition and
+  Scribe shell rather than a service locator for normal domains.
+
+Workload-owned UI and startup composition may register these adapters. WorkGrid,
+rules, settings, application contracts, and domain behavior do not depend back on
+Workload-specific types. A deterministic isolation suite rejects regression of
+these dependency edges.
 
 ## Confirmed defects and parity risks
 

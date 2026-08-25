@@ -51,16 +51,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 snapshot.TargetTemplate.Definition == null)
             {
                 return Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 persistence receipt recovery inputs are incomplete.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (decisionKind != WorkloadDecisionKind.Update &&
                 decisionKind != WorkloadDecisionKind.Fork)
             {
                 return Fail(
-                    WorkloadDiagnosticCode.UnsupportedOperation,
-                    "A V2 persistence receipt can only be recovered for Update or Fork.");
+                    WorkloadDiagnosticCode.UnsupportedDecision);
             }
 
             string sourceStableId = session.SourceTemplate.StableId ?? string.Empty;
@@ -72,8 +70,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     WorkloadSession.GetSourceIdentity(session.SourceTemplate)))
             {
                 return Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The V2 preview source identity is stale or unavailable for persistence receipt recovery.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             string safeTargetStableId = targetStableId ?? string.Empty;
@@ -82,16 +79,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 if (!StringComparer.Ordinal.Equals(safeTargetStableId, sourceStableId))
                 {
                     return Fail(
-                        WorkloadDiagnosticCode.InvalidState,
-                        "The V2 Update receipt target does not match the active preview source.");
+                        WorkloadDiagnosticCode.InvalidState);
                 }
             }
             else if (string.IsNullOrWhiteSpace(safeTargetStableId) ||
                      StringComparer.Ordinal.Equals(safeTargetStableId, sourceStableId))
             {
                 return Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 Fork receipt target is missing or reuses the preview source ID.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             if (previousPersistenceRevision < 0 ||
@@ -100,8 +95,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 string.IsNullOrWhiteSpace(snapshot.PersistenceFingerprint))
             {
                 return Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The V2 persistence baseline or recovered store metadata is unavailable.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             WorkloadTemplate expectedTarget = decisionKind == WorkloadDecisionKind.Update
@@ -110,8 +104,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (expectedTarget == null || expectedTarget.Definition == null)
             {
                 return Fail(
-                    WorkloadDiagnosticCode.InvalidState,
-                    "The V2 persistence recovery target could not be reconstructed safely.");
+                    WorkloadDiagnosticCode.InvalidState);
             }
 
             string persistedTargetIdentity =
@@ -124,8 +117,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     WorkloadSession.GetSourceIdentity(expectedTarget)))
             {
                 return Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The recovered V2 target identity is stale relative to the active preview.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             bool requiresPostWriteRevision = decisionKind == WorkloadDecisionKind.Fork ||
@@ -138,8 +130,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 if (expectedRevision == int.MaxValue)
                 {
                     return Fail(
-                        WorkloadDiagnosticCode.PersistenceConflict,
-                        "The V2 persistence revision cannot prove the recovered write.");
+                        WorkloadDiagnosticCode.PersistenceConflict);
                 }
 
                 expectedRevision++;
@@ -148,8 +139,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (snapshot.PersistenceRevision != expectedRevision)
             {
                 return Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The recovered V2 persistence revision is not the authoritative post-write revision.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             if (decisionKind == WorkloadDecisionKind.Fork &&
@@ -158,8 +148,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     safeTargetStableId))
             {
                 return Fail(
-                    WorkloadDiagnosticCode.PersistenceConflict,
-                    "The recovered V2 Fork target is not the current workload.");
+                    WorkloadDiagnosticCode.PersistenceConflict);
             }
 
             return WorkloadOperationResult<WorkloadPersistenceReceipt>.Ok(
@@ -189,10 +178,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         }
 
         private static WorkloadOperationResult<WorkloadPersistenceReceipt> Fail(
-            WorkloadDiagnosticCode code,
-            string message)
+            WorkloadDiagnosticCode code)
         {
-            return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(code, message);
+            return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(code);
         }
     }
 }

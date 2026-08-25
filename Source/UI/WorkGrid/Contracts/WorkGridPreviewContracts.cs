@@ -109,8 +109,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
         bool ToggleMembership(Pawn pawn);
         bool TryGetMembershipPresentation(
             Pawn pawn,
-            out WorkGridPreviewMembershipState state);
+            out WorkGridPreviewMembershipState state,
+            out string tooltip);
         bool IsInspectionActive { get; }
+        bool InspectionHighlightsEnabled { get; }
+        float InspectionOpacity { get; }
+        bool HasManualModeInspectionChange { get; }
         bool HasInspectionRowLevelChanges { get; }
         bool HasInspectionCellTargets { get; }
         IReadOnlyList<WorkGridInspectionTarget> InspectionTargets { get; }

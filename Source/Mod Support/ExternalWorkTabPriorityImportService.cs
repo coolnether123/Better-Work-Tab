@@ -6,7 +6,6 @@ using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using RimWorld;
@@ -32,18 +31,18 @@ namespace Better_Work_Tab.ModSupport
         }
 
         internal static int Import(
-            GameComponent_BWTWorldSettings component,
+            WorkTabGameRoot root,
             IEnumerable<ExternalPawnWorkGiverPriorityRecord> records)
         {
-            return TryImport(component, records, out int changed) ? changed : 0;
+            return TryImport(root, records, out int changed) ? changed : 0;
         }
 
         internal static bool TryImport(
-            GameComponent_BWTWorldSettings component,
+            WorkTabGameRoot root,
             IEnumerable<ExternalPawnWorkGiverPriorityRecord> records,
             out int changed)
         {
-            return TryImport(component?.Root?.Application, records, out changed);
+            return TryImport(root?.Application, records, out changed);
         }
 
         private static int Import(

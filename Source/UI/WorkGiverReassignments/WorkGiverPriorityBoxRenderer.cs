@@ -2,15 +2,12 @@ using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads.V2;
-using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.WorkGrid.Commands;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.Settings;
-using Better_Work_Tab.UI.Workloads;
-using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -886,8 +883,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WorkGiverDef workGiverDef,
             int displayedPriority)
         {
-            WorkloadPreviewController controller = WorkloadPreviewController.Current;
-            if (controller == null || workType == null || workGiverDef == null)
+            if (workType == null || workGiverDef == null)
             {
                 WorkTabEffectiveStateRuntime.ReportBlocked(
                     WorkTabEffectiveStateDimension.SpecificJobOverride,
@@ -895,35 +891,33 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return;
             }
 
-            WorkloadSpecificJobTargetKey key = pawnId >= 0
-                ? WorkloadSpecificJobTargetKey.ForPawn(
-                    new PawnKey(pawnId.ToString()),
-                    WorkTabEffectiveStateIds.ForWorkType(workType),
-                    WorkTabEffectiveStateIds.ForWorkGiver(workGiverDef))
-                : WorkloadSpecificJobTargetKey.Global(
-                    WorkTabEffectiveStateIds.ForWorkType(workType),
-                    WorkTabEffectiveStateIds.ForWorkGiver(workGiverDef));
+            WorkTabSpecificJobTarget target = WorkTabSpecificJobTarget.For(
+                pawnId >= 0 ? ResolvePawn(pawnId) : null,
+                workType,
+                workGiverDef);
             var options = new List<FloatMenuOption>
             {
                 new FloatMenuOption(
                     "BWT_Workload_ClearSpecificJobPriority".Translate(),
-                    () => controller.SetSpecificJobPreviewIntent(
-                        key,
-                        WorkloadIntent<WorkloadSpecificPriorityPayload>.Clear)),
+                    () => WorkTabEffectiveStateRuntime.TrySetPreviewSpecificJobPriorityIntent(
+                        target,
+                        WorkTabEffectiveStateResolution<int>.Clear,
+                        out _)),
                 new FloatMenuOption(
                     "BWT_Workload_LeaveSpecificJobPriorityUnchanged".Translate(),
-                    () => controller.SetSpecificJobPreviewIntent(
-                        key,
-                        WorkloadIntent<WorkloadSpecificPriorityPayload>.NoOpinion))
+                    () => WorkTabEffectiveStateRuntime.TrySetPreviewSpecificJobPriorityIntent(
+                        target,
+                        WorkTabEffectiveStateResolution<int>.NoOpinion,
+                        out _))
             };
 
             int priority = WorkPrioritySystem.ClampPriority(displayedPriority);
             options.Add(new FloatMenuOption(
                 "BWT_Workload_SaveDisplayedSpecificJobPriority".Translate(),
-                () => controller.SetSpecificJobPreviewIntent(
-                    key,
-                    WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(
-                        new WorkloadSpecificPriorityPayload(priority)))));
+                () => WorkTabEffectiveStateRuntime.TrySetPreviewSpecificJobPriorityIntent(
+                    target,
+                    WorkTabEffectiveStateResolution<int>.Set(priority),
+                    out _)));
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
@@ -1027,11 +1021,12 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             bool accepted = WorkTabEffectiveStateRuntime.IsPreviewActive
-                ? WorkloadProjectionRuntime.TryClearSpecificJobPriority(
-                    pawn,
-                    workType ?? WorkGiverReassignmentManager.GetTargetWorkType(workGiverDef) ??
-                    workGiverDef.workType,
-                    workGiverDef,
+                ? WorkTabEffectiveStateRuntime.TryClearPreviewSpecificJobPriority(
+                    WorkTabSpecificJobTarget.For(
+                        pawn,
+                        workType ?? WorkGiverReassignmentManager.GetTargetWorkType(workGiverDef) ??
+                        workGiverDef.workType,
+                        workGiverDef),
                     out _)
                 : ClearPawnOverrideLive(pawn, workGiverDef);
             if (!accepted)

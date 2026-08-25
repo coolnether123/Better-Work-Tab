@@ -2,7 +2,6 @@ using System;
 using System.Globalization;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Application;
-using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using RimWorld;
 using Verse;
@@ -96,7 +95,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(key.WorkGiver.Value);
-            if (workGiver == null || WorkGiverReassignmentManager.GetTargetWorkType(workGiver) == null)
+            if (workGiver == null ||
+                WorkTabDomainPorts.SpecificJobs.ResolveWorkType(workGiver) == null)
                 return Fail("The workload schedule WorkGiver no longer resolves.", out reason);
 
             target = TimePriorityTarget.ForWorkGiver(pawnId, workGiver);
@@ -115,7 +115,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return false;
             }
 
-            return TimePriorityService.TryCaptureLiveScheduleSnapshot(
+            return WorkTabDomainPorts.Schedules.TryCapture(
                 target,
                 fallbackPriority,
                 out snapshot,

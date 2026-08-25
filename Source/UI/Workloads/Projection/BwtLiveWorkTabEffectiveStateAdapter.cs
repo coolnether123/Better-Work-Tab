@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
@@ -109,23 +109,24 @@ namespace Better_Work_Tab.UI.Workloads.Projection
             }
             else
             {
-                fallbackPriority = WorkGiverReassignmentManager.GetWorkGiverPriority(
+                fallbackPriority = WorkTabDomainPorts.SpecificJobs.ReadPriority(
                     pawn,
                     workGiver,
-                    WorkPrioritySystem.GetDefaultEnabledPriority());
+                    WorkTabDomainPorts.Priority.DefaultEnabledPriority);
             }
 
-            if (!TimePriorityService.HasLiveCustomSchedule(target))
+            if (!WorkTabDomainPorts.Schedules.TryCapture(
+                    target,
+                    fallbackPriority,
+                    out TimePriorityLiveScheduleSnapshot snapshot,
+                    out _) ||
+                !snapshot.HadSchedule)
             {
                 return WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion;
             }
 
-            TimePriorityScheduleValue schedule = TimePriorityService.ReadLiveSchedule(
-                target,
-                fallbackPriority);
-
             return WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.Set(
-                WorkloadTimePriorityAdapter.ToPayload(schedule));
+                WorkloadTimePriorityAdapter.ToPayload(snapshot.Schedule));
         }
 
         private WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>
@@ -136,36 +137,28 @@ namespace Better_Work_Tab.UI.Workloads.Projection
                 return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
             }
 
-            if (key.IsGlobal)
-            {
-                WorkGiverReassignmentManager.GlobalWorkGiverPrioritySnapshot snapshot =
-                    WorkGiverReassignmentManager.CaptureGlobalWorkGiverPrioritySnapshot(
-                        key.WorkGiver.Value);
-                switch (snapshot.State)
-                {
-                    case WorkGiverReassignmentManager.ExactGlobalStateKind.Set:
-                        return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.Set(
-                            new WorkloadSpecificPriorityPayload(snapshot.Priority));
-                    case WorkGiverReassignmentManager.ExactGlobalStateKind.Clear:
-                        return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.Clear;
-                    default:
-                        return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
-                }
-            }
-
-            Pawn pawn = _pawnResolver(key.Pawn);
+            Pawn pawn = key.IsGlobal ? null : _pawnResolver(key.Pawn);
             WorkGiverDef workGiver = _workGiverResolver(key.WorkGiver);
-            if (pawn != null && workGiver != null &&
-                WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
+            if (workGiver == null || (!key.IsGlobal && pawn == null) ||
+                !WorkTabDomainPorts.SpecificJobs.TryCapturePriority(
                     pawn,
                     workGiver,
-                    out int priority))
-            {
-                return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.Set(
-                    new WorkloadSpecificPriorityPayload(priority));
-            }
+                    out WorkTabSpecificPriorityBaseline baseline,
+                    out _,
+                    out _))
+                return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
 
-            return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
+            switch (baseline.State)
+            {
+                case WorkTabSpecificPriorityState.LocalSet:
+                case WorkTabSpecificPriorityState.GlobalSet:
+                    return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.Set(
+                        new WorkloadSpecificPriorityPayload(baseline.Priority));
+                case WorkTabSpecificPriorityState.GlobalClear:
+                    return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.Clear;
+                default:
+                    return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
+            }
         }
 
         private WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload> ResolveWorkTypeOrderV2(
@@ -176,44 +169,25 @@ namespace Better_Work_Tab.UI.Workloads.Projection
                 return WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion;
             }
 
-            if (key.IsGlobal)
-            {
-                WorkGiverReassignmentManager.GlobalWorkTypeOrderSnapshot snapshot =
-                    WorkGiverReassignmentManager.CaptureGlobalWorkTypeOrderSnapshot(
-                        key.WorkType.Value);
-                return ResolveOrderSnapshot(snapshot.State, snapshot.OrderedWorkGiverNames);
-            }
-
-            if (!int.TryParse(
-                    key.Pawn.Value,
-                    NumberStyles.Integer,
-                    CultureInfo.InvariantCulture,
-                    out int pawnId) || pawnId < 0)
-            {
+            Pawn pawn = key.IsGlobal ? null : _pawnResolver(key.Pawn);
+            WorkTypeDef workType = _workTypeResolver(key.WorkType);
+            if (workType == null || (!key.IsGlobal && pawn == null) ||
+                !WorkTabDomainPorts.SpecificJobs.TryCaptureOrder(
+                    pawn,
+                    workType,
+                    out WorkTabSpecificOrderBaseline baseline,
+                    out _,
+                    out _))
                 return WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion;
-            }
 
-            WorkGiverReassignmentManager.PawnWorkGiverOrderSnapshot pawnSnapshot =
-                WorkGiverReassignmentManager.CapturePawnWorkGiverOrderSnapshot(
-                    pawnId,
-                    key.WorkType.Value);
-            return pawnSnapshot.HasStoredOrder
-                ? WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.Set(
-                    new WorkloadWorkTypeOrderPayload(
-                        ToWorkGiverKeys(pawnSnapshot.OrderedWorkGiverNames)))
-                : WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion;
-        }
-
-        private static WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload> ResolveOrderSnapshot(
-            WorkGiverReassignmentManager.ExactGlobalStateKind state,
-            IReadOnlyList<string> orderedNames)
-        {
-            switch (state)
+            switch (baseline.State)
             {
-                case WorkGiverReassignmentManager.ExactGlobalStateKind.Set:
+                case WorkTabSpecificOrderState.LocalStored:
+                case WorkTabSpecificOrderState.GlobalSet:
                     return WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.Set(
-                        new WorkloadWorkTypeOrderPayload(ToWorkGiverKeys(orderedNames)));
-                case WorkGiverReassignmentManager.ExactGlobalStateKind.Clear:
+                        new WorkloadWorkTypeOrderPayload(
+                            ToWorkGiverKeys(baseline.OrderedWorkGiverNames)));
+                case WorkTabSpecificOrderState.GlobalClear:
                     return WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.Clear;
                 default:
                     return WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion;
@@ -299,9 +273,8 @@ namespace Better_Work_Tab.UI.Workloads.Projection
             Read();
             Inputs current = Inputs.Read();
             WorkGridRevisionSet categories = WorkTabInvalidationHub.Current.CategoryRevisions;
-            long persistenceRevision = Current.Game
-                ?.GetComponent<GameComponent_BWTWorldSettings>()
-                ?.EnsureWorkloadV2Persistence()
+            long persistenceRevision = WorkloadWorldStates.For(Current.Game)
+                ?.EnsureV2Persistence()
                 ?.PersistenceRevision ?? 0L;
             return new WorkTabEffectiveStateRevisionVector(
                 0L,
@@ -351,9 +324,9 @@ namespace Better_Work_Tab.UI.Workloads.Projection
             {
                 return new Inputs(
                     WorkTabInvalidationHub.EffectiveStateRevision,
-                    TimePriorityService.CurrentVersion,
-                    WorkGiverReassignmentManager.CurrentSyncVersion,
-                    PriorityAuthorityBroker.GetObservationalAuthorityRevision(),
+                    WorkTabDomainPorts.Schedules.Revision,
+                    WorkTabDomainPorts.SpecificJobs.Revision,
+                    WorkTabDomainPorts.Priority.ObservationalAuthorityRevision,
                     ParentPriorityRead.GetLiveManualMode(true),
                     ExternalWorkTabRegistry.RegistryGeneration,
                     PriorityAuthorityResolver.ExplicitAuthorityGeneration);

@@ -86,7 +86,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 {
                     WorkTabEffectiveStateRuntime.ReportBlocked(
                         WorkTabEffectiveStateDimension.ParentPriority,
-                        "BWT_Workload_SleekCellUnavailable".Translate());
+                        "BWT_Preview_SleekCellUnavailable".Translate());
                     evt.Use();
                     return true;
                 }

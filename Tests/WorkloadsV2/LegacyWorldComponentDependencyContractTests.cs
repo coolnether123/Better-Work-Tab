@@ -12,21 +12,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         private static readonly HashSet<string> AllowedConsumers =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "Source/BetterWorkTab.cs",
-                "Source/Features/Application/WorkTabApplication.cs",
-                "Source/Features/WorkGiverReassignments/WorkGiverReassignmentMigrationAdapter.cs",
-                "Source/Features/Workloads/GameComponent_BWTWorldSettings.cs",
-                "Source/Features/Workloads/V2/Runtime/LegacyWorkloadBackend.cs",
-                "Source/Features/Workloads/V2/Runtime/Workload2Backend.cs",
-                "Source/Features/Workloads/V2/Runtime/WorkloadModeService.cs",
-                "Source/Features/Workloads/WorkloadNamers.cs",
-                "Source/Mod Support/ExternalWorkTabPriorityImportService.cs",
-                "Source/Mod Support/Mods/Fluffy WorkTab/FluffyWorkTabGateway.cs",
-                "Source/Mod Support/Mods/Fluffy WorkTab/FluffyWorkTabMigration.cs",
-                "Source/Mod Support/Mods/Fluffy WorkTab/FluffyWorkTabMigrationPrompt.cs",
-                "Source/UI/MainTabWindow_BetterWork.cs",
-                "Source/UI/Workloads/Projection/BwtLiveWorkTabEffectiveStateAdapter.cs",
-                "Source/UI/Workloads/WorkloadGateway.cs"
+                // Save compatibility requires the historical component type
+                // to name itself. Runtime consumers have no exception.
+                "Source/Features/Workloads/GameComponent_BWTWorldSettings.cs"
             };
 
         public static void Run()
