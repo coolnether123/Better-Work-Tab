@@ -98,6 +98,7 @@
     <Compile Include="BackendTransactionTests.cs" />
     <Compile Include="CapturePolicyTests.cs" />
     <Compile Include="PresentationSettingsConsolidationTests.cs" />
+    <Compile Include="ChromePresentationCacheTests.cs" />
     <Compile Include="LayoutHistoryTransactionTests.cs" />
     <Compile Include="PresentationBoundaryTests.cs" />
     <Compile Include="Program.cs" />

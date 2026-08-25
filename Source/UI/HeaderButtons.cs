@@ -6,6 +6,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.PawnOrganizer.API;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.RuleBuilder;
@@ -31,6 +32,37 @@ namespace Better_Work_Tab.UI
         private const float FluffyTopButtonSize = 30f;
         private const float FluffyTopButtonGap = 4f;
         internal const float PreferredSelectorMainWidth = 150f;
+
+        private static string _selectorWidthLanguage;
+        private static long _selectorWidthPresentationRevision = long.MinValue;
+        private static float _selectorWidthUiScale;
+        private static bool _selectorWidthCacheValid;
+        private static bool _selectorWidthSlotAValid;
+        private static string _selectorWidthLabelA;
+        private static float _selectorWidthA;
+        private static bool _selectorWidthSlotBValid;
+        private static string _selectorWidthLabelB;
+        private static float _selectorWidthB;
+        private static bool _selectorWidthReplaceSlotA;
+
+        private static string _topTextLanguage;
+        private static long _topTextPresentationRevision = long.MinValue;
+        private static bool _topTextCacheValid;
+        private static bool _topTextPrioritiesEnabled;
+        private static bool _topTextPlannerVisible;
+        private static bool _topTextAnyExpanded;
+        private static string _topPriorityTooltip;
+        private static string _topSchedulerTooltip;
+        private static string _topExpandTooltip;
+
+        private static string _rulesetTooltipLanguage;
+        private static long _rulesetTooltipPresentationRevision = long.MinValue;
+        private static bool _rulesetTooltipCacheValid;
+        private static string _rulesetTooltipName;
+        private static bool _rulesetTooltipHasValue;
+        private static string _rulesetTooltip;
+        private static string _rulesetEmptyTooltip;
+        private static string _rulesetMenuTooltip;
 
         // Strict Sleek renders its PawnTable against a different bottom-room
         // contract than BWT's host. The table needs only this small upward
@@ -186,9 +218,53 @@ namespace Better_Work_Tab.UI
 
         internal static float MeasureSelectorWidth(string value)
         {
-            return Mathf.Max(
+            string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
+            long presentationRevision = WorkTabPresentationRevision.Current;
+            float uiScale = Prefs.UIScale;
+            if (!_selectorWidthCacheValid ||
+                _selectorWidthLanguage != language ||
+                _selectorWidthPresentationRevision != presentationRevision ||
+                _selectorWidthUiScale != uiScale)
+            {
+                _selectorWidthLanguage = language;
+                _selectorWidthPresentationRevision = presentationRevision;
+                _selectorWidthUiScale = uiScale;
+                _selectorWidthCacheValid = true;
+                _selectorWidthSlotAValid = false;
+                _selectorWidthSlotBValid = false;
+                _selectorWidthReplaceSlotA = true;
+            }
+
+            if (_selectorWidthSlotAValid &&
+                String.Equals(_selectorWidthLabelA, value, StringComparison.Ordinal))
+            {
+                return _selectorWidthA;
+            }
+
+            if (_selectorWidthSlotBValid &&
+                String.Equals(_selectorWidthLabelB, value, StringComparison.Ordinal))
+            {
+                return _selectorWidthB;
+            }
+
+            float width = Mathf.Max(
                 BWTBottomBarSelector.MeasureWidth(value),
                 PreferredSelectorMainWidth);
+            if (_selectorWidthReplaceSlotA)
+            {
+                _selectorWidthLabelA = value;
+                _selectorWidthA = width;
+                _selectorWidthSlotAValid = true;
+            }
+            else
+            {
+                _selectorWidthLabelB = value;
+                _selectorWidthB = width;
+                _selectorWidthSlotBValid = true;
+            }
+
+            _selectorWidthReplaceSlotA = !_selectorWidthReplaceSlotA;
+            return width;
         }
 
         internal static Rect TakeFromRight(
@@ -261,24 +337,22 @@ namespace Better_Work_Tab.UI
             TopButtonRects rects = GetTopButtonRects(inRect);
             bool prioritiesEnabled = ParentPriorityRead.GetObservedManualModeForDisplay(
                 true);
+            bool plannerVisible = FluffyTimeScheduleAssigner.IsOpen || TimePriorityScheduleEditor.IsVisible;
+            bool anyExpanded = SubWorkDrilldownState.IsExpandBesideActive;
+            EnsureTopTooltipCache(prioritiesEnabled, plannerVisible, anyExpanded);
             if (DrawFluffyTopButton(
                     rects.Priority,
                     prioritiesEnabled ? FluffyWorkTabIcon.PrioritiesDetailed : FluffyWorkTabIcon.PrioritiesSimple,
-                    prioritiesEnabled
-                        ? "BWT_Header_ManualPriorities".Translate().ToString()
-                        : "BWT_Header_SimplePriorities".Translate().ToString(),
+                    _topPriorityTooltip,
                     prioritiesEnabled ? "1" : "Y"))
             {
                 ToggleManualPriorities(!prioritiesEnabled);
             }
 
-            bool plannerVisible = FluffyTimeScheduleAssigner.IsOpen || TimePriorityScheduleEditor.IsVisible;
             if (DrawFluffyTopButton(
                     rects.Scheduler,
                     plannerVisible ? FluffyWorkTabIcon.PrioritiesTimed : FluffyWorkTabIcon.PrioritiesWholeDay,
-                    plannerVisible
-                        ? "BWT_Header_CloseHourlyPriorities".Translate().ToString()
-                        : "BWT_Header_OpenHourlyPriorities".Translate().ToString(),
+                    _topSchedulerTooltip,
                     plannerVisible ? "T" : "D"))
             {
                 if (!ToggleScheduler(layout))
@@ -287,13 +361,10 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            bool anyExpanded = SubWorkDrilldownState.IsExpandBesideActive;
             if (DrawFluffyTopButton(
                     rects.Expand,
                     anyExpanded ? FluffyWorkTabIcon.Collapse : FluffyWorkTabIcon.Expand,
-                    anyExpanded
-                        ? "BWT_Header_CollapseSpecificJobs".Translate().ToString()
-                        : "BWT_Header_ExpandSpecificJobs".Translate().ToString(),
+                    _topExpandTooltip,
                     anyExpanded ? "-" : "+"))
             {
                 ToggleAllVisibleSubWork(layout);
@@ -349,6 +420,40 @@ namespace Better_Work_Tab.UI
                 Scheduler = scheduler,
                 Expand = expand
             };
+        }
+
+        private static void EnsureTopTooltipCache(
+            bool prioritiesEnabled,
+            bool plannerVisible,
+            bool anyExpanded)
+        {
+            string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
+            long presentationRevision = WorkTabPresentationRevision.Current;
+            if (_topTextCacheValid &&
+                _topTextLanguage == language &&
+                _topTextPresentationRevision == presentationRevision &&
+                _topTextPrioritiesEnabled == prioritiesEnabled &&
+                _topTextPlannerVisible == plannerVisible &&
+                _topTextAnyExpanded == anyExpanded)
+            {
+                return;
+            }
+
+            _topTextLanguage = language;
+            _topTextPresentationRevision = presentationRevision;
+            _topTextPrioritiesEnabled = prioritiesEnabled;
+            _topTextPlannerVisible = plannerVisible;
+            _topTextAnyExpanded = anyExpanded;
+            _topPriorityTooltip = prioritiesEnabled
+                ? "BWT_Header_ManualPriorities".Translate().ToString()
+                : "BWT_Header_SimplePriorities".Translate().ToString();
+            _topSchedulerTooltip = plannerVisible
+                ? "BWT_Header_CloseHourlyPriorities".Translate().ToString()
+                : "BWT_Header_OpenHourlyPriorities".Translate().ToString();
+            _topExpandTooltip = anyExpanded
+                ? "BWT_Header_CollapseSpecificJobs".Translate().ToString()
+                : "BWT_Header_ExpandSpecificJobs".Translate().ToString();
+            _topTextCacheValid = true;
         }
 
         // Public entry point called by the window.
@@ -412,15 +517,12 @@ namespace Better_Work_Tab.UI
         {
             string name = RuleBuilderGateway.CurrentRulesetLabel();
             bool hasRuleset = RuleBuilderGateway.HasCurrentRuleset();
-
-            string tooltip = hasRuleset
-                ? "BWT_BottomBar_RulesetTooltip".Translate(name)
-                : "BWT_BottomBar_RulesetTooltipEmpty".Translate();
+            EnsureRulesetTooltipCache(name, hasRuleset);
             bool clicked = BWTBottomBarSelector.DrawMain(
                 rects.RulesetMain,
                 name,
                 hasRuleset,
-                tooltip);
+                hasRuleset ? _rulesetTooltip : _rulesetEmptyTooltip);
             if (clicked)
             {
                 if (hasRuleset)
@@ -436,10 +538,37 @@ namespace Better_Work_Tab.UI
                 }
             }
 
-            if (BWTBottomBarSelector.DrawMenu(rects.RulesetMenu, "BWT_BottomBar_RulesetMenuTooltip".Translate()))
+            if (BWTBottomBarSelector.DrawMenu(rects.RulesetMenu, _rulesetMenuTooltip))
             {
                 Find.WindowStack.Add(new FloatMenu(RuleBuilderGateway.BuildRulesetMenuOptions()));
             }
+        }
+
+        private static void EnsureRulesetTooltipCache(string name, bool hasRuleset)
+        {
+            string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
+            long presentationRevision = WorkTabPresentationRevision.Current;
+            if (_rulesetTooltipCacheValid &&
+                _rulesetTooltipLanguage == language &&
+                _rulesetTooltipPresentationRevision == presentationRevision &&
+                _rulesetTooltipHasValue == hasRuleset &&
+                String.Equals(_rulesetTooltipName, name, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _rulesetTooltipLanguage = language;
+            _rulesetTooltipPresentationRevision = presentationRevision;
+            _rulesetTooltipHasValue = hasRuleset;
+            _rulesetTooltipName = name;
+            _rulesetTooltip = hasRuleset
+                ? "BWT_BottomBar_RulesetTooltip".Translate(name)
+                : null;
+            _rulesetEmptyTooltip = hasRuleset
+                ? null
+                : "BWT_BottomBar_RulesetTooltipEmpty".Translate();
+            _rulesetMenuTooltip = "BWT_BottomBar_RulesetMenuTooltip".Translate();
+            _rulesetTooltipCacheValid = true;
         }
 
         private static bool DrawFluffyTopButton(
