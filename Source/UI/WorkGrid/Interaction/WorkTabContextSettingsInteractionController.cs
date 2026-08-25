@@ -61,7 +61,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             HeaderButtons.BottomButtonRects rects = HeaderButtons.GetBottomButtonRects(
                 inRect,
                 WorkTabChromeGeometry.GetInfoIconRect(inRect));
-            if (!rects.ContainsWorkloadFooter(evt.mousePosition) ||
+            if (!rects.ContainsOptionalFooter(evt.mousePosition) ||
                 !BWTWorkTabContextSettingsRouter.TryBuildFocusRequest(
                     inRect,
                     null,
@@ -78,27 +78,27 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             bool handled = false;
             handled |= BindFooterRect(
                 contextualSettings,
-                rects.HasWorkload ? rects.WorkloadMain : Rect.zero,
+                rects.HasOptional ? rects.OptionalMain : Rect.zero,
                 request.TargetSettingId);
             handled |= BindFooterRect(
                 contextualSettings,
-                rects.HasWorkloadMenu ? rects.WorkloadMenu : Rect.zero,
+                rects.HasOptionalMenu ? rects.OptionalMenu : Rect.zero,
                 request.TargetSettingId);
             handled |= BindFooterRect(
                 contextualSettings,
-                rects.HasWorkloadSaveAs ? rects.WorkloadSaveAs : Rect.zero,
+                rects.HasOptionalSaveAs ? rects.OptionalSaveAs : Rect.zero,
                 request.TargetSettingId);
             handled |= BindFooterRect(
                 contextualSettings,
-                rects.HasWorkloadUpdate ? rects.WorkloadUpdate : Rect.zero,
+                rects.HasOptionalUpdate ? rects.OptionalUpdate : Rect.zero,
                 request.TargetSettingId);
             handled |= BindFooterRect(
                 contextualSettings,
-                rects.WorkloadCancel,
+                rects.OptionalCancel,
                 request.TargetSettingId);
             handled |= BindFooterRect(
                 contextualSettings,
-                rects.WorkloadApply,
+                rects.OptionalApply,
                 request.TargetSettingId);
 
             if (handled)

@@ -38,8 +38,38 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             NormalFeaturesDoNotReferenceWorkloads(root);
             ApplicationContractsAreProviderNeutral(root);
             WorkGridRuntimeAndRendererArePreviewNeutral(root);
+            HeaderHostIsOptionalFeatureNeutral(root);
             WorkloadBackendUsesOnlyDomainPorts(root);
             WorldComponentIsOnlyItsSaveShell(root);
+        }
+
+        private static void HeaderHostIsOptionalFeatureNeutral(string root)
+        {
+            string host = Read(root, "Source", "UI", "HeaderButtons.cs");
+            string contracts = Read(root, "Source", "UI", "HeaderFooterFeatureContracts.cs");
+            string neutral = host + "\n" + contracts;
+            foreach (string token in new[]
+            {
+                "Workload",
+                "Features.Workloads",
+                "UI.Workloads",
+                "WorkloadGateway",
+                "WorkloadPreviewController"
+            })
+            {
+                TestAssert.False(
+                    neutral.IndexOf(token, StringComparison.Ordinal) >= 0,
+                    "the header host must know only the optional footer contract; found " + token);
+            }
+
+            TestAssert.Contains(
+                contracts,
+                "interface IHeaderFooterFeature",
+                "the header host must expose one typed optional-feature boundary");
+            TestAssert.Contains(
+                host,
+                "HeaderFooterFeatureRegistry.Current?.Draw(rects)",
+                "the header host must delegate optional drawing without feature lookup in its hot path");
         }
 
         private static void NormalFeaturesDoNotReferenceWorkloads(string root)

@@ -76,7 +76,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
             Rect infoRect = WorkTabChromeGeometry.GetInfoIconRect(inRect);
             HeaderButtons.BottomButtonRects buttons = HeaderButtons.GetBottomButtonRects(inRect, infoRect);
-            if (buttons.ContainsWorkload(mousePosition))
+            if (buttons.ContainsOptional(mousePosition))
             {
                 return BWTTutorialInteractionKind.WorkloadButton;
             }

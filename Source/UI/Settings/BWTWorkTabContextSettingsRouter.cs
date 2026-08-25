@@ -791,7 +791,7 @@ namespace Better_Work_Tab.UI.Settings
                 return true;
             }
 
-            if (rects.ContainsWorkloadFooter(mousePosition))
+            if (rects.ContainsOptionalFooter(mousePosition))
             {
                 isWorkloadButton = true;
                 return true;

@@ -493,11 +493,13 @@
     <Compile Include="UI\Headers\HeaderInputController.cs" />
     <Compile Include="UI\Headers\HeaderContextMenu.cs" />
     <Compile Include="UI\Headers\HeaderUtility.cs" />
+    <Compile Include="UI\HeaderFooterFeatureContracts.cs" />
     <Compile Include="UI\HeaderButtons.cs" />
     <Compile Include="UI\Dialog_WarningWithCheckbox.cs" />
     <Compile Include="UI\MouseStateManager.cs" />
     <Compile Include="Features\Patches\Patch_Building_Bed_Cache.cs" />
     <Compile Include="UI\RuleBuilder\RuleBuilderConstants.cs" />
+    <Compile Include="UI\Workloads\WorkloadFooterFeature.cs" />
     <Compile Include="UI\Workloads\WorkloadGateway.cs" />
     <Compile Include="UI\Workloads\WorkloadPresentationResolver.cs" />
     <Compile Include="UI\Workloads\WorkloadPresentationSettingsAdapter.cs" />
