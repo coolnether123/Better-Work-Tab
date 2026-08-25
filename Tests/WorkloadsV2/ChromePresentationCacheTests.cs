@@ -12,11 +12,43 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "chrome presentation cache contracts");
             string chrome = Read(root, "Source", "UI", "Chrome", "WorkTabChrome.cs");
             string header = Read(root, "Source", "UI", "HeaderButtons.cs");
+            string window = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
 
             ManualSurfaceRetainsOnlyStablePixels(chrome);
             ManualInputAndOverlaysRemainLive(chrome);
+            RetainedResourcesFollowWindowLifecycle(chrome, window);
             FooterAndCounterPathsAvoidStableAllocations(chrome);
             SelectorAndTooltipCachesRemainBounded(header);
+        }
+
+        private static void RetainedResourcesFollowWindowLifecycle(
+            string chrome,
+            string window)
+        {
+            string release = MemberBody(
+                chrome,
+                "internal static void ReleaseRetainedResources()");
+            TestAssert.Contains(
+                release,
+                "ReleaseManualPrioritiesSurfaces();",
+                "the chrome resource boundary must release both retained variants");
+            TestAssert.Contains(
+                release,
+                "_manualSurfaceKeyValid = false;",
+                "released chrome resources must rebuild from a fresh presentation key");
+
+            string resolution = MemberBody(
+                window,
+                "public override void Notify_ResolutionChanged()");
+            TestAssert.Contains(
+                resolution,
+                "WorkTabChrome.ReleaseRetainedResources();",
+                "resolution changes must release retained chrome resources");
+            string close = MemberBody(window, "private void ResetTransientWindowState()");
+            TestAssert.Contains(
+                close,
+                "WorkTabChrome.ReleaseRetainedResources();",
+                "closing the Work tab must release retained chrome resources");
         }
 
         private static void ManualSurfaceRetainsOnlyStablePixels(string source)
