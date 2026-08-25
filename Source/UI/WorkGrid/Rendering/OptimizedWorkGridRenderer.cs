@@ -295,6 +295,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             _currentLayoutColumns = Array.Empty<WorkTabLayoutColumn>();
         }
 
+        internal void ReleaseRetainedResources()
+        {
+            EndCellBatch();
+            _retainedRows.Dispose();
+        }
+
         public bool TryGetPreparedRow(
             int rowIndex,
             Rect rowRect,

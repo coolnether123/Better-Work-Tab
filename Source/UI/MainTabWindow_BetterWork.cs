@@ -47,6 +47,7 @@ namespace Better_Work_Tab.UI
     public class MainTabWindow_BetterWork : MainTabWindow_Work
     {
         private readonly WorkGridRendererFacade _workGridRenderer;
+        private readonly OptimizedWorkGridRenderer _optimizedWorkGridRenderer;
         private readonly WorkGridInteractionRouter _workGridInteractionRouter;
         private readonly WorkGridSnapshotProvider _workGridSnapshots = new WorkGridSnapshotProvider();
         private readonly WorkTabViewportController _viewportController = new WorkTabViewportController();
@@ -91,7 +92,8 @@ namespace Better_Work_Tab.UI
             _workGridRenderer = new WorkGridRendererFacade(
                 drawingSurface,
                 () => BetterWorkTabMod.Settings?.workGridRendererMode ?? DefaultSettings.workGridRendererMode);
-            _workGridRenderer.Register(new OptimizedWorkGridRenderer(drawingSurface));
+            _optimizedWorkGridRenderer = new OptimizedWorkGridRenderer(drawingSurface);
+            _workGridRenderer.Register(_optimizedWorkGridRenderer);
             _tutorialInteractionController = new WorkTabTutorialInteractionController(_bodyRenderer);
             _priorityInputHandler = new WorkTabPriorityInputHandler(
                 _bodyRenderer,
@@ -787,6 +789,7 @@ namespace Better_Work_Tab.UI
             // preserved vanilla lifecycle ordering.
             _windowSession.InvalidatePawnTableCache();
             _windowSizingController.InvalidateRequestedTabSizeCache();
+            _optimizedWorkGridRenderer.ReleaseRetainedResources();
             WorkTabChrome.ReleaseRetainedResources();
             base.Notify_ResolutionChanged();
         }
@@ -905,6 +908,7 @@ namespace Better_Work_Tab.UI
             NativeCursorPosition.CancelPendingMove();
             _workloadPreviewController.ResetForWindowClose();
             HeaderButtons.ResetOptionalFooterState();
+            _optimizedWorkGridRenderer.ReleaseRetainedResources();
             WorkTabChrome.ReleaseRetainedResources();
             // Work-grid snapshots and audit state belong to the game session, not this window.
             // GameCacheResetUtility owns their load/new-game teardown boundary.
