@@ -11,6 +11,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         private static int cachedFrame = -1;
         private static Game cachedGame;
         private static int cachedHighestLivePriority;
+        private const int HighestPrioritySafetyAuditFrames = 300;
 
         internal static int GetEffectiveMaxPriority()
         {
@@ -178,7 +179,15 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         {
             Game game = Current.Game;
             int frame = Time.frameCount;
-            if (cachedFrame == frame && ReferenceEquals(cachedGame, game))
+            int cacheAge = unchecked(frame - cachedFrame);
+            // Priority setters and pawn-roster notifications invalidate this cache at
+            // the mutation boundary. The periodic audit keeps direct dictionary writes
+            // by compatibility providers coherent without putting a pawn-universe scan
+            // back into every Work-tab repaint.
+            if (cachedFrame >= 0 &&
+                cacheAge >= 0 &&
+                cacheAge < HighestPrioritySafetyAuditFrames &&
+                ReferenceEquals(cachedGame, game))
             {
                 return;
             }

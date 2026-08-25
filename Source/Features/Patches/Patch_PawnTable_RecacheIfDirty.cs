@@ -2,6 +2,7 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using HarmonyLib;
 using RimWorld;
@@ -175,6 +176,7 @@ namespace Better_Work_Tab.Features.Patches
                 return;
 
             UI.Workloads.WorkloadPawnRosterCache.NotifyRosterChanged();
+            PriorityRangePolicy.InvalidateCache();
             UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.PawnListOrder);
         }

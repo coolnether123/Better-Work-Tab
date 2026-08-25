@@ -22,13 +22,55 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "Source",
                 "Features",
                 "WorkExecutionOrder.cs"));
+            string priorityRange = File.ReadAllText(Path.Combine(
+                root,
+                "Source",
+                "Features",
+                "RaisedPriorityMaximum",
+                "PriorityRangePolicy.cs"));
+            string pawnTablePatch = File.ReadAllText(Path.Combine(
+                root,
+                "Source",
+                "Features",
+                "Patches",
+                "Patch_PawnTable_RecacheIfDirty.cs"));
 
             TopologyIsRevisionOwned(manager);
             PawnCompositionDoesNotScanAllDefs(manager);
             PawnDisplayCompositionReusesGlobalCache(manager);
             EffectivePrioritiesAreEvaluatedOnce(manager);
             ColumnIndexesFollowTheExistingGeneration(execution);
+            HighestPriorityScanUsesMutationInvalidation(priorityRange, pawnTablePatch);
             IndexedCompositionMatchesTheLegacyOrder();
+        }
+
+        private static void HighestPriorityScanUsesMutationInvalidation(
+            string priorityRange,
+            string pawnTablePatch)
+        {
+            string ensure = MemberBody(
+                priorityRange,
+                "private static void EnsureCachedPriorityScan()");
+            TestAssert.Contains(
+                ensure,
+                "cacheAge < HighestPrioritySafetyAuditFrames",
+                "the live-priority compatibility scan must not run on every repaint frame");
+            TestAssert.Contains(
+                ensure,
+                "ReferenceEquals(cachedGame, game)",
+                "the live-priority cache must not cross game ownership");
+            TestAssert.Contains(
+                priorityRange,
+                "private const int HighestPrioritySafetyAuditFrames",
+                "direct external priority writes need a bounded safety audit");
+
+            string roster = MemberBody(
+                pawnTablePatch,
+                "public static void Postfix(MainTabWindow_PawnTable __instance)");
+            TestAssert.Contains(
+                roster,
+                "PriorityRangePolicy.InvalidateCache();",
+                "pawn roster changes must invalidate the cached live-priority maximum");
         }
 
         private static void TopologyIsRevisionOwned(string manager)

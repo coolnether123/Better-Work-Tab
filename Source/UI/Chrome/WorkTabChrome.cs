@@ -390,9 +390,12 @@ namespace Better_Work_Tab.UI.Chrome
             DrawManualModeInspectionIndicator(rect);
 
             bool isEnabled = requestedEnabled;
-            if (isEnabled && !retainedPresentation)
+            if (isEnabled)
             {
-                DrawManualPrioritiesHelp(rect, maxPriority);
+                if (!retainedPresentation)
+                {
+                    DrawManualPrioritiesHelp(rect, maxPriority);
+                }
             }
             else
             {

@@ -74,6 +74,13 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 draw,
                 "UIHighlighter.HighlightOpportunity",
                 "tutorial/highlighter state must remain live");
+            TestAssert.Contains(
+                draw,
+                "if (isEnabled)",
+                "the enabled retained path must stay separate from the disabled tutorial opportunity");
+            TestAssert.False(
+                draw.IndexOf("if (isEnabled && !retainedPresentation)", StringComparison.Ordinal) >= 0,
+                "retained presentation success must not route an enabled checkbox into the disabled tutorial highlighter");
 
             string input = MemberBody(source, "private static void HandleManualPrioritiesCheckboxInput(");
             TestAssert.Contains(
