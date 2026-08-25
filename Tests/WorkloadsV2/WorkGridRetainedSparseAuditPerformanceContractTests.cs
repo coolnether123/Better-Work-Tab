@@ -32,7 +32,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static void RetainedRowsKeepLogicalImGuiOrientation(string retainedRows)
         {
-            string draw = MemberBody(retainedRows, "internal bool TryDraw(");
+            string draw = MemberBody(retainedRows, "private bool TryDrawCore(");
             TestAssert.False(
                 draw.IndexOf("SystemInfo.graphicsUVStartsAtTop", StringComparison.Ordinal) >= 0,
                 "retained IMGUI rows must not apply a second platform UV inversion");
@@ -65,8 +65,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "private bool TryApplySparsePriorityUpdate(");
             TestAssert.Contains(
                 update,
-                "if (!dirtyCell)\n                {\n                    continue;",
-                "unrelated pawn/work-type cells must remain in the immutable snapshot");
+                "if (!dirtyCell && !bestPawnChanged)\n                {\n                    continue;",
+                "unrelated cells must remain immutable while old/new best-pawn rows are revised");
             TestAssert.Contains(
                 update,
                 "WorkGiver subWorkGiver = snapshotColumn.SubWorkGiver;",
@@ -77,11 +77,16 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "focus columns must retain their parent visual while expand-beside children stay child-only");
             TestAssert.Contains(
                 update,
-                "(cell.Flags & WorkCellVisualFlags.BestPawn) != 0",
-                "a cell-level parent edit must preserve the skill/actionability best-pawn identity");
-            TestAssert.False(
-                update.IndexOf("FindBestPawnId", StringComparison.Ordinal) >= 0,
-                "a cell-level parent edit must not rescan every pawn in the affected column");
+                "FindBestPawnId(table, workType, worker)",
+                "a parent edit must refresh comparison-dependent best-pawn identity once per affected work type");
+            TestAssert.Contains(
+                update,
+                "cell.PawnId == bestPawnChange.PreviousPawnId",
+                "the old best-pawn row must be revised when its marker moves");
+            TestAssert.Contains(
+                update,
+                "cell.PawnId == bestPawnChange.CurrentPawnId",
+                "the new best-pawn row must be revised when its marker moves");
         }
 
         private static void CompatibilityAuditUsesLinearSkillAndPriorityPasses(string audit)

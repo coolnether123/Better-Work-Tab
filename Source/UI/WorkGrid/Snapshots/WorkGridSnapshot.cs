@@ -75,6 +75,25 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         public WorkGridRowVisualFlags VisualFlags { get; }
     }
 
+    internal readonly struct WorkGridPreparedRowSpan
+    {
+        internal WorkGridPreparedRowSpan(int firstCellIndex, int cellCount, uint revision)
+        {
+            FirstCellIndex = firstCellIndex;
+            CellCount = cellCount;
+            Revision = revision;
+        }
+
+        internal int FirstCellIndex { get; }
+        internal int CellCount { get; }
+        internal uint Revision { get; }
+
+        internal WorkGridPreparedRowSpan WithRevision(uint revision)
+        {
+            return new WorkGridPreparedRowSpan(FirstCellIndex, CellCount, revision);
+        }
+    }
+
     public readonly struct WorkGridColumnEntry
     {
         public WorkGridColumnEntry(
@@ -219,11 +238,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
     {
         internal WorkGridSnapshot(
             long revision,
+            long topologyRevision,
             int layoutRevision,
             WorkGridRevisionSet revisions,
             ImmutableSnapshotArray<WorkGridRowEntry> rows,
             ImmutableSnapshotArray<WorkGridColumnEntry> columns,
             ImmutableSnapshotArray<WorkCellVisualState> cells,
+            ImmutableSnapshotArray<WorkGridPreparedRowSpan> preparedRows,
             int retainedCapacityBytes,
             bool manualPriorities,
             int maxPriority,
@@ -232,11 +253,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             int priorityRangeRevision)
         {
             Revision = revision;
+            TopologyRevision = topologyRevision;
             LayoutRevision = layoutRevision;
             Revisions = revisions;
             Rows = rows ?? ImmutableSnapshotArray<WorkGridRowEntry>.Empty;
             Columns = columns ?? ImmutableSnapshotArray<WorkGridColumnEntry>.Empty;
             Cells = cells ?? ImmutableSnapshotArray<WorkCellVisualState>.Empty;
+            PreparedRows = preparedRows ?? ImmutableSnapshotArray<WorkGridPreparedRowSpan>.Empty;
             RetainedCapacityBytes = retainedCapacityBytes;
             ManualPriorities = manualPriorities;
             MaxPriority = maxPriority;
@@ -246,11 +269,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         }
 
         public long Revision { get; }
+        internal long TopologyRevision { get; }
         public int LayoutRevision { get; }
         public WorkGridRevisionSet Revisions { get; }
         public ImmutableSnapshotArray<WorkGridRowEntry> Rows { get; }
         public ImmutableSnapshotArray<WorkGridColumnEntry> Columns { get; }
         public ImmutableSnapshotArray<WorkCellVisualState> Cells { get; }
+        internal ImmutableSnapshotArray<WorkGridPreparedRowSpan> PreparedRows { get; }
         public int RetainedCapacityBytes { get; }
         public bool ManualPriorities { get; }
         public int MaxPriority { get; }

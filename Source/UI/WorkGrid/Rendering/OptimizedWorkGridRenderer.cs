@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Features.Dividers;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Patches;
+using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using Better_Work_Tab.UI.WorkGrid.Projection;
@@ -23,7 +26,8 @@ using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
-    internal sealed class OptimizedWorkGridRenderer : IWorkGridRenderer, IWorkGridSnapshotLayer, IWorkGridVisibleColumnRangeProvider, IDisposable
+    internal sealed class OptimizedWorkGridRenderer : IWorkGridRenderer, IWorkGridSnapshotLayer,
+        IWorkGridVisibleColumnRangeProvider, IPreparedWorkGridRowLayer, IDisposable
     {
         internal const string RendererId = "bwt.optimized-layered";
         private readonly IWorkGridDrawingSurface _drawingSurface;
@@ -45,6 +49,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             new List<PendingParentCell>(32);
         private readonly List<PendingSubWorkCell> _pendingSubWorkCells =
             new List<PendingSubWorkCell>(32);
+        private PreparedWorkRowPacket[] _preparedRowPackets = Array.Empty<PreparedWorkRowPacket>();
+        private readonly Dictionary<WorkTypeDef, int> _parentColumnByWorkType =
+            new Dictionary<WorkTypeDef, int>();
+        private readonly Dictionary<HoverColumnKey, int> _columnIndexByHoverKey =
+            new Dictionary<HoverColumnKey, int>();
+        private long _cellLookupTopologyRevision = long.MinValue;
+        private int _renderResourcesRevision;
+        private int _hoveredRowIndex = -1;
+        private int _hoveredColumnIndex = -1;
+        private int _headerHoveredColumnIndex = -1;
+        private IReadOnlyList<WorkTabLayoutColumn> _currentLayoutColumns =
+            Array.Empty<WorkTabLayoutColumn>();
 
         internal OptimizedWorkGridRenderer(IWorkGridDrawingSurface drawingSurface)
         {
@@ -74,11 +90,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         public void Prepare(in WorkTabView context)
         {
             _eventPhase = context.EventPhase;
+            _currentLayoutColumns = context.Layout?.Columns ?? Array.Empty<WorkTabLayoutColumn>();
             WorkGridSnapshot snapshot = context.Snapshot;
             if (!ReferenceEquals(snapshot, _snapshot))
             {
                 _snapshot = snapshot;
-                BuildCellLookup(snapshot);
+                if (snapshot == null || snapshot.TopologyRevision != _cellLookupTopologyRevision)
+                {
+                    BuildCellLookup(snapshot);
+                    BuildColumnLookup(snapshot);
+                    _cellLookupTopologyRevision = snapshot?.TopologyRevision ?? long.MinValue;
+                    _preparedRowPackets = snapshot == null
+                        ? Array.Empty<PreparedWorkRowPacket>()
+                        : new PreparedWorkRowPacket[snapshot.Rows.Count];
+                }
             }
 
             if (snapshot == null)
@@ -91,9 +116,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 ShiftHelper.State == BetterWorkTabSettings.ShowUIMode.Shifted;
             _delegateScheduleCells = FluffyTimeScheduleAssigner.IsOpen;
             _delegateSleekPriorityCells = SleekWorkTabGateway.BetterWorkTabHostsSleek;
+            _renderResourcesRevision = context.InvalidationVersions.RenderResources;
 
             if (context.EventPhase == ImGuiEventPhase.Repaint)
             {
+                WorkGiverPriorityBoxRenderer.MaintainResetAnimations();
                 Vector2 scroll = context.Table.scrollPosition;
                 _visibleRows = context.Geometry.GetVisibleRowRange(context.Viewport, scroll.y);
                 _visibleColumns = context.Geometry.GetVisibleColumnRange(context.Viewport, scroll.x);
@@ -104,6 +131,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 {
                     _visibleColumns = new WorkGridIndexRange(0, _snapshot.Columns.Count);
                 }
+
+                ResolveHoverTargets(in context);
             }
         }
 
@@ -256,6 +285,107 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             _retainedRows.Dispose();
             _snapshot = null;
             _cellLookup = Array.Empty<int>();
+            _cellLookupTopologyRevision = long.MinValue;
+            _preparedRowPackets = Array.Empty<PreparedWorkRowPacket>();
+            _parentColumnByWorkType.Clear();
+            _columnIndexByHoverKey.Clear();
+            _currentLayoutColumns = Array.Empty<WorkTabLayoutColumn>();
+        }
+
+        public bool TryGetPreparedRow(
+            int rowIndex,
+            Rect rowRect,
+            out PreparedWorkRowPacket packet)
+        {
+            packet = null;
+            if (_eventPhase != ImGuiEventPhase.Repaint ||
+                _snapshot == null ||
+                _delegateSleekPriorityCells ||
+                (_delegateScheduleCells && WorkTabEffectiveStateRuntime.IsPreviewActive) ||
+                ColumnReorderAnimationState.IsActive ||
+                DividerCollapseAnimationState.HasActiveAnimations ||
+                DividerInsertionAnimationState.HasActiveAnimations ||
+                SubWorkDrilldownState.IsTransitioning ||
+                rowIndex < 0 ||
+                rowIndex >= _snapshot.Rows.Count ||
+                rowIndex >= _snapshot.PreparedRows.Count ||
+                rowIndex >= _preparedRowPackets.Length)
+            {
+                return false;
+            }
+
+            WorkGridRowEntry row = _snapshot.Rows[rowIndex];
+            WorkGridPreparedRowSpan span = _snapshot.PreparedRows[rowIndex];
+            if (row.Kind != WorkGridRowKind.Pawn || span.CellCount == 0)
+            {
+                return false;
+            }
+
+            bool focusViewActive = SubWorkDrilldownState.IsActive &&
+                !SubWorkDrilldownState.IsExpandBesideActive;
+            float parentAlpha = focusViewActive
+                ? SubWorkDrilldownState.ParentWorkContentAlpha
+                : 1f;
+            if (parentAlpha > 0.001f && parentAlpha < 0.999f)
+            {
+                return false;
+            }
+
+            int modeSignature = (_delegateShiftedSkillOverlay ? 1 : 0) |
+                (_delegateScheduleCells ? 2 : 0) |
+                (focusViewActive ? 4 : 0) |
+                (parentAlpha <= 0.001f ? 8 : 0);
+            int geometryRevision = _snapshot.LayoutRevision;
+            PreparedWorkRowPacket current = _preparedRowPackets[rowIndex];
+            if (current != null && current.Matches(
+                    rowIndex,
+                    row.PawnId,
+                    span.Revision,
+                    _snapshot.TopologyRevision,
+                    geometryRevision,
+                    _visibleColumns,
+                    rowRect.height,
+                    modeSignature))
+            {
+                packet = current;
+                return true;
+            }
+
+            packet = BuildPreparedRowPacket(
+                rowIndex,
+                rowRect.height,
+                span,
+                modeSignature,
+                focusViewActive,
+                parentAlpha);
+            _preparedRowPackets[rowIndex] = packet;
+            return packet != null;
+        }
+
+        public void DrawPreparedRun(
+            PreparedWorkRowPacket packet,
+            int runIndex,
+            float rowOffsetY)
+        {
+            if (packet == null || runIndex < 0 || runIndex >= packet.Runs.Length)
+            {
+                return;
+            }
+
+            PreparedWorkRowRun run = packet.Runs[runIndex];
+            Color baseColor = GUI.color;
+            bool retained = _retainedRows.TryDraw(
+                run.Retained,
+                rowOffsetY,
+                baseColor,
+                _snapshot,
+                _renderResourcesRevision);
+            if (!retained)
+            {
+                DrawPreparedRunDirect(packet, run, rowOffsetY, baseColor);
+            }
+
+            DrawPreparedRunDynamic(packet, runIndex, run, rowOffsetY, baseColor);
         }
 
         private void EndCellBatch()
@@ -302,7 +432,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
-            bool retained = _retainedRows.TryDraw(_retainedCells, _cellBatchColor, _snapshot);
+            bool retained = _retainedRows.TryDraw(
+                _retainedCells,
+                _cellBatchColor,
+                _snapshot,
+                _renderResourcesRevision);
             for (int index = 0; index < _pendingParentCells.Count; index++)
             {
                 PendingParentCell pending = _pendingParentCells[index];
@@ -349,6 +483,202 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
+        private PreparedWorkRowPacket BuildPreparedRowPacket(
+            int rowIndex,
+            float rowHeight,
+            WorkGridPreparedRowSpan span,
+            int modeSignature,
+            bool focusViewActive,
+            float parentAlpha)
+        {
+            return PreparedWorkRowPacketBuilder.Build(
+                _snapshot,
+                _cellLookup,
+                _currentLayoutColumns,
+                _visibleColumns,
+                rowIndex,
+                rowHeight,
+                span,
+                modeSignature,
+                focusViewActive,
+                parentAlpha,
+                _delegateShiftedSkillOverlay,
+                _delegateScheduleCells);
+        }
+
+        private void DrawPreparedRunDirect(
+            PreparedWorkRowPacket packet,
+            PreparedWorkRowRun run,
+            float rowOffsetY,
+            Color baseColor)
+        {
+            GuiStateScope state = GuiStateScope.Capture();
+            try
+            {
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Text.WordWrap = false;
+                for (int index = 0; index < run.SlotIndexes.Length; index++)
+                {
+                    PreparedWorkRowCell slot = packet.Slots[run.SlotIndexes[index]];
+                    Rect boxRect = OffsetY(slot.BoxRect, rowOffsetY);
+                    Text.Font = slot.IsSubWork && boxRect.width <=
+                        WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
+                            ? GameFont.Tiny
+                            : GameFont.Medium;
+                    int displayPriority = slot.IsSubWork
+                        ? slot.SubWorkPresentation.EffectivePriority
+                        : slot.Cell.Priority;
+                    PreparedWorkBoxRenderer.DrawInBatch(
+                        boxRect,
+                        slot.Visual,
+                        displayPriority,
+                        1f,
+                        baseColor);
+                }
+            }
+            finally
+            {
+                state.Dispose();
+            }
+        }
+
+        private void DrawPreparedRunDynamic(
+            PreparedWorkRowPacket packet,
+            int runIndex,
+            PreparedWorkRowRun run,
+            float rowOffsetY,
+            Color baseColor)
+        {
+            for (int index = 0; index < run.ParentDynamicSlotIndexes.Length; index++)
+            {
+                PreparedWorkRowCell slot = packet.Slots[run.ParentDynamicSlotIndexes[index]];
+                PreparedWorkBoxRenderer.DrawDynamicOverlays(
+                    OffsetY(slot.BoxRect, rowOffsetY),
+                    slot.Visual,
+                    baseColor);
+            }
+
+            int headerSlot = GetRunSlot(packet, runIndex, _headerHoveredColumnIndex);
+            bool pointerOwned = TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
+                BWTWorkTabTutorial.OwnsCurrentPointer;
+            if (!pointerOwned && headerSlot >= 0)
+            {
+                Widgets.DrawHighlight(OffsetY(packet.Slots[headerSlot].CellRect, rowOffsetY));
+            }
+
+            int hoveredSlot = packet.RowIndex == _hoveredRowIndex
+                ? GetRunSlot(packet, runIndex, _hoveredColumnIndex)
+                : -1;
+            for (int index = 0; index < run.SubWorkRingSlotIndexes.Length; index++)
+            {
+                DrawSubWorkOverlay(packet.Slots[run.SubWorkRingSlotIndexes[index]], rowOffsetY);
+            }
+
+            if (WorkGiverPriorityBoxRenderer.HasActiveResetAnimations)
+            {
+                for (int index = 0; index < run.SubWorkSlotIndexes.Length; index++)
+                {
+                    int slotIndex = run.SubWorkSlotIndexes[index];
+                    PreparedWorkRowCell slot = packet.Slots[slotIndex];
+                    if (!Contains(run.SubWorkRingSlotIndexes, slotIndex) &&
+                        WorkGiverPriorityBoxRenderer.HasResetAnimation(
+                            slot.Cell.PawnId,
+                            slot.WorkGiver.def))
+                    {
+                        DrawSubWorkOverlay(slot, rowOffsetY);
+                    }
+                }
+            }
+
+            if (hoveredSlot >= 0)
+            {
+                PreparedWorkRowCell slot = packet.Slots[hoveredSlot];
+                if (slot.IsSubWork)
+                {
+                    if (!Contains(run.SubWorkRingSlotIndexes, hoveredSlot) &&
+                        (!WorkGiverPriorityBoxRenderer.HasActiveResetAnimations ||
+                         !WorkGiverPriorityBoxRenderer.HasResetAnimation(
+                             slot.Cell.PawnId,
+                             slot.WorkGiver.def)))
+                    {
+                        DrawSubWorkOverlay(slot, rowOffsetY);
+                    }
+                }
+                else if (!pointerOwned)
+                {
+                    DrawParentTooltip(slot, rowOffsetY);
+                }
+            }
+        }
+
+        private static void DrawSubWorkOverlay(PreparedWorkRowCell slot, float rowOffsetY)
+        {
+            WorkGiverPriorityBoxRenderer.DrawPreparedPriorityOverlay(
+                slot.WorkGiver,
+                slot.Cell.Pawn,
+                OffsetY(slot.BoxRect, rowOffsetY),
+                slot.SubWorkPresentation);
+        }
+
+        private static void DrawParentTooltip(PreparedWorkRowCell slot, float rowOffsetY)
+        {
+            Pawn pawn = slot.Cell.Pawn;
+            WorkTypeDef workType = slot.Cell.WorkType;
+            if (pawn == null || workType == null)
+            {
+                return;
+            }
+
+            Rect boxRect = OffsetY(slot.BoxRect, rowOffsetY);
+            Vector2 mousePosition = Event.current.mousePosition;
+            if (!boxRect.Contains(mousePosition) || !Mouse.IsOver(boxRect))
+            {
+                return;
+            }
+
+            bool incapable = (slot.Cell.Flags & WorkCellVisualFlags.Incapable) != 0;
+            TooltipHandler.TipRegion(
+                boxRect,
+                () => WidgetsWork.TipForPawnWorker(pawn, workType, incapable),
+                pawn.thingIDNumber ^ workType.GetHashCode());
+        }
+
+        private static int GetRunSlot(
+            PreparedWorkRowPacket packet,
+            int runIndex,
+            int columnIndex)
+        {
+            if (columnIndex < 0 || columnIndex >= packet.SlotByColumn.Length)
+            {
+                return -1;
+            }
+            return packet.RunByColumn[columnIndex] == runIndex
+                ? packet.SlotByColumn[columnIndex]
+                : -1;
+        }
+
+        private static bool Contains(int[] indexes, int value)
+        {
+            if (value < 0)
+            {
+                return false;
+            }
+            for (int index = 0; index < indexes.Length; index++)
+            {
+                if (indexes[index] == value)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static Rect OffsetY(Rect rect, float offsetY)
+        {
+            rect.y += offsetY;
+            return rect;
+        }
+
         private void BuildCellLookup(WorkGridSnapshot snapshot)
         {
             if (snapshot == null || snapshot.Rows.Count == 0 || snapshot.Columns.Count == 0)
@@ -381,6 +711,70 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
+        private void BuildColumnLookup(WorkGridSnapshot snapshot)
+        {
+            _parentColumnByWorkType.Clear();
+            _columnIndexByHoverKey.Clear();
+            if (snapshot == null)
+            {
+                return;
+            }
+
+            for (int columnIndex = 0; columnIndex < snapshot.Columns.Count; columnIndex++)
+            {
+                WorkGridColumnEntry column = snapshot.Columns[columnIndex];
+                if (column.WorkerKind == WorkGridColumnWorkerKind.WorkPriority &&
+                    column.WorkType != null)
+                {
+                    _parentColumnByWorkType[column.WorkType] = columnIndex;
+                }
+                if (columnIndex < _currentLayoutColumns.Count)
+                {
+                    _columnIndexByHoverKey[new HoverColumnKey(
+                        _currentLayoutColumns[columnIndex])] = columnIndex;
+                }
+            }
+        }
+
+        private void ResolveHoverTargets(in WorkTabView context)
+        {
+            _hoveredRowIndex = -1;
+            _hoveredColumnIndex = -1;
+            _headerHoveredColumnIndex = -1;
+
+            WorkTypeDef headerWorkType =
+                PawnColumnWorker_WorkPriority_DoHeader_Patch.HoveredWorkType;
+            if (headerWorkType != null &&
+                _parentColumnByWorkType.TryGetValue(headerWorkType, out int headerColumnIndex))
+            {
+                _headerHoveredColumnIndex = headerColumnIndex;
+            }
+
+            Event current = Event.current;
+            if (current == null || context.Layout == null || !context.HasMatchingLayoutRevision)
+            {
+                return;
+            }
+
+            Vector2 mousePosition = current.mousePosition;
+            if (context.Layout.TryGetRowAt(mousePosition, out WorkTabLayoutRow row) &&
+                row.Pawn != null)
+            {
+                _hoveredRowIndex = row.VisualIndex;
+            }
+            if (!context.Layout.TryGetBodyColumnAt(mousePosition, out WorkTabLayoutColumn hovered))
+            {
+                return;
+            }
+
+            if (_columnIndexByHoverKey.TryGetValue(
+                    new HoverColumnKey(hovered),
+                    out int hoveredColumnIndex))
+            {
+                _hoveredColumnIndex = hoveredColumnIndex;
+            }
+        }
+
         private bool TryDrawSubWorkCell(
             Rect cellRect,
             WorkGridColumnEntry column,
@@ -410,6 +804,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             bool stablePawnBox = _eventPhase == ImGuiEventPhase.Repaint &&
                 cell.Pawn != null &&
+                !_delegateScheduleCells &&
                 !presentation.WorkTypeDisabled &&
                 presentation.ParentPriority > WorkPrioritySystem.DisabledPriority &&
                 visualAlpha > 0.999f &&
@@ -578,6 +973,48 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             internal Rect BoxRect { get; }
             internal WorkCellVisualState Cell { get; }
             internal WorkBoxVisualState Visual { get; }
+        }
+
+        private readonly struct HoverColumnKey : IEquatable<HoverColumnKey>
+        {
+            internal HoverColumnKey(WorkTabLayoutColumn column)
+            {
+                Column = column.Column;
+                SubWorkGiver = column.SubWorkGiver;
+                SubWorkSlot = column.SubWorkSlot;
+                IsExpandBesideChild = column.IsExpandBesideChild;
+            }
+
+            private PawnColumnDef Column { get; }
+            private WorkGiverDef SubWorkGiver { get; }
+            private int SubWorkSlot { get; }
+            private bool IsExpandBesideChild { get; }
+
+            public bool Equals(HoverColumnKey other)
+            {
+                return ReferenceEquals(Column, other.Column) &&
+                       ReferenceEquals(SubWorkGiver, other.SubWorkGiver) &&
+                       SubWorkSlot == other.SubWorkSlot &&
+                       IsExpandBesideChild == other.IsExpandBesideChild;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is HoverColumnKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = Column != null ? RuntimeHelpers.GetHashCode(Column) : 0;
+                    hash = (hash * 397) ^
+                        (SubWorkGiver != null ? RuntimeHelpers.GetHashCode(SubWorkGiver) : 0);
+                    hash = (hash * 397) ^ SubWorkSlot;
+                    hash = (hash * 397) ^ (IsExpandBesideChild ? 1 : 0);
+                    return hash;
+                }
+            }
         }
 
         private readonly struct PendingSubWorkCell
