@@ -19,6 +19,7 @@ using Better_Work_Tab.UI.Settings;
 using RimWorld;
 using Spine.Api;
 using Better_Work_Tab.Foundation;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Spine.Collections;
 using UnityEngine;
 using Verse;
@@ -34,6 +35,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private readonly ContiguousBuffer<WorkCellVisualState> _cells = new ContiguousBuffer<WorkCellVisualState>(512);
         private readonly ContiguousBuffer<WorkGridPreparedRowSpan> _preparedRows =
             new ContiguousBuffer<WorkGridPreparedRowSpan>(64);
+        private readonly ContiguousBuffer<PreparedPawnLabelPresentation> _pawnLabels =
+            new ContiguousBuffer<PreparedPawnLabelPresentation>(64);
         private readonly SnapshotSlot<WorkGridSnapshot> _slot = new SnapshotSlot<WorkGridSnapshot>();
         private readonly Dictionary<ushort, int> _bestPawnIds = new Dictionary<ushort, int>();
         private readonly HashSet<int> _snapshotPawnIds = new HashSet<int>();
@@ -45,6 +48,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private WorkGridRevisionSet _revisions;
         private long _snapshotRevision;
         private long _topologyRevision;
+        private int _pawnLabelSourceSignature;
+        private PawnColumnWorker_Label _labelWorker;
+        private int _labelWorkerLayoutRevision = int.MinValue;
         private WorkTabEffectiveStateRevision _effectiveStateRevision;
         private bool _hasEffectiveStateRevision;
 
@@ -90,11 +96,28 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
 
             WorkGridRevisionSet current = versions.CategoryRevisions;
+            PawnColumnWorker_Label labelWorker = ReferenceEquals(_layout, layout) &&
+                _labelWorkerLayoutRevision == layout.LayoutRevision
+                    ? _labelWorker
+                    : FindExactLabelWorker(layout.Columns);
+            int pawnLabelSourceSignature = PreparedPawnLabelCapture.ComputeSourceSignature(
+                labelWorker,
+                table);
+            unchecked
+            {
+                pawnLabelSourceSignature = (pawnLabelSourceSignature * 397) ^
+                    (BwtRaisedPriorityFeatureInstaller.IsFeatureActive ? 1 : 0);
+                pawnLabelSourceSignature = (pawnLabelSourceSignature * 397) ^
+                    (PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures ? 1 : 0);
+                pawnLabelSourceSignature = (pawnLabelSourceSignature * 397) ^
+                    (SleekWorkTabGateway.SleekOwnsWorkTab ? 1 : 0);
+            }
             bool effectiveStateCurrent = _hasEffectiveStateRevision &&
                 _effectiveStateRevision == effectiveStateRevision;
             if (_slot.Current != null &&
                 ReferenceEquals(_layout, layout) &&
                 _slot.Current.LayoutRevision == layout.LayoutRevision &&
+                _pawnLabelSourceSignature == pawnLabelSourceSignature &&
                 effectiveStateCurrent &&
                 EqualConsumedRevisions(_revisions, current))
             {
@@ -103,7 +126,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
 
             int layoutSignature = ComputeLayoutSignature(layout);
             var timer = Stopwatch.StartNew();
-            if (CanApplySparsePriorityUpdate(layout, current, layoutSignature, versions.PriorityDirtyKeys) &&
+            if (_pawnLabelSourceSignature == pawnLabelSourceSignature &&
+                CanApplySparsePriorityUpdate(layout, current, layoutSignature, versions.PriorityDirtyKeys) &&
                 TryApplySparsePriorityUpdate(
                     table,
                     layout,
@@ -129,6 +153,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             if (_slot.Current != null &&
                 _hasLayoutSignature &&
                 _layoutSignature == layoutSignature &&
+                _pawnLabelSourceSignature == pawnLabelSourceSignature &&
                 effectiveStateCurrent &&
                 EqualConsumedRevisions(_revisions, current))
             {
@@ -142,7 +167,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 current,
                 layoutSignature,
                 effectiveStateRevision,
-                versions.PriorityDirtyKeys);
+                versions.PriorityDirtyKeys,
+                labelWorker,
+                pawnLabelSourceSignature);
             timer.Stop();
             WorkTabInvalidationHub.ClearConsumedPriorityKeys();
             WorkGridSnapshot snapshot = _slot.Current;
@@ -326,6 +353,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 previous.Columns,
                 previous.Cells.WithReplacements(replacements),
                 previous.PreparedRows.WithReplacements(preparedRowReplacements),
+                previous.PawnLabels,
                 previous.RetainedCapacityBytes,
                 ParentPriorityRead.GetObservedManualModeForDisplay(
                     previous.ManualPriorities),
@@ -380,6 +408,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _columns.Clear();
             _cells.Clear();
             _preparedRows.Clear();
+            _pawnLabels.Clear();
             _bestPawnIds.Clear();
             _snapshotPawnIds.Clear();
             _pawnDynamicVersions.Clear();
@@ -390,6 +419,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _revisions = default;
             _effectiveStateRevision = default;
             _hasEffectiveStateRevision = false;
+            _pawnLabelSourceSignature = 0;
+            _labelWorker = null;
+            _labelWorkerLayoutRevision = int.MinValue;
             WorkGridRendererDiagnostics.RecordSnapshotCleared();
         }
 
@@ -399,7 +431,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             WorkGridRevisionSet revisions,
             int layoutSignature,
             WorkTabEffectiveStateRevision effectiveStateRevision,
-            IReadOnlyList<WorkGridPriorityKey> priorityDirtyKeys)
+            IReadOnlyList<WorkGridPriorityKey> priorityDirtyKeys,
+            PawnColumnWorker_Label labelWorker,
+            int pawnLabelSourceSignature)
         {
             WorkGridSnapshot previous = _slot.Current;
             bool canReuseRosterCells = CanReuseRosterCellVisuals(
@@ -410,6 +444,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _columns.Clear();
             _cells.Clear();
             _preparedRows.Clear();
+            _pawnLabels.Clear();
 
             IReadOnlyList<WorkTabLayoutRow> layoutRows = layout.Rows;
             for (int i = 0; i < layoutRows.Count; i++)
@@ -623,6 +658,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 }
             }
 
+            bool canPreparePawnLabels = CanPrepareLabelWorker(labelWorker);
+            for (int rowIndex = 0; rowIndex < layoutRows.Count; rowIndex++)
+            {
+                Pawn pawn = layoutRows[rowIndex].Pawn;
+                _pawnLabels.Add(canPreparePawnLabels && pawn != null
+                    ? PreparedPawnLabelCapture.Capture(labelWorker, pawn)
+                    : default);
+            }
+
             BuildPreparedRowSpans(cellRevision);
 
             _layoutSignature = layoutSignature;
@@ -630,6 +674,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _hasLayoutSignature = true;
             _revisions = revisions;
             _effectiveStateRevision = effectiveStateRevision;
+            _pawnLabelSourceSignature = pawnLabelSourceSignature;
+            _labelWorker = labelWorker;
+            _labelWorkerLayoutRevision = layout.LayoutRevision;
             _hasEffectiveStateRevision = true;
             _snapshotRevision++;
             _topologyRevision++;
@@ -641,7 +688,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             CaptureSnapshotPawnIds(table);
             CapturePawnPresentationVersions(table);
             int retainedBytes = (_rows.Capacity * 40) + (_columns.Capacity * 56) +
-                (_cells.Capacity * 56) + (_preparedRows.Capacity * 12);
+                (_cells.Capacity * 56) + (_preparedRows.Capacity * 12) +
+                (_pawnLabels.Capacity * 40);
             int maxPriority = WorkPrioritySystem.GetMaxPriority();
             int presentationRevision = unchecked((int)revisions.SettingsThemeLanguageScale);
             _slot.Publish(new WorkGridSnapshot(
@@ -653,6 +701,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 _columns.ToSnapshot(),
                 _cells.ToSnapshot(),
                 _preparedRows.ToSnapshot(),
+                _pawnLabels.ToSnapshot(),
                 retainedBytes,
                 ParentPriorityRead.GetObservedManualModeForDisplay(
                     true),
@@ -679,6 +728,29 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     cellIndex - firstCellIndex,
                     pawnId >= 0 ? revision : 0U));
             }
+        }
+
+        private static PawnColumnWorker_Label FindExactLabelWorker(
+            IReadOnlyList<WorkTabLayoutColumn> columns)
+        {
+            for (int index = 0; columns != null && index < columns.Count; index++)
+            {
+                PawnColumnDef column = columns[index].Column;
+                if (column?.Worker?.GetType() == typeof(PawnColumnWorker_Label))
+                {
+                    return column.Worker as PawnColumnWorker_Label;
+                }
+            }
+            return null;
+        }
+
+        private static bool CanPrepareLabelWorker(PawnColumnWorker_Label worker)
+        {
+            return worker != null &&
+                   BwtRaisedPriorityFeatureInstaller.IsFeatureActive &&
+                   PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures &&
+                   !SleekWorkTabGateway.SleekOwnsWorkTab &&
+                   WorkGridVanillaCompatibilityPolicy.CanPrepareVanillaLabelCells(worker.def);
         }
 
         private bool CanReuseRosterCellVisuals(

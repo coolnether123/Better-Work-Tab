@@ -3,6 +3,7 @@ using RimWorld;
 using Spine.Collections;
 using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Better_Work_Tab.UI.WorkGrid.Rendering;
 using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Snapshots
@@ -245,6 +246,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             ImmutableSnapshotArray<WorkGridColumnEntry> columns,
             ImmutableSnapshotArray<WorkCellVisualState> cells,
             ImmutableSnapshotArray<WorkGridPreparedRowSpan> preparedRows,
+            ImmutableSnapshotArray<PreparedPawnLabelPresentation> pawnLabels,
             int retainedCapacityBytes,
             bool manualPriorities,
             int maxPriority,
@@ -260,6 +262,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             Columns = columns ?? ImmutableSnapshotArray<WorkGridColumnEntry>.Empty;
             Cells = cells ?? ImmutableSnapshotArray<WorkCellVisualState>.Empty;
             PreparedRows = preparedRows ?? ImmutableSnapshotArray<WorkGridPreparedRowSpan>.Empty;
+            PawnLabels = pawnLabels ?? ImmutableSnapshotArray<PreparedPawnLabelPresentation>.Empty;
             RetainedCapacityBytes = retainedCapacityBytes;
             ManualPriorities = manualPriorities;
             MaxPriority = maxPriority;
@@ -276,6 +279,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         public ImmutableSnapshotArray<WorkGridColumnEntry> Columns { get; }
         public ImmutableSnapshotArray<WorkCellVisualState> Cells { get; }
         internal ImmutableSnapshotArray<WorkGridPreparedRowSpan> PreparedRows { get; }
+        internal ImmutableSnapshotArray<PreparedPawnLabelPresentation> PawnLabels { get; }
         public int RetainedCapacityBytes { get; }
         public bool ManualPriorities { get; }
         public int MaxPriority { get; }

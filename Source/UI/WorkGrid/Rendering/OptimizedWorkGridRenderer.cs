@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Better_Work_Tab.Features;
+using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.Dividers;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
@@ -17,6 +18,8 @@ using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
+using Better_Work_Tab.ModSupport;
+using Better_Work_Tab.PawnOrganizer.Patches;
 using Better_Work_Tab.DragDrop;
 using RimWorld;
 using Spine.RimWorld.Rendering;
@@ -386,6 +389,74 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             DrawPreparedRunDynamic(packet, runIndex, run, rowOffsetY, baseColor);
+        }
+
+        public bool DrawPreparedPawnLabel(PreparedWorkRowPacket packet, float rowOffsetY)
+        {
+            PreparedPawnLabelCell label = packet?.PawnLabel;
+            if (label == null)
+            {
+                return false;
+            }
+
+            Pawn pawn = label.Presentation.Pawn;
+            Rect cellRect = OffsetY(label.CellRect, rowOffsetY);
+            if (pawn.health.summaryHealth.SummaryHealthPercent < 0.99f ||
+                (!BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(cellRect)))
+            {
+                // Health and hover chrome sit behind the label text in the
+                // native worker. Use it for those live rows rather than alter
+                // draw order around the retained text.
+                return false;
+            }
+
+            Color baseColor = GUI.color;
+            if (!_retainedRows.TryDraw(
+                    label.Retained,
+                    rowOffsetY,
+                    baseColor,
+                    _snapshot,
+                    _renderResourcesRevision))
+            {
+                return false;
+            }
+
+            Rect iconRect = OffsetY(label.IconRect, rowOffsetY);
+            if (label.Presentation.ShowIcon)
+            {
+                if (Find.Selector.IsSelected(pawn))
+                {
+                    SelectionDrawerUtility.DrawSelectionOverlayWholeGUI(
+                        iconRect.ContractedBy(2f));
+                }
+                Widgets.ThingIcon(iconRect, pawn);
+                ModSupportManager.OnPawnRowDrawn(pawn, iconRect);
+                if (label.Presentation.ContrastMode)
+                {
+                    // The BWT contrast prefix emits this callback, then its
+                    // existing postfix emits it again.
+                    ModSupportManager.OnPawnRowDrawn(pawn, iconRect);
+                }
+                WorkTabDiagnostics.RecordPawnLabelIcon(pawn, iconRect);
+            }
+
+            if (Widgets.ButtonInvisible(cellRect))
+            {
+                CameraJumper.TryJumpAndSelect(pawn);
+                if (Current.ProgramState == ProgramState.Playing && Event.current.button == 0 &&
+                    PawnLabelCloseAdapter.ShouldCloseWorkTab())
+                {
+                    Find.MainTabsRoot.EscapeCurrentTab(false);
+                }
+            }
+            if (!label.Presentation.ContrastMode)
+            {
+                // Match PawnColumnWorker_Label's observable GUI-state exit.
+                Text.Font = GameFont.Small;
+                Text.Anchor = TextAnchor.UpperLeft;
+                Text.WordWrap = true;
+            }
+            return true;
         }
 
         private void EndCellBatch()

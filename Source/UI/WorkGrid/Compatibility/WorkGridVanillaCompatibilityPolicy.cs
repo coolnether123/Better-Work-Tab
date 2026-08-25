@@ -3,6 +3,7 @@ using System.Reflection;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using HarmonyLib;
 using RimWorld;
+using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Compatibility
 {
@@ -21,6 +22,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Compatibility
             AccessTools.Method(typeof(WidgetsWork), nameof(WidgetsWork.DrawWorkBoxFor)),
             AccessTools.Method(typeof(WidgetsWork), nameof(WidgetsWork.DrawWorkBoxBackground)),
             AccessTools.Method(typeof(WidgetsWork), nameof(WidgetsWork.ColorOfPriority))
+        };
+        private static readonly MethodBase[] ReplacedVanillaLabelHooks =
+        {
+            AccessTools.Method(typeof(PawnColumnWorker_Label), nameof(PawnColumnWorker_Label.DoCell)),
+            AccessTools.Method(typeof(PawnColumnWorker_Label), "GetLabel", new[] { typeof(Pawn) })
         };
 
         internal static bool CanSnapshotVanillaPriorityCells()
@@ -48,6 +54,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Compatibility
             return FluffyWorkTabGateway.BetterWorkTabOwnsWorkTab &&
                    FluffyWorkTabGateway.IsFluffyColumn(column) &&
                    !FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column);
+        }
+
+        internal static bool CanPrepareVanillaLabelCells(PawnColumnDef column)
+        {
+            if (column?.Worker?.GetType() != typeof(PawnColumnWorker_Label))
+            {
+                return false;
+            }
+
+            for (int index = 0; index < ReplacedVanillaLabelHooks.Length; index++)
+            {
+                MethodBase hook = ReplacedVanillaLabelHooks[index];
+                if (hook == null || HasExternalPatch(Harmony.GetPatchInfo(hook)))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private static bool HasExternalPatch(HarmonyLib.Patches patches)

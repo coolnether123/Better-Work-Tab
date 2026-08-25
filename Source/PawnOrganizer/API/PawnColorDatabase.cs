@@ -13,6 +13,9 @@ namespace Better_Work_Tab.PawnOrganizer.API
     public static class PawnColorDatabase
     {
         private static Dictionary<string, Color> _pawnColors;
+        private static int _version;
+
+        internal static int Version => _version;
 
         static PawnColorDatabase()
         {
@@ -27,6 +30,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
         {
             if (pawn == null) return;
             _pawnColors[pawn.ThingID] = color;
+            _version++;
             BetterWorkTabMod.DebugLog($"[BetterWorkTab] Set color for {pawn.LabelShort}: {color}", DebugFeature.Layout);
         }
 
@@ -51,6 +55,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
             if (pawn != null && _pawnColors.ContainsKey(pawn.ThingID))
             {
                 _pawnColors.Remove(pawn.ThingID);
+                _version++;
                 BetterWorkTabMod.DebugLog($"[BetterWorkTab] Cleared color for {pawn.LabelShort}", DebugFeature.Layout);
             }
         }
@@ -71,6 +76,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
             _pawnColors = loadedColors != null
                 ? new Dictionary<string, Color>(loadedColors)
                 : new Dictionary<string, Color>();
+            _version++;
             BetterWorkTabMod.DebugLog($"[BetterWorkTab] Loaded {_pawnColors.Count} pawn colors from save.", DebugFeature.Layout);
         }
 
@@ -80,6 +86,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
         public static void Clear()
         {
             _pawnColors.Clear();
+            _version++;
         }
     }
 }

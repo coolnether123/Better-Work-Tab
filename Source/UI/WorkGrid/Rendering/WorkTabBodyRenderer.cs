@@ -1421,6 +1421,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         continue;
                     }
 
+                    if (command.Kind == PreparedWorkRowCommandKind.PreparedPawnLabel &&
+                        preparedLayer.DrawPreparedPawnLabel(packet, rowRect.y))
+                    {
+                        continue;
+                    }
+
                     int columnIndex = command.Index;
                     if (columnIndex < 0 || columnIndex >= columns.Count)
                     {

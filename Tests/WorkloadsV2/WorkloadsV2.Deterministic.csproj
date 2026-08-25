@@ -86,6 +86,7 @@
     <Compile Include="WorkExecutionSpawnPerformanceContractTests.cs" />
     <Compile Include="WorkGridRetainedSparseAuditPerformanceContractTests.cs" />
     <Compile Include="PreparedWorkRowPacketPerformanceContractTests.cs" />
+    <Compile Include="PreparedPawnLabelPerformanceContractTests.cs" />
     <Compile Include="DependencyDirectionContractTests.cs" />
     <Compile Include="WorkloadFeatureIsolationContractTests.cs" />
     <Compile Include="LegacyWorldComponentDependencyContractTests.cs" />
