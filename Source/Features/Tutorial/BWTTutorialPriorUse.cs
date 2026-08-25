@@ -4,7 +4,7 @@ using System.Linq;
 using Better_Work_Tab.Features.Rules.RuleBuilder2;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Rules;
-using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI;
@@ -213,14 +213,14 @@ namespace Better_Work_Tab.Features.Tutorial
         /// </summary>
         private static bool HasReorderedColumns()
         {
-            GameComponent_BWTWorldSettings worldSettings =
-                Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            if (worldSettings == null)
+            IWorkTabColumnOrderState columnOrder =
+                WorkTabGameRoots.For(Current.Game)?.State.ColumnOrder;
+            if (columnOrder == null)
             {
                 return false;
             }
 
-            List<string> baseline = ColumnBaselineManager.GetBaselineOrder(worldSettings);
+            List<string> baseline = ColumnBaselineManager.GetBaselineOrder(columnOrder);
             List<string> current = ColumnBaselineManager.CaptureCurrentOrder();
             if (baseline.Count == 0 || current.Count == 0)
             {
@@ -251,8 +251,8 @@ namespace Better_Work_Tab.Features.Tutorial
 
         private static bool HasSubWorkOverrides()
         {
-            return Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?
-                .WorkGiverReassignments?.HasAnyData() ?? false;
+            return WorkTabGameRoots.For(Current.Game)?.State.Reassignments.Data?
+                .HasAnyData() ?? false;
         }
 
         /// <summary>

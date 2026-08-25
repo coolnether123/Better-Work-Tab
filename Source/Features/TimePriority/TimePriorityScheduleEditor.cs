@@ -15,6 +15,7 @@ using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Schedule;
+using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -333,7 +334,7 @@ namespace Better_Work_Tab.Features.TimePriority
             if (workGiver != null)
             {
                 int parentPriority = ParentPriorityRead.GetObserved(pawn, workType);
-                currentPriority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
+                currentPriority = WorkloadProjectionRuntime.TryGetSpecificJobPriority(
                     WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiver),
                     out int specificPriority)
                     ? WorkPrioritySystem.ClampPriority(specificPriority)
@@ -2095,7 +2096,7 @@ namespace Better_Work_Tab.Features.TimePriority
             WorkGiverDef workGiver,
             int parentPriority)
         {
-            if (WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
+            if (WorkloadProjectionRuntime.TryGetSpecificJobPriority(
                     WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiver),
                     out int specificPriority))
             {

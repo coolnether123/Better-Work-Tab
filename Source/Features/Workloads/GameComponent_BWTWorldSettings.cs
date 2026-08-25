@@ -11,7 +11,9 @@ using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.Features.Application;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.UI.Schedule;
+using Better_Work_Tab.UI.Workloads;
 using Multiplayer.API;
 using Spine.Profiling;
 using System;
@@ -44,14 +46,72 @@ namespace Better_Work_Tab.Features.Workloads
         internal bool IsWorldSchemaReadOnly =>
             !BWT20UpgradePolicy.CanPersistWorldSchema(BWTWorldSchemaVersion);
         private bool _worldSchemaMarkerMalformed;
+        private const int WorkloadDiagnosticsAuditFrameInterval = 3600;
+        private int _nextWorkloadDiagnosticsAuditFrame;
         private int _lastTimePriorityHour = -1;
-        internal readonly TimePriorityScheduleRuntime ScheduleRuntime;
-        internal readonly WorkTabApplication Application;
+        internal WorkTabGameRoot Root { get; }
+        internal WorkTabApplication Application => Root.Application;
 
         public GameComponent_BWTWorldSettings(Game game) : base()
         {
-            ScheduleRuntime = new TimePriorityScheduleRuntime(this);
-            Application = new WorkTabApplication(game, ScheduleRuntime);
+            Root = WorkTabGameRoots.Attach(game, new PersistenceAdapter(this));
+        }
+
+        private sealed class PersistenceAdapter :
+            IWorkTabScheduleStore<TimePriorityScheduleData>,
+            IWorkTabColumnOrderState,
+            IWorkTabReassignmentState,
+            IWorkTabCustomLabelState,
+            IWorkTabDividerState,
+            IWorkTabWorldSchemaState
+        {
+            private readonly GameComponent_BWTWorldSettings _owner;
+
+            internal PersistenceAdapter(GameComponent_BWTWorldSettings owner)
+            {
+                _owner = owner;
+            }
+
+            public List<TimePriorityScheduleData> ScheduleRows
+            {
+                get => _owner.TimePrioritySchedules;
+                set => _owner.TimePrioritySchedules = value;
+            }
+
+            public List<string> CurrentOrder => _owner.ColumnCurrentOrder;
+            public List<string> BaselineOrder
+            {
+                get => _owner.ColumnBaselineOrder;
+                set => _owner.ColumnBaselineOrder = value;
+            }
+            public int Generation => _owner.ColumnOrderGeneration;
+            public void SetCurrentOrder(List<string> order) =>
+                _owner.SetColumnCurrentOrder(order);
+
+            public WorkGiverReassignmentData Data
+            {
+                get => _owner.WorkGiverReassignments;
+                set => _owner.WorkGiverReassignments = value;
+            }
+            public WorkGiverReassignmentData EnsureData() =>
+                _owner.EnsureWorkGiverReassignmentData();
+
+            public Dictionary<string, string> WorkTypeLabels =>
+                _owner.CustomWorkTypeLabels;
+            public Dictionary<string, string> WorkGiverLabels =>
+                _owner.CustomWorkGiverLabels;
+
+            public List<PawnDivider> ActiveDividers
+            {
+                get => _owner.ActiveDividers;
+                set => _owner.ActiveDividers = value;
+            }
+
+            public int Version
+            {
+                get => _owner.BWTWorldSchemaVersion;
+                set => _owner.BWTWorldSchemaVersion = value;
+            }
         }
 
         internal void SetColumnCurrentOrder(List<string> order)
@@ -89,8 +149,8 @@ namespace Better_Work_Tab.Features.Workloads
             DisplayElementPool.Clear();
             EnsureCurrentWorklist();
             EnsureWorkGiverReassignmentData();
-            WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
-            ColumnBaselineManager.EnsureBaseline(this);
+            WorkGiverReassignmentMigrationAdapter.MigrateLegacySettingsDataIfNeeded(this);
+            ColumnBaselineManager.EnsureBaseline(Root.State.ColumnOrder);
             EnsureApplicationRevisionEpoch();
             if (TimePriorityService.NotifyLoaded())
             {
@@ -258,7 +318,7 @@ namespace Better_Work_Tab.Features.Workloads
                 }
 
                 EnsureWorkGiverReassignmentData();
-                WorkGiverReassignmentManager.MigrateLegacySettingsDataIfNeeded(this);
+                WorkGiverReassignmentMigrationAdapter.MigrateLegacySettingsDataIfNeeded(this);
                 EnsureApplicationRevisionEpoch();
                 TimePriorityService.NotifyPostLoad();
             }
@@ -316,6 +376,12 @@ namespace Better_Work_Tab.Features.Workloads
             }
 
             base.GameComponentUpdate();
+
+            AuditWorkloadV2DiagnosticsIfDue();
+            if (WorkloadPreviewController.Current?.IsActive == true && Find.TickManager != null)
+            {
+                WorkloadPawnRosterCache.AuditIfDue(Find.TickManager.TicksGame);
+            }
 
             if (TimePriorityService.IsRuntimeActive)
             {
@@ -500,16 +566,46 @@ namespace Better_Work_Tab.Features.Workloads
                 WorkloadsV2 = WorkloadV2PersistenceEnvelope.CreateMissing();
             }
 
-            WorkloadsV2.RefreshDiagnostics();
+            WorkloadsV2.EnsureDiagnosticsCurrent();
             return WorkloadsV2;
         }
 
         internal void NotifyWorkloadV2Changed()
         {
+            WorkloadsV2?.RefreshDiagnostics();
             if (MultiplayerBridge.Active)
             {
                 PersistLocalUiState();
             }
+        }
+
+        private void AuditWorkloadV2DiagnosticsIfDue()
+        {
+            int currentFrame = UnityEngine.Time.frameCount;
+            if (_nextWorkloadDiagnosticsAuditFrame == 0)
+            {
+                _nextWorkloadDiagnosticsAuditFrame =
+                    unchecked(currentFrame + WorkloadDiagnosticsAuditFrameInterval);
+                return;
+            }
+
+            if (unchecked(currentFrame - _nextWorkloadDiagnosticsAuditFrame) < 0)
+            {
+                return;
+            }
+
+            // Direct mutation is unsupported, but an external mod can still
+            // reach the public persistence records. Audit only after the BWT
+            // window closes so this defensive scan never enters its render
+            // or input path.
+            if (Find.MainTabsRoot?.OpenTab?.TabWindow is Better_Work_Tab.UI.MainTabWindow_BetterWork)
+            {
+                return;
+            }
+
+            _nextWorkloadDiagnosticsAuditFrame =
+                unchecked(currentFrame + WorkloadDiagnosticsAuditFrameInterval);
+            WorkloadsV2?.RefreshDiagnostics();
         }
 
         private void RefreshWorldSchemaDiagnostics()

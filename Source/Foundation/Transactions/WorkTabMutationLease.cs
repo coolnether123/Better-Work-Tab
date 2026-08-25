@@ -1,8 +1,6 @@
-using System;
-
-namespace Better_Work_Tab.Features.Application
+namespace Better_Work_Tab.Foundation.Transactions
 {
-    /// <summary>Application-owned optimistic lease for a compound mutation.</summary>
+    /// <summary>Optimistic revision lease for a compound Work-tab mutation.</summary>
     internal sealed class WorkTabMutationLease
     {
         private readonly long _authorityRevision;
@@ -11,7 +9,11 @@ namespace Better_Work_Tab.Features.Application
         private readonly int _settingsRevision;
         private bool _active = true;
 
-        internal WorkTabMutationLease(long authorityRevision, int specificJobRevision, int scheduleRevision, int settingsRevision)
+        internal WorkTabMutationLease(
+            long authorityRevision,
+            int specificJobRevision,
+            int scheduleRevision,
+            int settingsRevision)
         {
             _authorityRevision = authorityRevision;
             _specificJobRevision = specificJobRevision;
@@ -24,10 +26,18 @@ namespace Better_Work_Tab.Features.Application
         internal int SpecificJobRevision => _specificJobRevision;
         internal int ScheduleRevision => _scheduleRevision;
         internal int SettingsRevision => _settingsRevision;
-        internal bool IsAcceptedForSchedule(bool synchronizedExecution, long authorityRevision, int scheduleRevision) =>
-            _active && (!synchronizedExecution || (_authorityRevision == authorityRevision && _scheduleRevision == scheduleRevision));
-        internal bool IsAcceptedForSpecificBatch(bool synchronizedExecution, long authorityRevision, int specificJobRevision) =>
-            _active && (!synchronizedExecution || (_authorityRevision == authorityRevision && _specificJobRevision == specificJobRevision));
+        internal bool IsAcceptedForSchedule(
+            bool synchronizedExecution,
+            long authorityRevision,
+            int scheduleRevision) =>
+            _active && (!synchronizedExecution ||
+                (_authorityRevision == authorityRevision && _scheduleRevision == scheduleRevision));
+        internal bool IsAcceptedForSpecificBatch(
+            bool synchronizedExecution,
+            long authorityRevision,
+            int specificJobRevision) =>
+            _active && (!synchronizedExecution ||
+                (_authorityRevision == authorityRevision && _specificJobRevision == specificJobRevision));
         internal bool IsAcceptedForSpecificBatchRollback(
             bool synchronizedExecution,
             long authorityRevision,
@@ -37,9 +47,12 @@ namespace Better_Work_Tab.Features.Application
                 (_authorityRevision == authorityRevision &&
                  _specificJobRevision == initialRevision &&
                  appliedRevision == unchecked(initialRevision + 1)));
-        internal bool IsAcceptedForSettings(bool synchronizedExecution, long authorityRevision, int settingsRevision) =>
-            _active && (!synchronizedExecution || (_authorityRevision == authorityRevision && _settingsRevision == settingsRevision));
+        internal bool IsAcceptedForSettings(
+            bool synchronizedExecution,
+            long authorityRevision,
+            int settingsRevision) =>
+            _active && (!synchronizedExecution ||
+                (_authorityRevision == authorityRevision && _settingsRevision == settingsRevision));
         internal void FinalizeLease() => _active = false;
     }
-
 }

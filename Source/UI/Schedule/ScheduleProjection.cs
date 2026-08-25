@@ -4,6 +4,7 @@ using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using Verse;
 
@@ -41,7 +42,7 @@ namespace Better_Work_Tab.UI.Schedule
             }
 
             return WorkloadTimePriorityAdapter.TryGetScheduleTarget(target, out _, out reason) &&
-                   WorkTabEffectiveStateRuntime.TryGetPreviewV2Editor(out _);
+                   WorkloadProjectionRuntime.TryGetPreviewV2Editor(out _);
         }
 
         internal static TimePriorityScheduleValue ReadSchedule(
@@ -101,7 +102,7 @@ namespace Better_Work_Tab.UI.Schedule
                 ? WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.Set(
                     WorkloadTimePriorityAdapter.ToPayload(value))
                 : WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.Clear;
-            bool accepted = WorkTabEffectiveStateRuntime.TrySetScheduleIntent(
+            bool accepted = WorkloadProjectionRuntime.TrySetScheduleIntent(
                 key,
                 intent,
                 out WorkTabEffectiveStateMutationResult mutationResult);
@@ -131,7 +132,7 @@ namespace Better_Work_Tab.UI.Schedule
                 ? WorkTabEffectiveStateIds.ForGlobalSpecificJobTarget(workType, workGiver)
                 : WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiver);
             return ApplyFullDayPreview(target,
-                () => WorkTabEffectiveStateRuntime.TrySetSpecificJobPriority(key, priority, out _),
+                () => WorkloadProjectionRuntime.TrySetSpecificJobPriority(key, priority, out _),
                 WorkTabApplicationDimensions.Schedule | WorkTabApplicationDimensions.SpecificPriority);
         }
 
@@ -149,8 +150,8 @@ namespace Better_Work_Tab.UI.Schedule
             }
 
             WorkTabEffectiveStateResolution<WorkloadSchedulePayload> previous =
-                WorkTabEffectiveStateRuntime.ResolvePreviewScheduleIntent(key);
-            if (!WorkTabEffectiveStateRuntime.TrySetScheduleIntent(
+                WorkloadProjectionRuntime.ResolvePreviewScheduleIntent(key);
+            if (!WorkloadProjectionRuntime.TrySetScheduleIntent(
                     key,
                     WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.Clear,
                     out WorkTabEffectiveStateMutationResult clearResult))
@@ -159,7 +160,7 @@ namespace Better_Work_Tab.UI.Schedule
                 return new WorkTabApplicationResult(WorkTabApplicationOutcome.Applied, null,
                     new WorkTabApplicationChange(target, dimensions, false), revision);
 
-            bool restored = WorkTabEffectiveStateRuntime.TrySetScheduleIntent(
+            bool restored = WorkloadProjectionRuntime.TrySetScheduleIntent(
                 key, previous, out WorkTabEffectiveStateMutationResult result);
             return restored
                 ? WorkTabApplicationResult.Rejected("The active preview rejected the priority.", revision)
@@ -179,7 +180,7 @@ namespace Better_Work_Tab.UI.Schedule
                 return false;
             }
 
-            value = WorkTabEffectiveStateRuntime.ResolveSchedule(key);
+            value = WorkloadProjectionRuntime.ResolveSchedule(key);
             return true;
         }
 

@@ -118,31 +118,58 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                     return hash;
                 }
 
+                var relevantWorkTypes = new System.Collections.Generic.List<WorkTypeDef>(
+                    table.Columns.Count);
+                var seenWorkTypes = new System.Collections.Generic.HashSet<WorkTypeDef>();
+                for (int columnIndex = 0; columnIndex < table.Columns.Count; columnIndex++)
+                {
+                    WorkTypeDef workType = table.Columns[columnIndex]?.workType;
+                    if (workType != null && seenWorkTypes.Add(workType))
+                    {
+                        relevantWorkTypes.Add(workType);
+                    }
+                }
+
                 for (int pawnIndex = 0; pawnIndex < table.cachedPawns.Count; pawnIndex++)
                 {
                     Pawn pawn = table.cachedPawns[pawnIndex];
                     hash = (hash * 397) ^ (pawn?.thingIDNumber ?? 0);
-                    if (pawn?.workSettings?.priorities == null)
+                    if (pawn == null)
                     {
                         continue;
                     }
 
-                    for (int columnIndex = 0; columnIndex < table.Columns.Count; columnIndex++)
+                    if (pawn.workSettings?.priorities != null)
                     {
-                        WorkTypeDef workType = table.Columns[columnIndex]?.workType;
-                        if (workType != null)
+                        for (int workTypeIndex = 0;
+                             workTypeIndex < relevantWorkTypes.Count;
+                             workTypeIndex++)
                         {
+                            WorkTypeDef workType = relevantWorkTypes[workTypeIndex];
                             int priority = pawn.workSettings.priorities[workType];
                             hash = (hash * 397) ^ workType.shortHash;
                             hash = (hash * 397) ^ priority;
-                            if (pawn.skills != null)
-                            {
-                                hash = (hash * 397) ^
-                                    (int)(pawn.skills.AverageOfRelevantSkillsFor(workType) * 10f);
-                                hash = (hash * 397) ^
-                                    (int)pawn.skills.MaxPassionOfRelevantSkillsFor(workType);
-                            }
                         }
+                    }
+
+                    if (pawn.skills?.skills == null)
+                    {
+                        continue;
+                    }
+
+                    for (int skillIndex = 0;
+                         skillIndex < pawn.skills.skills.Count;
+                         skillIndex++)
+                    {
+                        SkillRecord skill = pawn.skills.skills[skillIndex];
+                        if (skill?.def == null)
+                        {
+                            continue;
+                        }
+
+                        hash = (hash * 397) ^ skill.def.shortHash;
+                        hash = (hash * 397) ^ skill.levelInt;
+                        hash = (hash * 397) ^ (int)skill.passion;
                     }
                 }
                 return hash;

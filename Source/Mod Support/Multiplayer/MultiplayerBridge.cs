@@ -526,7 +526,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
         AbortRequested = 8,
         Timeout = 9,
         Failure = 10,
-        RollbackReported = 11
+        RollbackReported = 11,
+        FinalConfirmationAcknowledged = 12
     }
 
     internal enum WorkloadTransactionTransitionAction : byte
@@ -539,7 +540,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
         ConfirmLocally = 5,
         SendFinalConfirmation = 6,
         SendConfirmationAcknowledgement = 7,
-        SendAbort = 8
+        SendAbort = 8,
+        SendFinalConfirmationAcknowledgement = 9
     }
 
     internal enum WorkloadTransactionControlKind : byte
@@ -548,6 +550,12 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
         ConfirmationRequest = 2,
         FinalConfirmation = 3,
         Abort = 4
+    }
+
+    internal enum WorkloadTransactionAcknowledgementKind : byte
+    {
+        ConfirmationReady = 0,
+        FinalConfirmationDelivered = 1
     }
 
     internal enum WorkloadTransactionTransitionDisposition : byte
@@ -810,7 +818,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
 
     internal sealed class WorkloadTransactionRequest
     {
-        internal const int CurrentProtocolVersion = 1;
+        internal const int CurrentProtocolVersion = 2;
         internal const int MaxIdentifierLength = 256;
         internal const int MaxParticipants = 256;
 
@@ -1295,6 +1303,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
         public long SettingsServiceRevision;
         public long MembershipRevision;
         public long TaxonomyRevision;
+        public byte AcknowledgementKind;
     }
 
     internal sealed class WorkloadTransactionWireResult
@@ -1381,7 +1390,10 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             bool confirmationControlReceived = false,
             bool abortDispatched = false,
             string hostParticipantKey = null,
-            bool confirmationControlAccepted = false)
+            bool confirmationControlAccepted = false,
+            IEnumerable<string> finalConfirmationAcknowledgedParticipants = null,
+            bool commitDecisionReached = false,
+            int timeoutBudget = 1)
         {
             RequestId = requestId;
             RequestFingerprint = requestFingerprint;
@@ -1393,10 +1405,14 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             RollbackParticipants = Freeze(rollbackParticipants);
             RollbackReportedParticipants = Freeze(rollbackReportedParticipants);
             ConfirmationAcknowledgedParticipants = Freeze(confirmationAcknowledgedParticipants);
+            FinalConfirmationAcknowledgedParticipants = Freeze(
+                finalConfirmationAcknowledgedParticipants);
             ConfirmationControlReceived = confirmationControlReceived;
             AbortDispatched = abortDispatched;
             HostParticipantKey = hostParticipantKey ?? string.Empty;
             ConfirmationControlAccepted = confirmationControlAccepted;
+            CommitDecisionReached = commitDecisionReached;
+            TimeoutBudget = Math.Max(1, timeoutBudget);
             MutationStarted = mutationStarted;
             DeadlineSequence = deadlineSequence;
             Code = code ?? string.Empty;
@@ -1415,10 +1431,13 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
         internal IReadOnlyList<string> RollbackParticipants { get; }
         internal IReadOnlyList<string> RollbackReportedParticipants { get; }
         internal IReadOnlyList<string> ConfirmationAcknowledgedParticipants { get; }
+        internal IReadOnlyList<string> FinalConfirmationAcknowledgedParticipants { get; }
         internal bool ConfirmationControlReceived { get; }
         internal bool AbortDispatched { get; }
         internal string HostParticipantKey { get; }
         internal bool ConfirmationControlAccepted { get; }
+        internal bool CommitDecisionReached { get; }
+        internal int TimeoutBudget { get; }
         internal bool MutationStarted { get; }
         internal long DeadlineSequence { get; }
         internal string Code { get; }
@@ -1558,6 +1577,26 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             return New(WorkloadTransactionEventKind.FinalConfirmationReceived, requestId, null, accepted, code, detail, null, sequence, false);
         }
 
+        internal static WorkloadTransactionEvent FinalConfirmationAcknowledged(
+            string requestId,
+            string peerKey,
+            bool accepted,
+            string code,
+            string detail,
+            long sequence)
+        {
+            return New(
+                WorkloadTransactionEventKind.FinalConfirmationAcknowledged,
+                requestId,
+                peerKey,
+                accepted,
+                code,
+                detail,
+                null,
+                sequence,
+                false);
+        }
+
         internal static WorkloadTransactionEvent Confirmed(
             string requestId,
             bool accepted,
@@ -1677,7 +1716,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 null,
                 null,
                 sequence,
-                hostParticipantKey: hostParticipantKey);
+                hostParticipantKey: hostParticipantKey,
+                timeoutBudget: request.TimeoutBudget);
             return Applied(state, WorkloadTransactionTransitionAction.None, null, null);
         }
 
@@ -1798,6 +1838,9 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
 
                 case WorkloadTransactionEventKind.FinalConfirmationReceived:
                     return ApplyFinalConfirmation(state, transactionEvent);
+
+                case WorkloadTransactionEventKind.FinalConfirmationAcknowledged:
+                    return ApplyFinalConfirmationAcknowledgement(state, transactionEvent);
 
                 case WorkloadTransactionEventKind.AbortRequested:
                     return Abort(state, transactionEvent, transactionEvent.Code, transactionEvent.Detail);
@@ -1941,6 +1984,25 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                     transactionEvent.Detail), WorkloadTransactionTransitionAction.None, transactionEvent.Code, transactionEvent.Detail);
             }
 
+            if (state.ParticipantKeys.Count == 1 &&
+                Contains(state.ParticipantKeys, state.HostParticipantKey))
+            {
+                return Applied(With(
+                    state,
+                    WorkloadTransactionPhase.Confirm,
+                    WorkloadTransactionTerminalState.Succeeded,
+                    state.PreparedParticipants,
+                    executed,
+                    state.RollbackParticipants,
+                    true,
+                    transactionEvent,
+                    "confirmed",
+                    "The host-only workload transaction requires no remote final delivery."),
+                    WorkloadTransactionTransitionAction.None,
+                    "confirmed",
+                    "The host-only workload transaction requires no remote final delivery.");
+            }
+
             return Applied(With(
                 state,
                 WorkloadTransactionPhase.Confirm,
@@ -2025,21 +2087,25 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                     transactionEvent.Detail);
             }
 
+            var finalAcknowledged = Add(null, state.HostParticipantKey);
             return Applied(With(
                 state,
                 WorkloadTransactionPhase.Confirm,
-                WorkloadTransactionTerminalState.Succeeded,
+                WorkloadTransactionTerminalState.Pending,
                 state.PreparedParticipants,
                 state.ExecutedParticipants,
                 state.RollbackParticipants,
                 state.MutationStarted,
                 transactionEvent,
-                transactionEvent.Code,
-                transactionEvent.Detail,
-                confirmationAcknowledgedParticipants: acknowledged),
+                "commit-decided",
+                "The host commit decision is awaiting final delivery acknowledgements.",
+                confirmationAcknowledgedParticipants: acknowledged,
+                finalConfirmationAcknowledgedParticipants: finalAcknowledged,
+                commitDecisionReached: true,
+                deadlineSequenceOverride: NextDeadline(state, transactionEvent.Sequence)),
                 WorkloadTransactionTransitionAction.SendFinalConfirmation,
-                transactionEvent.Code,
-                transactionEvent.Detail);
+                "commit-decided",
+                "The host commit decision is awaiting final delivery acknowledgements.");
         }
 
         private static WorkloadTransactionTransitionResult ApplyFinalConfirmation(
@@ -2051,7 +2117,23 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 return Ignored(state, "final-confirmation-not-expected", "The workload peer has not accepted host confirmation control.");
 
             if (!transactionEvent.Accepted)
-                return Rollback(state, transactionEvent, "final-confirmation-rejected", state.ExecutedParticipants);
+            {
+                return Applied(With(
+                    state,
+                    WorkloadTransactionPhase.Confirm,
+                    WorkloadTransactionTerminalState.Pending,
+                    state.PreparedParticipants,
+                    state.ExecutedParticipants,
+                    state.RollbackParticipants,
+                    state.MutationStarted,
+                    transactionEvent,
+                    "final-confirmation-rejected",
+                    transactionEvent.Detail,
+                    deadlineSequenceOverride: NextDeadline(state, transactionEvent.Sequence)),
+                    WorkloadTransactionTransitionAction.None,
+                    "final-confirmation-rejected",
+                    transactionEvent.Detail);
+            }
 
             return Applied(With(
                 state,
@@ -2064,9 +2146,95 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 transactionEvent,
                 transactionEvent.Code,
                 transactionEvent.Detail),
-                WorkloadTransactionTransitionAction.None,
+                WorkloadTransactionTransitionAction.SendFinalConfirmationAcknowledgement,
                 transactionEvent.Code,
                 transactionEvent.Detail);
+        }
+
+        private static WorkloadTransactionTransitionResult ApplyFinalConfirmationAcknowledgement(
+            WorkloadTransactionState state,
+            WorkloadTransactionEvent transactionEvent)
+        {
+            if (state.Phase != WorkloadTransactionPhase.Confirm ||
+                !state.CommitDecisionReached)
+            {
+                return Ignored(
+                    state,
+                    "final-confirmation-ack-not-expected",
+                    "The workload host has not reached its commit decision.");
+            }
+
+            if (!Contains(state.ParticipantKeys, transactionEvent.PeerKey) ||
+                string.Equals(
+                    state.HostParticipantKey,
+                    transactionEvent.PeerKey,
+                    StringComparison.Ordinal))
+            {
+                return Ignored(
+                    state,
+                    "unknown-final-confirmation-peer",
+                    "The final confirmation acknowledgement is not from a required peer.");
+            }
+
+            if (Contains(
+                    state.FinalConfirmationAcknowledgedParticipants,
+                    transactionEvent.PeerKey))
+            {
+                return Ignored(
+                    state,
+                    "duplicate-final-confirmation",
+                    "The final confirmation acknowledgement was already recorded.");
+            }
+
+            if (!transactionEvent.Accepted)
+            {
+                return Applied(With(
+                    state,
+                    WorkloadTransactionPhase.Confirm,
+                    WorkloadTransactionTerminalState.Pending,
+                    state.PreparedParticipants,
+                    state.ExecutedParticipants,
+                    state.RollbackParticipants,
+                    state.MutationStarted,
+                    transactionEvent,
+                    "final-confirmation-delivery-pending",
+                    transactionEvent.Detail,
+                    commitDecisionReached: true,
+                    deadlineSequenceOverride: NextDeadline(state, transactionEvent.Sequence)),
+                    WorkloadTransactionTransitionAction.SendFinalConfirmation,
+                    "final-confirmation-delivery-pending",
+                    transactionEvent.Detail);
+            }
+
+            IReadOnlyList<string> acknowledged = Add(
+                state.FinalConfirmationAcknowledgedParticipants,
+                transactionEvent.PeerKey);
+            bool complete = acknowledged.Count == state.ParticipantKeys.Count;
+            return Applied(With(
+                state,
+                WorkloadTransactionPhase.Confirm,
+                complete
+                    ? WorkloadTransactionTerminalState.Succeeded
+                    : WorkloadTransactionTerminalState.Pending,
+                state.PreparedParticipants,
+                state.ExecutedParticipants,
+                state.RollbackParticipants,
+                state.MutationStarted,
+                transactionEvent,
+                complete ? "confirmed" : transactionEvent.Code,
+                complete
+                    ? "Every peer acknowledged delivery of the final commit decision."
+                    : transactionEvent.Detail,
+                finalConfirmationAcknowledgedParticipants: acknowledged,
+                commitDecisionReached: true,
+                deadlineSequenceOverride: complete
+                    ? state.DeadlineSequence
+                    : NextDeadline(state, transactionEvent.Sequence)),
+                WorkloadTransactionTransitionAction.None,
+                complete ? "confirmed" : transactionEvent.Code,
+                complete
+                    ? "Every peer acknowledged delivery of the final commit decision."
+                    : transactionEvent.Detail);
         }
 
         private static WorkloadTransactionTransitionResult ApplyRollbackReport(
@@ -2145,6 +2313,9 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             string code,
             string detail)
         {
+            if (state.CommitDecisionReached)
+                return RetryFinalConfirmation(state, transactionEvent, code, detail);
+
             var rollbackRequired = MutationMayHaveStarted(state);
             var terminal = rollbackRequired
                 ? WorkloadTransactionTerminalState.RollbackRequired
@@ -2190,6 +2361,35 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             WorkloadTransactionState state,
             WorkloadTransactionEvent transactionEvent)
         {
+            if (state.CommitDecisionReached)
+            {
+                return RetryFinalConfirmation(
+                    state,
+                    transactionEvent,
+                    "final-confirmation-timeout",
+                    "The commit decision is awaiting final delivery acknowledgements; final confirmation will be retried.");
+            }
+
+            if (state.ConfirmationControlReceived &&
+                state.ConfirmationControlAccepted)
+            {
+                return Applied(With(
+                    state,
+                    WorkloadTransactionPhase.Confirm,
+                    WorkloadTransactionTerminalState.Pending,
+                    state.PreparedParticipants,
+                    state.ExecutedParticipants,
+                    state.RollbackParticipants,
+                    state.MutationStarted,
+                    transactionEvent,
+                    "confirmation-ready-timeout",
+                    "The prepared peer is still awaiting the host commit decision.",
+                    deadlineSequenceOverride: NextDeadline(state, transactionEvent.Sequence)),
+                    WorkloadTransactionTransitionAction.ConfirmLocally,
+                    "confirmation-ready-timeout",
+                    "The prepared peer is still awaiting the host commit decision.");
+            }
+
             var rollbackRequired = MutationMayHaveStarted(state);
             var terminal = rollbackRequired
                 ? WorkloadTransactionTerminalState.RollbackRequired
@@ -2215,6 +2415,15 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             WorkloadTransactionState state,
             WorkloadTransactionEvent transactionEvent)
         {
+            if (state.CommitDecisionReached)
+            {
+                return RetryFinalConfirmation(
+                    state,
+                    transactionEvent,
+                    transactionEvent.Code,
+                    transactionEvent.Detail);
+            }
+
             var rollbackRequired = MutationMayHaveStarted(state);
             var terminal = rollbackRequired
                 ? WorkloadTransactionTerminalState.RollbackRequired
@@ -2234,6 +2443,37 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 transactionEvent.Code,
                 transactionEvent.Detail,
                 abortDispatched: state.AbortDispatched || action == WorkloadTransactionTransitionAction.SendAbort), action, transactionEvent.Code, transactionEvent.Detail);
+        }
+
+        private static WorkloadTransactionTransitionResult RetryFinalConfirmation(
+            WorkloadTransactionState state,
+            WorkloadTransactionEvent transactionEvent,
+            string code,
+            string detail)
+        {
+            return Applied(With(
+                state,
+                WorkloadTransactionPhase.Confirm,
+                WorkloadTransactionTerminalState.Pending,
+                state.PreparedParticipants,
+                state.ExecutedParticipants,
+                state.RollbackParticipants,
+                state.MutationStarted,
+                transactionEvent,
+                code,
+                detail,
+                commitDecisionReached: true,
+                deadlineSequenceOverride: NextDeadline(state, transactionEvent.Sequence)),
+                WorkloadTransactionTransitionAction.SendFinalConfirmation,
+                code,
+                detail);
+        }
+
+        private static long NextDeadline(WorkloadTransactionState state, long sequence)
+        {
+            return sequence > long.MaxValue - state.TimeoutBudget
+                ? long.MaxValue
+                : sequence + state.TimeoutBudget;
         }
 
         private static bool MutationMayHaveStarted(WorkloadTransactionState state)
@@ -2271,7 +2511,10 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             bool confirmationControlReceived = false,
             bool abortDispatched = false,
             string reportFingerprintOverride = null,
-            bool confirmationControlAccepted = false)
+            bool confirmationControlAccepted = false,
+            IEnumerable<string> finalConfirmationAcknowledgedParticipants = null,
+            bool commitDecisionReached = false,
+            long? deadlineSequenceOverride = null)
         {
             return new WorkloadTransactionState(
                 state.RequestId,
@@ -2283,7 +2526,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 executedParticipants,
                 rollbackParticipants,
                 mutationStarted,
-                state.DeadlineSequence,
+                deadlineSequenceOverride ?? state.DeadlineSequence,
                 code,
                 detail,
                 reportFingerprintOverride ??
@@ -2294,7 +2537,11 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 confirmationControlReceived || state.ConfirmationControlReceived,
                 abortDispatched || state.AbortDispatched,
                 state.HostParticipantKey,
-                confirmationControlAccepted || state.ConfirmationControlAccepted);
+                confirmationControlAccepted || state.ConfirmationControlAccepted,
+                finalConfirmationAcknowledgedParticipants ??
+                    state.FinalConfirmationAcknowledgedParticipants,
+                commitDecisionReached || state.CommitDecisionReached,
+                state.TimeoutBudget);
         }
 
         private static bool Contains(IReadOnlyList<string> values, string value)
@@ -2934,8 +3181,52 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             if (!MatchesCurrentRequest(requestId, requestFingerprint))
                 return RejectExternalMessage("request-mismatch", "The final confirmation does not match the active request.");
 
+            if (_currentState != null &&
+                _currentState.TerminalState == WorkloadTransactionTerminalState.Succeeded &&
+                accepted)
+            {
+                return new WorkloadTransactionTransitionResult(
+                    _currentState,
+                    WorkloadTransactionTransitionDisposition.Ignored,
+                    WorkloadTransactionTransitionAction.SendFinalConfirmationAcknowledgement,
+                    "duplicate-final-confirmation",
+                    "The final commit decision was already applied; acknowledge delivery again.");
+            }
+
             return Apply(WorkloadTransactionEvent.FinalConfirmationReceived(
                 requestId,
+                accepted,
+                code,
+                detail,
+                sequence));
+        }
+
+        internal WorkloadTransactionTransitionResult RecordFinalConfirmationAcknowledgement(
+            string requestId,
+            string requestFingerprint,
+            string peerKey,
+            bool accepted,
+            string code,
+            string detail,
+            long sequence,
+            bool senderAuthenticated)
+        {
+            if (!senderAuthenticated)
+            {
+                return RejectExternalMessage(
+                    "unauthenticated-peer",
+                    "The final confirmation acknowledgement sender is not authenticated.");
+            }
+            if (!MatchesCurrentRequest(requestId, requestFingerprint))
+            {
+                return RejectExternalMessage(
+                    "request-mismatch",
+                    "The final confirmation acknowledgement does not match the active request.");
+            }
+
+            return Apply(WorkloadTransactionEvent.FinalConfirmationAcknowledged(
+                requestId,
+                peerKey,
                 accepted,
                 code,
                 detail,
@@ -3702,17 +3993,34 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                     false,
                     out actualSender,
                     out _);
-            Protocol.RecordConfirmationAcknowledgement(
-                acknowledgement.RequestId,
-                acknowledgement.RequestFingerprint,
-                actualSender,
-                acknowledgement.Accepted,
-                acknowledgement.Code,
-                acknowledgement.Detail,
-                acknowledgement.ReportFingerprint,
-                acknowledgement.Sequence,
-                authorized,
-                acknowledgement.RequiresRollback);
+            if ((WorkloadTransactionAcknowledgementKind)
+                    acknowledgement.AcknowledgementKind ==
+                WorkloadTransactionAcknowledgementKind.FinalConfirmationDelivered)
+            {
+                Protocol.RecordFinalConfirmationAcknowledgement(
+                    acknowledgement.RequestId,
+                    acknowledgement.RequestFingerprint,
+                    actualSender,
+                    acknowledgement.Accepted,
+                    acknowledgement.Code,
+                    acknowledgement.Detail,
+                    acknowledgement.Sequence,
+                    authorized);
+            }
+            else
+            {
+                Protocol.RecordConfirmationAcknowledgement(
+                    acknowledgement.RequestId,
+                    acknowledgement.RequestFingerprint,
+                    actualSender,
+                    acknowledgement.Accepted,
+                    acknowledgement.Code,
+                    acknowledgement.Detail,
+                    acknowledgement.ReportFingerprint,
+                    acknowledgement.Sequence,
+                    authorized,
+                    acknowledgement.RequiresRollback);
+            }
         }
 
         public static void ReceiveControl(WorkloadTransactionWireControl control)
@@ -3766,7 +4074,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                     control.PeerKey,
                     control.HostSessionEpoch,
                     control.RosterFingerprint);
-                Protocol.RecordFinalConfirmation(
+                WorkloadTransactionTransitionResult transition =
+                    Protocol.RecordFinalConfirmation(
                     control.RequestId,
                     control.RequestFingerprint,
                     control.Accepted,
@@ -3774,6 +4083,20 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                     control.Detail,
                     control.Sequence,
                     authorized);
+                WorkloadTransactionState current = Protocol.CurrentState;
+                if (authorized && control.Accepted && current != null &&
+                    current.TerminalState == WorkloadTransactionTerminalState.Succeeded &&
+                    !string.Equals(
+                        MultiplayerBridge.LocalPlayerName,
+                        current.HostParticipantKey,
+                        StringComparison.Ordinal) &&
+                    (transition.Action ==
+                         WorkloadTransactionTransitionAction.SendFinalConfirmationAcknowledgement ||
+                     transition.Disposition ==
+                         WorkloadTransactionTransitionDisposition.Ignored))
+                {
+                    SendFinalDeliveryAcknowledgement(control, current);
+                }
             }
             else if (controlKind == WorkloadTransactionControlKind.Abort)
             {
@@ -3830,6 +4153,36 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             WorkloadTransactionWireAcknowledgement acknowledgement)
         {
             _transport.SendPrepareAcknowledgement(acknowledgement);
+        }
+
+        private static void SendFinalDeliveryAcknowledgement(
+            WorkloadTransactionWireControl control,
+            WorkloadTransactionState state)
+        {
+            WorkloadTransactionRequest request = Protocol.CurrentRequest;
+            if (control == null || state == null || request == null)
+                return;
+            var acknowledgement = new WorkloadTransactionWireAcknowledgement
+            {
+                Phase = (byte)WorkloadTransactionPhase.Confirm,
+                AcknowledgementKind = (byte)
+                    WorkloadTransactionAcknowledgementKind.FinalConfirmationDelivered,
+                Accepted = true,
+                RequiresRollback = false,
+                RequestId = control.RequestId,
+                RequestFingerprint = control.RequestFingerprint,
+                HostSessionEpoch = control.HostSessionEpoch,
+                RosterFingerprint = control.RosterFingerprint,
+                PeerKey = MultiplayerBridge.LocalPlayerName,
+                Code = "final-confirmation-delivered",
+                Detail = "The peer committed the final workload decision.",
+                ReportFingerprint = state.ReportFingerprint,
+                Sequence = control.Sequence == long.MaxValue
+                    ? long.MaxValue
+                    : control.Sequence + 1
+            };
+            PopulateContext(request, acknowledgement);
+            SendConfirmationAcknowledgement(acknowledgement);
         }
 
         internal static void SendControl(WorkloadTransactionWireControl control)
@@ -4009,6 +4362,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             sync.Bind(ref value.SettingsServiceRevision);
             sync.Bind(ref value.MembershipRevision);
             sync.Bind(ref value.TaxonomyRevision);
+            sync.Bind(ref value.AcknowledgementKind);
         }
 
         private static void SyncResult(SyncWorker sync, ref WorkloadTransactionWireResult value)

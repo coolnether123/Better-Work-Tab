@@ -11,6 +11,7 @@ using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Commands;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Settings;
+using Better_Work_Tab.UI.Workloads.Projection;
 
 namespace Better_Work_Tab.UI.Headers.Angled
 {
@@ -421,7 +422,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
             HeaderContextMenu.ShowForWorkType(worker, table);
         }
 
-        private static void HandleShiftClick(PawnColumnWorker_WorkPriority worker, PawnTable table, int button)
+        private static void HandleShiftClick(
+            PawnColumnWorker_WorkPriority worker,
+            PawnTable table,
+            int button,
+            WorkTabApplication application = null)
         {
             // Shift-click is a bulk priority gesture. BWT may still render an external
             // authority's values, but it must not write them through the shared pawn store or
@@ -438,7 +443,12 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     out var parentWorkType,
                     out _))
             {
-                HandleSubWorkShiftClick(parentWorkType, workGiver.def, table, button);
+                HandleSubWorkShiftClick(
+                    parentWorkType,
+                    workGiver.def,
+                    table,
+                    button,
+                    application);
                 return;
             }
 
@@ -494,7 +504,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             if (!WorkTabEffectiveStateRuntime.IsPreviewActive && livePawns.Count > 0)
             {
                 WorkTabApplicationResult result =
-                    WorkTabApplication.Current?.SubmitDisplayedParentPriorityBatch(
+                    (application ?? WorkTabApplication.Current)?.SubmitDisplayedParentPriorityBatch(
                         livePawns,
                         workType,
                         livePriorities) ?? default;
@@ -521,7 +531,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             PawnColumnWorker_WorkPriority worker,
             PawnTable table,
             Event evt,
-            bool allowRootGrouping)
+            bool allowRootGrouping,
+            WorkTabApplication application = null)
         {
             if (worker == null || table == null || evt == null ||
                 !(evt.shift || (evt.modifiers & EventModifiers.Shift) != 0))
@@ -548,7 +559,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     return true;
                 }
 
-                HandleShiftClick(worker, table, evt.button);
+                HandleShiftClick(worker, table, evt.button, application);
                 evt.Use();
                 return true;
             }
@@ -560,12 +571,17 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 return false;
             }
 
-            HandleShiftClick(worker, table, evt.delta.y < 0f ? 0 : 1);
+            HandleShiftClick(worker, table, evt.delta.y < 0f ? 0 : 1, application);
             evt.Use();
             return true;
         }
 
-        private static void HandleSubWorkShiftClick(WorkTypeDef workType, WorkGiverDef workGiverDef, PawnTable table, int button)
+        private static void HandleSubWorkShiftClick(
+            WorkTypeDef workType,
+            WorkGiverDef workGiverDef,
+            PawnTable table,
+            int button,
+            WorkTabApplication application)
         {
             if (!PriorityAuthorityResolver.CanBetterWorkTabMutatePriorityData)
             {
@@ -589,7 +605,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     }
 
                     int parentPriority = ParentPriorityRead.GetObserved(pawn, workType);
-                    int currentPriority = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
+                    int currentPriority = WorkloadProjectionRuntime.TryGetSpecificJobPriority(
                         WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiverDef),
                         out int projectedPriority)
                         ? WorkPrioritySystem.ClampPriority(projectedPriority)
@@ -608,6 +624,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     if (nextPriority != currentPriority)
                     {
                         changedInPreview |= WorkPriorityCommandGateway.SetWorkGiverPriority(
+                            application ?? WorkTabApplication.Current,
                             pawn.thingIDNumber,
                             workGiverDef,
                             nextPriority);
@@ -667,7 +684,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             if (changed)
             {
-                if (WorkTabApplication.Current?
+                if ((application ?? WorkTabApplication.Current)?
                         .SubmitSpecificPriorityBatch(
                             workGiverDef,
                             pawnIds,

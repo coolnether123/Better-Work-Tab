@@ -2,9 +2,10 @@ using Better_Work_Tab;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Features.Application;
+using Better_Work_Tab.Foundation.Canonicalization;
+using Better_Work_Tab.Foundation.GameState;
+using Better_Work_Tab.Foundation.Transactions;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport;
@@ -23,14 +24,17 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
     internal static partial class WorkGiverReassignmentManager
     {
         private static readonly Dictionary<int, WorkTypeDef> WorkGiverTargetCache = new Dictionary<int, WorkTypeDef>();
+        private static readonly Dictionary<string, List<WorkGiverDef>> WorkGiverTopologyCache =
+            new Dictionary<string, List<WorkGiverDef>>(StringComparer.Ordinal);
         private static readonly Dictionary<string, List<WorkGiver>> OrderedWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
         private static readonly Dictionary<string, List<WorkGiver>> DisplayWorkGiverCache = new Dictionary<string, List<WorkGiver>>(StringComparer.Ordinal);
+        private static bool _workGiverTopologyBuilt;
         private static int _mutationBatchDepth;
         private static bool _mutationBatchChanged;
 
         private static int _cachedSyncVersion = -1;
         private static int _cachedActivationSyncVersion = int.MinValue;
-        private static GameComponent_BWTWorldSettings _cachedActivationComponent;
+        private static IWorkTabReassignmentState _cachedActivationState;
         private static bool _cachedHasAnyData;
         private static BetterWorkTabSettings Settings => BetterWorkTabMod.Settings;
 
@@ -236,8 +240,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             get
             {
-                var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-                return component?.WorkGiverReassignments ?? Settings?.LegacyWorkGiverReassignments;
+                IWorkTabReassignmentState state =
+                    WorkTabGameRoots.For(Current.Game)?.State.Reassignments;
+                return state?.Data ?? Settings?.LegacyWorkGiverReassignments;
             }
         }
 
@@ -245,10 +250,11 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             get
             {
-                var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-                if (component != null)
+                IWorkTabReassignmentState state =
+                    WorkTabGameRoots.For(Current.Game)?.State.Reassignments;
+                if (state != null)
                 {
-                    return component.EnsureWorkGiverReassignmentData();
+                    return state.EnsureData();
                 }
 
                 if (Settings == null)
@@ -263,7 +269,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static int CurrentSyncVersion => ExistingData?.SyncVersion ?? 0;
 
         internal static string CurrentStateFingerprint =>
-            Data?.ComputeStateFingerprint() ?? WorkloadCanonical.Fingerprint(string.Empty);
+            Data?.ComputeStateFingerprint() ?? DeterministicCanonical.Fingerprint(string.Empty);
 
         internal static bool CanSynchronouslyAcknowledgeExactGlobalMutation =>
             !MultiplayerBridge.Active;
@@ -273,13 +279,13 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             get
             {
                 WorkGiverReassignmentData data = ExistingData;
-                GameComponent_BWTWorldSettings component =
-                    Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+                IWorkTabReassignmentState state =
+                    WorkTabGameRoots.For(Current.Game)?.State.Reassignments;
                 int version = data?.SyncVersion ?? 0;
-                if (!ReferenceEquals(component, _cachedActivationComponent) ||
+                if (!ReferenceEquals(state, _cachedActivationState) ||
                     version != _cachedActivationSyncVersion)
                 {
-                    _cachedActivationComponent = component;
+                    _cachedActivationState = state;
                     _cachedActivationSyncVersion = version;
                     _cachedHasAnyData = data != null && data.HasAnyData();
                 }
@@ -294,10 +300,12 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static void InvalidateCaches()
         {
             WorkGiverTargetCache.Clear();
+            WorkGiverTopologyCache.Clear();
             OrderedWorkGiverCache.Clear();
             DisplayWorkGiverCache.Clear();
+            _workGiverTopologyBuilt = false;
             _cachedActivationSyncVersion = int.MinValue;
-            _cachedActivationComponent = null;
+            _cachedActivationState = null;
         }
 
         internal static IDisposable BeginMutationBatch()
@@ -884,47 +892,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             _cachedSyncVersion = ExistingData?.SyncVersion ?? 0;
         }
 
-        internal static void MigrateLegacySettingsDataIfNeeded(GameComponent_BWTWorldSettings component)
-        {
-            if (component == null)
-            {
-                OnSettingsLoaded();
-                return;
-            }
-
-            component.EnsureWorkGiverReassignmentData();
-
-            var settings = Settings;
-            var legacy = settings?.LegacyWorkGiverReassignments;
-            if (legacy != null && legacy.HasAnyData())
-            {
-                if (!component.WorkGiverReassignments.HasAnyData())
-                {
-                    component.WorkGiverReassignments = legacy.Clone();
-                    BetterWorkTabMod.DebugLog("Migrated legacy global sub-work reassignment settings into this save.", DebugFeature.General);
-                }
-                else
-                {
-                    BetterWorkTabMod.DebugLog("Ignored legacy global sub-work reassignment settings because this save already has sub-work data.", DebugFeature.General);
-                }
-
-                ClearLegacySettingsAfterLoad(settings);
-            }
-
-            OnWorldDataLoaded();
-        }
-
-        private static void ClearLegacySettingsAfterLoad(BetterWorkTabSettings settings)
-        {
-            if (settings == null)
-            {
-                return;
-            }
-
-            settings.LegacyWorkGiverReassignments = null;
-            LongEventHandler.ExecuteWhenFinished(settings.Write);
-        }
-
         internal static void OnWorldDataLoaded()
         {
             InvalidateCaches();
@@ -1008,6 +975,15 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return Array.Empty<WorkGiver>();
             }
 
+            // Display order differs per pawn only when that pawn actually has
+            // an order stored for this work type. Workload capture asks for
+            // display lists across the whole roster, so retaining a non-null
+            // pawn here otherwise defeats the shared cache thousands of times.
+            if (!applyPrioritySort && pawn != null && !HasPawnOrdering(pawn, workType))
+            {
+                pawn = null;
+            }
+
             if (applyPrioritySort && pawn == null && OrderedWorkGiverCache.TryGetValue(workType.defName, out var cached))
             {
                 return cached;
@@ -1018,7 +994,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return cached;
             }
 
-            var result = new List<WorkGiver>();
+            IReadOnlyList<WorkGiverDef> topology = GetWorkGiverTopology(workType);
+            var result = new List<WorkGiver>(topology.Count);
             var data = ExistingData;
 
             List<string> orderedNames = null;
@@ -1037,9 +1014,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 data.WorkTypeWorkGiverOrder.TryGetValue(workType.defName, out orderedNames);
             }
 
-            var handled = new HashSet<string>(StringComparer.Ordinal);
+            HashSet<string> handled = null;
             if (orderedNames != null)
             {
+                handled = new HashSet<string>(StringComparer.Ordinal);
                 for (int i = 0; i < orderedNames.Count; i++)
                 {
                     var name = orderedNames[i];
@@ -1061,27 +1039,16 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 }
             }
 
-            var remaining = new List<WorkGiverDef>();
-            foreach (var def in DefDatabase<WorkGiverDef>.AllDefsListForReading)
+            for (int i = 0; i < topology.Count; i++)
             {
-                if (GetTargetWorkType(def) != workType)
+                WorkGiverDef def = topology[i];
+                if (handled == null || !handled.Contains(def.defName))
                 {
-                    continue;
-                }
-
-                if (!handled.Contains(def.defName))
-                {
-                    remaining.Add(def);
-                }
-            }
-
-            remaining.Sort((a, b) => b.priorityInType.CompareTo(a.priorityInType));
-            for (int i = 0; i < remaining.Count; i++)
-            {
-                var worker = remaining[i].Worker;
-                if (worker != null)
-                {
-                    result.Add(worker);
+                    WorkGiver worker = def.Worker;
+                    if (worker != null)
+                    {
+                        result.Add(worker);
+                    }
                 }
             }
 
@@ -1093,31 +1060,42 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     ? WorkPrioritySystem.GetDefaultEnabledPriority()
                     : ParentPriorityRead.GetLive(pawn, workType);
 
-                var indexed = result.Select((g, idx) => new { g, idx }).ToList();
-                indexed.Sort((a, b) =>
+                var indexed = new List<WorkGiverPriorityRecord>(result.Count);
+                for (int i = 0; i < result.Count; i++)
                 {
-                    int pa = GetWorkGiverPriority(sortingPawn, a.g.def, defaultPrio);
-                    int pb = GetWorkGiverPriority(sortingPawn, b.g.def, defaultPrio);
+                    WorkGiver workGiver = result[i];
+                    int priority = GetWorkGiverPriority(sortingPawn, workGiver.def, defaultPrio);
                     if (sortingPawn != null)
                     {
-                        pa = TimePriorityService.GetEffectiveWorkGiverPriority(sortingPawn, workType, a.g.def, pa);
-                        pb = TimePriorityService.GetEffectiveWorkGiverPriority(sortingPawn, workType, b.g.def, pb);
+                        priority = TimePriorityService.GetEffectiveWorkGiverPriority(
+                            sortingPawn,
+                            workType,
+                            workGiver.def,
+                            priority);
                     }
 
-                    // Treat 0 as disabled (lowest priority)
-                    int valA = (pa == 0) ? 999 : pa;
-                    int valB = (pb == 0) ? 999 : pb;
+                    indexed.Add(new WorkGiverPriorityRecord(
+                        workGiver,
+                        i,
+                        priority == WorkPrioritySystem.DisabledPriority ? 999 : priority));
+                }
 
-                    int c = valA.CompareTo(valB);
+                indexed.Sort((a, b) =>
+                {
+                    int c = a.Priority.CompareTo(b.Priority);
                     if (c != 0) return c;
 
                     // Secondary sort: saved/manual order.
-                    c = a.idx.CompareTo(b.idx);
+                    c = a.OriginalIndex.CompareTo(b.OriginalIndex);
                     if (c != 0) return c;
 
-                    return b.g.def.priorityInType.CompareTo(a.g.def.priorityInType);
+                    return b.WorkGiver.def.priorityInType.CompareTo(a.WorkGiver.def.priorityInType);
                 });
-                result = indexed.Select(x => x.g).ToList();
+                result.Clear();
+                for (int i = 0; i < indexed.Count; i++)
+                {
+                    result.Add(indexed[i].WorkGiver);
+                }
             }
 
             if (pawn == null)
@@ -1133,6 +1111,66 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             return result;
+        }
+
+        private static IReadOnlyList<WorkGiverDef> GetWorkGiverTopology(WorkTypeDef workType)
+        {
+            EnsureWorkGiverTopology();
+            if (workType?.defName != null &&
+                WorkGiverTopologyCache.TryGetValue(workType.defName, out List<WorkGiverDef> topology))
+            {
+                return topology;
+            }
+
+            return Array.Empty<WorkGiverDef>();
+        }
+
+        private static void EnsureWorkGiverTopology()
+        {
+            if (_workGiverTopologyBuilt)
+            {
+                return;
+            }
+
+            List<WorkGiverDef> allWorkGivers = DefDatabase<WorkGiverDef>.AllDefsListForReading;
+            for (int i = 0; i < allWorkGivers.Count; i++)
+            {
+                WorkGiverDef def = allWorkGivers[i];
+                WorkTypeDef target = GetTargetWorkType(def);
+                if (target?.defName == null)
+                {
+                    continue;
+                }
+
+                if (!WorkGiverTopologyCache.TryGetValue(target.defName, out List<WorkGiverDef> topology))
+                {
+                    topology = new List<WorkGiverDef>();
+                    WorkGiverTopologyCache.Add(target.defName, topology);
+                }
+
+                topology.Add(def);
+            }
+
+            foreach (List<WorkGiverDef> topology in WorkGiverTopologyCache.Values)
+            {
+                topology.Sort((a, b) => b.priorityInType.CompareTo(a.priorityInType));
+            }
+
+            _workGiverTopologyBuilt = true;
+        }
+
+        private readonly struct WorkGiverPriorityRecord
+        {
+            internal WorkGiverPriorityRecord(WorkGiver workGiver, int originalIndex, int priority)
+            {
+                WorkGiver = workGiver;
+                OriginalIndex = originalIndex;
+                Priority = priority;
+            }
+
+            internal WorkGiver WorkGiver { get; }
+            internal int OriginalIndex { get; }
+            internal int Priority { get; }
         }
 
         internal static List<Pawn> GetPawnsWithOverrides(WorkTypeDef workType)

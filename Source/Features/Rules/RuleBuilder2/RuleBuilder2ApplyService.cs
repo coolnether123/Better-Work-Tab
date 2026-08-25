@@ -4,6 +4,7 @@ using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Foundation.GameState;
 using RimWorld;
 using Verse;
 
@@ -120,7 +121,8 @@ namespace Better_Work_Tab.Features.Rules.RuleBuilder2
             }
 
             WorkTabApplicationResult applicationResult =
-                WorkTabApplication.Current?.ApplyAtomicMutationPlan(mutation) ??
+                WorkTabGameRoots.For(Current.Game)?.Application?
+                    .ApplyAtomicMutationPlan(mutation) ??
                 WorkTabApplicationResult.Rejected(
                     "Rule Builder 2.0 could not apply its atomic ruleset mutation.", default);
             if (!applicationResult.Accepted)

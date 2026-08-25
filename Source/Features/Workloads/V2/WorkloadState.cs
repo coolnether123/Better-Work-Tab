@@ -336,6 +336,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
         private readonly ReadOnlyCollection<PawnKey> _representedPawnIds;
         private readonly ReadOnlyCollection<PawnKey> _excludedPawnIds;
         private readonly Dictionary<PawnKey, WorkloadPawnStateSnapshot> _excludedStagedStates;
+        private string _canonicalFormAll;
+        private string _semanticFingerprintAll;
 
         public WorkloadProjectedState(
             IEnumerable<WorkloadParentPriorityEntry> parentPriorities = null,
@@ -507,11 +509,32 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
         public string GetCanonicalForm(WorkloadOwnershipDimensions dimensions)
         {
+            if (dimensions == WorkloadOwnershipDimensions.All)
+            {
+                if (_canonicalFormAll == null)
+                {
+                    _canonicalFormAll = WorkloadCanonicalState.For(this, dimensions);
+                }
+
+                return _canonicalFormAll;
+            }
+
             return WorkloadCanonicalState.For(this, dimensions);
         }
 
         public string GetSemanticFingerprint(WorkloadOwnershipDimensions dimensions)
         {
+            if (dimensions == WorkloadOwnershipDimensions.All)
+            {
+                if (_semanticFingerprintAll == null)
+                {
+                    _semanticFingerprintAll = WorkloadCanonical.Fingerprint(
+                        GetCanonicalForm(dimensions));
+                }
+
+                return _semanticFingerprintAll;
+            }
+
             return WorkloadCanonical.Fingerprint(GetCanonicalForm(dimensions));
         }
 

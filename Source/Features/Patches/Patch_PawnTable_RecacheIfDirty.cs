@@ -174,6 +174,7 @@ namespace Better_Work_Tab.Features.Patches
             if (__instance == null || __instance.GetType().Name != "MainTabWindow_BetterWork")
                 return;
 
+            UI.Workloads.WorkloadPawnRosterCache.NotifyRosterChanged();
             UI.WorkGrid.Invalidation.WorkTabInvalidationHub.Invalidate(
                 UI.WorkGrid.Contracts.WorkTabDirtyFlags.PawnListOrder);
         }

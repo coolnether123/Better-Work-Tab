@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Application;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using RimWorld;
@@ -19,7 +19,7 @@ namespace Better_Work_Tab.Features.TimePriority
         private static readonly Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> EmptySchedules =
             new Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue>();
         private static TimePriorityScheduleRuntime State =>
-            Current.Game?.GetComponent<GameComponent_BWTWorldSettings>()?.ScheduleRuntime;
+            WorkTabGameRoots.For(Current.Game)?.ScheduleRuntime;
         private static Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> RuntimeSchedules =>
             State?.RuntimeSchedules ?? EmptySchedules;
         private static Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> LegacySchedules =>
@@ -1492,10 +1492,10 @@ namespace Better_Work_Tab.Features.TimePriority
 
         private static List<TimePriorityScheduleData> GetSchedules(bool create)
         {
-            GameComponent_BWTWorldSettings component = State?.Component;
-            if (component?.TimePrioritySchedules == null && create)
-                component.TimePrioritySchedules = new List<TimePriorityScheduleData>();
-            return component?.TimePrioritySchedules;
+            IWorkTabScheduleStore<TimePriorityScheduleData> store = State?.Store;
+            if (store?.ScheduleRows == null && create)
+                store.ScheduleRows = new List<TimePriorityScheduleData>();
+            return store?.ScheduleRows;
         }
 
         private static void RecordMutation()
@@ -1840,17 +1840,19 @@ namespace Better_Work_Tab.Features.TimePriority
     }
 
     /// <summary>
-    /// Non-serialized schedule runtime owned by one world component. Persisted
-    /// rows remain on the component; this state never retains a prior game.
+    /// Non-serialized schedule runtime owned by one per-game Work Tab root.
+    /// Persisted rows remain behind a narrow store; this state never retains a
+    /// prior game or knows the save-facing GameComponent type.
     /// </summary>
     internal sealed class TimePriorityScheduleRuntime
     {
-        internal TimePriorityScheduleRuntime(GameComponent_BWTWorldSettings component)
+        internal TimePriorityScheduleRuntime(
+            IWorkTabScheduleStore<TimePriorityScheduleData> store)
         {
-            Component = component;
+            Store = store;
         }
 
-        internal GameComponent_BWTWorldSettings Component { get; }
+        internal IWorkTabScheduleStore<TimePriorityScheduleData> Store { get; }
         internal readonly Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> RuntimeSchedules =
             new Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue>();
         internal readonly Dictionary<TimePriorityCacheKey, TimePriorityScheduleValue> LegacySchedules =

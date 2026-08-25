@@ -1,5 +1,6 @@
 using System;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features.TimePriority;
@@ -27,10 +28,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
     internal sealed class WorkTabPriorityInputHandler
     {
         private readonly WorkTabBodyRenderer _bodyRenderer;
+        private readonly Func<WorkTabApplication> _application;
 
-        internal WorkTabPriorityInputHandler(WorkTabBodyRenderer bodyRenderer)
+        internal WorkTabPriorityInputHandler(
+            WorkTabBodyRenderer bodyRenderer,
+            Func<WorkTabApplication> application)
         {
             _bodyRenderer = bodyRenderer ?? throw new ArgumentNullException(nameof(bodyRenderer));
+            _application = application ?? throw new ArgumentNullException(nameof(application));
         }
 
         internal bool TryHandlePriorityCellInput(in WorkTabView view, Event evt)
@@ -142,6 +147,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                     parentWorkType,
                     row.Pawn,
                     priorityBoxRect,
+                    _application(),
                     parentPriority);
                 return handled;
             }
@@ -168,7 +174,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             bool parentHandled = Patch_WorkPriority_DoCell_Unified.TryHandleRootPriorityInput(
                 rootCellRect,
                 row.Pawn,
-                workType);
+                workType,
+                _application());
             return parentHandled;
         }
 

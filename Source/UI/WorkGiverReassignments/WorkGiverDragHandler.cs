@@ -8,6 +8,7 @@ using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.Headers;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Workloads;
+using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -22,6 +23,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
     {
         private readonly Window_WorkGiverSubMenu _window;
         private readonly WorkTypeDef _workType;
+        private readonly WorkTabApplication _application;
         
         private int _draggedIndex = -1;
         private Vector2 _dragStartPos;
@@ -36,10 +38,14 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         public int TargetIndex => _targetIndex;
         public int DraggedIndex => _draggedIndex;
 
-        public WorkGiverDragHandler(Window_WorkGiverSubMenu window, WorkTypeDef workType)
+        public WorkGiverDragHandler(
+            Window_WorkGiverSubMenu window,
+            WorkTypeDef workType,
+            WorkTabApplication application)
         {
             _window = window;
             _workType = workType;
+            _application = application;
         }
 
         private List<WorkGiver> _originalWorkGivers;
@@ -234,7 +240,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 WorkloadWorkTypeOrderPayload payload =
                     new WorkloadWorkTypeOrderPayload(orderKeys);
                 if (!payload.IsValid ||
-                    !WorkTabEffectiveStateRuntime.TrySetWorkTypeOrder(
+                    !WorkloadProjectionRuntime.TrySetWorkTypeOrder(
                         orderKey,
                         payload,
                         out _))
@@ -257,7 +263,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             workGivers.Clear();
             workGivers.AddRange(reordered);
-            if (WorkTabApplication.Current?
+            if (_application?
                     .SubmitSpecificOrder(
                         _window.Pawn,
                         _window.WorkType,

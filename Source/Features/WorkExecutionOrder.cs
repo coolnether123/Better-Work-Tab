@@ -1,7 +1,7 @@
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Foundation.GameState;
 using HarmonyLib;
 using RimWorld;
 using System;
@@ -48,6 +48,8 @@ namespace Better_Work_Tab.Features
         private static Game cachedCustomOrderGame;
         private static int cachedCustomOrderGeneration = int.MinValue;
         private static bool cachedHasCustomOrder;
+        private static readonly Dictionary<string, int> CachedColumnOrderIndexes =
+            new Dictionary<string, int>(StringComparer.Ordinal);
         private static readonly List<string> EmptyColumnOrder = new List<string>(0);
         private static FieldInfo PawnFI
         {
@@ -58,22 +60,14 @@ namespace Better_Work_Tab.Features
         {
             get
             {
-                GameComponent_BWTWorldSettings component =
-                    Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-                if (component == null)
+                IWorkTabColumnOrderState state =
+                    WorkTabGameRoots.For(Current.Game)?.State.ColumnOrder;
+                if (state == null)
                 {
                     return false;
                 }
 
-                if (!ReferenceEquals(cachedCustomOrderGame, Current.Game) ||
-                    cachedCustomOrderGeneration != component.ColumnOrderGeneration)
-                {
-                    cachedCustomOrderGame = Current.Game;
-                    cachedCustomOrderGeneration = component.ColumnOrderGeneration;
-                    cachedHasCustomOrder = HasDifferentOrder(
-                        component.ColumnCurrentOrder,
-                        component.ColumnBaselineOrder);
-                }
+                EnsureColumnOrderCache(state);
 
                 return cachedHasCustomOrder;
             }
@@ -114,14 +108,9 @@ namespace Better_Work_Tab.Features
             }
 
             // 2) Build saved order index map from settings (workType.defName -> index)
-            var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            var saved = comp?.ColumnCurrentOrder ?? EmptyColumnOrder;
-            var indexMap = new Dictionary<string, int>(StringComparer.Ordinal);
-            for (int i = 0; i < saved.Count; i++)
-            {
-                if (!string.IsNullOrEmpty(saved[i]) && !indexMap.ContainsKey(saved[i]))
-                    indexMap.Add(saved[i], i);
-            }
+            IWorkTabColumnOrderState state =
+                WorkTabGameRoots.For(Current.Game)?.State.ColumnOrder;
+            IReadOnlyDictionary<string, int> indexMap = GetColumnOrderIndexes(state);
 
             // 3) Sort active work types: manual priority asc, saved order asc, naturalPriority desc
             activeWTs.Sort((a, b) =>
@@ -177,6 +166,42 @@ namespace Better_Work_Tab.Features
             NormalFI.SetValue(ws, normal);
             EmergFI.SetValue(ws, emerg);
             DirtyFI.SetValue(ws, false);
+        }
+
+        private static IReadOnlyDictionary<string, int> GetColumnOrderIndexes(
+            IWorkTabColumnOrderState state)
+        {
+            EnsureColumnOrderCache(state);
+            return CachedColumnOrderIndexes;
+        }
+
+        private static void EnsureColumnOrderCache(IWorkTabColumnOrderState state)
+        {
+            Game game = Current.Game;
+            if (state != null &&
+                ReferenceEquals(cachedCustomOrderGame, game) &&
+                cachedCustomOrderGeneration == state.Generation)
+            {
+                return;
+            }
+
+            cachedCustomOrderGame = game;
+            cachedCustomOrderGeneration = state?.Generation ?? int.MinValue;
+            CachedColumnOrderIndexes.Clear();
+
+            List<string> saved = state?.CurrentOrder ?? EmptyColumnOrder;
+            for (int i = 0; i < saved.Count; i++)
+            {
+                string defName = saved[i];
+                if (!string.IsNullOrEmpty(defName) && !CachedColumnOrderIndexes.ContainsKey(defName))
+                {
+                    CachedColumnOrderIndexes.Add(defName, i);
+                }
+            }
+
+            cachedHasCustomOrder = state != null && HasDifferentOrder(
+                state.CurrentOrder,
+                state.BaselineOrder);
         }
 
         private static bool HasDifferentOrder(List<string> current, List<string> baseline)

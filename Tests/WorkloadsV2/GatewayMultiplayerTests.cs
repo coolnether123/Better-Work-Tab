@@ -101,7 +101,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the patch's visual incapability cache must use the canonical capability computation");
             TestAssert.Contains(
                 prioritySnapshot,
-                "!WorkTabActionability.CanApplyAnyWorkGiver(pawn, workType)",
+                "!WorkTabActionability.CanApplyAnyWorkGiver(pawn, visualWorkType)",
                 "snapshot cell presentation must use the canonical capability computation");
             TestAssert.False(
                 prioritySnapshot.IndexOf("private static bool IsIncapable(", StringComparison.Ordinal) >= 0,

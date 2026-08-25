@@ -36,19 +36,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     }
 
     /// <summary>
-    /// Optional BWT-owned composition capability. It gives the direct
-    /// ExpandBeside renderer the already-finished sub-work presentation while
-    /// leaving the native/Harmony fallback on its established live path.
-    /// </summary>
-    internal interface IWorkGridSubWorkPresentationLayer
-    {
-        bool TryGetSubWorkPresentation(
-            int rowIndex,
-            int columnIndex,
-            out WorkGiverCellPresentationCache.CellPresentation presentation);
-    }
-
-    /// <summary>
     /// Narrow drawing capability shared by the vanilla and optimized Work-grid
     /// renderers.
     /// </summary>

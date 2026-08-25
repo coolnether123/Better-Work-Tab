@@ -10,10 +10,12 @@ using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
+using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.Workloads;
 using RimWorld;
 using Verse;
 
-namespace Better_Work_Tab.UI.WorkGrid.Projection
+namespace Better_Work_Tab.UI.Workloads.Projection
 {
     /// <summary>
     /// Optional BWT-owned wiring for the callback live provider. This adapter
@@ -244,21 +246,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return null;
             }
 
-            var pawns = PawnsFinder.All_AliveOrDead;
-            if (pawns == null)
-            {
-                return null;
-            }
-
-            foreach (Pawn pawn in pawns)
-            {
-                if (pawn != null && pawn.thingIDNumber == thingId)
-                {
-                    return pawn;
-                }
-            }
-
-            return null;
+            return WorkloadPawnRosterCache.ResolvePawn(thingId);
         }
 
         private static WorkTypeDef ResolveWorkType(WorkTypeKey key)

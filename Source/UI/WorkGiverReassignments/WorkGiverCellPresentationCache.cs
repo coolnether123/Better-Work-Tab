@@ -4,6 +4,9 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.WorkGrid.Rendering;
+using Better_Work_Tab.UI.WorkGrid.Snapshots;
+using Better_Work_Tab.UI.Workloads.Projection;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -13,9 +16,10 @@ using Verse;
 namespace Better_Work_Tab.UI.WorkGiverReassignments
 {
     /// <summary>
-    /// Retains the non-visual state required to paint a sub-work priority cell. IMGUI still
-    /// repaints textures and text every pass, while dictionary, schedule, and inheritance
-    /// resolution only reruns when an authoritative version or direct parent value changes.
+    /// Retains the finished state required to paint a sub-work priority cell, including
+    /// prepared work-box visual inputs. IMGUI still submits textures and text every pass,
+    /// while skill, schedule, inheritance, and capability resolution rerun only when an
+    /// authoritative version or direct parent value changes.
     /// </summary>
     internal static class WorkGiverCellPresentationCache
     {
@@ -33,7 +37,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static ushort _lastParentWorkTypeHash;
         private static int _lastParentPriority;
         private static WorkTabEffectiveStateRevision _effectiveStateRevision;
-        private static long _effectiveStateRenderPassId = -1L;
+        private static long _observedEffectiveStateRenderPassId = -1L;
         private static bool _externalPriorityAuthority;
         private static bool _hasEffectiveStateRevision;
 
@@ -53,6 +57,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             bool lockedOverrides = WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent();
             var key = new CellKey(pawnId, workType?.shortHash ?? 0, workGiver?.def?.shortHash ?? 0);
             int dynamicStateVersion = WorkGiverPresentationInvalidation.GetPawnDynamicVersion(pawn);
+            int skillRevision = WorkGiverPresentationInvalidation.SkillRevision;
             CellPresentation cached = null;
             bool hasCached = !_externalPriorityAuthority &&
                              Entries.TryGetValue(key, out cached);
@@ -64,6 +69,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 cached.ParentPriority == parentPriority &&
                 cached.Hour == hour &&
                 cached.LockedOverrides == lockedOverrides &&
+                cached.SkillRevision == skillRevision &&
                 cached.DynamicStateVersion == dynamicStateVersion)
             {
                 return cached;
@@ -81,6 +87,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 parentPriority,
                 hour,
                 lockedOverrides);
+            resolved.SkillRevision = skillRevision;
 
             if (!_externalPriorityAuthority)
             {
@@ -107,7 +114,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     : WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
             WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload> effectiveResolution =
                 specificTarget.IsValid
-                    ? WorkTabEffectiveStateRuntime.ResolveSpecificJobPriority(specificTarget)
+                    ? WorkloadProjectionRuntime.ResolveSpecificJobPriority(specificTarget)
                     : WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
             bool hasProjectedOverride = specificResolution.IsSet;
             int projectedPriority = hasProjectedOverride
@@ -132,7 +139,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             if (pawn != null && !hasProjectedOverride &&
                 !hasProjectedFallbackOverride && !hasProjectedClear)
             {
-                hasProjectedOverride = WorkTabEffectiveStateRuntime.TryGetSpecificJobPriority(
+                hasProjectedOverride = WorkloadProjectionRuntime.TryGetSpecificJobPriority(
                     WorkTabEffectiveStateIds.ForSpecificJobTarget(pawn, workType, workGiverDef),
                     out projectedPriority);
             }
@@ -274,6 +281,19 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             presentation.ScheduleFallbackPriority = scheduleFallbackPriority;
             presentation.InheritedPriority = inheritedPriority;
             RefreshDynamicState(presentation, pawn, workType, workGiver);
+            if (pawn != null && workType != null)
+            {
+                presentation.WorkBoxVisual = PreparedWorkBoxRenderer.Capture(
+                    pawn,
+                    workType,
+                    effectivePriority,
+                    presentation.WorkTypeDisabled,
+                    presentation.Incapable,
+                    presentation.DisabledByAge,
+                    false,
+                    parentPriority > WorkPrioritySystem.DisabledPriority,
+                    -1);
+            }
             return presentation;
         }
 
@@ -323,22 +343,34 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
         private static void RefreshFrameState()
         {
+            // Layout, input, and Repaint use different provider objects for
+            // their mutable and captured views, but an unchanged revision
+            // represents the same cell data. Retain presentations across
+            // those scope transitions and clear them only for data changes.
             long renderPassId = WorkTabEffectiveStateRuntime.CurrentRenderPassId;
+            bool externalPriorityAuthority =
+                PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority;
             if (!_hasEffectiveStateRevision ||
-                _effectiveStateRenderPassId != renderPassId)
+                _observedEffectiveStateRenderPassId != renderPassId ||
+                _externalPriorityAuthority != externalPriorityAuthority)
             {
                 WorkTabEffectiveStateRevision currentRevision =
                     WorkTabEffectiveStateRuntime.CurrentRevision;
                 renderPassId = WorkTabEffectiveStateRuntime.CurrentRenderPassId;
-                Entries.Clear();
-                PawnHours.Clear();
-                ParentPriorities.Clear();
-                _lastParentPawnId = int.MinValue;
-                _effectiveStateRevision = currentRevision;
-                _effectiveStateRenderPassId = renderPassId;
-                _externalPriorityAuthority =
-                    PriorityAuthorityBroker.ExternalWorkTabHasPriorityAuthority;
-                _hasEffectiveStateRevision = true;
+                if (!_hasEffectiveStateRevision ||
+                    _effectiveStateRevision != currentRevision ||
+                    _externalPriorityAuthority != externalPriorityAuthority)
+                {
+                    Entries.Clear();
+                    PawnHours.Clear();
+                    ParentPriorities.Clear();
+                    _lastParentPawnId = int.MinValue;
+                    _effectiveStateRevision = currentRevision;
+                    _externalPriorityAuthority = externalPriorityAuthority;
+                    _hasEffectiveStateRevision = true;
+                }
+
+                _observedEffectiveStateRenderPassId = renderPassId;
             }
 
             int frame = Time.frameCount;
@@ -498,6 +530,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             internal int ScheduleFallbackPriority;
             internal int InheritedPriority;
             internal int DynamicStateVersion;
+            internal int SkillRevision;
+            internal WorkBoxVisualState WorkBoxVisual;
         }
     }
 }

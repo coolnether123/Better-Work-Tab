@@ -4,7 +4,7 @@ using Verse;
 using UnityEngine;
 using RimWorld;
 using Better_Work_Tab.Mod_Support.LocalProfiles;
-using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.PawnOrganizer.Data;
 using Better_Work_Tab.PawnOrganizer.API;
@@ -34,9 +34,10 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Layouts
 
              // Follow Mode carries the leader's visible layout. Application-owned
              // ColumnCurrentOrder remains the shared simulation execution tiebreaker.
-             var comp = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-             if (comp != null && comp.ColumnCurrentOrder != null)
-                 snap.ColumnOrder = new List<string>(comp.ColumnCurrentOrder);
+             IWorkTabColumnOrderState columnOrder =
+                 WorkTabGameRoots.For(Current.Game)?.State.ColumnOrder;
+             if (columnOrder?.CurrentOrder != null)
+                 snap.ColumnOrder = new List<string>(columnOrder.CurrentOrder);
              
              return snap;
         }

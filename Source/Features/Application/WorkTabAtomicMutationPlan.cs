@@ -5,7 +5,6 @@ using System.Linq;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using RimWorld;
 using Verse;
 
@@ -141,25 +140,15 @@ namespace Better_Work_Tab.Features.Application
             TimePriorityCacheKey target = TimePriorityTarget.ForWorkGiver(pawn, workGiver).CacheKey;
             if (!_specific.TryGetValue(target, out WorkTabRuleSpecificPriority entry))
             {
-                bool useSleek = SleekWorkTabGateway.SleekCodeRuns;
-                int initial = WorkPrioritySystem.DisabledPriority;
-                bool hasOverride;
-                if (useSleek)
-                {
-                    hasOverride = SleekWorkTabGateway.TryGetSleekWorkGiverOverride(pawn, workGiver, out initial) && initial >= 0;
-                }
-                else
-                {
-                    hasOverride = WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
-                        pawn, workGiver, out initial);
-                }
+                SpecificJobPriorityStorageSnapshot captured =
+                    SpecificJobPriorityAuthorityAdapter.Capture(pawn, workGiver);
 
                 entry = new WorkTabRuleSpecificPriority(
                     pawn,
                     workGiver,
-                    useSleek,
-                    hasOverride,
-                    initial,
+                    captured.StorageKind,
+                    captured.HadOverride,
+                    captured.Priority,
                     desired,
                     clear: false);
             }
@@ -319,7 +308,7 @@ namespace Better_Work_Tab.Features.Application
             {
                 writer.Write(value.Pawn.thingIDNumber);
                 writer.Write(value.WorkGiver.defName);
-                writer.Write(value.UseSleek);
+                writer.Write(value.StorageKind == SpecificJobPriorityStorageKind.ExternalAuthority);
                 writer.Write(value.HadOverride);
                 writer.Write(value.Initial);
                 writer.Write(value.Desired);
@@ -334,7 +323,7 @@ namespace Better_Work_Tab.Features.Application
             {
                 Pawn pawn = TimePriorityService.FindPawn(reader.ReadInt32());
                 WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(reader.ReadString());
-                bool sleek = reader.ReadBoolean();
+                bool externalStorage = reader.ReadBoolean();
                 bool hadOverride = reader.ReadBoolean();
                 int initial = reader.ReadInt32();
                 int desired = reader.ReadInt32();
@@ -342,7 +331,15 @@ namespace Better_Work_Tab.Features.Application
                 if (pawn?.workSettings == null || workGiver == null) return false;
                 mutation._specific[TimePriorityTarget.ForWorkGiver(pawn, workGiver).CacheKey] =
                     new WorkTabRuleSpecificPriority(
-                        pawn, workGiver, sleek, hadOverride, initial, desired, clear,
+                        pawn,
+                        workGiver,
+                        externalStorage
+                            ? SpecificJobPriorityStorageKind.ExternalAuthority
+                            : SpecificJobPriorityStorageKind.ReassignmentManager,
+                        hadOverride,
+                        initial,
+                        desired,
+                        clear,
                         clampDesired: false);
             }
             return true;
@@ -510,7 +507,11 @@ namespace Better_Work_Tab.Features.Application
                 bool hadOverride = WorkGiverReassignmentManager.TryGetPawnWorkGiverOverride(
                     entry.Pawn, entry.WorkGiver, out int initial);
                 current = new WorkTabRuleSpecificPriority(
-                    entry.Pawn, entry.WorkGiver, false, hadOverride, initial,
+                    entry.Pawn,
+                    entry.WorkGiver,
+                    SpecificJobPriorityStorageKind.ReassignmentManager,
+                    hadOverride,
+                    initial,
                     entry.Priority ?? WorkPrioritySystem.DisabledPriority,
                     !entry.Priority.HasValue,
                     clampDesired: false);
@@ -558,33 +559,6 @@ namespace Better_Work_Tab.Features.Application
         internal int Desired { get; }
         internal WorkTabRuleParentPriority WithDesired(int desired) =>
             new WorkTabRuleParentPriority(Pawn, WorkType, Expected, desired);
-    }
-
-    internal readonly struct WorkTabRuleSpecificPriority
-    {
-        internal WorkTabRuleSpecificPriority(
-            Pawn pawn, WorkGiverDef workGiver, bool useSleek,
-            bool hadOverride, int initial, int desired, bool clear,
-            bool clampDesired = true)
-        {
-            Pawn = pawn; WorkGiver = workGiver; UseSleek = useSleek;
-            HadOverride = hadOverride; Initial = initial;
-            Desired = clampDesired ? WorkPrioritySystem.ClampPriority(desired) : desired;
-            Clear = clear;
-        }
-
-        internal Pawn Pawn { get; }
-        internal WorkGiverDef WorkGiver { get; }
-        internal bool UseSleek { get; }
-        internal bool HadOverride { get; }
-        internal int Initial { get; }
-        internal int Desired { get; }
-        internal bool Clear { get; }
-        internal WorkTabRuleSpecificPriority WithDesired(
-            int desired, bool clear, bool clampDesired = true) =>
-            new WorkTabRuleSpecificPriority(
-                Pawn, WorkGiver, UseSleek, HadOverride, Initial, desired, clear,
-                clampDesired);
     }
 
     internal readonly struct WorkTabRuleSpecificOrder

@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 
-namespace Better_Work_Tab.UI.WorkGrid.Projection
+namespace Better_Work_Tab.UI.Workloads.Projection
 {
     /// <summary>
     /// Session-local effective-state overlay backed by a WorkloadDraft. The

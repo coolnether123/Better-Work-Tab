@@ -14,6 +14,7 @@ using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Compatibility;
 using Better_Work_Tab.UI.WorkGrid.Projection;
+using Better_Work_Tab.UI.WorkGrid.Rendering;
 using Better_Work_Tab.UI.Settings;
 using RimWorld;
 using Spine.Api;
@@ -191,97 +192,63 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 dirty.Add(dirtyKeys[i]);
             }
 
-            var affectedWorkTypes = new HashSet<ushort>();
-            for (int i = 0; i < dirtyKeys.Count; i++)
-            {
-                affectedWorkTypes.Add(dirtyKeys[i].WorkTypeId);
-            }
-
-            var affectedParentWorkTypes = new HashSet<ushort>();
             IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
-            for (int i = 0; i < previous.Cells.Count; i++)
-            {
-                WorkCellVisualState cell = previous.Cells[i];
-                ushort workTypeId = cell.WorkType?.shortHash ?? 0;
-                if (!affectedWorkTypes.Contains(workTypeId) ||
-                    cell.ColumnIndex >= columns.Count)
-                {
-                    continue;
-                }
-
-                WorkTabLayoutColumn column = columns[cell.ColumnIndex];
-                if (column.SubWorkGiver == null)
-                {
-                    affectedParentWorkTypes.Add(workTypeId);
-                }
-            }
-
-            var bestPawnIds = new Dictionary<ushort, int>();
-            for (int i = 0; i < columns.Count; i++)
-            {
-                WorkTabLayoutColumn column = columns[i];
-                WorkTypeDef workType = column.SubWorkParent ?? column.Column?.workType;
-                if (column.SubWorkGiver != null || workType == null ||
-                    !affectedParentWorkTypes.Contains(workType.shortHash) ||
-                    FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column) ||
-                    !WorkGridVanillaCompatibilityPolicy.CanSnapshotVanillaPriorityCells() ||
-                    !WorkGridVanillaCompatibilityPolicy.CanSnapshotPriorityColumn(column.Column) ||
-                    !(column.Column?.Worker is PawnColumnWorker_WorkPriority priorityWorker))
-                {
-                    continue;
-                }
-
-                if (!bestPawnIds.ContainsKey(workType.shortHash))
-                {
-                    bestPawnIds[workType.shortHash] = FindBestPawnId(table, workType, priorityWorker);
-                }
-            }
-
-            foreach (ushort workTypeId in affectedParentWorkTypes)
-            {
-                if (!bestPawnIds.ContainsKey(workTypeId))
-                {
-                    return false;
-                }
-            }
-
             var replacements = new Dictionary<int, WorkCellVisualState>();
             uint cellRevision = unchecked((uint)(_snapshotRevision + 1));
             for (int i = 0; i < previous.Cells.Count; i++)
             {
                 WorkCellVisualState cell = previous.Cells[i];
                 ushort workTypeId = cell.WorkType?.shortHash ?? 0;
-                bool affected = affectedWorkTypes.Contains(workTypeId);
                 bool dirtyCell = dirty.Contains(
                     new WorkGridPriorityKey(cell.PawnId, workTypeId));
-                if (!affected && !dirtyCell)
+                if (!dirtyCell)
                 {
                     continue;
                 }
 
-                if (cell.Pawn == null || cell.WorkType == null || cell.ColumnIndex >= columns.Count)
+                if (cell.ColumnIndex >= columns.Count ||
+                    cell.ColumnIndex >= previous.Columns.Count)
+                {
+                    return false;
+                }
+
+                WorkGridColumnEntry snapshotColumn = previous.Columns[cell.ColumnIndex];
+                if (snapshotColumn.WorkerKind != WorkGridColumnWorkerKind.WorkPriority &&
+                    snapshotColumn.WorkerKind != WorkGridColumnWorkerKind.SubWorkPriority)
+                {
+                    continue;
+                }
+
+                if (cell.Pawn == null || cell.WorkType == null)
                 {
                     return false;
                 }
 
                 WorkTabLayoutColumn column = columns[cell.ColumnIndex];
-                WorkTypeDef columnWorkType = column.SubWorkParent ?? column.Column?.workType;
-                if (columnWorkType != cell.WorkType)
+                if (snapshotColumn.WorkType != cell.WorkType)
                 {
                     return false;
                 }
 
-                int bestPawnId = -1;
-                if (column.SubWorkGiver == null &&
-                    !bestPawnIds.TryGetValue(workTypeId, out bestPawnId))
-                {
-                    return false;
-                }
+                // Parent-priority edits do not change the skill/actionability
+                // comparison that selected the best pawn. Preserve that stable
+                // presentation bit instead of rescanning the whole column.
+                int bestPawnId =
+                    (cell.Flags & WorkCellVisualFlags.BestPawn) != 0
+                        ? cell.PawnId
+                        : -1;
+
+                WorkGiver subWorkGiver = snapshotColumn.SubWorkGiver;
+                WorkTypeDef parentVisualWorkType = subWorkGiver == null ||
+                    !snapshotColumn.IsExpandBesideChild
+                        ? column.Column?.workType
+                        : null;
 
                 replacements[i] = BuildCell(
                     cell.Pawn,
                     cell.WorkType,
-                    column.SubWorkGiver,
+                    parentVisualWorkType,
+                    subWorkGiver,
                     cell.ColumnIndex,
                     bestPawnId,
                     cellRevision);
@@ -411,8 +378,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             {
                 WorkTabLayoutColumn column = layoutColumns[i];
                 PawnColumnDef def = column.Column;
-                WorkTypeDef workType = column.SubWorkParent ?? def?.workType;
-                WorkGiverDef workGiver = column.SubWorkGiver;
+                WorkTypeDef sourceWorkType = def?.workType;
+                WorkTypeDef workType = column.SubWorkParent ?? sourceWorkType;
+                WorkGiver workGiver = null;
+                if (TryResolveSubWorkColumn(
+                        column,
+                        out WorkGiver resolvedWorkGiver,
+                        out WorkTypeDef resolvedParentWorkType))
+                {
+                    workGiver = resolvedWorkGiver;
+                    workType = resolvedParentWorkType ?? workType;
+                }
                 object worker = def?.Worker;
                 bool externalFluffyWorkGiver = FluffyWorkTabGateway.IsFluffyWorkGiverColumn(def);
                 WorkGridColumnWorkerKind workerKind = workGiver != null
@@ -427,21 +403,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 _columns.Add(new WorkGridColumnEntry(
                     (ushort)i,
                     workType?.shortHash ?? 0,
-                    workGiver?.shortHash ?? 0,
+                    workGiver?.def?.shortHash ?? 0,
                     workType?.defName,
-                    workGiver?.defName,
+                    workGiver?.def?.defName,
                     worker?.GetType().FullName,
-                    workerKind));
-                if (workGiver == null &&
+                    workerKind,
+                    column.IsExpandBesideChild,
+                    workType,
+                    workGiver));
+                if (!column.IsExpandBesideChild &&
                     !externalFluffyWorkGiver &&
-                    workType != null &&
+                    sourceWorkType != null &&
                     canSnapshotVanillaPriorityCells &&
                     WorkGridVanillaCompatibilityPolicy.CanSnapshotPriorityColumn(def) &&
                     worker is PawnColumnWorker_WorkPriority priorityWorker &&
-                    !priorityWorkers.ContainsKey(workType.shortHash))
+                    !priorityWorkers.ContainsKey(sourceWorkType.shortHash))
                 {
-                    priorityWorkers[workType.shortHash] = priorityWorker;
-                    priorityWorkTypes[workType.shortHash] = workType;
+                    priorityWorkers[sourceWorkType.shortHash] = priorityWorker;
+                    priorityWorkTypes[sourceWorkType.shortHash] = sourceWorkType;
                 }
             }
 
@@ -496,21 +475,27 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 for (int columnIndex = 0; columnIndex < layoutColumns.Count; columnIndex++)
                 {
                     WorkTabLayoutColumn column = layoutColumns[columnIndex];
-                    WorkTypeDef workType = column.SubWorkParent ?? column.Column?.workType;
+                    WorkGridColumnEntry snapshotColumn = _columns[columnIndex];
+                    WorkTypeDef workType = snapshotColumn.WorkType;
+                    WorkGiver subWorkGiver = snapshotColumn.SubWorkGiver;
+                    WorkTypeDef parentVisualWorkType = column.IsExpandBesideChild
+                        ? null
+                        : column.Column?.workType;
                     if (workType == null ||
                         FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column) ||
-                        (column.SubWorkGiver == null &&
+                        (subWorkGiver == null &&
                          (!canSnapshotVanillaPriorityCells ||
                           !WorkGridVanillaCompatibilityPolicy.CanSnapshotPriorityColumn(column.Column))))
                     {
                         continue;
                     }
 
-                    int bestPawnId = bestPawnIds.TryGetValue(workType.shortHash, out int resolvedBestPawnId)
+                    int bestPawnId = parentVisualWorkType != null &&
+                        bestPawnIds.TryGetValue(parentVisualWorkType.shortHash, out int resolvedBestPawnId)
                         ? resolvedBestPawnId
                         : -1;
                     ushort snapshotColumnIndex = (ushort)columnIndex;
-                    if (column.SubWorkGiver == null &&
+                    if (subWorkGiver == null &&
                         reusableCells.TryGetValue(
                             ComposeCellKey(pawn.thingIDNumber, snapshotColumnIndex),
                             out WorkCellVisualState reusable) &&
@@ -530,7 +515,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                         _cells.Add(BuildCell(
                             pawn,
                             workType,
-                            column.SubWorkGiver,
+                            parentVisualWorkType,
+                            subWorkGiver,
                             snapshotColumnIndex,
                             bestPawnId,
                             cellRevision));
@@ -552,7 +538,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
             CaptureSnapshotPawnIds(table);
             CapturePawnPresentationVersions(table);
-            int retainedBytes = (_rows.Capacity * 40) + (_columns.Capacity * 40) + (_cells.Capacity * 28);
+            int retainedBytes = (_rows.Capacity * 40) + (_columns.Capacity * 56) + (_cells.Capacity * 56);
             int maxPriority = WorkPrioritySystem.GetMaxPriority();
             int presentationRevision = unchecked((int)revisions.SettingsThemeLanguageScale);
             _slot.Publish(new WorkGridSnapshot(
@@ -617,7 +603,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 WorkGridColumnEntry right = columns[i];
                 if (left.WorkTypeId != right.WorkTypeId ||
                     left.WorkGiverId != right.WorkGiverId ||
-                    left.WorkerKind != right.WorkerKind)
+                    left.WorkerKind != right.WorkerKind ||
+                    left.IsExpandBesideChild != right.IsExpandBesideChild)
                 {
                     return false;
                 }
@@ -705,97 +692,95 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 for (int i = 0; i < columns.Count; i++)
                 {
                     WorkTabLayoutColumn column = columns[i];
+                    TryResolveSubWorkColumn(
+                        column,
+                        out WorkGiver workGiver,
+                        out WorkTypeDef parentWorkType);
                     hash = (hash * 31) + (column.Column?.shortHash ?? 0);
-                    hash = (hash * 31) + (column.SubWorkParent?.shortHash ?? 0);
-                    hash = (hash * 31) + (column.SubWorkGiver?.shortHash ?? 0);
+                    hash = (hash * 31) + ((parentWorkType ?? column.SubWorkParent)?.shortHash ?? 0);
+                    hash = (hash * 31) + (workGiver?.def?.shortHash ?? 0);
+                    hash = (hash * 31) + (column.IsExpandBesideChild ? 1 : 0);
                 }
 
                 return hash;
             }
         }
 
+        private static bool TryResolveSubWorkColumn(
+            WorkTabLayoutColumn column,
+            out WorkGiver workGiver,
+            out WorkTypeDef parentWorkType)
+        {
+            return SubWorkDrilldownState.TryGetWorkGiverForColumn(
+                column,
+                out workGiver,
+                out parentWorkType,
+                out _);
+        }
+
         private static WorkCellVisualState BuildCell(
             Pawn pawn,
             WorkTypeDef workType,
-            WorkGiverDef workGiver,
+            WorkTypeDef parentVisualWorkType,
+            WorkGiver workGiver,
             ushort columnIndex,
             int bestPawnId,
             uint revision)
         {
-            int priority;
-            bool incapable;
-            bool ageDisabled = pawn.IsWorkTypeDisabledByAge(workType, out _);
-            bool disabled = pawn.WorkTypeIsDisabled(workType);
-            bool overrideRing;
             WorkGiverCellPresentationCache.CellPresentation subWorkPresentation = null;
-            if (workGiver != null)
+            if (workGiver?.def != null)
             {
-                WorkGiverCellPresentationCache.CellPresentation presentation =
-                    WorkGiverCellPresentationCache.Resolve(workGiver.Worker, workType, pawn);
-                subWorkPresentation = presentation;
-                priority = presentation.EffectivePriority;
-                incapable = presentation.Incapable;
-                ageDisabled = presentation.DisabledByAge;
-                disabled = presentation.WorkTypeDisabled;
-                overrideRing = presentation.HasPawnOverride;
-            }
-            else
-            {
-                priority = ParentPriorityRead.GetObserved(pawn, workType);
-                incapable = !WorkTabActionability.CanApplyAnyWorkGiver(pawn, workType);
-                overrideRing = WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent() &&
-                               !disabled &&
-                               priority <= WorkPrioritySystem.DisabledPriority &&
-                               WorkGiverReassignmentManager.HasEnabledPawnOverrideForWorkType(pawn, workType);
+                subWorkPresentation = WorkGiverCellPresentationCache.Resolve(
+                    workGiver,
+                    workType,
+                    pawn);
             }
 
-            float skill = Mathf.Clamp(pawn.skills.AverageOfRelevantSkillsFor(workType), 0f, 20f);
-            byte skillBand;
-            float skillBlend;
-            if (skill < 4f)
+            WorkBoxVisualState visual;
+            if (parentVisualWorkType == null && workGiver != null)
             {
-                skillBand = 0;
-                skillBlend = skill / 4f;
-            }
-            else if (skill <= 14f)
-            {
-                skillBand = 1;
-                skillBlend = (skill - 4f) / 10f;
+                // Expand-beside draws only the prepared child. Do not compute a
+                // parent visual that this snapshot cell will never consume.
+                visual = subWorkPresentation.WorkBoxVisual;
             }
             else
             {
-                skillBand = 2;
-                skillBlend = (skill - 14f) / 6f;
-            }
-            int passion = (int)pawn.skills.MaxPassionOfRelevantSkillsFor(workType);
-            WorkCellVisualFlags flags = WorkCellVisualFlags.None;
-            if (disabled) flags |= WorkCellVisualFlags.Disabled;
-            if (incapable) flags |= WorkCellVisualFlags.Incapable;
-            if (ageDisabled) flags |= WorkCellVisualFlags.AgeDisabled;
-            if (overrideRing) flags |= WorkCellVisualFlags.OverrideRing;
-            if (passion > 0) flags |= WorkCellVisualFlags.HasPassion;
-            if (ParentPriorityRead.GetObservedManualMode(
+                // Focus view reuses the original work-type column and crossfades
+                // its parent box behind the prepared child box.
+                WorkTypeDef visualWorkType = parentVisualWorkType ?? workType;
+                int priority = ParentPriorityRead.GetObserved(pawn, visualWorkType);
+                bool disabled = pawn.WorkTypeIsDisabled(visualWorkType);
+                bool ageDisabled = pawn.IsWorkTypeDisabledByAge(visualWorkType, out _);
+                bool incapable = !WorkTabActionability.CanApplyAnyWorkGiver(pawn, visualWorkType);
+                bool overrideRing = WorkGiverReassignmentManager.LockedSubWorkOverridesDisabledParent() &&
+                                    !disabled &&
+                                    priority <= WorkPrioritySystem.DisabledPriority &&
+                                    WorkGiverReassignmentManager.HasEnabledPawnOverrideForWorkType(
+                                        pawn,
+                                        visualWorkType);
+                visual = PreparedWorkBoxRenderer.Capture(
                     pawn,
-                    workType,
-                    true))
-                flags |= WorkCellVisualFlags.ManualPriorityMode;
-            if (pawn.thingIDNumber == bestPawnId) flags |= WorkCellVisualFlags.BestPawn;
-            if (pawn.Ideo != null && pawn.Ideo.IsWorkTypeConsideredDangerous(workType))
-                flags |= WorkCellVisualFlags.IdeologyWarning;
-            if (workType.relevantSkills != null && workType.relevantSkills.Count > 0 && skill <= 2f && priority > 0)
-                flags |= WorkCellVisualFlags.LowSkillWarning;
+                    visualWorkType,
+                    priority,
+                    disabled,
+                    incapable,
+                    ageDisabled,
+                    overrideRing,
+                    priority > WorkPrioritySystem.DisabledPriority,
+                    bestPawnId);
+            }
 
             return new WorkCellVisualState(
                 pawn,
                 workType,
                 pawn.thingIDNumber,
                 columnIndex,
-                (byte)Mathf.Clamp(priority, 0, byte.MaxValue),
-                skillBand,
-                skillBlend,
-                (byte)Mathf.Clamp(passion, 0, byte.MaxValue),
-                PackColor(WorkPrioritySystem.GetPriorityColor(priority)),
-                flags,
+                visual.Priority,
+                visual.SkillBand,
+                visual.SkillBlend,
+                visual.Passion,
+                visual.PriorityColor,
+                visual.Flags,
                 revision,
                 subWorkPresentation);
         }

@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Better_Work_Tab.Features.Workloads.V2;
+using Better_Work_Tab.UI.WorkGrid.Projection;
 
-namespace Better_Work_Tab.UI.WorkGrid.Projection
+namespace Better_Work_Tab.UI.Workloads.Projection
 {
     /// <summary>
     /// Narrow callback surface for the authoritative BWT services. The live
@@ -134,22 +135,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
     {
         private readonly LiveWorkTabEffectiveStateProvider _live;
         private readonly WorkTabEffectiveStateRevision _revision;
-        private readonly Dictionary<WorkloadScheduleTargetKey,
-            WorkTabEffectiveStateResolution<WorkloadSchedulePayload>> _schedules =
-            new Dictionary<WorkloadScheduleTargetKey,
-                WorkTabEffectiveStateResolution<WorkloadSchedulePayload>>();
-        private readonly Dictionary<WorkloadSpecificJobTargetKey,
-            WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>> _specificPriorities =
-            new Dictionary<WorkloadSpecificJobTargetKey,
-                WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>>();
-        private readonly Dictionary<WorkloadWorkTypeOrderKey,
-            WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>> _orders =
-            new Dictionary<WorkloadWorkTypeOrderKey,
-                WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>>();
-        private readonly Dictionary<string,
-            WorkTabEffectiveStateResolution<WorkloadSettingValue>> _settings =
-            new Dictionary<string, WorkTabEffectiveStateResolution<WorkloadSettingValue>>(
-                StringComparer.Ordinal);
+        private Dictionary<WorkloadScheduleTargetKey,
+            WorkTabEffectiveStateResolution<WorkloadSchedulePayload>> _schedules;
+        private Dictionary<WorkloadSpecificJobTargetKey,
+            WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>> _specificPriorities;
+        private Dictionary<WorkloadWorkTypeOrderKey,
+            WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>> _orders;
+        private Dictionary<string,
+            WorkTabEffectiveStateResolution<WorkloadSettingValue>> _settings;
 
         internal CapturedLiveWorkTabEffectiveStateProvider(
             LiveWorkTabEffectiveStateProvider live,
@@ -175,6 +168,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return WorkTabEffectiveStateResolution<WorkloadSchedulePayload>.NoOpinion;
             }
 
+            if (_schedules == null)
+            {
+                _schedules = new Dictionary<WorkloadScheduleTargetKey,
+                    WorkTabEffectiveStateResolution<WorkloadSchedulePayload>>();
+            }
+
             if (!_schedules.TryGetValue(key, out WorkTabEffectiveStateResolution<WorkloadSchedulePayload> value))
             {
                 value = _live.ResolveSchedule(key);
@@ -190,6 +189,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             if (key == null || !key.IsValid)
             {
                 return WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>.NoOpinion;
+            }
+
+            if (_specificPriorities == null)
+            {
+                _specificPriorities = new Dictionary<WorkloadSpecificJobTargetKey,
+                    WorkTabEffectiveStateResolution<WorkloadSpecificPriorityPayload>>();
             }
 
             if (!_specificPriorities.TryGetValue(
@@ -211,6 +216,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
                 return WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>.NoOpinion;
             }
 
+            if (_orders == null)
+            {
+                _orders = new Dictionary<WorkloadWorkTypeOrderKey,
+                    WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload>>();
+            }
+
             if (!_orders.TryGetValue(key, out WorkTabEffectiveStateResolution<WorkloadWorkTypeOrderPayload> value))
             {
                 value = _live.ResolveWorkTypeOrder(key);
@@ -226,6 +237,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
             if (string.IsNullOrWhiteSpace(key))
             {
                 return WorkTabEffectiveStateResolution<WorkloadSettingValue>.NoOpinion;
+            }
+
+            if (_settings == null)
+            {
+                _settings = new Dictionary<string,
+                    WorkTabEffectiveStateResolution<WorkloadSettingValue>>(
+                    StringComparer.Ordinal);
             }
 
             if (!_settings.TryGetValue(key, out WorkTabEffectiveStateResolution<WorkloadSettingValue> value))

@@ -346,8 +346,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 }
             }
 
-            TestAssert.Equal(119, callCount, "all presentation facade calls must use the fallback-free cache");
-            TestAssert.Equal(54, usage.Count, "facade calls must resolve exactly 54 registry setting IDs");
+            TestAssert.Equal(117, callCount, "all presentation facade calls must use the fallback-free cache");
+            TestAssert.Equal(52, usage.Count, "facade calls must resolve exactly 52 active registry setting IDs");
             return usage;
         }
 
@@ -564,7 +564,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string workloadState)
         {
             string copy = MethodBody(router,
-                "CopyPresentationIntents(\n                IReadOnlyList<WorkloadPresentationSettingIntentEntry> entries)");
+                "CopyPresentationIntents(\n                IReadOnlyList<PresentationIntentEntry> entries)");
             TestAssert.Contains(copy, "entries[i]",
                 "the snapshot must consume presentation-only typed intent entries from its port");
             TestAssert.False(copy.Contains("PresentationSettings"),

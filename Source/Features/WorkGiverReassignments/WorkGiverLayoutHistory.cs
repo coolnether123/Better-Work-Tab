@@ -1,5 +1,6 @@
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.TimePriority;
+using Better_Work_Tab.Foundation.GameState;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -175,7 +176,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
         private static bool SubmitLayoutCommand(
             WorkGiverLayoutCommand command, WorkGiverLayoutSnapshot snapshot, int historyAction) =>
-            WorkTabApplication.Current?.SubmitSpecificLayout(command, snapshot, historyAction).Accepted == true;
+            WorkTabGameRoots.For(Current.Game)?.Application?
+                .SubmitSpecificLayout(command, snapshot, historyAction).Accepted == true;
 
         internal static bool ApplySpecificLayout(long commandId, string workGiverDefName, int expectedVersion,
             string expectedTargetWorkTypeDefName, List<string> encodedExpectedOrders,

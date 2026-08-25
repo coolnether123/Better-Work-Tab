@@ -1,7 +1,4 @@
-using System;
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
+using Better_Work_Tab.Foundation.Canonicalization;
 
 namespace Better_Work_Tab.Features.Workloads.V2
 {
@@ -9,44 +6,32 @@ namespace Better_Work_Tab.Features.Workloads.V2
     {
         public static string Encode(string value)
         {
-            string safe = value ?? string.Empty;
-            return safe.Length.ToString(CultureInfo.InvariantCulture) + ":" + safe;
+            return DeterministicCanonical.Encode(value);
         }
 
         public static string Pair(string first, string second)
         {
-            return Encode(first) + Encode(second);
+            return DeterministicCanonical.Pair(first, second);
         }
 
         public static string Triple(string first, string second, string third)
         {
-            return Encode(first) + Encode(second) + Encode(third);
+            return DeterministicCanonical.Triple(first, second, third);
         }
 
         public static string Boolean(bool value)
         {
-            return value ? "1" : "0";
+            return DeterministicCanonical.Boolean(value);
         }
 
         public static string Integer(int value)
         {
-            return value.ToString(CultureInfo.InvariantCulture);
+            return DeterministicCanonical.Integer(value);
         }
 
         public static string Fingerprint(string canonical)
         {
-            string safe = canonical ?? string.Empty;
-            using (SHA256 sha = SHA256.Create())
-            {
-                byte[] bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(safe));
-                var builder = new StringBuilder(bytes.Length * 2);
-                for (int i = 0; i < bytes.Length; i++)
-                {
-                    builder.Append(bytes[i].ToString("x2", CultureInfo.InvariantCulture));
-                }
-
-                return builder.ToString();
-            }
+            return DeterministicCanonical.Fingerprint(canonical);
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Foundation.GameState;
 using RimWorld;
 using Verse;
 
@@ -35,7 +36,8 @@ namespace Better_Work_Tab.Features.Rules
         {
             return _current != null
                 ? _current.SetPriority(pawn, workType, priority)
-                : WorkTabApplication.Current?.SetStoredParentPriority(pawn, workType, priority) == true;
+                : WorkTabGameRoots.For(Current.Game)?.Application?
+                    .SetStoredParentPriority(pawn, workType, priority) == true;
         }
 
         public void Dispose()

@@ -1,4 +1,4 @@
-using Better_Work_Tab.Features.Workloads;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Columns;
 using RimWorld;
@@ -17,14 +17,14 @@ namespace Better_Work_Tab.Features
         private static Dictionary<WorkTypeDef, List<WorkTypeDef>> _similarWorktypeMap;
         private static readonly List<WorkTypeDef> EmptySimilarWorktypeList = new List<WorkTypeDef>(0);
 
-        private static GameComponent_BWTWorldSettings SharedState
-            => Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
+        private static IWorkTabColumnOrderState SharedState =>
+            WorkTabGameRoots.For(Current.Game)?.State.ColumnOrder;
 
         private static List<string> GetSharedOrderOrNull()
-            => SharedState?.ColumnCurrentOrder is { Count: > 0 } list ? list : null;
+            => SharedState?.CurrentOrder is { Count: > 0 } list ? list : null;
 
         private static void SetSharedOrder(List<string> order)
-            => SharedState?.SetColumnCurrentOrder(order);
+            => SharedState?.SetCurrentOrder(order);
 
         /// <summary>
         /// Initialize vanilla order and apply saved order. Called after defs are loaded.
@@ -47,8 +47,7 @@ namespace Better_Work_Tab.Features
             _lastInitializedGame = game;
 
             EnsureColumnsMatchTrueVanillaShape();
-            var component = game.GetComponent<GameComponent_BWTWorldSettings>();
-            ColumnBaselineManager.EnsureBaseline(component);
+            ColumnBaselineManager.EnsureBaseline(SharedState);
             ApplySaved();
             BetterWorkTabMod.DebugLog("[BWT] WorkColumnOrderManager initialized for game.", DebugFeature.DragDrop);
         }
@@ -145,8 +144,7 @@ namespace Better_Work_Tab.Features
         /// </summary>
         public static List<string> GetBaselineOrder()
         {
-            var component = Current.Game?.GetComponent<GameComponent_BWTWorldSettings>();
-            var baseline = ColumnBaselineManager.GetBaselineOrder(component);
+            var baseline = ColumnBaselineManager.GetBaselineOrder(SharedState);
             if (baseline != null && baseline.Count > 0)
             {
                 return baseline;
@@ -178,7 +176,8 @@ namespace Better_Work_Tab.Features
 
             if (TryApplyColumnOrder(order, null))
             {
-                Features.Application.WorkTabApplication.Current?.CompleteExecutionOrderMutation();
+                WorkTabGameRoots.For(Current.Game)?.Application?
+                    .CompleteExecutionOrderMutation();
             }
         }
 
@@ -209,7 +208,7 @@ namespace Better_Work_Tab.Features
                 .ToList() ?? new List<string>();
             if (order.Count > 0)
             {
-                Features.Application.WorkTabApplication.Current?
+                WorkTabGameRoots.For(Current.Game)?.Application?
                     .SubmitCapturedColumnOrder(order);
             }
             return order;
@@ -324,7 +323,7 @@ namespace Better_Work_Tab.Features
         private static void Reset(bool useTrueVanilla)
         {
             Features.Application.WorkTabApplication app =
-                Features.Application.WorkTabApplication.Current;
+                WorkTabGameRoots.For(Current.Game)?.Application;
             app?.SubmitColumnReset(useTrueVanilla);
         }
 

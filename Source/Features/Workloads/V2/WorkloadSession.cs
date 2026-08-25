@@ -167,7 +167,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             IEnumerable<WorkloadSpecificJobRuntimeBaseline> specificJobOverrides = null,
             IEnumerable<WorkloadSpecificJobOrderRuntimeBaseline> specificJobOrders = null,
             bool hasSpecificJobRevision = false,
-            int specificJobRevision = 0)
+            int specificJobRevision = 0,
+            string specificJobFingerprint = null)
         {
             _parentPriorities = new Dictionary<WorkloadParentPriorityKey, int>();
             if (parentPriorities != null)
@@ -200,12 +201,17 @@ namespace Better_Work_Tab.Features.Workloads.V2
             ManualMode = manualMode;
             HasSpecificJobRevision = hasSpecificJobRevision;
             SpecificJobRevision = specificJobRevision;
+            HasSpecificJobFingerprint = hasSpecificJobRevision &&
+                specificJobFingerprint != null;
+            SpecificJobFingerprint = specificJobFingerprint ?? string.Empty;
         }
 
         internal bool HasManualMode { get; private set; }
         internal bool ManualMode { get; private set; }
         internal bool HasSpecificJobRevision { get; private set; }
         internal int SpecificJobRevision { get; private set; }
+        internal bool HasSpecificJobFingerprint { get; private set; }
+        internal string SpecificJobFingerprint { get; private set; }
         internal IEnumerable<KeyValuePair<WorkloadParentPriorityKey, int>> ParentPriorities =>
             _parentPriorities;
         internal IEnumerable<WorkloadSpecificJobRuntimeBaseline> SpecificJobOverrides =>
@@ -278,7 +284,11 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 || (HasManualMode && ManualMode != extension.ManualMode)
                 || HasSpecificJobRevision != extension.HasSpecificJobRevision
                 || (HasSpecificJobRevision
-                    && SpecificJobRevision != extension.SpecificJobRevision))
+                    && SpecificJobRevision != extension.SpecificJobRevision)
+                || HasSpecificJobFingerprint != extension.HasSpecificJobFingerprint
+                || (HasSpecificJobFingerprint && !StringComparer.Ordinal.Equals(
+                    SpecificJobFingerprint,
+                    extension.SpecificJobFingerprint)))
             {
                 return null;
             }
@@ -319,7 +329,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 specificOverrides,
                 specificOrders,
                 HasSpecificJobRevision || extension.HasSpecificJobRevision,
-                HasSpecificJobRevision ? SpecificJobRevision : extension.SpecificJobRevision);
+                HasSpecificJobRevision ? SpecificJobRevision : extension.SpecificJobRevision,
+                HasSpecificJobFingerprint
+                    ? SpecificJobFingerprint
+                    : extension.SpecificJobFingerprint);
         }
 
         internal bool Preserves(WorkloadRuntimeBaseline original)
@@ -329,7 +342,11 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 (HasManualMode && ManualMode != original.ManualMode) ||
                 HasSpecificJobRevision != original.HasSpecificJobRevision ||
                 (HasSpecificJobRevision &&
-                 SpecificJobRevision != original.SpecificJobRevision))
+                 SpecificJobRevision != original.SpecificJobRevision) ||
+                HasSpecificJobFingerprint != original.HasSpecificJobFingerprint ||
+                (HasSpecificJobFingerprint && !StringComparer.Ordinal.Equals(
+                    SpecificJobFingerprint,
+                    original.SpecificJobFingerprint)))
             {
                 return false;
             }
@@ -469,6 +486,12 @@ namespace Better_Work_Tab.Features.Workloads.V2
     public sealed class WorkloadSession
     {
         private readonly WorkloadValidationContext _validationContext;
+        private readonly ProjectedStatePresenceIndex _projectedPresence;
+        private IReadOnlyList<WorkloadStateDimension> _unsupportedClearDimensions;
+        private WorkloadSemanticDiff _templateDiff;
+        private WorkloadSemanticDiff _liveDiff;
+        private bool? _hasTemplateChanges;
+        private bool? _hasLiveChanges;
 
         private WorkloadSession(
             WorkloadTemplate sourceTemplate,
@@ -488,6 +511,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             TemplateBaselineState = templateBaselineState ?? WorkloadProjectedState.Empty;
             LiveBaselineState = liveBaselineState ?? TemplateBaselineState;
             ProjectedState = NormalizeState(SourceTemplate, projectedState ?? WorkloadProjectedState.Empty);
+            _projectedPresence = new ProjectedStatePresenceIndex(ProjectedState);
             Status = status;
             _validationContext = validationContext ?? WorkloadValidationContext.Default;
             SourceIdentity = sourceIdentity ?? string.Empty;
@@ -640,10 +664,16 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             get
             {
-                return WorkloadSemanticDiff.Between(
-                    TemplateBaselineState,
-                    BuildPersistenceState(),
-                    EffectiveOwnership);
+                if (_templateDiff == null)
+                {
+                    _templateDiff = WorkloadSemanticDiff.Between(
+                        TemplateBaselineState,
+                        BuildPersistenceState(),
+                        EffectiveOwnership);
+                    _hasTemplateChanges = !_templateDiff.IsEmpty;
+                }
+
+                return _templateDiff;
             }
         }
 
@@ -651,14 +681,50 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             get
             {
-                return WorkloadSemanticDiff.Between(
-                    LiveBaselineState,
-                    BuildLiveImpactState(),
-                    EffectiveOwnership);
+                if (_liveDiff == null)
+                {
+                    _liveDiff = WorkloadSemanticDiff.Between(
+                        LiveBaselineState,
+                        BuildLiveImpactState(),
+                        EffectiveOwnership);
+                    _hasLiveChanges = !_liveDiff.IsEmpty;
+                }
+
+                return _liveDiff;
             }
         }
 
-        public bool IsDirty => !TemplateDiff.IsEmpty;
+        internal bool HasTemplateChanges
+        {
+            get
+            {
+                if (!_hasTemplateChanges.HasValue)
+                {
+                    _hasTemplateChanges = !TemplateBaselineState.SemanticallyEquals(
+                        BuildPersistenceState(),
+                        EffectiveOwnership);
+                }
+
+                return _hasTemplateChanges.Value;
+            }
+        }
+
+        internal bool HasLiveChanges
+        {
+            get
+            {
+                if (!_hasLiveChanges.HasValue)
+                {
+                    _hasLiveChanges = !LiveBaselineState.SemanticallyEquals(
+                        BuildLiveImpactState(),
+                        EffectiveOwnership);
+                }
+
+                return _hasLiveChanges.Value;
+            }
+        }
+
+        public bool IsDirty => HasTemplateChanges;
 
         /// <summary>
         /// Legacy value-only entries still fail closed when a removal cannot be
@@ -986,7 +1052,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 SourceTemplate,
                 projectedState ?? WorkloadProjectedState.Empty);
             bool membershipChanged = HasMembershipChange(ProjectedState, nextState);
-            bool projectedStateChanged = HasNonMembershipChange(ProjectedState, nextState);
+            bool projectedStateChanged = HasNonMembershipChange(
+                ProjectedState,
+                nextState,
+                membershipChanged);
             return new WorkloadSession(
                 SourceTemplate,
                 TemplateBaselineState,
@@ -1022,8 +1091,15 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
         private static bool HasNonMembershipChange(
             WorkloadProjectedState before,
-            WorkloadProjectedState after)
+            WorkloadProjectedState after,
+            bool membershipChanged)
         {
+            if (!membershipChanged)
+            {
+                WorkloadProjectedState safeBefore = before ?? WorkloadProjectedState.Empty;
+                return !safeBefore.SemanticallyEquals(after);
+            }
+
             WorkloadProjectedState normalizedBefore = WithoutMembership(before);
             WorkloadProjectedState normalizedAfter = WithoutMembership(after);
             return !normalizedBefore.SemanticallyEquals(normalizedAfter);
@@ -1358,6 +1434,11 @@ namespace Better_Work_Tab.Features.Workloads.V2
 
         private IReadOnlyList<WorkloadStateDimension> GetUnsupportedClearDimensions()
         {
+            if (_unsupportedClearDimensions != null)
+            {
+                return _unsupportedClearDimensions;
+            }
+
             var dimensions = new List<WorkloadStateDimension>();
             WorkloadOwnershipDimensions ownership = EffectiveOwnership;
 
@@ -1397,7 +1478,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 dimensions.Add(WorkloadStateDimension.PresentationSettings);
             }
 
-            return dimensions.AsReadOnly();
+            _unsupportedClearDimensions = dimensions.AsReadOnly();
+            return _unsupportedClearDimensions;
         }
 
         internal string GetUnsupportedClearMessage()
@@ -1426,10 +1508,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < TemplateBaselineState.ParentPriorities.Count; i++)
             {
                 WorkloadParentPriorityEntry entry = TemplateBaselineState.ParentPriorities[i];
-                if (!ProjectedState.IsExcluded(entry.Key.Pawn) &&
-                    !ContainsParentPriority(ProjectedState.ParentPriorities, entry.Key))
+                if (!_projectedPresence.IsExcluded(entry.Key.Pawn) &&
+                    !_projectedPresence.ContainsParentPriority(entry.Key))
                 {
-                    if (!HasParentPriorityClear(ProjectedState, entry.Key)) return true;
+                    if (!_projectedPresence.HasParentPriorityClear(entry.Key)) return true;
                 }
             }
 
@@ -1441,10 +1523,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < TemplateBaselineState.ManualModes.Count; i++)
             {
                 WorkloadManualModeEntry entry = TemplateBaselineState.ManualModes[i];
-                if (!ProjectedState.IsExcluded(entry.Key.Pawn) &&
-                    !ContainsManualMode(ProjectedState.ManualModes, entry.Key))
+                if (!_projectedPresence.IsExcluded(entry.Key.Pawn) &&
+                    !_projectedPresence.ContainsManualMode(entry.Key))
                 {
-                    if (!HasManualModeClear(ProjectedState, entry.Key)) return true;
+                    if (!_projectedPresence.HasManualModeClear(entry.Key)) return true;
                 }
             }
 
@@ -1456,8 +1538,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < TemplateBaselineState.Schedules.Count; i++)
             {
                 WorkloadScheduleEntry entry = TemplateBaselineState.Schedules[i];
-                if (!ProjectedState.IsExcluded(entry.Pawn) &&
-                    !ContainsSchedule(ProjectedState.Schedules, entry.Pawn))
+                if (!_projectedPresence.IsExcluded(entry.Pawn) &&
+                    !_projectedPresence.ContainsSchedule(entry.Pawn))
                 {
                     return true;
                 }
@@ -1478,10 +1560,10 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < baseline.SpecificJobOverrides.Count; i++)
             {
                 WorkloadSpecificJobOverrideEntry entry = baseline.SpecificJobOverrides[i];
-                if (!ProjectedState.IsExcluded(entry.Key.Pawn) &&
-                    !ContainsSpecificOverride(ProjectedState.SpecificJobOverrides, entry.Key))
+                if (!_projectedPresence.IsExcluded(entry.Key.Pawn) &&
+                    !_projectedPresence.ContainsSpecificOverride(entry.Key))
                 {
-                    if (!HasSpecificPriorityClear(ProjectedState, entry.Key.ToTargetKey())) return true;
+                    if (!_projectedPresence.HasSpecificPriorityClear(entry.Key.ToTargetKey())) return true;
                 }
             }
 
@@ -1501,8 +1583,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < baseline.SpecificJobOrder.Count; i++)
             {
                 WorkloadSpecificJobOrderEntry entry = baseline.SpecificJobOrder[i];
-                if (!ProjectedState.IsExcluded(entry.Key.Pawn) &&
-                    !ContainsSpecificOrder(ProjectedState.SpecificJobOrder, entry.Key))
+                if (!_projectedPresence.IsExcluded(entry.Key.Pawn) &&
+                    !_projectedPresence.ContainsSpecificOrder(entry.Key))
                 {
                     return true;
                 }
@@ -1516,9 +1598,9 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < TemplateBaselineState.PresentationSettings.Count; i++)
             {
                 WorkloadPresentationSettingEntry entry = TemplateBaselineState.PresentationSettings[i];
-                if (!ContainsPresentationSetting(ProjectedState.PresentationSettings, entry.Key))
+                if (!_projectedPresence.ContainsPresentationSetting(entry.Key))
                 {
-                    if (!HasPresentationSettingClear(ProjectedState, entry.Key)) return true;
+                    if (!_projectedPresence.HasPresentationSettingClear(entry.Key)) return true;
                 }
             }
 
@@ -1531,10 +1613,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < baseline.ParentPriorityIntents.Count; i++)
             {
                 WorkloadParentPriorityIntentEntry entry = baseline.ParentPriorityIntents[i];
-                WorkloadParentPriorityIntentEntry projected;
                 if (entry.Intent.State != WorkloadIntentState.NoOpinion &&
-                    (!TryGetParentPriorityIntent(ProjectedState, entry.Key, out projected) ||
-                     projected.Intent.State == WorkloadIntentState.NoOpinion))
+                    !_projectedPresence.HasParentPriorityIntent(entry.Key))
                 {
                     return true;
                 }
@@ -1549,10 +1629,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < baseline.ManualModeIntents.Count; i++)
             {
                 WorkloadManualModeIntentEntry entry = baseline.ManualModeIntents[i];
-                WorkloadManualModeIntentEntry projected;
                 if (entry.Intent.State != WorkloadIntentState.NoOpinion &&
-                    (!TryGetManualModeIntent(ProjectedState, entry.Key, out projected) ||
-                     projected.Intent.State == WorkloadIntentState.NoOpinion))
+                    !_projectedPresence.HasManualModeIntent(entry.Key))
                 {
                     return true;
                 }
@@ -1567,10 +1645,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < baseline.ScheduleIntents.Count; i++)
             {
                 WorkloadScheduleIntentEntry entry = baseline.ScheduleIntents[i];
-                WorkloadScheduleIntentEntry projected;
                 if (entry.Intent.State != WorkloadIntentState.NoOpinion &&
-                    (!TryGetScheduleIntent(ProjectedState, entry.Key, out projected) ||
-                     projected.Intent.State == WorkloadIntentState.NoOpinion))
+                    !_projectedPresence.HasScheduleIntent(entry.Key))
                 {
                     return true;
                 }
@@ -1585,10 +1661,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < baseline.SpecificPriorityIntents.Count; i++)
             {
                 WorkloadSpecificPriorityIntentEntry entry = baseline.SpecificPriorityIntents[i];
-                WorkloadSpecificPriorityIntentEntry projected;
                 if (entry.Intent.State != WorkloadIntentState.NoOpinion &&
-                    (!TryGetSpecificPriorityIntent(ProjectedState, entry.Key, out projected) ||
-                     projected.Intent.State == WorkloadIntentState.NoOpinion))
+                    !_projectedPresence.HasSpecificPriorityIntent(entry.Key))
                 {
                     return true;
                 }
@@ -1603,10 +1677,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < baseline.WorkTypeOrderIntents.Count; i++)
             {
                 WorkloadWorkTypeOrderIntentEntry entry = baseline.WorkTypeOrderIntents[i];
-                WorkloadWorkTypeOrderIntentEntry projected;
                 if (entry.Intent.State != WorkloadIntentState.NoOpinion &&
-                    (!TryGetWorkTypeOrderIntent(ProjectedState, entry.Key, out projected) ||
-                     projected.Intent.State == WorkloadIntentState.NoOpinion))
+                    !_projectedPresence.HasWorkTypeOrderIntent(entry.Key))
                 {
                     return true;
                 }
@@ -1621,10 +1693,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             for (int i = 0; i < baseline.PresentationSettingIntents.Count; i++)
             {
                 WorkloadPresentationSettingIntentEntry entry = baseline.PresentationSettingIntents[i];
-                WorkloadPresentationSettingIntentEntry projected;
                 if (entry.Intent.State != WorkloadIntentState.NoOpinion &&
-                    (!TryGetPresentationSettingIntent(ProjectedState, entry.Key, out projected) ||
-                     projected.Intent.State == WorkloadIntentState.NoOpinion))
+                    !_projectedPresence.HasPresentationSettingIntent(entry.Key))
                 {
                     return true;
                 }
@@ -1633,40 +1703,151 @@ namespace Better_Work_Tab.Features.Workloads.V2
             return false;
         }
 
-        private static bool HasParentPriorityClear(
-            WorkloadProjectedState state,
-            WorkloadParentPriorityKey key)
+        /// <summary>
+        /// A session's projected state is immutable. Build its presence map once
+        /// so footer capability checks do not repeatedly perform quadratic scans
+        /// across every pawn/work target represented by a workload.
+        /// </summary>
+        private sealed class ProjectedStatePresenceIndex
         {
-            WorkloadParentPriorityIntentEntry entry;
-            return TryGetParentPriorityIntent(state, key, out entry) &&
-                entry.Intent.State == WorkloadIntentState.Clear;
-        }
+            private readonly HashSet<PawnKey> _excluded = new HashSet<PawnKey>();
+            private readonly HashSet<WorkloadParentPriorityKey> _parentPriorities =
+                new HashSet<WorkloadParentPriorityKey>();
+            private readonly HashSet<WorkloadParentPriorityKey> _manualModes =
+                new HashSet<WorkloadParentPriorityKey>();
+            private readonly HashSet<PawnKey> _schedules = new HashSet<PawnKey>();
+            private readonly HashSet<WorkloadSpecificJobKey> _specificOverrides =
+                new HashSet<WorkloadSpecificJobKey>();
+            private readonly HashSet<WorkloadSpecificJobKey> _specificOrders =
+                new HashSet<WorkloadSpecificJobKey>();
+            private readonly HashSet<string> _presentationSettings =
+                new HashSet<string>(StringComparer.Ordinal);
+            private readonly HashSet<WorkloadParentPriorityKey> _parentPriorityIntents =
+                new HashSet<WorkloadParentPriorityKey>();
+            private readonly HashSet<WorkloadParentPriorityKey> _manualModeIntents =
+                new HashSet<WorkloadParentPriorityKey>();
+            private readonly HashSet<WorkloadScheduleTargetKey> _scheduleIntents =
+                new HashSet<WorkloadScheduleTargetKey>();
+            private readonly HashSet<WorkloadSpecificJobTargetKey> _specificPriorityIntents =
+                new HashSet<WorkloadSpecificJobTargetKey>();
+            private readonly HashSet<WorkloadWorkTypeOrderKey> _workTypeOrderIntents =
+                new HashSet<WorkloadWorkTypeOrderKey>();
+            private readonly HashSet<string> _presentationSettingIntents =
+                new HashSet<string>(StringComparer.Ordinal);
+            private readonly HashSet<WorkloadParentPriorityKey> _parentPriorityClears =
+                new HashSet<WorkloadParentPriorityKey>();
+            private readonly HashSet<WorkloadParentPriorityKey> _manualModeClears =
+                new HashSet<WorkloadParentPriorityKey>();
+            private readonly HashSet<WorkloadSpecificJobTargetKey> _specificPriorityClears =
+                new HashSet<WorkloadSpecificJobTargetKey>();
+            private readonly HashSet<string> _presentationSettingClears =
+                new HashSet<string>(StringComparer.Ordinal);
 
-        private static bool HasManualModeClear(
-            WorkloadProjectedState state,
-            WorkloadParentPriorityKey key)
-        {
-            WorkloadManualModeIntentEntry entry;
-            return TryGetManualModeIntent(state, key, out entry) &&
-                entry.Intent.State == WorkloadIntentState.Clear;
-        }
+            internal ProjectedStatePresenceIndex(WorkloadProjectedState state)
+            {
+                WorkloadProjectedState safe = state ?? WorkloadProjectedState.Empty;
+                AddPawns(_excluded, safe.ExcludedPawnIds);
+                for (int i = 0; i < safe.ParentPriorities.Count; i++)
+                    _parentPriorities.Add(safe.ParentPriorities[i].Key);
+                for (int i = 0; i < safe.ManualModes.Count; i++)
+                    _manualModes.Add(safe.ManualModes[i].Key);
+                for (int i = 0; i < safe.Schedules.Count; i++)
+                    _schedules.Add(safe.Schedules[i].Pawn);
+                for (int i = 0; i < safe.SpecificJobOverrides.Count; i++)
+                    _specificOverrides.Add(safe.SpecificJobOverrides[i].Key);
+                for (int i = 0; i < safe.SpecificJobOrder.Count; i++)
+                    _specificOrders.Add(safe.SpecificJobOrder[i].Key);
+                for (int i = 0; i < safe.PresentationSettings.Count; i++)
+                    _presentationSettings.Add(safe.PresentationSettings[i].Key);
 
-        private static bool HasSpecificPriorityClear(
-            WorkloadProjectedState state,
-            WorkloadSpecificJobTargetKey key)
-        {
-            WorkloadSpecificPriorityIntentEntry entry;
-            return TryGetSpecificPriorityIntent(state, key, out entry) &&
-                entry.Intent.State == WorkloadIntentState.Clear;
-        }
+                for (int i = 0; i < safe.ParentPriorityIntents.Count; i++)
+                {
+                    WorkloadParentPriorityIntentEntry entry = safe.ParentPriorityIntents[i];
+                    AddIntent(entry.Key, entry.Intent.State, _parentPriorityIntents, _parentPriorityClears);
+                }
+                for (int i = 0; i < safe.ManualModeIntents.Count; i++)
+                {
+                    WorkloadManualModeIntentEntry entry = safe.ManualModeIntents[i];
+                    AddIntent(entry.Key, entry.Intent.State, _manualModeIntents, _manualModeClears);
+                }
+                for (int i = 0; i < safe.ScheduleIntents.Count; i++)
+                {
+                    WorkloadScheduleIntentEntry entry = safe.ScheduleIntents[i];
+                    if (entry.Intent.State != WorkloadIntentState.NoOpinion)
+                        _scheduleIntents.Add(entry.Key);
+                }
+                for (int i = 0; i < safe.SpecificPriorityIntents.Count; i++)
+                {
+                    WorkloadSpecificPriorityIntentEntry entry = safe.SpecificPriorityIntents[i];
+                    AddIntent(entry.Key, entry.Intent.State, _specificPriorityIntents, _specificPriorityClears);
+                }
+                for (int i = 0; i < safe.WorkTypeOrderIntents.Count; i++)
+                {
+                    WorkloadWorkTypeOrderIntentEntry entry = safe.WorkTypeOrderIntents[i];
+                    if (entry.Intent.State != WorkloadIntentState.NoOpinion)
+                        _workTypeOrderIntents.Add(entry.Key);
+                }
+                for (int i = 0; i < safe.PresentationSettingIntents.Count; i++)
+                {
+                    WorkloadPresentationSettingIntentEntry entry = safe.PresentationSettingIntents[i];
+                    AddIntent(
+                        entry.Key,
+                        entry.Intent.State,
+                        _presentationSettingIntents,
+                        _presentationSettingClears);
+                }
+            }
 
-        private static bool HasPresentationSettingClear(
-            WorkloadProjectedState state,
-            string key)
-        {
-            WorkloadPresentationSettingIntentEntry entry;
-            return TryGetPresentationSettingIntent(state, key, out entry) &&
-                entry.Intent.State == WorkloadIntentState.Clear;
+            internal bool IsExcluded(PawnKey key) => _excluded.Contains(key);
+            internal bool ContainsParentPriority(WorkloadParentPriorityKey key) =>
+                _parentPriorities.Contains(key);
+            internal bool ContainsManualMode(WorkloadParentPriorityKey key) =>
+                _manualModes.Contains(key);
+            internal bool ContainsSchedule(PawnKey key) => _schedules.Contains(key);
+            internal bool ContainsSpecificOverride(WorkloadSpecificJobKey key) =>
+                _specificOverrides.Contains(key);
+            internal bool ContainsSpecificOrder(WorkloadSpecificJobKey key) =>
+                _specificOrders.Contains(key);
+            internal bool ContainsPresentationSetting(string key) =>
+                _presentationSettings.Contains(key);
+            internal bool HasParentPriorityIntent(WorkloadParentPriorityKey key) =>
+                _parentPriorityIntents.Contains(key);
+            internal bool HasManualModeIntent(WorkloadParentPriorityKey key) =>
+                _manualModeIntents.Contains(key);
+            internal bool HasScheduleIntent(WorkloadScheduleTargetKey key) =>
+                _scheduleIntents.Contains(key);
+            internal bool HasSpecificPriorityIntent(WorkloadSpecificJobTargetKey key) =>
+                _specificPriorityIntents.Contains(key);
+            internal bool HasWorkTypeOrderIntent(WorkloadWorkTypeOrderKey key) =>
+                _workTypeOrderIntents.Contains(key);
+            internal bool HasPresentationSettingIntent(string key) =>
+                _presentationSettingIntents.Contains(key);
+            internal bool HasParentPriorityClear(WorkloadParentPriorityKey key) =>
+                _parentPriorityClears.Contains(key);
+            internal bool HasManualModeClear(WorkloadParentPriorityKey key) =>
+                _manualModeClears.Contains(key);
+            internal bool HasSpecificPriorityClear(WorkloadSpecificJobTargetKey key) =>
+                _specificPriorityClears.Contains(key);
+            internal bool HasPresentationSettingClear(string key) =>
+                _presentationSettingClears.Contains(key);
+
+            private static void AddPawns(
+                HashSet<PawnKey> target,
+                IReadOnlyList<PawnKey> values)
+            {
+                for (int i = 0; i < values.Count; i++) target.Add(values[i]);
+            }
+
+            private static void AddIntent<TKey>(
+                TKey key,
+                WorkloadIntentState state,
+                HashSet<TKey> active,
+                HashSet<TKey> clears)
+            {
+                if (state == WorkloadIntentState.NoOpinion) return;
+                active.Add(key);
+                if (state == WorkloadIntentState.Clear) clears.Add(key);
+            }
         }
 
         /// <summary>

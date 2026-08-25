@@ -17,7 +17,7 @@ The production checkout is the only current source owner. The supplied archive w
 
 | System | Authoritative state or policy | Normal read | Normal write or coordination | Persistence and edge role | State |
 | --- | --- | --- | --- | --- | --- |
-| Application | Per-game domain services | Canonical effective-state providers | `WorkTabApplication` and typed atomic plans | Game component composes domain owners | Complete |
+| Application | Per-game domain services | Canonical effective-state providers | `WorkTabApplication` lowers typed requests to `WorkTabStagedMutation` | `WorkTabGameRoot` composes domain owners and narrow persistence ports | Complete |
 | Priority | Authority broker and priority policy | `ParentPriorityRead` and finished view | Displayed or stored priority batches | External providers remain narrow authority ports | Complete |
 | Schedules | `TimePriorityScheduleRuntime` and service | Immutable schedule values | Application schedule commands | Game component records; mirror and synchronized replay use commands | Complete |
 | Specific jobs | Reassignment domain | Canonical override and inheritance reader | One specific-job batch in `WorkTabMutationScope` | Exact rollback and stale-data cleanup remain domain-owned | Complete |
@@ -25,16 +25,18 @@ The production checkout is the only current source owner. The supplied archive w
 | Settings and presentation | Global preference owner and workload projection | Pass-stable settings snapshot | Context router or receipt-bearing workload writer | Preview port is session-local; accepted writes persist once | Complete |
 | WorkGrid | Snapshot provider and `WorkTabView` | Finished immutable view | Input routes application commands | Renderer owns no game state | Complete |
 | Rules | Classic and V2 evaluators | Canonical state view | `RuleApplicationPlanningScope` compiles one atomic plan | Old rule records translate at the boundary | Complete |
-| Workloads | Repository, session projection, and planner | Canonical live or projected state | One atomic plan plus one repository action | Legacy and V2 backends share the same application transaction | Complete |
-| Multiplayer | Transport layer | Fingerprints and expected revisions | Synchronized entry points call the same local handlers | Submission remains distinct from application | Complete at repository-harness level |
+| Workloads | Repository, session projection, and planner | Canonical live or projected state | Workload metadata plus one shared staged live mutation | V2 keeps repository/CAS policy but has no separate live write or rollback engine | Complete |
+| Multiplayer | Transport layer | Fingerprints and expected revisions | Synchronized entry points call the same local handlers | Protocol v2 waits for final-delivery acknowledgements | Complete at deterministic-contract level |
 | Compatibility | Per-integration narrow gateways | Core-facing authority and state reads | Canonical command or trusted import ports | Fail-closed behavior retained | Complete at repository-contract level |
 | Harmony and Spine | Patch and standalone integration edges | Patch-safe facade only when injection is unavailable | BWT-owned chains use explicit state views | Embedded and external Spine remain separate owners | Complete |
 
 ## Central transaction and revision result
 
-`WorkTabAtomicMutationPlan` is the shared plan vocabulary for priorities, schedules, specific jobs, execution order, and presentation-affecting workload operations. `WorkTabMutationScope` validates the whole request, captures rollback state, applies each participating domain without publishing intermediate changes, restores in reverse order on failure, and commits one coherent application result. Rejected, unchanged, submitted, and successfully rolled-back requests do not publish a normal committed revision.
+`WorkTabStagedMutation` is the shared live mutation vocabulary for priorities, schedules, specific jobs, configuration, and external-specific authority. `WorkTabAtomicMutationPlan` and Workloads V2 both lower into it. `WorkTabStagedMutationReceipt` captures rollback state, stages each participating domain without durable intermediate publication, validates revision ownership, commits one coherent application change, and compensates in reverse order on failure. Rejected, unchanged, submitted, and successfully rolled-back requests do not publish a normal committed revision.
 
-The legacy workload path now compiles the same atomic plan as the V2 path. Classic rules and Rule Builder 2 compile the same plan vocabulary. Root-header priority changes use one displayed-priority batch. Full-day schedules and specific-job changes use one batch instead of per-cell or per-job loops. Layout move, undo, and redo stage order and reassignment data, own their schedule retarget batch, and advance history only after the application transaction commits.
+Classic rules, Rule Builder 2, legacy worklists, and imports compile the atomic plan. V2 retains its ownership, membership, diagnostics, Apply/Update/Fork, repository compare-and-swap, and recovery metadata, but compiles the live portion into the same staged receipt. Its former parent-priority, specific-job, schedule, and inverse rollback loops were removed from `Workload2Backend`.
+
+The publisher consumes an explicit change receipt with before/after revision vectors, dimensions, effects, and sorted affected targets. Exact parent changes use sparse `(pawn, WorkType)` invalidation; broad invalidation is reserved for broad or unknown changes. Renderer dirty flags, row/execution recache, pawn-table notification, and external mirroring no longer accumulate in the application executor.
 
 ## Finished view and input
 
@@ -52,24 +54,24 @@ Workload drafts use a shared bounded history implementation. `Ctrl+Z` and `Ctrl+
 - Dead diagnostic formatting in production; the external probe formats its own diagnostics through the supported read API.
 - Backend contracts and authorization forwarding that duplicated the application boundary.
 
-No temporary mutation adapter remains. The two one-caller ports are intentional edges: the snapshot presentation layer separates prepared data from rendering, and the presentation preview port prevents session edits from reaching persistent settings. Remove either only when its edge disappears; do not add a second implementation merely to justify the abstraction.
+No temporary mutation adapter remains. The one-caller snapshot presentation and settings preview ports are intentional ownership edges. `RetainedWorkBoxRowCache` is also intentionally separate despite one logical owner: it owns render-resource allocation, bounded eviction, device-loss recovery, and direct-render fallback rather than domain state.
 
 ## Simplification scorecard
 
 | Measure | Mission baseline | Final working tree | Change |
 | --- | ---: | ---: | ---: |
-| Production C# files | 443 | 459 | +16 focused boundary files |
-| Production physical lines | 152,346 | 151,998 | -348 |
-| Production nonblank lines | Not recorded at mission start | 135,229 | Current measurement |
+| Production C# files | 443 | 471 | +28 focused boundary and later performance files |
+| Production physical lines | 152,346 | 155,701 | +3,355 across the full mission and later feature work |
+| Production nonblank lines | Not recorded at mission start | 138,679 | Current measurement |
 
-Relative to completion base `e5987800`, tracked production edits add 5,351 and remove 6,663 lines; new production files add 1,693 lines. The full mission remains physically smaller than its baseline while adding atomic rollback, finished views, canceled-draft recovery, and workload undo and redo. The final physical count is the controlling net-simplification measure because the completion base already contains the earlier centralized priority and schedule deletions.
+Relative to the reviewed `5eb16fc6` tree, this follow-up adds 6,755 and removes 3,030 tracked production lines: a net increase of 3,725 lines. That comparison includes new architecture boundaries, performance infrastructure, tests' production-facing support, and later tutorial, roster, and interaction work. It does not support a shrink claim; the simplification result is responsibility consolidation and removal of duplicate execution paths, not fewer total source lines.
 
 ## Final verification
 
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Production 1.6 build with embedded Spine | Passed, 0 errors | Existing duplicate Publicizer source warning only |
-| In-repository deterministic suite | 15 passed, 0 failed | Local production suite |
+| In-repository deterministic suite | 22 passed, 0 failed | Local production suite, including retained-renderer orientation, roster revision, sparse invalidation, and spawn-performance contracts |
 | External deterministic and architecture contracts | 273 passed, 0 failed | Test `main` suite |
 | Full isolated verifier | Passed | `A:\Dev\RimWorld\Runtime\BwtCentralArchitecture\final-verification\run-482989b9e97b43f89fbdc33ea99e32e5\evidence\verification.json` |
 | External Spine build and mirror checks | Passed | Full verifier |
@@ -82,9 +84,16 @@ Relative to completion base `e5987800`, tracked production edits add 5,351 and r
 | Ordering | 8 passed, 0 failed | Focused source contract |
 | Harness extension suite | 35 passed, 0 failed | Harness extension tests |
 | Live Work tab ownership and ExpandBeside geometry | 231 checks, 0 failures for 3 pawns and 24 columns | Runtime profile `central-final-probe2` |
+| Final 100-pawn normal geometry | 633 checks, 0 failures | Runtime session `runtime-candidate-8e7299d4ead348a8968cba99808b542b`, profile `final-normal` |
+| Final 103-pawn Focus View geometry after spawn trials | 637 checks, 0 failures | Same runtime session, profile `final-focus`; the increased roster count was retained rather than discarded |
+| Workload preview open, three repeated trials | 95.3619 ms average, 105.3098 ms maximum | Same 100-pawn save and candidate; previous implementation measured about 789.8 ms average |
+| Workload preview steady frame | 2.6728 ms per frame for `DoWindowContents` | 53.9-second repeated open/close run; preview preparation averaged 0.0026 ms per call |
+| Workload preview scrolling | 4.6339 ms per frame for `DoWindowContents`; 1.4707 ms per frame for row drawing | Forty injected wheel events over the 100-pawn projected presentation; earlier implementation measured 12.4434 ms per frame for `DoWindowContents` |
+| Colonist spawn transition | BWT work-giver recache 0.2215 ms cold, then 0.0256 and 0.0215 ms; pawn-table notification 1.0268-1.0565 ms | Three consecutive spawns, with observed colonist counts 100→101→102→103; full action time varied with vanilla pawn generation from 9.0359 to 66.4109 ms |
+| Retained priority glyph orientation | Passed visual runtime inspection | Direct3D retained rows now present the top-left-composed surface without a second UV flip |
 | Live isolation after test | Passed | Session stopped cleanly; harness reported no blockers before launch |
 
-The focused visible-column test is the repository's available hot-path gate for this change. It confirms prepared presentation, visible-column culling, and the absence of repeated live resolution in the BWT body path. A paired save benchmark was not available because the workspace has no compatible benchmark manifest and seed lane for this mod. No performance claim beyond the passing source gate and live geometry evidence is made.
+The focused visible-column test confirms prepared presentation, visible-column culling, and the absence of repeated live resolution in the BWT body path. Runtime measurements used the same 100-pawn save, harness path, screen geometry, and projected workload before and after the fixes. Pawn generation varies by generated pawn and the live roster may change while the game runs, so spawn evidence reports each observed count and separates vanilla generation from BWT recache and table-notification costs.
 
 ## Migration and compatibility policy
 

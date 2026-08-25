@@ -4,8 +4,8 @@ using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.ComplexJobs;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -1181,11 +1181,13 @@ namespace Better_Work_Tab.UI.Settings
                 tooltip: "Restore every divider to the default height.",
                 onChanged: settingsObj =>
             {
-                if (settingsObj is BetterWorkTabSettings settings && Current.Game?.GetComponent<GameComponent_BWTWorldSettings>() is GameComponent_BWTWorldSettings worldSettings)
+                IWorkTabDividerState dividers =
+                    WorkTabGameRoots.For(Current.Game)?.State.Dividers;
+                if (settingsObj is BetterWorkTabSettings settings && dividers != null)
                 {
-                    if (worldSettings.ActiveDividers != null)
+                    if (dividers.ActiveDividers != null)
                     {
-                        foreach (var div in worldSettings.ActiveDividers)
+                        foreach (var div in dividers.ActiveDividers)
                         {
                             div.Height = settings.dividerHeight;
                         }

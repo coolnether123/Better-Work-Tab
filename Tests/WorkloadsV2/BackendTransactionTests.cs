@@ -22,10 +22,16 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string authorization = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "WorkloadMutationAuthorization.cs");
             string manager = Read(root, "Source", "Features", "WorkGiverReassignments", "WorkGiverReassignmentManager.cs");
             string data = Read(root, "Source", "Features", "WorkGiverReassignments", "WorkGiverReassignmentData.cs");
+            string staged = Read(root, "Source", "Features", "Application", "WorkTabStagedMutation.cs");
+            string presentation = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "WorkloadPresentationSettingsTransaction.cs");
 
             PrepareIsReadOnlyAndExecuteIsCapabilityBound(backend, authorization);
-            SpecificJobMutationIsOneAtomicBatch(backend, manager, data);
-            SpecificJobPublicationUsesTheCanonicalBatchReceipt(backend);
+            SpecificJobMutationIsOneAtomicBatch(backend, staged, manager, data);
+            SpecificJobPublicationUsesTheCanonicalBatchReceipt(backend, staged);
+            StagedReceiptOwnsRecoveryAndProvisionalConfirmation(
+                backend,
+                staged,
+                presentation);
             SettingsAreRegisteredBeforeWrite(backend);
             RollbackLeaseCannotBecomeSuccessAfterFailure(backend, contracts);
             TemplateWritesUseTheSameTransactionBoundary(backend);
@@ -74,7 +80,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "legacy workload baselines must be captured through the shared plan");
             TestAssert.Contains(
                 worklist,
-                "WorkTabApplication.Current?.ApplyAtomicMutationPlan(mutation)",
+                "WorkTabGameRoots.For(Current.Game)?.Application?",
                 "legacy Worklist.Apply must publish one compiled application mutation");
             TestAssert.Contains(
                 pawnWorkload,
@@ -136,7 +142,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string backend,
             string authorization)
         {
-            int liveApply = backend.IndexOf("ApplyLive(live, runtimePlan", StringComparison.Ordinal);
+            int liveApply = backend.IndexOf("ApplyLive(", StringComparison.Ordinal);
             int validateOnlyGate = backend.IndexOf(
                 "if (executionContext?.ValidateOnly == true)",
                 liveApply,
@@ -176,13 +182,17 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static void SpecificJobMutationIsOneAtomicBatch(
             string backend,
+            string staged,
             string manager,
             string data)
         {
             TestAssert.Contains(
-                backend,
-                "TryApplySpecificJobBatch(",
-                "the workload backend must enter the canonical specific-job batch seam");
+                staged,
+                "TryApplySpecificJobs(",
+                "the application-owned staged executor must enter the canonical specific-job batch seam");
+            TestAssert.False(
+                backend.IndexOf("TryApplySpecificJobBatch(", StringComparison.Ordinal) >= 0,
+                "the workload backend must compile specific jobs without retaining a live writer");
             TestAssert.Contains(
                 manager,
                 "TryApplySpecificJobBatch(",
@@ -227,22 +237,102 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "specific-job batch fingerprints must retain explicit global clear state");
         }
 
-        private static void SpecificJobPublicationUsesTheCanonicalBatchReceipt(string backend)
+        private static void SpecificJobPublicationUsesTheCanonicalBatchReceipt(
+            string backend,
+            string staged)
         {
             TestAssert.Contains(
-                backend,
-                "live?.SpecificJobsChanged == true",
-                "the transaction receipt must preserve specific-job publication truth across apply and rollback");
+                staged,
+                "WorkGiverReassignmentManager.SpecificJobBatchRollback _specificRollback",
+                "the application receipt must own the manager's complete specific-job rollback unit");
             TestAssert.Contains(
                 backend,
-                "WorkTabApplicationDimensions.SpecificPriority |\n                    WorkTabApplicationDimensions.SpecificOrder |\n                    WorkTabApplicationDimensions.ExecutionOrder",
-                "a canonical specific-job batch must publish every affected Work-tab dimension");
+                "runtimePlan.SpecificJobRevision = receipt.SpecificJobRevision",
+                "V2 must advance its expected revision to the application receipt's owned post-stage revision");
             TestAssert.False(
                 backend.IndexOf("AppliedSpecificJobOverrideMutation", StringComparison.Ordinal) >= 0 ||
                 backend.IndexOf("AppliedSpecificJobOrderMutation", StringComparison.Ordinal) >= 0 ||
                 backend.IndexOf("AppliedTypedSpecificPriorityMutation", StringComparison.Ordinal) >= 0 ||
                 backend.IndexOf("AppliedTypedWorkTypeOrderMutation", StringComparison.Ordinal) >= 0,
                 "specific-job rollback must retain only the manager-owned atomic batch receipt");
+        }
+
+        private static void StagedReceiptOwnsRecoveryAndProvisionalConfirmation(
+            string backend,
+            string staged,
+            string presentation)
+        {
+            TestAssert.Contains(
+                staged,
+                "(entry.Clear && !present) ||\n                    (!entry.Clear && present && observed == entry.Desired)",
+                "setting an existing external override to a different value must not be mistaken for a no-op");
+            TestAssert.Contains(
+                staged,
+                "parent.WorkType) == parent.Desired",
+                "delayed parent rollback must compare-and-swap against the value applied by the receipt");
+            TestAssert.Contains(
+                staged,
+                "_mutation.ManualPriorityTarget.Value",
+                "delayed manual-mode rollback must retain exact applied-value ownership");
+            TestAssert.Contains(
+                staged,
+                "_appliedConfiguration.MatchesCurrent()",
+                "delayed configuration rollback must not overwrite a later settings edit");
+            TestAssert.Contains(
+                staged,
+                "present && observed == entry.Desired",
+                "delayed external-specific rollback must not overwrite a later authority edit");
+            TestAssert.Contains(
+                staged,
+                "_appliedExternalSpecific.RemoveAt(i)",
+                "successful rollback dimensions must clear their ownership for deterministic retry");
+            TestAssert.Contains(
+                staged,
+                "_manualChanged = false",
+                "successful manual rollback must become idempotent");
+            TestAssert.Contains(
+                staged,
+                "hadConfiguration != _configurationChanged",
+                "configuration-only compensation must still publish its rollback invalidation");
+            TestAssert.Contains(
+                backend,
+                "transaction.StagedMutation != null &&\n                    !transaction.StagedMutation.Rollback",
+                "application rollback must be attempted even when presentation rollback fails");
+
+            int provisionalCommit = backend.IndexOf(
+                "CompleteLiveMutation(live, provisional)",
+                StringComparison.Ordinal);
+            int provisionalLease = backend.IndexOf(
+                "executionContext.RollbackLease = CreateRollbackLease(",
+                provisionalCommit,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                provisionalCommit >= 0 && provisionalLease > provisionalCommit,
+                "a delayed-confirmation execute must create its rollback lease immediately after provisional completion");
+            TestAssert.Contains(
+                backend,
+                "FinalizeLiveMutation(live, out string reason)",
+                "terminal confirmation must finalize the provisional application receipt");
+            TestAssert.Contains(
+                staged,
+                "FinalizeProvisionalCommit(",
+                "durable application publication must be deferred behind receipt confirmation");
+            TestAssert.Contains(
+                staged,
+                "InvalidateProvisionalStagedMutation(",
+                "provisional live writes must still invalidate transient UI and execution caches");
+            TestAssert.Contains(
+                backend,
+                "persist: !provisional",
+                "multiplayer presentation settings must remain unpersisted until terminal confirmation");
+            TestAssert.Contains(
+                presentation,
+                "TryPersistOwned(",
+                "presentation-only provisional writes need an exact confirmation-time persistence seam");
+            TestAssert.Contains(
+                backend,
+                "persist: transaction.PresentationPersisted",
+                "provisional abort must not persist a presentation value that was never confirmed");
         }
 
         private static void SettingsAreRegisteredBeforeWrite(string backend)
@@ -483,7 +573,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "// Update and Fork do not apply the live colony",
                 StringComparison.Ordinal);
             int applyLiveStart = backend.IndexOf(
-                "ApplyLive(live, runtimePlan",
+                "ApplyLive(",
                 persistencePlanStart,
                 StringComparison.Ordinal);
             TestAssert.True(

@@ -1,6 +1,7 @@
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.PawnOrganizer;
@@ -59,8 +60,14 @@ namespace Better_Work_Tab.UI.Headers
     /// </summary>
     internal sealed class WorkTabHeaderRenderer
     {
+        private readonly Func<WorkTabApplication> _application;
         private const float HorizontalCullBuffer = 64f;
         private const float HostedFirstSubWorkAngledHeaderOffsetX = 5f;
+
+        internal WorkTabHeaderRenderer(Func<WorkTabApplication> application)
+        {
+            _application = application ?? throw new ArgumentNullException(nameof(application));
+        }
 
         internal void DrawHeaders(
             IWorkTabLayoutController layout,
@@ -361,7 +368,7 @@ namespace Better_Work_Tab.UI.Headers
                 frame.PinnedRowsHeight + Mathf.Max(0f, lastFullyVisibleBottom - scrollTop));
         }
 
-        private static bool TryDrawFluffyHeader(
+        private bool TryDrawFluffyHeader(
             WorkTabLayoutColumn column,
             Rect headerRect,
             PawnTable table)
@@ -433,7 +440,8 @@ namespace Better_Work_Tab.UI.Headers
                         priorityWorker,
                         table,
                         Event.current,
-                        allowRootGrouping: !isChild))
+                        allowRootGrouping: !isChild,
+                        application: _application()))
                 {
                     return true;
                 }

@@ -27,17 +27,17 @@ Harmony patches may use a small patch-safe facade when RimWorld does not provide
 
 | System | Current owner or convergence point | Target owner | Target read port | Target command owner | Persistence owner | Migration state |
 | --- | --- | --- | --- | --- | --- | --- |
-| Application core | Per-game `WorkTabApplication` composed by `GameComponent_BWTWorldSettings` | Per-game composition and application transaction coordinator | Canonical effective-state reader | Typed operations and `WorkTabAtomicMutationPlan` | Domain repositories coordinated by the game component | Complete for Work tab game-state mutations |
+| Application core | Per-game `WorkTabApplication` composed by `WorkTabGameRoot` | Per-game composition and application transaction coordinator | Canonical effective-state reader | Typed operations lowered to `WorkTabStagedMutation` | Narrow domain persistence ports; the legacy game component is a save-safe Scribe shell | Complete for Work tab game-state mutations and change publication |
 | Priority and authority | `WorkPrioritySystem`, `PriorityAuthorityBroker`, `ParentPriorityRead`, and `WorkTabActionability` | Authority-aware priority domain | `ParentPriorityRead` plus the finished view | `WorkTabApplication` parent and displayed-priority batches | Priority owner or external adapter | Complete; root-header multi-pawn changes use one batch |
 | Schedules | Per-game `TimePriorityScheduleRuntime` behind `TimePriorityService` | Schedule domain | Immutable `TimePriorityScheduleValue` reads | `WorkTabApplication` schedule operations and atomic plans | Deterministic projection owned by the game component | Complete for live, preview, import, workload, mirror, and synchronized replay paths |
 | Specific jobs | `WorkGiverReassignmentManager` behind `WorkTabMutationScope` | Specific-job domain | Canonical override and inheritance reader | One validated specific-job batch in the application transaction | Specific-job record owner | Complete; UI, rules, workloads, and layout retargets share the batch port |
 | Execution order | `WorkColumnOrderManager` and reassignment records behind the application boundary | Execution-order domain | Canonical effective order reader | Explicit reorder or atomic layout command | Execution-order record owner | Complete for BWT-owned callers; legacy display/execution coupling is explicit |
-| Settings and presentation | Global settings owner plus workload presentation projection | Preference and presentation domains | Finished-view settings snapshot | Context router and receipt-bearing workload writer | Each domain owns its record | Complete for Work tab reads, previews, persistence, and compensation |
+| Settings and presentation | Global settings owner plus workload presentation projection | Preference and presentation domains | Finished-view settings snapshot and neutral presentation values | Context router and receipt-bearing workload writer | Each domain owns its record | Complete; Workload values translate at the settings boundary |
 | WorkGrid and layout | `WorkTabView`, snapshot provider, renderer facade, and staged layout transaction | Pass-stable finished view plus UI-only frame state | Immutable `WorkTabView` and neutral preview contracts | Application operations for game state; UI commands for transient state | No game-state persistence in WorkGrid | Complete; BWT-owned drawing does not resolve live workload state |
 | Rules | Classic and Rule Builder 2 evaluators plus `RuleApplicationPlanningScope` | Pure evaluators and atomic-plan compiler | Canonical state view | One application mutation plan | Rule format owners and import adapters | Complete for both rule systems |
-| Workloads | Repository backends, session controller, planner, and projection | Template repository, session projection, and plan compiler | Canonical live or projected state view | One atomic plan plus repository actions | Workload repositories and converters | Complete; legacy and V2 paths share the same application transaction |
+| Workloads | Repository backends, session controller, planner, and projection | Template repository, session projection, and plan compiler | Canonical live or projected state view | Workload commit metadata plus one shared staged live mutation | Workload repositories and converters | Complete; V2 no longer owns parent, specific-job, or schedule write and rollback loops |
 | Persistence | Game component plus domain converters | Per-domain record owners | Current canonical models | Domain migration and repository entry points | Game component coordinates Scribe only | Complete for the migrated Work tab domains |
-| Multiplayer | `MultiplayerBridge` and typed synchronized entry points | Transport around the same local handlers | Canonical fingerprints and revisions | Synchronized replay enters the application boundary | Transport records only | Complete for migrated commands; submitted and applied results remain distinct |
+| Multiplayer | `MultiplayerBridge` and typed synchronized entry points | Transport around the same local handlers | Canonical fingerprints and revisions | Synchronized replay enters the application boundary | Protocol-v2 prepare, decision, and final-delivery acknowledgements | Complete for migrated commands; submitted, decision-reached, and applied results remain distinct |
 | External compatibility | Registry and narrow Sleek/import gateways | Detection, authority, import, mirror, and coexistence ports | Core-facing compatibility reads | Canonical commands or narrow authority adapters | Integration-owned records | Complete; trusted import remains fail-closed in active multiplayer |
 | Harmony and Spine | Patch entry points and mirrored Spine source | Integration edge and standalone Spine owner | Patch-safe facade only where injection is unavailable | Application services for BWT-owned call chains | Existing owners | Complete; live fallback is restricted to native/Harmony drawing edges |
 
@@ -59,7 +59,7 @@ Transport submission and local application are distinct results. A multiplayer c
 
 ## Command transaction
 
-An accepted game-state command follows this order unless a documented RimWorld boundary requires an exception:
+An accepted game-state command is lowered to `WorkTabStagedMutation`. Its receipt owns staged values, revision leases, commit publication, and compensation. The command follows this order unless a documented RimWorld boundary requires an exception:
 
 1. Normalize and reject malformed or duplicate targets.
 2. Capture the game/session epoch, expected domain revisions, authority, range, schedule, and reassignment state needed by the plan.
@@ -76,7 +76,9 @@ An accepted game-state command follows this order unless a documented RimWorld b
 
 Rejected, unchanged, submitted, and successfully rolled-back operations do not advance normal state revisions. Reentrant execution is rejected and never interleaves partial mutations. Until an external mirror provides reversible, idempotent, result-bearing delivery, mirror failure is applied-with-warning rather than a false atomic rollback claim.
 
-Workload persistence confirmation is a documented two-phase exception. A retained workload transaction may provisionally publish its schedule mutation before remote confirmation. If confirmation fails, the workload receipt can restore only the exact revisions it still owns, advances the schedule revision for each accepted restore, and republishes only the restored targets. Normal application operations still publish once per accepted transaction.
+Workload multiplayer confirmation is a documented two-phase exception. A retained workload transaction may apply live values provisionally, but it does not publish durable application change, mirror externally, persist presentation settings, or notify workload persistence until final confirmation is acknowledged. Provisional application emits only the transient invalidation and execution refresh needed to keep the local game coherent. If confirmation fails before the commit decision, the receipt restores only values and revisions it still owns. Parent, manual-mode, configuration, and external-specific compensation use compare-and-swap checks. Successful per-dimension restores clear their ownership so recovery retries operate only on residual state.
+
+After the host reaches a commit decision, it remains pending until each required peer acknowledges delivery of the final control. Send failure and timeout after that point retry final delivery; they do not roll back a peer that may already have committed. Duplicate final controls are idempotent and produce another acknowledgement.
 
 ## Read precedence
 
@@ -123,7 +125,7 @@ Renderer invalidation counters are consumers of state changes, not authoritative
 
 ## Result and change vocabulary
 
-Operation results distinguish `Rejected`, `NoChange`, `Submitted`, `Applied`, `FailedRolledBack`, and `RecoveryRequired`. Only `Applied` publishes the normal committed change.
+Operation results distinguish `Rejected`, `NoOp`, `Submitted`, `Applied`, `AppliedAfterAuthorityChange`, `Partial`, `FailedRolledBack`, and `RecoveryRequired`. `FailedRolledBack` records a failed operation whose staged writes were fully compensated. `RecoveryRequired` records residual state that still needs ownership-aware recovery. `Partial` remains available only for explicitly supported non-atomic policies. Only applied outcomes publish a normal committed change.
 
 A state change carries:
 
@@ -137,7 +139,7 @@ The target runtime is .NET Framework 4.7.2, so contracts use deterministic read-
 
 ## Composition lifetime
 
-`BetterWorkTabMod` owns boot factories, Harmony installation, and compatibility registration. Per-game application state, revisions, persistence coordination, and disposal belong to `GameComponent_BWTWorldSettings`. BWT-controlled windows and render/input components receive explicit dependencies from that scope.
+`BetterWorkTabMod` owns boot factories, Harmony installation, and compatibility registration. `WorkTabGameRoot` owns per-game application composition, revisions, persistence ports, and disposal. `GameComponent_BWTWorldSettings` retains its exact type, namespace, public persisted fields, and Scribe keys for save compatibility, but delegates runtime composition to the neutral root. BWT-controlled windows and render/input components receive explicit dependencies from that scope.
 
 One narrowly named static bridge may resolve the current per-game priority operation for Harmony or native callbacks that provide no injection point. No generic `Get<T>`, mutable application singleton, or second ambient service locator is allowed.
 
@@ -166,11 +168,9 @@ Centralization must reduce production code and ownership paths. It is not permis
 
 At the `ad01eed4` baseline, `Source` contains 443 C# files and 152,346 physical lines. The highest-cost areas are Workloads at 21,804 lines, WorkGrid at 12,816 lines, settings UI at 10,356 lines, Time Priority at 6,735 lines, specific-job reassignment at 5,704 lines, and rules at 4,796 lines.
 
-At completion, `Source` contains 459 C# files, 151,998 physical lines, and 135,229 nonblank lines. This is 348 physical lines below the mission baseline while also adding canceled-draft recovery, workload-local undo and redo, application-level atomic rollback, staged layout history, and finished-view contracts. The file count increased because the retained boundaries have separate responsibilities; the larger superseded implementations and forwarding surfaces were removed rather than kept beside them.
+After the architecture follow-up, `Source` contains 473 C# files, 155,814 physical lines, and 138,786 nonblank lines. The follow-up itself removes 4,666 tracked production lines and adds 3,111 relative to `5eb16fc6`, a net reduction of 1,555 tracked lines while adding the application publisher, staged receipt, neutral game root, retained renderer boundary, roster cache, and focused contracts. The current tree is larger than the original mission baseline because it also contains later performance and interaction work; the controlling claim for this follow-up is replacement of the reviewed paths, not a false repository-wide shrink claim.
 
-The completed batch removed 6,663 tracked production lines and added 5,351 tracked lines plus 1,693 lines in new production files relative to `e5987800`. Across the full mission history, earlier centralized schedule and priority deletions keep the final tree below the 152,346-line mission baseline. Deleted owners include the duplicate workload inspection policy, separate multiplayer column-order synchronizer, header-positioning manager, settings-visibility contract, name dialog, revision shim, geometry shell, and manager-owned single-write and diagnostic surfaces.
-
-The remaining one-caller abstractions are intentional integration boundaries: `IWorkGridSubWorkPresentationLayer` separates a prepared snapshot from the BWT renderer, and the presentation preview port keeps session-local edits outside persistent settings. They should be inlined only if their native/Harmony edge disappears; adding parallel implementations is not allowed.
+The remaining one-caller abstractions are intentional boundaries. `IWorkGridSubWorkPresentationLayer` separates a prepared snapshot from the BWT renderer. The presentation preview port keeps session edits outside persistent settings. `RetainedWorkBoxRowCache` has one logical owner in `OptimizedWorkGridRenderer`, but remains separate because it owns render-texture allocation, eviction, device-loss recovery, and failure fallback. Inline one only when that lifecycle boundary disappears; do not add parallel implementations merely to justify it.
 
 Every implementation batch must report:
 
@@ -204,7 +204,9 @@ This preserves same-event local feedback without treating a multiplayer submissi
 
 ## Performance boundaries
 
-The migration must not add per-cell allocations, repeated reflection, repeated authority or schedule resolution, full-grid rebuilds for sparse changes, or repeated workload fingerprints during one immediate-mode event.
+The migration must not add per-cell allocations, repeated reflection, repeated authority or schedule resolution, full-grid rebuilds for sparse changes, or repeated workload fingerprints during one immediate-mode event. A precise parent-priority change publishes its `(pawn, WorkType)` identity and patches only that cell and any prepared sub-work presentation for the same identity. The compatibility audit reads each relevant priority once and hashes each pawn skill record once per audit pass.
+
+Retained parent and pawn sub-work rows are bounded resources, not a second state model. They render only completed snapshot data, release on resource invalidation or device loss, and fall back to direct clipped drawing during column-reorder animation. Final presentation remains inside the IMGUI scroll/group clip.
 
 The finished view is frame-stable. Drawing and hit testing consume the same geometry and effective state. Hover, drag, animation, and tutorial activity do not advance persistent state revisions.
 

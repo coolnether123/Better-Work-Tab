@@ -7,6 +7,7 @@ using Unity.Properties;
 using RimWorld;
 using Verse;
 using Better_Work_Tab.Features.Application;
+using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.PawnOrganizer.Data;
 
@@ -60,7 +61,8 @@ namespace Better_Work_Tab.Features.Workloads
                 return false;
             }
 
-            result = WorkTabApplication.Current?.ApplyAtomicMutationPlan(mutation) ??
+            result = WorkTabGameRoots.For(Current.Game)?.Application?
+                .ApplyAtomicMutationPlan(mutation) ??
                 WorkTabApplicationResult.Rejected(
                     "The work-tab application service is unavailable.",
                     default);

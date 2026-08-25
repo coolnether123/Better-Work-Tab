@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.Foundation.Transactions;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.Mod_Support.Multiplayer;
 using RimWorld;
