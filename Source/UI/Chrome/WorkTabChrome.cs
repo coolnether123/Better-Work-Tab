@@ -793,6 +793,14 @@ namespace Better_Work_Tab.UI.Chrome
             ReleaseManualPrioritiesSurface(false);
         }
 
+        internal static void ReleaseRetainedResources()
+        {
+            ReleaseManualPrioritiesSurfaces();
+            _manualSurfaceKeyValid = false;
+            _manualPrioritiesSurfaceEnabledFailed = false;
+            _manualPrioritiesSurfaceDisabledFailed = false;
+        }
+
         private static bool SameRect(Rect left, Rect right)
         {
             return left.x == right.x &&

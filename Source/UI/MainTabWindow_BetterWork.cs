@@ -787,6 +787,7 @@ namespace Better_Work_Tab.UI
             // preserved vanilla lifecycle ordering.
             _windowSession.InvalidatePawnTableCache();
             _windowSizingController.InvalidateRequestedTabSizeCache();
+            WorkTabChrome.ReleaseRetainedResources();
             base.Notify_ResolutionChanged();
         }
 
@@ -904,6 +905,7 @@ namespace Better_Work_Tab.UI
             NativeCursorPosition.CancelPendingMove();
             _workloadPreviewController.ResetForWindowClose();
             HeaderButtons.ResetOptionalFooterState();
+            WorkTabChrome.ReleaseRetainedResources();
             // Work-grid snapshots and audit state belong to the game session, not this window.
             // GameCacheResetUtility owns their load/new-game teardown boundary.
         }
