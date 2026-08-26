@@ -59,8 +59,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private IReadOnlyList<WorkTabLayoutColumn> _inspectionBindingColumns;
         private int _inspectionBindingLayoutRevision = int.MinValue;
         private int _inspectionBindingSubWorkRevision = int.MinValue;
-        private static Color CurrentRowTextColor = Color.white;
-
         private readonly struct InspectionColumnBinding
         {
             internal InspectionColumnBinding(
@@ -1240,15 +1238,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             IWorkGridSnapshotLayer snapshotLayer,
             WorkGridIndexRange visibleColumns)
         {
-            Color snapshotTextColor;
             if (snapshotLayer == null ||
-                !snapshotLayer.TryDrawRowBackground(rowIndex, rowRect, out snapshotTextColor))
+                !snapshotLayer.TryOwnRowBackground(rowIndex, rowRect))
             {
                 DrawRowBackground(descriptor.Pawn, null, rowRect);
-            }
-            else
-            {
-                CurrentRowTextColor = snapshotTextColor;
             }
 
             DrawPawnRow(
@@ -1264,9 +1257,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int rowIndex,
             IWorkGridSnapshotLayer snapshotLayer)
         {
-            Color ignoredTextColor;
             if (snapshotLayer == null ||
-                !snapshotLayer.TryDrawRowBackground(rowIndex, rowRect, out ignoredTextColor))
+                !snapshotLayer.TryOwnRowBackground(rowIndex, rowRect))
             {
                 DrawRowBackground(null, descriptor.Divider, rowRect);
             }
@@ -1318,8 +1310,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     pawnColor.b,
                     Mathf.Clamp(pawnColor.a, 0.08f, 0.6f));
                 Widgets.DrawBoxSolid(rect, overlay);
-
-                CurrentRowTextColor = Spine.UI.TextColorHelper.GetContrastingTextColor(overlay);
             }
             else if (divider != null)
             {
