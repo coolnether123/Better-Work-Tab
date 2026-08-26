@@ -13,6 +13,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string packet = Read(root, "Source", "UI", "WorkGrid", "Rendering", "PreparedWorkRowPacket.cs");
             string optimized = Read(root, "Source", "UI", "WorkGrid", "Rendering", "OptimizedWorkGridRenderer.cs");
             string body = Read(root, "Source", "UI", "WorkGrid", "Rendering", "WorkTabBodyRenderer.cs");
+            string surface = Read(root, "Source", "UI", "WorkGrid", "Rendering", "WorkGridDrawingSurface.cs");
+            string compatibility = Read(root, "Source", "UI", "WorkGrid", "Compatibility", "WorkGridVanillaCompatibilityPolicy.cs");
             string retained = Read(root, "Source", "UI", "WorkGrid", "Rendering", "RetainedWorkBoxRowCache.cs");
             string subWork = Read(root, "Source", "UI", "WorkGiverReassignments", "WorkGiverPriorityBoxRenderer.cs");
             string snapshot = Read(root, "Source", "UI", "WorkGrid", "Snapshots", "WorkGridSnapshot.cs");
@@ -20,6 +22,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string window = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
 
             StableRepaintUsesOrderedRowCommands(body, optimized, subWork);
+            OptimizedInputPolicyEliminatesRedundantWheelDispatch(
+                body,
+                surface,
+                optimized,
+                compatibility);
             PacketBuilderConsumesPreparedStateOnly(packet);
             SparseUpdatesAdvanceOnlyDirtyRows(snapshot, provider);
             RetainedHitsUsePrecomputedBoundsAndFingerprint(retained);
@@ -65,6 +72,49 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string maintenance = MemberBody(subWork, "internal static void MaintainResetAnimations(");
             TestAssert.Contains(maintenance, "ResetAnimations.Clear()", "offscreen reset animations must expire without being drawn");
             TestAssert.False(maintenance.IndexOf("foreach", StringComparison.Ordinal) >= 0, "reset animation maintenance must remain O(1)");
+        }
+
+        private static void OptimizedInputPolicyEliminatesRedundantWheelDispatch(
+            string body,
+            string surface,
+            string optimized,
+            string compatibility)
+        {
+            string drawRows = MemberBody(body, "internal void DrawRows(");
+            int beginScroll = drawRows.IndexOf("Widgets.BeginScrollView", StringComparison.Ordinal);
+            int traversalGuard = drawRows.IndexOf(
+                "traversalPolicy.ShouldTraverseRows(Event.current)",
+                StringComparison.Ordinal);
+            int drawPhases = drawRows.IndexOf("DrawOrderedPhases(in pass)", StringComparison.Ordinal);
+
+            TestAssert.True(beginScroll >= 0, "the body must let the scroll view process input");
+            TestAssert.True(
+                traversalGuard > beginScroll && traversalGuard < drawPhases,
+                "optimized wheel events must stop before visible-row and cell dispatch");
+            TestAssert.Contains(
+                drawRows,
+                "finally\n            {\n                Widgets.EndScrollView();",
+                "the wheel-event fast path must still balance the scroll-view scope");
+            TestAssert.Contains(
+                surface,
+                "interface IWorkGridRowEventTraversalPolicy",
+                "row traversal suppression must be an explicit optimized-layer capability");
+
+            string policy = MemberBody(optimized, "public bool ShouldTraverseRows(");
+            TestAssert.Contains(policy, "EventType.ScrollWheel", "the optimized policy must identify wheel events explicitly");
+            TestAssert.Contains(policy, "currentEvent.rawType == EventType.ScrollWheel", "a consumed wheel must remain distinguishable from other Used events");
+            TestAssert.Contains(policy, "_delegateSleekPriorityCells", "Sleek must retain native wheel dispatch");
+            TestAssert.Contains(policy, "_delegateScheduleCells", "open schedules must retain native wheel dispatch");
+            TestAssert.Contains(
+                compatibility,
+                "CanSkipViewportScrollRowTraversal(",
+                "the optimized layer must prove its topology is safe before skipping wheel dispatch");
+            TestAssert.Contains(compatibility, "!CanSnapshotVanillaPriorityCells()", "priority-worker patch ownership must be revalidated for each wheel event");
+            TestAssert.Contains(compatibility, "HooksAreUnextended(", "externally patched worker call chains must fail closed");
+            TestAssert.Contains(compatibility, "typeof(CopyPasteUI)", "copy/paste wheel passivity must include its invoked UI hook");
+            TestAssert.Contains(compatibility, "typeof(PawnColumnWorker_Icon)", "faction wheel passivity must include its inherited icon worker hooks");
+            TestAssert.Contains(compatibility, "FluffyWorkTabGateway.IsFluffyWorkGiverColumn", "Fluffy-owned workers must fail closed");
+            TestAssert.Contains(compatibility, "default:\n                    return false;", "unknown native workers must fail closed");
         }
 
         private static void PacketBuilderConsumesPreparedStateOnly(string packet)

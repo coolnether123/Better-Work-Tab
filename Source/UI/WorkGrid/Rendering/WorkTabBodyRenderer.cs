@@ -123,6 +123,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     return;
                 }
 
+                if (snapshotLayer is IWorkGridRowEventTraversalPolicy traversalPolicy &&
+                    !traversalPolicy.ShouldTraverseRows(Event.current))
+                {
+                    return;
+                }
+
                 WorkTabLayoutColumn? nameColumn = FindNameColumn(columns);
                 IReadOnlyList<WorkTabLayoutColumn> renderColumns =
                     PrepareVisibleRenderColumns(columns, viewport, table.scrollPosition.x, snapshotLayer);

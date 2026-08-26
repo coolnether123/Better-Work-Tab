@@ -38,6 +38,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         bool DrawPreparedPawnLabel(PreparedWorkRowPacket packet, float rowOffsetY);
     }
 
+    /// <summary>
+    /// Lets an optimized layer suppress row dispatch for non-painting events
+    /// only after it has proved that no native or compatibility worker owns them.
+    /// </summary>
+    internal interface IWorkGridRowEventTraversalPolicy
+    {
+        bool ShouldTraverseRows(Event currentEvent);
+    }
+
     public interface IWorkGridSnapshotLayer
     {
         void BeginRow();
