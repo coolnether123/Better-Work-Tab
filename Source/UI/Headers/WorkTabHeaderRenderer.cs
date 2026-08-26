@@ -64,6 +64,58 @@ namespace Better_Work_Tab.UI.Headers
         private const float HorizontalCullBuffer = 64f;
         private const float HostedFirstSubWorkAngledHeaderOffsetX = 5f;
 
+        /// <summary>
+        /// State resolved once for one standard column before any pixels or input state are
+        /// emitted. Keeping the pass decisions together prevents the draw phases from
+        /// independently re-resolving ownership, geometry, or overlay ordering.
+        /// </summary>
+        private readonly struct StandardHeaderColumnContext
+        {
+            internal StandardHeaderColumnContext(
+                IWorkTabLayoutController layout,
+                PawnTable table,
+                float totalHeight,
+                bool timePriorityOwnsMouse,
+                BetterWorkTabSettings settings,
+                bool showCursorHighlight,
+                WorkTabLayoutColumn column,
+                WorkGridAnimatedColumnGeometry animatedGeometry,
+                Rect headerRect,
+                bool isWorkColumn,
+                bool timePrioritySourceColumn,
+                bool shouldHighlightRuleBuilderTarget,
+                bool drawRuleBuilderHighlightAfterHeader)
+            {
+                Layout = layout;
+                Table = table;
+                TotalHeight = totalHeight;
+                TimePriorityOwnsMouse = timePriorityOwnsMouse;
+                Settings = settings;
+                ShowCursorHighlight = showCursorHighlight;
+                Column = column;
+                AnimatedGeometry = animatedGeometry;
+                HeaderRect = headerRect;
+                IsWorkColumn = isWorkColumn;
+                TimePrioritySourceColumn = timePrioritySourceColumn;
+                ShouldHighlightRuleBuilderTarget = shouldHighlightRuleBuilderTarget;
+                DrawRuleBuilderHighlightAfterHeader = drawRuleBuilderHighlightAfterHeader;
+            }
+
+            internal IWorkTabLayoutController Layout { get; }
+            internal PawnTable Table { get; }
+            internal float TotalHeight { get; }
+            internal bool TimePriorityOwnsMouse { get; }
+            internal BetterWorkTabSettings Settings { get; }
+            internal bool ShowCursorHighlight { get; }
+            internal WorkTabLayoutColumn Column { get; }
+            internal WorkGridAnimatedColumnGeometry AnimatedGeometry { get; }
+            internal Rect HeaderRect { get; }
+            internal bool IsWorkColumn { get; }
+            internal bool TimePrioritySourceColumn { get; }
+            internal bool ShouldHighlightRuleBuilderTarget { get; }
+            internal bool DrawRuleBuilderHighlightAfterHeader { get; }
+        }
+
         internal WorkTabHeaderRenderer(Func<WorkTabApplication> application)
         {
             _application = application ?? throw new ArgumentNullException(nameof(application));
@@ -160,6 +212,41 @@ namespace Better_Work_Tab.UI.Headers
             Rect animatedHeaderRect,
             in HeaderPresentationPacket presentation)
         {
+            // This order is intentional: pre-header overlays, the owner/native header, hosted
+            // collapse side effects, then the deferred angled overlay. Several integrations use
+            // the sequence for their input state and for clipping their highlight pixels.
+            StandardHeaderColumnContext context = ResolveStandardHeaderColumnContext(
+                layout,
+                table,
+                totalHeight,
+                ruleBuilderListening,
+                timePriorityOwnsMouse,
+                settings,
+                showCursorHighlight,
+                column,
+                animatedGeometry,
+                animatedHeaderRect,
+                in presentation);
+
+            DrawStandardHeaderPreOverlays(in context);
+            DrawOwnedOrNativeHeader(in context, in presentation);
+            ApplyHostedHeaderCollapse(in context);
+            DrawStandardHeaderPostOverlays(in context);
+        }
+
+        private static StandardHeaderColumnContext ResolveStandardHeaderColumnContext(
+            IWorkTabLayoutController layout,
+            PawnTable table,
+            float totalHeight,
+            bool ruleBuilderListening,
+            bool timePriorityOwnsMouse,
+            BetterWorkTabSettings settings,
+            bool showCursorHighlight,
+            WorkTabLayoutColumn column,
+            WorkGridAnimatedColumnGeometry animatedGeometry,
+            Rect animatedHeaderRect,
+            in HeaderPresentationPacket presentation)
+        {
             bool isWorkColumn = WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column);
             Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
                 column.Column,
@@ -177,64 +264,91 @@ namespace Better_Work_Tab.UI.Headers
                 shouldHighlightRuleBuilderTarget =
                     RuleBuilderGateway.ShouldHighlightRuleBuilder2Target(workType, workGiver);
             }
-            bool drawRuleBuilderHighlightAfterHeader =
-                shouldHighlightRuleBuilderTarget && presentation.AngledHeadersEnabled;
 
-            if (showCursorHighlight &&
-                isWorkColumn &&
-                (timePrioritySourceColumn ||
-                 (!timePriorityOwnsMouse &&
+            return new StandardHeaderColumnContext(
+                layout,
+                table,
+                totalHeight,
+                timePriorityOwnsMouse,
+                settings,
+                showCursorHighlight,
+                column,
+                animatedGeometry,
+                headerRect,
+                isWorkColumn,
+                timePrioritySourceColumn,
+                shouldHighlightRuleBuilderTarget,
+                shouldHighlightRuleBuilderTarget && presentation.AngledHeadersEnabled);
+        }
+
+        private static void DrawStandardHeaderPreOverlays(
+            in StandardHeaderColumnContext context)
+        {
+            if (context.ShowCursorHighlight &&
+                context.IsWorkColumn &&
+                (context.TimePrioritySourceColumn ||
+                 (!context.TimePriorityOwnsMouse &&
                   !BWTWorkTabTutorial.OwnsCurrentPointer &&
-                  Mouse.IsOver(headerRect))))
+                  Mouse.IsOver(context.HeaderRect))))
             {
-                Color useColor = settings.Color_MouseHoverHighlight;
+                Color useColor = context.Settings.Color_MouseHoverHighlight;
                 Rect columnRect = new Rect(
-                    animatedGeometry.BodyScreenX,
-                    layout.TableOrigin.y + layout.HeaderHeight,
-                    animatedGeometry.Width,
-                    totalHeight);
-                DrawColumnHighlightAroundTutorialBand(layout, columnRect, useColor);
+                    context.AnimatedGeometry.BodyScreenX,
+                    context.Layout.TableOrigin.y + context.Layout.HeaderHeight,
+                    context.AnimatedGeometry.Width,
+                    context.TotalHeight);
+                DrawColumnHighlightAroundTutorialBand(context.Layout, columnRect, useColor);
             }
 
-            if (shouldHighlightRuleBuilderTarget && !drawRuleBuilderHighlightAfterHeader)
+            if (context.ShouldHighlightRuleBuilderTarget &&
+                !context.DrawRuleBuilderHighlightAfterHeader)
             {
                 RuleBuilder2WorkTabOverlay.DrawColumnHighlight(
-                    layout,
-                    column,
-                    headerRect,
-                    totalHeight,
-                    table);
+                    context.Layout,
+                    context.Column,
+                    context.HeaderRect,
+                    context.TotalHeight,
+                    context.Table);
             }
 
-            if (isWorkColumn)
+            if (context.IsWorkColumn)
             {
                 SubWorkTransitionOverlay.DrawBlankTransitionFlash(
-                    layout,
-                    column,
-                    headerRect,
-                    totalHeight);
+                    context.Layout,
+                    context.Column,
+                    context.HeaderRect,
+                    context.TotalHeight);
             }
+        }
 
+        private void DrawOwnedOrNativeHeader(
+            in StandardHeaderColumnContext context,
+            in HeaderPresentationPacket presentation)
+        {
             try
             {
-                SubWorkDrilldownState.SetDrawingColumn(column);
-                if (!TryDrawFluffyHeader(column, headerRect, table, in presentation))
+                SubWorkDrilldownState.SetDrawingColumn(context.Column);
+                if (!TryHandleFluffyHeaderOwnership(
+                        context.Column,
+                        context.HeaderRect,
+                        context.Table,
+                        in presentation))
                 {
-                    if (column.Column.Worker is PawnColumnWorker_WorkPriority priorityWorker &&
+                    if (context.Column.Column.Worker is PawnColumnWorker_WorkPriority priorityWorker &&
                         !SleekWorkTabGateway.BetterWorkTabHostsSleek)
                     {
                         if (!HeaderDrawingCoordinator.TryHandleWorkPriorityHeader(
                                 priorityWorker,
-                                headerRect,
-                                table,
+                                context.HeaderRect,
+                                context.Table,
                                 in presentation))
                         {
-                            priorityWorker.DoHeader(headerRect, table);
+                            priorityWorker.DoHeader(context.HeaderRect, context.Table);
                         }
                     }
                     else
                     {
-                        column.Column.Worker.DoHeader(headerRect, table);
+                        context.Column.Column.Worker.DoHeader(context.HeaderRect, context.Table);
                     }
                 }
             }
@@ -242,23 +356,35 @@ namespace Better_Work_Tab.UI.Headers
             {
                 SubWorkDrilldownState.ClearDrawingColumn();
             }
+        }
 
-            if (FluffyWorkTabGateway.WasHostedWorkTypeCollapsed(column.Column))
+        private static void ApplyHostedHeaderCollapse(
+            in StandardHeaderColumnContext context)
+        {
+            if (!FluffyWorkTabGateway.WasHostedWorkTypeCollapsed(context.Column.Column))
             {
-                SubWorkDrilldownState.CollapseAllExpandBeside();
-                WorkTabInvalidationHub.Invalidate(
-                    WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
+                return;
             }
 
-            if (drawRuleBuilderHighlightAfterHeader)
+            SubWorkDrilldownState.CollapseAllExpandBeside();
+            WorkTabInvalidationHub.Invalidate(
+                WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
+        }
+
+        private static void DrawStandardHeaderPostOverlays(
+            in StandardHeaderColumnContext context)
+        {
+            if (!context.DrawRuleBuilderHighlightAfterHeader)
             {
-                RuleBuilder2WorkTabOverlay.DrawColumnHighlight(
-                    layout,
-                    column,
-                    headerRect,
-                    totalHeight,
-                    table);
+                return;
             }
+
+            RuleBuilder2WorkTabOverlay.DrawColumnHighlight(
+                context.Layout,
+                context.Column,
+                context.HeaderRect,
+                context.TotalHeight,
+                context.Table);
         }
 
         private void DrawSleekHeaders(
@@ -456,7 +582,13 @@ namespace Better_Work_Tab.UI.Headers
                 frame.PinnedRowsHeight + Mathf.Max(0f, lastFullyVisibleBottom - scrollTop));
         }
 
-        private bool TryDrawFluffyHeader(
+        /// <summary>
+        /// Gives the hosted Fluffy lane the first opportunity to handle this header. A true
+        /// result means the caller must not invoke the native worker: Fluffy may have drawn the
+        /// header, intentionally left the lane blank while a hosted column is hidden, or
+        /// consumed input such as a shift-priority gesture.
+        /// </summary>
+        private bool TryHandleFluffyHeaderOwnership(
             WorkTabLayoutColumn column,
             Rect headerRect,
             PawnTable table,
