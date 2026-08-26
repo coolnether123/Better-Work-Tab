@@ -41,7 +41,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             string drawRow = MemberBody(body, "private static void DrawPawnRow(");
             TestAssert.Contains(drawRow, "TryDrawPreparedPawnRow(", "row drawing must prefer the prepared packet path");
-            TestAssert.Contains(drawRow, "DrawLegacyPawnRow(", "row drawing must retain the direct fallback path");
+            TestAssert.Contains(drawRow, "DrawDirectPawnRow(", "row drawing must retain the direct fallback path");
             TestAssert.Contains(body, "Event.current.type != EventType.Repaint", "row packets must be Repaint-only");
             TestAssert.Contains(body, "preparedLayer.TryGetPreparedRow", "stable rows must ask the optimized layer for a packet");
             TestAssert.Contains(body, "packet.Commands", "the body must traverse ordered packet commands instead of all columns");
@@ -50,10 +50,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 preparedRow.IndexOf("columnIndex < 0", StringComparison.Ordinal) >= 0,
                 "retained hits must trust producer-validated commands instead of silently drawing a partial row");
-            TestAssert.Contains(body, "snapshotLayer?.BeginRow();", "legacy drawing must preserve snapshot row ownership");
+            TestAssert.Contains(body, "snapshotLayer?.BeginRow();", "direct drawing must preserve snapshot row ownership");
             TestAssert.Contains(body, "snapshotLayer?.EndRow();", "legacy drawing must close snapshot row ownership");
-            TestAssert.Contains(body, "snapshotLayer.ShouldVisitCell", "legacy drawing must preserve cell culling");
-            TestAssert.Contains(body, "snapshotLayer.TryDrawCell", "legacy drawing must preserve snapshot cell dispatch");
+            TestAssert.Contains(body, "snapshotLayer.ShouldVisitCell", "direct drawing must preserve cell culling");
+            TestAssert.Contains(body, "snapshotLayer.TryDrawCell", "direct drawing must preserve snapshot cell dispatch");
             TestAssert.Contains(body, "DrawNativePawnCell(", "unsupported cells must retain their native worker path");
 
             string eligibility = MemberBody(optimized, "public bool TryGetPreparedRow(");
