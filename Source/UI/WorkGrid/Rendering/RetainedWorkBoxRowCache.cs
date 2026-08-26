@@ -9,7 +9,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     /// <summary>
     /// Retains stable work-box pixels per visible pawn row. Surfaces are composed
     /// offscreen, then presented through IMGUI while the owning scroll view's clip
-    /// is active.
+    /// is active. Callers own the non-empty prepared-cell invariant; false means a
+    /// runtime resource/composition failure and activates the direct draw fallback.
     /// </summary>
     internal sealed class RetainedWorkBoxRowCache : IDisposable
     {
@@ -91,12 +92,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             internal PreparedRun(Cell[] cells)
             {
-                Cells = cells ?? Array.Empty<Cell>();
-                if (Cells.Length == 0)
-                {
-                    return;
-                }
-
+                Cells = cells;
                 Cell first = Cells[0];
                 Cell last = Cells[Cells.Length - 1];
                 Key = new RowKey(first.PawnId, first.ColumnIndex, last.ColumnIndex, Cells.Length);
@@ -120,7 +116,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridSnapshot snapshot,
             int renderResourcesRevision)
         {
-            if (_disabled || run == null || run.Cells.Length == 0 ||
+            if (_disabled ||
                 IsResourceFailureLatched(renderResourcesRevision))
             {
                 return false;
@@ -153,7 +149,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridSnapshot snapshot,
             int renderResourcesRevision)
         {
-            if (_disabled || snapshot == null || cells == null || cells.Count == 0 ||
+            if (_disabled ||
                 IsResourceFailureLatched(renderResourcesRevision))
             {
                 return false;
@@ -367,11 +363,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridSnapshot snapshot,
             int renderResourcesRevision)
         {
-            if (_disabled || snapshot == null || cells == null || cells.Count == 0)
-            {
-                return false;
-            }
-
             float pixelScale = Verse.UI.screenWidth > 0
                 ? Mathf.Max(1f, (float)Screen.width / Verse.UI.screenWidth)
                 : 1f;
