@@ -47,11 +47,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             PawnColumnWorker_Label worker,
             Pawn pawn)
         {
-            if (worker == null || pawn == null)
-            {
-                return default;
-            }
-
             bool contrast = PawnColorDatabase.TryGetColor(pawn, out Color background) &&
                 background.a > 0f;
             TaggedString label = GetLabel(worker, pawn);
@@ -94,7 +89,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 int hash = PawnColorDatabase.Version;
                 hash = (hash * 397) ^ (worker?.def?.useLabelShort == true ? 1 : 0);
-                if (table?.cachedPawns == null)
+                if (table.cachedPawns == null)
                 {
                     return hash;
                 }

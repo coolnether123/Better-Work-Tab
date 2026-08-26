@@ -26,6 +26,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         WorkGridIndexRange VisibleColumnRange { get; }
     }
 
+    /// <summary>
+    /// Provides packets and executes their commands as one ownership boundary.
+    /// A packet command index is trusted; an invalid pair is a producer bug and
+    /// must not be hidden by silently skipping part of a row.
+    /// </summary>
     internal interface IPreparedWorkGridRowLayer
     {
         bool TryGetPreparedRow(int rowIndex, Rect rowRect, out PreparedWorkRowPacket packet);

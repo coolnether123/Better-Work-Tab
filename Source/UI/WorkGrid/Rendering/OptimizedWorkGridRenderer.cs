@@ -376,11 +376,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int runIndex,
             float rowOffsetY)
         {
-            if (packet == null || runIndex < 0 || runIndex >= packet.Runs.Length)
-            {
-                return;
-            }
-
             PreparedWorkRowRun run = packet.Runs[runIndex];
             Color baseColor = GUI.color;
             bool retained = _retainedRows.TryDraw(
@@ -399,12 +394,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public bool DrawPreparedPawnLabel(PreparedWorkRowPacket packet, float rowOffsetY)
         {
-            PreparedPawnLabelCell label = packet?.PawnLabel;
-            if (label == null)
-            {
-                return false;
-            }
-
+            PreparedPawnLabelCell label = packet.PawnLabel;
             Pawn pawn = label.Presentation.Pawn;
             Rect cellRect = OffsetY(label.CellRect, rowOffsetY);
             if (pawn.health.summaryHealth.SummaryHealthPercent < 0.99f ||

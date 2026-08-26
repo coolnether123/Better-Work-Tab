@@ -183,8 +183,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
     /// <summary>
     /// Compiles pass-stable snapshot data into retained runs and explicit native
-    /// fallbacks. This boundary must not resolve live domain state: unsupported
-    /// cells remain native so the existing renderer can preserve their behavior.
+    /// fallbacks. Callers own the non-null prepared inputs. A topology mismatch or
+    /// unsupported cell returns to native drawing instead of guessing at geometry.
+    /// This boundary must not resolve live domain state.
     /// </summary>
     internal static class PreparedWorkRowPacketBuilder
     {
@@ -215,7 +216,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 parentAlpha,
                 delegateShiftedSkillOverlay,
                 delegateScheduleCells);
-            if (!context.IsValid)
+            if (!context.HasMatchingColumnTopology)
             {
                 return null;
             }
@@ -278,7 +279,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 context.LayoutColumns[columnIndex],
                 columnIndex,
                 context.RowHeight);
-            return pawnLabel != null;
+            return true;
         }
 
         private static PreparedColumn PrepareColumn(
@@ -587,11 +588,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             internal float ParentAlpha { get; }
             internal bool DelegateShiftedSkillOverlay { get; }
             internal bool DelegateScheduleCells { get; }
-            internal int ColumnCount => Snapshot?.Columns.Count ?? 0;
-            internal bool IsValid =>
-                Snapshot != null &&
-                CellLookup != null &&
-                LayoutColumns != null &&
+            internal int ColumnCount => Snapshot.Columns.Count;
+            internal bool HasMatchingColumnTopology =>
                 LayoutColumns.Count == Snapshot.Columns.Count;
         }
 
