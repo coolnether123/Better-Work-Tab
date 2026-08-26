@@ -197,228 +197,227 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             bool delegateShiftedSkillOverlay,
             bool delegateScheduleCells)
         {
-            if (snapshot == null || cellLookup == null || layoutColumns == null ||
-                layoutColumns.Count != snapshot.Columns.Count)
+            var context = new BuildContext(
+                snapshot,
+                cellLookup,
+                layoutColumns,
+                visibleColumns,
+                rowIndex,
+                rowHeight,
+                span,
+                modeSignature,
+                focusViewActive,
+                parentAlpha,
+                delegateShiftedSkillOverlay,
+                delegateScheduleCells);
+            if (!context.IsValid)
             {
                 return null;
             }
 
-            int columnCount = snapshot.Columns.Count;
-            var commands = new List<PreparedWorkRowCommand>(8);
-            var runs = new List<PreparedWorkRowRun>(2);
-            var slots = new List<PreparedWorkRowCell>(visibleColumns.Count);
-            var slotByColumn = new int[columnCount];
-            for (int index = 0; index < slotByColumn.Length; index++)
-            {
-                slotByColumn[index] = -1;
-            }
-
-            var runCells = new List<RetainedWorkBoxRowCache.Cell>(visibleColumns.Count);
-            var runSlotIndexes = new List<int>(visibleColumns.Count);
-            var parentDynamicSlotIndexes = new List<int>(4);
-            var subWorkRingSlotIndexes = new List<int>(4);
-            var subWorkSlotIndexes = new List<int>(4);
-            PreparedPawnLabelCell pawnLabel = null;
-            int visibleEnd = Math.Min(columnCount, visibleColumns.EndExclusive);
+            var assembly = new RowPacketAssembly(
+                context.ColumnCount,
+                visibleColumns.Count);
+            int visibleEnd = Math.Min(context.ColumnCount, visibleColumns.EndExclusive);
             for (int columnIndex = Math.Max(0, visibleColumns.Start);
                  columnIndex < visibleEnd;
                  columnIndex++)
             {
-                WorkGridColumnEntry column = snapshot.Columns[columnIndex];
-                if (column.WorkerKind == WorkGridColumnWorkerKind.PawnLabel &&
-                    pawnLabel == null &&
-                    rowIndex < snapshot.PawnLabels.Count &&
-                    snapshot.PawnLabels[rowIndex].IsPrepared)
+                if (!assembly.HasPawnLabel &&
+                    TryPreparePawnLabel(in context, columnIndex, out PreparedPawnLabelCell pawnLabel))
                 {
-                    FlushRun(
-                        commands, runs, runCells, runSlotIndexes,
-                        parentDynamicSlotIndexes, subWorkRingSlotIndexes, subWorkSlotIndexes);
-                    pawnLabel = BuildPawnLabel(
-                        snapshot.PawnLabels[rowIndex],
-                        layoutColumns[columnIndex],
-                        columnIndex,
-                        rowHeight);
-                    if (pawnLabel != null)
-                    {
-                        commands.Add(new PreparedWorkRowCommand(
-                            PreparedWorkRowCommandKind.PreparedPawnLabel,
-                            columnIndex));
-                        continue;
-                    }
-                }
-                bool preparedKind = column.WorkerKind == WorkGridColumnWorkerKind.WorkPriority ||
-                    column.WorkerKind == WorkGridColumnWorkerKind.SubWorkPriority;
-                int lookupIndex = (rowIndex * columnCount) + columnIndex;
-                int cellIndex = lookupIndex >= 0 && lookupIndex < cellLookup.Length
-                    ? cellLookup[lookupIndex]
-                    : -1;
-                if (!preparedKind || cellIndex < span.FirstCellIndex ||
-                    cellIndex >= span.FirstCellIndex + span.CellCount)
-                {
-                    AppendNativeColumn(
-                        columnIndex,
-                        commands, runs, runCells, runSlotIndexes,
-                        parentDynamicSlotIndexes, subWorkRingSlotIndexes, subWorkSlotIndexes);
+                    assembly.AppendPawnLabel(pawnLabel);
                     continue;
                 }
 
-                WorkCellVisualState cell = snapshot.Cells[cellIndex];
-                bool subWorkCell = column.WorkerKind == WorkGridColumnWorkerKind.SubWorkPriority;
-                if (MustDelegatePreparedCell(
-                        subWorkCell,
-                        focusViewActive,
-                        delegateShiftedSkillOverlay,
-                        delegateScheduleCells))
+                PreparedColumn prepared = PrepareColumn(in context, columnIndex);
+                switch (prepared.Disposition)
                 {
-                    AppendNativeColumn(
-                        columnIndex,
-                        commands, runs, runCells, runSlotIndexes,
-                        parentDynamicSlotIndexes, subWorkRingSlotIndexes, subWorkSlotIndexes);
-                    continue;
+                    case PreparedColumnDisposition.Retained:
+                        assembly.AppendRetained(in prepared);
+                        break;
+                    case PreparedColumnDisposition.Hidden:
+                        assembly.EndRetainedRun();
+                        break;
+                    default:
+                        assembly.AppendNativeColumn(columnIndex);
+                        break;
                 }
+            }
 
-                if (!subWorkCell && focusViewActive && parentAlpha <= 0.001f)
-                {
-                    FlushRun(
-                        commands, runs, runCells, runSlotIndexes,
-                        parentDynamicSlotIndexes, subWorkRingSlotIndexes, subWorkSlotIndexes);
-                    continue;
-                }
+            return assembly.Complete(in context);
+        }
 
-                WorkTabLayoutColumn layoutColumn = layoutColumns[columnIndex];
-                Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
-                    layoutColumn,
-                    new Rect(0f, 0f, 0f, rowHeight));
-                Rect boxRect;
-                WorkBoxVisualState visual;
-                int displayPriority;
-                bool compactText;
-                WorkGiver workGiver = null;
-                WorkGiverCellPresentationCache.CellPresentation subWorkPresentation = null;
-                if (subWorkCell)
-                {
-                    workGiver = column.SubWorkGiver;
-                    if (workGiver?.def == null ||
-                        cell.Pawn == null ||
-                        !cell.TryGetSubWorkPresentation(out subWorkPresentation) ||
-                        subWorkPresentation.WorkTypeDisabled ||
-                        subWorkPresentation.ParentPriority <= WorkPrioritySystem.DisabledPriority)
-                    {
-                        AppendNativeColumn(
-                            columnIndex,
-                            commands, runs, runCells, runSlotIndexes,
-                            parentDynamicSlotIndexes, subWorkRingSlotIndexes, subWorkSlotIndexes);
-                        continue;
-                    }
+        private static bool TryPreparePawnLabel(
+            in BuildContext context,
+            int columnIndex,
+            out PreparedPawnLabelCell pawnLabel)
+        {
+            pawnLabel = null;
+            if (context.Snapshot.Columns[columnIndex].WorkerKind !=
+                    WorkGridColumnWorkerKind.PawnLabel ||
+                context.RowIndex >= context.Snapshot.PawnLabels.Count)
+            {
+                return false;
+            }
 
-                    float visualAlpha = 1f;
-                    float visualScale = 1f;
-                    if (!column.IsExpandBesideChild)
-                    {
-                        SubWorkDrilldownState.TryGetSubWorkContentTransitionVisuals(
-                            workGiver,
-                            out visualAlpha,
-                            out visualScale);
-                    }
-                    if (visualAlpha <= 0.999f || Mathf.Abs(visualScale - 1f) >= 0.001f)
-                    {
-                        AppendNativeColumn(
-                            columnIndex,
-                            commands, runs, runCells, runSlotIndexes,
-                            parentDynamicSlotIndexes, subWorkRingSlotIndexes, subWorkSlotIndexes);
-                        continue;
-                    }
+            PreparedPawnLabelPresentation presentation =
+                context.Snapshot.PawnLabels[context.RowIndex];
+            if (!presentation.IsPrepared)
+            {
+                return false;
+            }
 
-                    boxRect = column.IsExpandBesideChild
-                        ? WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect)
-                        : WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
-                    visual = subWorkPresentation.WorkBoxVisual;
-                    displayPriority = subWorkPresentation.EffectivePriority;
-                    compactText = boxRect.width <=
-                        WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f;
-                }
-                else
-                {
-                    boxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
-                    visual = CreateVisual(cell);
-                    displayPriority = cell.Priority;
-                    compactText = false;
-                }
+            pawnLabel = BuildPawnLabel(
+                presentation,
+                context.LayoutColumns[columnIndex],
+                columnIndex,
+                context.RowHeight);
+            return pawnLabel != null;
+        }
 
-                int slotIndex = slots.Count;
-                slots.Add(new PreparedWorkRowCell(
+        private static PreparedColumn PrepareColumn(
+            in BuildContext context,
+            int columnIndex)
+        {
+            WorkGridColumnEntry column = context.Snapshot.Columns[columnIndex];
+            bool subWorkCell = column.WorkerKind ==
+                WorkGridColumnWorkerKind.SubWorkPriority;
+            bool preparedKind = column.WorkerKind ==
+                    WorkGridColumnWorkerKind.WorkPriority ||
+                subWorkCell;
+            if (!preparedKind ||
+                !TryGetPreparedCell(in context, columnIndex, out WorkCellVisualState cell) ||
+                MustDelegatePreparedCell(
+                    subWorkCell,
+                    context.FocusViewActive,
+                    context.DelegateShiftedSkillOverlay,
+                    context.DelegateScheduleCells))
+            {
+                return PreparedColumn.Native;
+            }
+
+            if (!subWorkCell &&
+                context.FocusViewActive &&
+                context.ParentAlpha <= 0.001f)
+            {
+                return PreparedColumn.Hidden;
+            }
+
+            Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
+                context.LayoutColumns[columnIndex],
+                new Rect(0f, 0f, 0f, context.RowHeight));
+            return subWorkCell
+                ? PrepareSubWorkColumn(column, cell, columnIndex, cellRect)
+                : PrepareParentColumn(cell, columnIndex, cellRect);
+        }
+
+        private static bool TryGetPreparedCell(
+            in BuildContext context,
+            int columnIndex,
+            out WorkCellVisualState cell)
+        {
+            int lookupIndex = (context.RowIndex * context.ColumnCount) + columnIndex;
+            int cellIndex = lookupIndex >= 0 && lookupIndex < context.CellLookup.Length
+                ? context.CellLookup[lookupIndex]
+                : -1;
+            if (cellIndex < context.Span.FirstCellIndex ||
+                cellIndex >= context.Span.FirstCellIndex + context.Span.CellCount)
+            {
+                cell = default;
+                return false;
+            }
+
+            cell = context.Snapshot.Cells[cellIndex];
+            return true;
+        }
+
+        private static PreparedColumn PrepareParentColumn(
+            WorkCellVisualState cell,
+            int columnIndex,
+            Rect cellRect)
+        {
+            Rect boxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
+            WorkBoxVisualState visual = CreateVisual(cell);
+            bool hasDynamicOverlay = (cell.Flags &
+                (WorkCellVisualFlags.BestPawn | WorkCellVisualFlags.OverrideRing)) != 0;
+            return PreparedColumn.Retain(
+                new PreparedWorkRowCell(
+                    columnIndex,
+                    cellRect,
+                    boxRect,
+                    cell,
+                    visual,
+                    null,
+                    null),
+                new RetainedWorkBoxRowCache.Cell(
+                    cell.PawnId,
+                    columnIndex,
+                    boxRect,
+                    visual,
+                    cell.Priority,
+                    compactText: false),
+                parentDynamicOverlay: hasDynamicOverlay,
+                subWorkRingOverlay: false,
+                subWork: false);
+        }
+
+        private static PreparedColumn PrepareSubWorkColumn(
+            WorkGridColumnEntry column,
+            WorkCellVisualState cell,
+            int columnIndex,
+            Rect cellRect)
+        {
+            WorkGiver workGiver = column.SubWorkGiver;
+            if (workGiver?.def == null ||
+                cell.Pawn == null ||
+                !cell.TryGetSubWorkPresentation(out var presentation) ||
+                presentation.WorkTypeDisabled ||
+                presentation.ParentPriority <= WorkPrioritySystem.DisabledPriority)
+            {
+                return PreparedColumn.Native;
+            }
+
+            float visualAlpha = 1f;
+            float visualScale = 1f;
+            if (!column.IsExpandBesideChild)
+            {
+                SubWorkDrilldownState.TryGetSubWorkContentTransitionVisuals(
+                    workGiver,
+                    out visualAlpha,
+                    out visualScale);
+            }
+            if (visualAlpha <= 0.999f || Mathf.Abs(visualScale - 1f) >= 0.001f)
+            {
+                return PreparedColumn.Native;
+            }
+
+            Rect boxRect = column.IsExpandBesideChild
+                ? WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect)
+                : WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
+            WorkBoxVisualState visual = presentation.WorkBoxVisual;
+            bool compactText = boxRect.width <=
+                WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f;
+            return PreparedColumn.Retain(
+                new PreparedWorkRowCell(
                     columnIndex,
                     cellRect,
                     boxRect,
                     cell,
                     visual,
                     workGiver,
-                    subWorkPresentation));
-                slotByColumn[columnIndex] = slotIndex;
-                runSlotIndexes.Add(slotIndex);
-                runCells.Add(new RetainedWorkBoxRowCache.Cell(
+                    presentation),
+                new RetainedWorkBoxRowCache.Cell(
                     cell.PawnId,
                     columnIndex,
                     boxRect,
                     visual,
-                    displayPriority,
-                    compactText));
-
-                if (subWorkCell)
-                {
-                    subWorkSlotIndexes.Add(slotIndex);
-                    if (subWorkPresentation.HasPawnOverride ||
-                        subWorkPresentation.HasScheduleIndicator)
-                    {
-                        subWorkRingSlotIndexes.Add(slotIndex);
-                    }
-                }
-                else if ((cell.Flags &
-                          (WorkCellVisualFlags.BestPawn | WorkCellVisualFlags.OverrideRing)) != 0)
-                {
-                    parentDynamicSlotIndexes.Add(slotIndex);
-                }
-            }
-
-            FlushRun(
-                commands, runs, runCells, runSlotIndexes,
-                parentDynamicSlotIndexes, subWorkRingSlotIndexes, subWorkSlotIndexes);
-            if (runs.Count == 0 && pawnLabel == null)
-            {
-                return null;
-            }
-
-            PreparedWorkRowRun[] preparedRuns = runs.ToArray();
-            PreparedWorkRowCell[] preparedSlots = slots.ToArray();
-            var runByColumn = new int[columnCount];
-            for (int columnIndex = 0; columnIndex < runByColumn.Length; columnIndex++)
-            {
-                runByColumn[columnIndex] = -1;
-            }
-            for (int runIndex = 0; runIndex < preparedRuns.Length; runIndex++)
-            {
-                int[] runSlots = preparedRuns[runIndex].SlotIndexes;
-                for (int slotOffset = 0; slotOffset < runSlots.Length; slotOffset++)
-                {
-                    runByColumn[preparedSlots[runSlots[slotOffset]].ColumnIndex] = runIndex;
-                }
-            }
-
-            return new PreparedWorkRowPacket(
-                rowIndex,
-                snapshot.Rows[rowIndex].PawnId,
-                span.Revision,
-                snapshot.TopologyRevision,
-                snapshot.LayoutRevision,
-                visibleColumns,
-                rowHeight,
-                modeSignature,
-                commands.ToArray(),
-                preparedRuns,
-                preparedSlots,
-                pawnLabel,
-                slotByColumn,
-                runByColumn);
+                    presentation.EffectivePriority,
+                    compactText),
+                parentDynamicOverlay: false,
+                subWorkRingOverlay: presentation.HasPawnOverride ||
+                    presentation.HasScheduleIndicator,
+                subWork: true);
         }
 
         private static PreparedPawnLabelCell BuildPawnLabel(
@@ -476,53 +475,265 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 retained);
         }
 
-        private static void FlushRun(
-            List<PreparedWorkRowCommand> commands,
-            List<PreparedWorkRowRun> runs,
-            List<RetainedWorkBoxRowCache.Cell> cells,
-            List<int> slotIndexes,
-            List<int> parentDynamicSlotIndexes,
-            List<int> subWorkRingSlotIndexes,
-            List<int> subWorkSlotIndexes)
+        private enum PreparedColumnDisposition : byte
         {
-            if (cells.Count == 0)
-            {
-                return;
-            }
-
-            int runIndex = runs.Count;
-            runs.Add(new PreparedWorkRowRun(
-                new RetainedWorkBoxRowCache.PreparedRun(cells.ToArray()),
-                slotIndexes.ToArray(),
-                parentDynamicSlotIndexes.ToArray(),
-                subWorkRingSlotIndexes.ToArray(),
-                subWorkSlotIndexes.ToArray()));
-            commands.Add(new PreparedWorkRowCommand(
-                PreparedWorkRowCommandKind.RetainedRun,
-                runIndex));
-            cells.Clear();
-            slotIndexes.Clear();
-            parentDynamicSlotIndexes.Clear();
-            subWorkRingSlotIndexes.Clear();
-            subWorkSlotIndexes.Clear();
+            Native,
+            Hidden,
+            Retained
         }
 
-        private static void AppendNativeColumn(
-            int columnIndex,
-            List<PreparedWorkRowCommand> commands,
-            List<PreparedWorkRowRun> runs,
-            List<RetainedWorkBoxRowCache.Cell> cells,
-            List<int> slotIndexes,
-            List<int> parentDynamicSlotIndexes,
-            List<int> subWorkRingSlotIndexes,
-            List<int> subWorkSlotIndexes)
+        private readonly struct PreparedColumn
         {
-            FlushRun(
-                commands, runs, cells, slotIndexes,
-                parentDynamicSlotIndexes, subWorkRingSlotIndexes, subWorkSlotIndexes);
-            commands.Add(new PreparedWorkRowCommand(
-                PreparedWorkRowCommandKind.NativeColumn,
-                columnIndex));
+            private PreparedColumn(
+                PreparedColumnDisposition disposition,
+                PreparedWorkRowCell slot,
+                RetainedWorkBoxRowCache.Cell retainedCell,
+                bool parentDynamicOverlay,
+                bool subWorkRingOverlay,
+                bool subWork)
+            {
+                Disposition = disposition;
+                Slot = slot;
+                RetainedCell = retainedCell;
+                ParentDynamicOverlay = parentDynamicOverlay;
+                SubWorkRingOverlay = subWorkRingOverlay;
+                SubWork = subWork;
+            }
+
+            internal static PreparedColumn Native => new PreparedColumn(
+                PreparedColumnDisposition.Native,
+                default,
+                default,
+                false,
+                false,
+                false);
+
+            internal static PreparedColumn Hidden => new PreparedColumn(
+                PreparedColumnDisposition.Hidden,
+                default,
+                default,
+                false,
+                false,
+                false);
+
+            internal static PreparedColumn Retain(
+                PreparedWorkRowCell slot,
+                RetainedWorkBoxRowCache.Cell retainedCell,
+                bool parentDynamicOverlay,
+                bool subWorkRingOverlay,
+                bool subWork)
+            {
+                return new PreparedColumn(
+                    PreparedColumnDisposition.Retained,
+                    slot,
+                    retainedCell,
+                    parentDynamicOverlay,
+                    subWorkRingOverlay,
+                    subWork);
+            }
+
+            internal PreparedColumnDisposition Disposition { get; }
+            internal PreparedWorkRowCell Slot { get; }
+            internal RetainedWorkBoxRowCache.Cell RetainedCell { get; }
+            internal bool ParentDynamicOverlay { get; }
+            internal bool SubWorkRingOverlay { get; }
+            internal bool SubWork { get; }
+        }
+
+        private readonly struct BuildContext
+        {
+            internal BuildContext(
+                WorkGridSnapshot snapshot,
+                int[] cellLookup,
+                IReadOnlyList<WorkTabLayoutColumn> layoutColumns,
+                WorkGridIndexRange visibleColumns,
+                int rowIndex,
+                float rowHeight,
+                WorkGridPreparedRowSpan span,
+                int modeSignature,
+                bool focusViewActive,
+                float parentAlpha,
+                bool delegateShiftedSkillOverlay,
+                bool delegateScheduleCells)
+            {
+                Snapshot = snapshot;
+                CellLookup = cellLookup;
+                LayoutColumns = layoutColumns;
+                VisibleColumns = visibleColumns;
+                RowIndex = rowIndex;
+                RowHeight = rowHeight;
+                Span = span;
+                ModeSignature = modeSignature;
+                FocusViewActive = focusViewActive;
+                ParentAlpha = parentAlpha;
+                DelegateShiftedSkillOverlay = delegateShiftedSkillOverlay;
+                DelegateScheduleCells = delegateScheduleCells;
+            }
+
+            internal WorkGridSnapshot Snapshot { get; }
+            internal int[] CellLookup { get; }
+            internal IReadOnlyList<WorkTabLayoutColumn> LayoutColumns { get; }
+            internal WorkGridIndexRange VisibleColumns { get; }
+            internal int RowIndex { get; }
+            internal float RowHeight { get; }
+            internal WorkGridPreparedRowSpan Span { get; }
+            internal int ModeSignature { get; }
+            internal bool FocusViewActive { get; }
+            internal float ParentAlpha { get; }
+            internal bool DelegateShiftedSkillOverlay { get; }
+            internal bool DelegateScheduleCells { get; }
+            internal int ColumnCount => Snapshot?.Columns.Count ?? 0;
+            internal bool IsValid =>
+                Snapshot != null &&
+                CellLookup != null &&
+                LayoutColumns != null &&
+                LayoutColumns.Count == Snapshot.Columns.Count;
+        }
+
+        private struct RowPacketAssembly
+        {
+            private readonly List<PreparedWorkRowCommand> _commands =
+                new List<PreparedWorkRowCommand>(8);
+            private readonly List<PreparedWorkRowRun> _runs =
+                new List<PreparedWorkRowRun>(2);
+            private readonly List<PreparedWorkRowCell> _slots;
+            private readonly int[] _slotByColumn;
+            private readonly List<RetainedWorkBoxRowCache.Cell> _runCells;
+            private readonly List<int> _runSlotIndexes;
+            private readonly List<int> _parentDynamicSlotIndexes = new List<int>(4);
+            private readonly List<int> _subWorkRingSlotIndexes = new List<int>(4);
+            private readonly List<int> _subWorkSlotIndexes = new List<int>(4);
+            private PreparedPawnLabelCell _pawnLabel;
+
+            internal RowPacketAssembly(int columnCount, int visibleColumnCount)
+            {
+                _slots = new List<PreparedWorkRowCell>(visibleColumnCount);
+                _runCells = new List<RetainedWorkBoxRowCache.Cell>(visibleColumnCount);
+                _runSlotIndexes = new List<int>(visibleColumnCount);
+                _slotByColumn = CreateEmptyColumnLookup(columnCount);
+            }
+
+            internal bool HasPawnLabel => _pawnLabel != null;
+
+            internal void AppendPawnLabel(PreparedPawnLabelCell pawnLabel)
+            {
+                EndRetainedRun();
+                _pawnLabel = pawnLabel;
+                _commands.Add(new PreparedWorkRowCommand(
+                    PreparedWorkRowCommandKind.PreparedPawnLabel,
+                    pawnLabel.ColumnIndex));
+            }
+
+            internal void AppendNativeColumn(int columnIndex)
+            {
+                EndRetainedRun();
+                _commands.Add(new PreparedWorkRowCommand(
+                    PreparedWorkRowCommandKind.NativeColumn,
+                    columnIndex));
+            }
+
+            internal void AppendRetained(in PreparedColumn prepared)
+            {
+                int slotIndex = _slots.Count;
+                _slots.Add(prepared.Slot);
+                _slotByColumn[prepared.Slot.ColumnIndex] = slotIndex;
+                _runSlotIndexes.Add(slotIndex);
+                _runCells.Add(prepared.RetainedCell);
+                if (prepared.ParentDynamicOverlay)
+                {
+                    _parentDynamicSlotIndexes.Add(slotIndex);
+                }
+                if (prepared.SubWork)
+                {
+                    _subWorkSlotIndexes.Add(slotIndex);
+                }
+                if (prepared.SubWorkRingOverlay)
+                {
+                    _subWorkRingSlotIndexes.Add(slotIndex);
+                }
+            }
+
+            internal void EndRetainedRun()
+            {
+                if (_runCells.Count == 0)
+                {
+                    return;
+                }
+
+                int runIndex = _runs.Count;
+                _runs.Add(new PreparedWorkRowRun(
+                    new RetainedWorkBoxRowCache.PreparedRun(_runCells.ToArray()),
+                    _runSlotIndexes.ToArray(),
+                    _parentDynamicSlotIndexes.ToArray(),
+                    _subWorkRingSlotIndexes.ToArray(),
+                    _subWorkSlotIndexes.ToArray()));
+                _commands.Add(new PreparedWorkRowCommand(
+                    PreparedWorkRowCommandKind.RetainedRun,
+                    runIndex));
+                _runCells.Clear();
+                _runSlotIndexes.Clear();
+                _parentDynamicSlotIndexes.Clear();
+                _subWorkRingSlotIndexes.Clear();
+                _subWorkSlotIndexes.Clear();
+            }
+
+            internal PreparedWorkRowPacket Complete(in BuildContext context)
+            {
+                EndRetainedRun();
+                if (_runs.Count == 0 && _pawnLabel == null)
+                {
+                    return null;
+                }
+
+                PreparedWorkRowRun[] preparedRuns = _runs.ToArray();
+                PreparedWorkRowCell[] preparedSlots = _slots.ToArray();
+                int[] runByColumn = CreateRunLookup(
+                    context.ColumnCount,
+                    preparedRuns,
+                    preparedSlots);
+                return new PreparedWorkRowPacket(
+                    context.RowIndex,
+                    context.Snapshot.Rows[context.RowIndex].PawnId,
+                    context.Span.Revision,
+                    context.Snapshot.TopologyRevision,
+                    context.Snapshot.LayoutRevision,
+                    context.VisibleColumns,
+                    context.RowHeight,
+                    context.ModeSignature,
+                    _commands.ToArray(),
+                    preparedRuns,
+                    preparedSlots,
+                    _pawnLabel,
+                    _slotByColumn,
+                    runByColumn);
+            }
+
+            private static int[] CreateRunLookup(
+                int columnCount,
+                PreparedWorkRowRun[] runs,
+                PreparedWorkRowCell[] slots)
+            {
+                int[] runByColumn = CreateEmptyColumnLookup(columnCount);
+                for (int runIndex = 0; runIndex < runs.Length; runIndex++)
+                {
+                    int[] runSlots = runs[runIndex].SlotIndexes;
+                    for (int slotOffset = 0; slotOffset < runSlots.Length; slotOffset++)
+                    {
+                        runByColumn[slots[runSlots[slotOffset]].ColumnIndex] = runIndex;
+                    }
+                }
+                return runByColumn;
+            }
+
+            private static int[] CreateEmptyColumnLookup(int columnCount)
+            {
+                var lookup = new int[columnCount];
+                for (int index = 0; index < lookup.Length; index++)
+                {
+                    lookup[index] = -1;
+                }
+                return lookup;
+            }
         }
 
         private static bool MustDelegatePreparedCell(
