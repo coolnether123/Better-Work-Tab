@@ -467,6 +467,41 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             List<Pawn> addedPawns = sameSnapshotColumns && prioritiesCompatibleWithAddition
                 ? FindPureRosterAdditions(table)
                 : null;
+            Dictionary<ushort, int> bestPawnIds = ResolveBestPawnIds(
+                table,
+                priorityWorkers,
+                priorityWorkTypes,
+                addedPawns);
+
+            uint cellRevision = unchecked((uint)(_snapshotRevision + 1));
+            BuildCells(
+                layoutRows,
+                layoutColumns,
+                canSnapshotVanillaPriorityCells,
+                sameSnapshotColumns,
+                previous,
+                bestPawnIds,
+                cellRevision);
+
+            BuildPawnLabels(layoutRows, labelWorker);
+            BuildPreparedRowSpans(cellRevision);
+            PublishSnapshot(
+                layout,
+                table,
+                revisions,
+                layoutSignature,
+                effectiveStateRevision,
+                labelWorker,
+                pawnLabelSourceSignature,
+                bestPawnIds);
+        }
+
+        private Dictionary<ushort, int> ResolveBestPawnIds(
+            PawnTable table,
+            Dictionary<ushort, PawnColumnWorker_WorkPriority> priorityWorkers,
+            Dictionary<ushort, WorkTypeDef> priorityWorkTypes,
+            List<Pawn> addedPawns)
+        {
             var bestPawnIds = new Dictionary<ushort, int>();
             foreach (KeyValuePair<ushort, PawnColumnWorker_WorkPriority> entry in priorityWorkers)
             {
@@ -488,17 +523,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     bestPawnIds[entry.Key] = FindBestPawnId(table, workType, entry.Value);
                 }
             }
+            return bestPawnIds;
+        }
 
-            uint cellRevision = unchecked((uint)(_snapshotRevision + 1));
-            BuildCells(
-                layoutRows,
-                layoutColumns,
-                canSnapshotVanillaPriorityCells,
-                sameSnapshotColumns,
-                previous,
-                bestPawnIds,
-                cellRevision);
-
+        private void BuildPawnLabels(
+            IReadOnlyList<WorkTabLayoutRow> layoutRows,
+            PawnColumnWorker_Label labelWorker)
+        {
             bool canPreparePawnLabels = CanPrepareLabelWorker(labelWorker);
             for (int rowIndex = 0; rowIndex < layoutRows.Count; rowIndex++)
             {
@@ -507,8 +538,22 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     ? PreparedPawnLabelCapture.Capture(labelWorker, pawn)
                     : default);
             }
+        }
 
-            BuildPreparedRowSpans(cellRevision);
+        /// <summary>
+        /// Commits the completed snapshot and its cache baselines together. No
+        /// caller may observe the new revision before all reuse state is current.
+        /// </summary>
+        private void PublishSnapshot(
+            IWorkTabLayoutController layout,
+            PawnTable table,
+            WorkGridRevisionSet revisions,
+            int layoutSignature,
+            WorkTabEffectiveStateRevision effectiveStateRevision,
+            PawnColumnWorker_Label labelWorker,
+            int pawnLabelSourceSignature,
+            Dictionary<ushort, int> bestPawnIds)
+        {
             _layoutSignature = layoutSignature;
             _layout = layout;
             _hasLayoutSignature = true;
