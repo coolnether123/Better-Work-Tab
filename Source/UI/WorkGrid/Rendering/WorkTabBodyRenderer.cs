@@ -1498,7 +1498,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
-            DrawLegacyPawnRow(
+            DrawDirectPawnRow(
                 table, pawn, rowRect, columns, rowIndex, snapshotLayer,
                 visibleColumns, scheduleOpen);
         }
@@ -1546,7 +1546,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             return true;
         }
 
-        private static void DrawLegacyPawnRow(
+        private static void DrawDirectPawnRow(
             PawnTable table, Pawn pawn, Rect rowRect,
             IReadOnlyList<WorkTabLayoutColumn> columns, int rowIndex,
             IWorkGridSnapshotLayer snapshotLayer, WorkGridIndexRange visibleColumns,

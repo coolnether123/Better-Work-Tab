@@ -164,7 +164,7 @@ namespace Better_Work_Tab.UI.Headers
 
         /// <summary>
         /// Captures the pass packet. Rotation, offset, CJK mode, colors, and
-        /// renderer choice are prepared inputs; legacy entry points use this
+        /// renderer choice are prepared inputs; original entry points use this
         /// same cache for compatibility. No surface or input state is retained.
         /// </summary>
         internal static HeaderPresentationPacket CapturePresentation()
@@ -244,8 +244,8 @@ namespace Better_Work_Tab.UI.Headers
                 return;
             }
 
-            // Preserve compatibility with an external renderer that only
-            // implements the original interface contract.
+            // Keep the original direct interface path if the coordinator ever
+            // receives a renderer without prepared-presentation support.
             renderer.DrawHeader(
                 layout,
                 isMouseOver,
