@@ -14,7 +14,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string capture = Read(root, "Source", "UI", "WorkGrid", "Rendering", "PreparedPawnLabelPresentation.cs");
             string packet = Read(root, "Source", "UI", "WorkGrid", "Rendering", "PreparedWorkRowPacket.cs");
             string retained = Read(root, "Source", "UI", "WorkGrid", "Rendering", "RetainedWorkBoxRowCache.cs");
-            string composer = Read(root, "Source", "UI", "WorkGrid", "Rendering", "RetainedTextComposer.cs");
             string preparedBox = Read(root, "Source", "UI", "WorkGrid", "Rendering", "PreparedWorkBoxRenderer.cs");
             string optimized = Read(root, "Source", "UI", "WorkGrid", "Rendering", "OptimizedWorkGridRenderer.cs");
             string provider = Read(root, "Source", "UI", "WorkGrid", "Snapshots", "WorkGridSnapshotProvider.cs");
@@ -31,15 +30,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
             TestAssert.Contains(provider, "_pawnLabelSourceSignature == pawnLabelSourceSignature", "unchanged snapshots need a label freshness guard");
             TestAssert.Contains(packet, "PreparedWorkRowCommandKind.PreparedPawnLabel", "stable labels must use the existing ordered row packet");
-            TestAssert.Contains(packet, "RetainedWorkBoxRowCache.Cell.PawnLabelText", "label text must use the existing bounded row cache");
-            TestAssert.Contains(retained, "CellKind.PawnLabelText", "retained cells must keep label text as an explicit kind");
-            TestAssert.Contains(retained, "RetainedTextComposer.Draw", "retained labels must use the focused text-composition leaf");
-            TestAssert.Contains(composer, "RequestCharactersInTexture", "the text leaf must prepare glyphs before emission");
-            TestAssert.Contains(composer, "font.material", "the text leaf must own font-material compatibility fallback");
-            TestAssert.Contains(composer, "GL.Begin(GL.QUADS)", "the text leaf must own glyph emission");
-            TestAssert.Contains(composer, "StripTags()", "the text leaf must preserve rich-text stripping semantics");
-            TestAssert.Contains(composer, "color=#", "the text leaf must preserve color-tag handling");
-            TestAssert.Contains(composer, "\"/color\"", "the text leaf must restore the base color at color-tag close");
+            TestAssert.Contains(packet, "internal string Text { get; }", "prepared labels must carry their stable display text");
+            TestAssert.Contains(optimized, "Widgets.Label(OffsetY(label.TextRect, rowOffsetY), label.Text)",
+                "prepared label text must use RimWorld's native live glyph path");
+            TestAssert.False(retained.IndexOf("PawnLabelText", StringComparison.Ordinal) >= 0,
+                "pawn-label pixels must not be retained and alpha-composited twice");
             TestAssert.False(preparedBox.IndexOf("DrawRetainedText(", StringComparison.Ordinal) >= 0,
                 "the common work-box renderer must not regain pawn-label text composition");
 
@@ -50,7 +45,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(draw, "ModSupportManager.OnPawnRowDrawn", "mod geometry callbacks must remain live");
             TestAssert.Contains(draw, "pawn.health.summaryHealth.SummaryHealthPercent < 0.99f", "health-bar rows must fall back native");
             TestAssert.Contains(draw, "Mouse.IsOver(cellRect)", "hovered rows must fall back native");
-            TestAssert.Contains(draw, "if (!_retainedRows.TryDraw", "retained failure must fall back native before live presentation");
+            TestAssert.True(
+                draw.IndexOf("return false;", StringComparison.Ordinal) <
+                    draw.IndexOf("DrawPreparedPawnLabelText", StringComparison.Ordinal),
+                "unsupported live label states must fall back before prepared text is drawn");
 
             const int visibleRows = 25;
             const int baselineNativeLabelCalls = visibleRows;

@@ -394,16 +394,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return false;
             }
 
-            Color baseColor = GUI.color;
-            if (!_retainedRows.TryDraw(
-                    label.Retained,
-                    rowOffsetY,
-                    baseColor,
-                    _snapshot,
-                    _renderResourcesRevision))
-            {
-                return false;
-            }
+            DrawPreparedPawnLabelText(label, rowOffsetY);
 
             Rect iconRect = OffsetY(label.IconRect, rowOffsetY);
             if (label.Presentation.ShowIcon)
@@ -441,6 +432,37 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Text.WordWrap = true;
             }
             return true;
+        }
+
+        private static void DrawPreparedPawnLabelText(
+            PreparedPawnLabelCell label,
+            float rowOffsetY)
+        {
+            GameFont previousFont = Text.Font;
+            TextAnchor previousAnchor = Text.Anchor;
+            bool previousWordWrap = Text.WordWrap;
+            Color previousColor = GUI.color;
+            try
+            {
+                // The snapshot owns stable text and geometry, but the glyphs
+                // stay live. Drawing font pixels into a transparent retained
+                // surface and blending that surface again degrades thin strokes.
+                Text.Font = GameFont.Small;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Text.WordWrap = false;
+                if (label.Presentation.ContrastMode)
+                {
+                    GUI.color = label.Presentation.BaseTextColor;
+                }
+                Widgets.Label(OffsetY(label.TextRect, rowOffsetY), label.Text);
+            }
+            finally
+            {
+                GUI.color = previousColor;
+                Text.Font = previousFont;
+                Text.Anchor = previousAnchor;
+                Text.WordWrap = previousWordWrap;
+            }
         }
 
         private void EndCellBatch()
