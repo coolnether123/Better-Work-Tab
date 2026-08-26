@@ -439,7 +439,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridGeometrySnapshot rowGeometry,
             WorkGridIndexRange visibleRows)
         {
-            var settings = BetterWorkTabMod.Settings;
             if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesHighlights))
             {
                 return;
