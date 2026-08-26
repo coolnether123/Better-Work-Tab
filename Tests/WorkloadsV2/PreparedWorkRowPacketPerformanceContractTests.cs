@@ -33,11 +33,22 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string subWork)
         {
             string drawRow = MemberBody(body, "private static void DrawPawnRow(");
-            TestAssert.Contains(drawRow, "Event.current.type == EventType.Repaint", "row packets must be Repaint-only");
-            TestAssert.Contains(drawRow, "preparedLayer.TryGetPreparedRow", "stable rows must ask the optimized layer for a packet");
-            TestAssert.Contains(drawRow, "packet.Commands", "the body must traverse ordered packet commands instead of all columns");
-            TestAssert.Contains(drawRow, "PreparedWorkRowCommandKind.RetainedRun", "retained runs must remain ordered with native columns");
-            TestAssert.Contains(drawRow, "DrawNativePawnCell(", "foreign and custom columns must retain their native worker path");
+            TestAssert.Contains(drawRow, "TryDrawPreparedPawnRow(", "row drawing must prefer the prepared packet path");
+            TestAssert.Contains(drawRow, "DrawLegacyPawnRow(", "row drawing must retain the direct fallback path");
+
+            string preparedRow = MemberBody(body, "private static bool TryDrawPreparedPawnRow(");
+            TestAssert.Contains(preparedRow, "Event.current.type != EventType.Repaint", "row packets must be Repaint-only");
+            TestAssert.Contains(preparedRow, "preparedLayer.TryGetPreparedRow", "stable rows must ask the optimized layer for a packet");
+            TestAssert.Contains(preparedRow, "packet.Commands", "the body must traverse ordered packet commands instead of all columns");
+            TestAssert.Contains(preparedRow, "PreparedWorkRowCommandKind.RetainedRun", "retained runs must remain ordered with native columns");
+            TestAssert.Contains(preparedRow, "DrawNativePawnCell(", "foreign and custom packet columns must retain their native worker path");
+
+            string legacyRow = MemberBody(body, "private static void DrawLegacyPawnRow(");
+            TestAssert.Contains(legacyRow, "snapshotLayer?.BeginRow();", "legacy drawing must preserve snapshot row ownership");
+            TestAssert.Contains(legacyRow, "snapshotLayer?.EndRow();", "legacy drawing must close snapshot row ownership");
+            TestAssert.Contains(legacyRow, "snapshotLayer.ShouldVisitCell", "legacy drawing must preserve cell culling");
+            TestAssert.Contains(legacyRow, "snapshotLayer.TryDrawCell", "legacy drawing must preserve snapshot cell dispatch");
+            TestAssert.Contains(legacyRow, "DrawNativePawnCell(", "legacy unsupported cells must retain their native worker path");
 
             string eligibility = MemberBody(optimized, "public bool TryGetPreparedRow(");
             TestAssert.Contains(eligibility, "ColumnReorderAnimationState.IsActive", "column animation must use direct clipped rendering");
