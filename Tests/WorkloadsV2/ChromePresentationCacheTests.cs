@@ -11,30 +11,43 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 Path.Combine("Source", "UI", "Chrome", "WorkTabChrome.cs"),
                 "chrome presentation cache contracts");
             string chrome = Read(root, "Source", "UI", "Chrome", "WorkTabChrome.cs");
+            string manualCache = Read(
+                root,
+                "Source",
+                "UI",
+                "Chrome",
+                "ManualPriorityChromePresentationCache.cs");
+            string footerCache = Read(
+                root,
+                "Source",
+                "UI",
+                "Chrome",
+                "FooterInstructionTextCache.cs");
             string header = Read(root, "Source", "UI", "HeaderButtons.cs");
             string window = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
 
-            ManualSurfaceRetainsOnlyStablePixels(chrome);
+            ManualSurfaceRetainsOnlyStablePixels(manualCache);
             ManualInputAndOverlaysRemainLive(chrome);
-            RetainedResourcesFollowWindowLifecycle(chrome, window);
-            FooterAndCounterPathsAvoidStableAllocations(chrome);
+            RetainedResourcesFollowWindowLifecycle(chrome, manualCache, window);
+            FooterAndCounterPathsAvoidStableAllocations(chrome, footerCache);
             SelectorAndTooltipCachesRemainBounded(header);
         }
 
         private static void RetainedResourcesFollowWindowLifecycle(
             string chrome,
+            string manualCache,
             string window)
         {
             string release = MemberBody(
                 chrome,
-                "internal static void ReleaseRetainedResources()");
+                "internal void ReleaseRetainedResources()");
             TestAssert.Contains(
                 release,
-                "ReleaseManualPrioritiesSurfaces();",
-                "the chrome resource boundary must release both retained variants");
+                "_manualPriorityPresentationCache.ReleaseRetainedResources();",
+                "the chrome must delegate retained-resource release to its presentation owner");
             TestAssert.Contains(
-                release,
-                "_manualSurfaceKeyValid = false;",
+                manualCache,
+                "_surfaceKeyValid = false;",
                 "released chrome resources must rebuild from a fresh presentation key");
 
             string resolution = MemberBody(
@@ -42,12 +55,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "public override void Notify_ResolutionChanged()");
             TestAssert.Contains(
                 resolution,
-                "WorkTabChrome.ReleaseRetainedResources();",
+                "_workTabChrome.ReleaseRetainedResources();",
                 "resolution changes must release retained chrome resources");
             string close = MemberBody(window, "private void ResetTransientWindowState()");
             TestAssert.Contains(
                 close,
-                "WorkTabChrome.ReleaseRetainedResources();",
+                "_workTabChrome.ReleaseRetainedResources();",
                 "closing the Work tab must release retained chrome resources");
         }
 
@@ -55,15 +68,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             TestAssert.Contains(
                 source,
-                "private static RenderTexture _manualPrioritiesSurfaceEnabled;",
+                "private RenderTexture _enabledSurface;",
                 "manual chrome must retain an enabled presentation surface");
             TestAssert.Contains(
                 source,
-                "private static RenderTexture _manualPrioritiesSurfaceDisabled;",
+                "private RenderTexture _disabledSurface;",
                 "manual chrome must retain a disabled presentation surface");
             TestAssert.Contains(
                 source,
-                "ReleaseManualPrioritiesSurfaces();",
+                "ReleaseSurfaces();",
                 "manual surface replacement must release both bounded variants");
             TestAssert.Contains(
                 source,
@@ -71,19 +84,19 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "retained chrome surfaces must stay non-persistent Unity objects");
             TestAssert.Contains(
                 source,
-                "_manualSurfacePresentationRevision != presentationRevision",
+                "_surfacePresentationRevision != presentationRevision",
                 "manual surfaces must invalidate on presentation revision");
             TestAssert.Contains(
                 source,
-                "_manualSurfaceUiScale != uiScale",
+                "_surfaceUiScale != uiScale",
                 "manual surfaces must invalidate on UI scale");
             TestAssert.Contains(
                 source,
-                "_manualSurfaceFontId != fontId",
+                "_surfaceFontId != fontId",
                 "manual surfaces must invalidate on font theme");
             TestAssert.Contains(
                 source,
-                "Event.current.type == EventType.Repaint",
+                "Event.current.type != EventType.Repaint",
                 "retained pixels must be composed only during Repaint");
         }
 
@@ -125,7 +138,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "manual chrome must have a direct fallback when a surface is unavailable");
         }
 
-        private static void FooterAndCounterPathsAvoidStableAllocations(string source)
+        private static void FooterAndCounterPathsAvoidStableAllocations(
+            string source,
+            string footerCache)
         {
             string footer = MemberBody(source, "private void DrawBottomRightButtons(");
             TestAssert.False(
@@ -136,7 +151,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "stable footer repaint must not join instruction strings");
             TestAssert.Contains(
                 footer,
-                "GetFooterInstructionText",
+                "_footerInstructionTextCache.GetInstructionText",
                 "footer text must pass through its bounded presentation cache");
             TestAssert.Contains(
                 footer,
@@ -154,6 +169,17 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 counters.IndexOf("Text.CalcSize", StringComparison.Ordinal) >= 0,
                 "counter repaint must use cached label width");
+
+            TestAssert.False(
+                footerCache.IndexOf("new List<string>", StringComparison.Ordinal) >= 0,
+                "footer cache must not allocate a list while composing stable instructions");
+            TestAssert.False(
+                footerCache.IndexOf("string.Join", StringComparison.Ordinal) >= 0,
+                "footer cache must compose at most one bounded string without string.Join");
+            TestAssert.Contains(
+                footerCache,
+                "_presentationRevision == presentationRevision",
+                "footer text must invalidate when the presentation revision changes");
         }
 
         private static void SelectorAndTooltipCachesRemainBounded(string source)

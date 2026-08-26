@@ -35,6 +35,10 @@ namespace Better_Work_Tab.UI.Chrome
     {
         private readonly SubWorkInteractionController _subWorkInteractionController;
         private readonly Func<WorkTabApplication> _application;
+        private readonly ManualPriorityChromePresentationCache _manualPriorityPresentationCache =
+            new ManualPriorityChromePresentationCache();
+        private readonly FooterInstructionTextCache _footerInstructionTextCache =
+            new FooterInstructionTextCache();
 
         private static string _cachedUiTextLanguage;
         private static long _cachedUiTextPresentationRevision = long.MinValue;
@@ -52,33 +56,6 @@ namespace Better_Work_Tab.UI.Chrome
         private static string _subWorkExitTooltip;
         private static bool _subWorkExitTooltipValid;
 
-        private static readonly GUIContent _manualPrioritiesContent = new GUIContent();
-        private static string _cachedManualCheckboxText;
-        private static float _cachedManualCheckboxUiScale;
-        private static Rect _cachedManualCheckboxSourceRect;
-        private static Rect _cachedManualCheckboxLabelRect;
-        private static bool _manualCheckboxPresentationValid;
-        private static RenderTexture _manualPrioritiesSurfaceEnabled;
-        private static RenderTexture _manualPrioritiesSurfaceDisabled;
-        private static bool _manualPrioritiesSurfaceEnabledValid;
-        private static bool _manualPrioritiesSurfaceDisabledValid;
-        private static bool _manualPrioritiesSurfaceEnabledFailed;
-        private static bool _manualPrioritiesSurfaceDisabledFailed;
-        private static string _manualSurfaceLanguage;
-        private static long _manualSurfacePresentationRevision = long.MinValue;
-        private static string _manualSurfaceText;
-        private static string _manualSurfaceHelpText;
-        private static int _manualSurfaceMaxPriority = -1;
-        private static float _manualSurfaceUiScale;
-        private static float _manualSurfacePixelScale;
-        private static Rect _manualSurfaceCheckboxRect;
-        private static Rect _manualSurfaceContextRect;
-        private static int _manualSurfaceFontId;
-        private static int _manualSurfaceFontSize;
-        private static int _manualSurfaceFontStyle;
-        private static bool _manualSurfaceWordWrap;
-        private static bool _manualSurfaceKeyValid;
-
         private static string _cachedCounterLanguage;
         private static long _cachedCounterPresentationRevision = long.MinValue;
         private static float _cachedCounterUiScale;
@@ -91,38 +68,6 @@ namespace Better_Work_Tab.UI.Chrome
         private static string _cachedBedLabel;
         private static string _cachedJoinedBedLabel;
 
-        private enum FooterPointerKind
-        {
-            None,
-            CtrlClickSchedule,
-            GestureAction
-        }
-
-        private static string _cachedFooterLanguage;
-        private static long _cachedFooterPresentationRevision = long.MinValue;
-        private static bool _cachedFooterOverlayTextValid;
-        private static bool _cachedFooterOverlayShifted;
-        private static string _cachedFooterOverlayText;
-        private static bool _cachedFooterCtrlClickTextValid;
-        private static string _cachedFooterCtrlClickText;
-        private static bool _cachedFooterActionTextValid;
-        private static bool _cachedFooterActionActive;
-        private static string _cachedFooterActionText;
-        private static bool _cachedFooterGestureTextValid;
-        private static string _cachedFooterGestureInput;
-        private static string _cachedFooterGestureText;
-        private static bool _cachedFooterGestureActionTextValid;
-        private static string _cachedFooterGestureActionInput;
-        private static string _cachedFooterGestureActionLabelInput;
-        private static string _cachedFooterGestureActionText;
-        private static string _cachedFooterOverlayInput;
-        private static string _cachedFooterPointerInput;
-        private static string _cachedFooterJoinedText;
-        private static bool _cachedFooterCompositionValid;
-        private static float _cachedFooterTruncateWidth;
-        private static string _cachedFooterTruncatedText;
-        private static bool _cachedFooterTruncateValid;
-
         internal WorkTabChrome(
             SubWorkInteractionController subWorkInteractionController,
             Func<WorkTabApplication> application)
@@ -130,6 +75,11 @@ namespace Better_Work_Tab.UI.Chrome
             _subWorkInteractionController = subWorkInteractionController ??
                 throw new ArgumentNullException(nameof(subWorkInteractionController));
             _application = application ?? throw new ArgumentNullException(nameof(application));
+        }
+
+        internal void ReleaseRetainedResources()
+        {
+            _manualPriorityPresentationCache.ReleaseRetainedResources();
         }
 
         internal void DrawTopControls(IWorkTabLayoutController layout, Rect inRect)
@@ -433,23 +383,20 @@ namespace Better_Work_Tab.UI.Chrome
             Text.Anchor = previousAnchor;
         }
 
-        private static bool DrawManualPrioritiesPresentation(
+        private bool DrawManualPrioritiesPresentation(
             Rect rect,
             int maxPriority,
             bool enabled)
         {
             if (Event.current != null && Event.current.type == EventType.Repaint)
             {
-                Rect contextRect = WorkTabChromeGeometry.GetManualPrioritiesContextRect();
-                EnsureManualSurfaceKey(rect, contextRect, maxPriority);
-                RenderTexture surface = GetManualPrioritiesSurface(enabled);
-                if (surface != null && surface.IsCreated())
+                if (_manualPriorityPresentationCache.TryDrawRetained(
+                    rect,
+                    maxPriority,
+                    enabled,
+                    _manualPrioritiesText,
+                    _priorityHelpText))
                 {
-                    GUI.DrawTextureWithTexCoords(
-                        contextRect,
-                        surface,
-                        new Rect(0f, 0f, 1f, 1f),
-                        true);
                     return true;
                 }
             }
@@ -458,12 +405,14 @@ namespace Better_Work_Tab.UI.Chrome
             return false;
         }
 
-        private static void DrawManualPrioritiesCheckboxDirect(Rect rect, bool enabled)
+        private void DrawManualPrioritiesCheckboxDirect(Rect rect, bool enabled)
         {
             TextAnchor previousAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleLeft;
-            Rect labelRect = EnsureManualCheckboxPresentation(rect);
-            Widgets.Label(labelRect, _manualPrioritiesContent);
+            Rect labelRect = _manualPriorityPresentationCache.GetCheckboxLabelRect(
+                rect,
+                _manualPrioritiesText);
+            Widgets.Label(labelRect, _manualPriorityPresentationCache.CheckboxContent);
             Widgets.CheckboxDraw(
                 rect.x + rect.width - 24f,
                 rect.y + (rect.height - 24f) / 2f,
@@ -475,7 +424,7 @@ namespace Better_Work_Tab.UI.Chrome
             Text.Anchor = previousAnchor;
         }
 
-        private static void DrawManualPrioritiesHelp(Rect rect, int maxPriority)
+        private void DrawManualPrioritiesHelp(Rect rect, int maxPriority)
         {
             using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))
             {
@@ -484,360 +433,6 @@ namespace Better_Work_Tab.UI.Chrome
                     new Rect(rect.x, rect.yMax - 6f, helpWidth, 60f),
                     _priorityHelpText);
             }
-        }
-
-        private static void EnsureManualSurfaceKey(
-            Rect checkboxRect,
-            Rect contextRect,
-            int maxPriority)
-        {
-            string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
-            long presentationRevision = WorkTabPresentationRevision.Current;
-            float uiScale = Prefs.UIScale;
-            float pixelScale = Verse.UI.screenWidth > 0
-                ? Mathf.Max(1f, (float)Screen.width / Verse.UI.screenWidth)
-                : 1f;
-            GUIStyle fontStyle = Text.CurFontStyle;
-            int fontId = fontStyle?.font != null ? fontStyle.font.GetInstanceID() : 0;
-            int fontSize = fontStyle?.fontSize ?? 0;
-            int fontStyleValue = (int)(fontStyle?.fontStyle ?? FontStyle.Normal);
-            bool wordWrap = Text.WordWrap;
-            bool changed = !_manualSurfaceKeyValid ||
-                _manualSurfaceLanguage != language ||
-                _manualSurfacePresentationRevision != presentationRevision ||
-                !String.Equals(_manualSurfaceText, _manualPrioritiesText, StringComparison.Ordinal) ||
-                !String.Equals(_manualSurfaceHelpText, _priorityHelpText, StringComparison.Ordinal) ||
-                _manualSurfaceMaxPriority != maxPriority ||
-                _manualSurfaceUiScale != uiScale ||
-                _manualSurfacePixelScale != pixelScale ||
-                _manualSurfaceFontId != fontId ||
-                _manualSurfaceFontSize != fontSize ||
-                _manualSurfaceFontStyle != fontStyleValue ||
-                _manualSurfaceWordWrap != wordWrap ||
-                !SameRect(_manualSurfaceCheckboxRect, checkboxRect) ||
-                !SameRect(_manualSurfaceContextRect, contextRect);
-            if (!changed)
-            {
-                return;
-            }
-
-            ReleaseManualPrioritiesSurfaces();
-            _manualSurfaceLanguage = language;
-            _manualSurfacePresentationRevision = presentationRevision;
-            _manualSurfaceText = _manualPrioritiesText;
-            _manualSurfaceHelpText = _priorityHelpText;
-            _manualSurfaceMaxPriority = maxPriority;
-            _manualSurfaceUiScale = uiScale;
-            _manualSurfacePixelScale = pixelScale;
-            _manualSurfaceCheckboxRect = checkboxRect;
-            _manualSurfaceContextRect = contextRect;
-            _manualSurfaceFontId = fontId;
-            _manualSurfaceFontSize = fontSize;
-            _manualSurfaceFontStyle = fontStyleValue;
-            _manualSurfaceWordWrap = wordWrap;
-            _manualSurfaceKeyValid = true;
-            _manualPrioritiesSurfaceEnabledFailed = false;
-            _manualPrioritiesSurfaceDisabledFailed = false;
-        }
-
-        private static RenderTexture GetManualPrioritiesSurface(bool enabled)
-        {
-            RenderTexture surface = enabled
-                ? _manualPrioritiesSurfaceEnabled
-                : _manualPrioritiesSurfaceDisabled;
-            bool failed = enabled
-                ? _manualPrioritiesSurfaceEnabledFailed
-                : _manualPrioritiesSurfaceDisabledFailed;
-            if (failed)
-            {
-                return null;
-            }
-
-            int pixelWidth = Mathf.Max(
-                1,
-                Mathf.CeilToInt(_manualSurfaceContextRect.width * _manualSurfacePixelScale));
-            int pixelHeight = Mathf.Max(
-                1,
-                Mathf.CeilToInt(_manualSurfaceContextRect.height * _manualSurfacePixelScale));
-            if (surface == null ||
-                !surface.IsCreated() ||
-                surface.width != pixelWidth ||
-                surface.height != pixelHeight)
-            {
-                ReleaseManualPrioritiesSurface(enabled);
-                surface = CreateManualPrioritiesSurface(pixelWidth, pixelHeight);
-                if (enabled)
-                {
-                    _manualPrioritiesSurfaceEnabled = surface;
-                }
-                else
-                {
-                    _manualPrioritiesSurfaceDisabled = surface;
-                }
-            }
-
-            if (surface == null)
-            {
-                if (enabled)
-                {
-                    _manualPrioritiesSurfaceEnabledFailed = true;
-                }
-                else
-                {
-                    _manualPrioritiesSurfaceDisabledFailed = true;
-                }
-
-                return null;
-            }
-
-            bool valid = enabled
-                ? _manualPrioritiesSurfaceEnabledValid
-                : _manualPrioritiesSurfaceDisabledValid;
-            if (valid)
-            {
-                return surface;
-            }
-
-            if (!BuildManualPrioritiesSurface(surface, enabled))
-            {
-                ReleaseManualPrioritiesSurface(enabled);
-                if (enabled)
-                {
-                    _manualPrioritiesSurfaceEnabledFailed = true;
-                }
-                else
-                {
-                    _manualPrioritiesSurfaceDisabledFailed = true;
-                }
-
-                return null;
-            }
-
-            if (enabled)
-            {
-                _manualPrioritiesSurfaceEnabledValid = true;
-            }
-            else
-            {
-                _manualPrioritiesSurfaceDisabledValid = true;
-            }
-
-            return surface;
-        }
-
-        private static RenderTexture CreateManualPrioritiesSurface(int width, int height)
-        {
-            if (width > SystemInfo.maxTextureSize || height > SystemInfo.maxTextureSize)
-            {
-                return null;
-            }
-
-            var surface = new RenderTexture(
-                width,
-                height,
-                0,
-                RenderTextureFormat.ARGB32,
-                RenderTextureReadWrite.sRGB)
-            {
-                name = "BWT manual priorities chrome",
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-                useMipMap = false,
-                autoGenerateMips = false,
-                hideFlags = HideFlags.HideAndDontSave
-            };
-            if (!surface.Create())
-            {
-                UnityEngine.Object.Destroy(surface);
-                return null;
-            }
-
-            return surface;
-        }
-
-        private static bool BuildManualPrioritiesSurface(
-            RenderTexture surface,
-            bool enabled)
-        {
-            RenderTexture previousTarget = RenderTexture.active;
-            Color previousColor = GUI.color;
-            GameFont previousFont = Text.Font;
-            TextAnchor previousAnchor = Text.Anchor;
-            bool previousWrap = Text.WordWrap;
-            try
-            {
-                RenderTexture.active = surface;
-                GL.PushMatrix();
-                try
-                {
-                    GL.LoadPixelMatrix(
-                        0f,
-                        _manualSurfaceContextRect.width,
-                        _manualSurfaceContextRect.height,
-                        0f);
-                    GL.Clear(true, true, Color.clear);
-                    GUI.BeginGroup(new Rect(
-                        0f,
-                        0f,
-                        _manualSurfaceContextRect.width,
-                        _manualSurfaceContextRect.height));
-                    try
-                    {
-                        Text.Font = GameFont.Small;
-                        Text.Anchor = TextAnchor.UpperLeft;
-                        Text.WordWrap = previousWrap;
-                        GUI.color = Color.white;
-                        Rect localLabelRect = EnsureManualCheckboxPresentation(
-                            _manualSurfaceCheckboxRect);
-                        localLabelRect.x -= _manualSurfaceContextRect.x;
-                        localLabelRect.y -= _manualSurfaceContextRect.y;
-                        Widgets.Label(localLabelRect, _manualPrioritiesContent);
-                        float localCheckboxX =
-                            _manualSurfaceCheckboxRect.x +
-                            _manualSurfaceCheckboxRect.width - 24f -
-                            _manualSurfaceContextRect.x;
-                        float localCheckboxY =
-                            _manualSurfaceCheckboxRect.y +
-                            (_manualSurfaceCheckboxRect.height - 24f) / 2f -
-                            _manualSurfaceContextRect.y;
-                        Widgets.CheckboxDraw(
-                            localCheckboxX,
-                            localCheckboxY,
-                            enabled,
-                            false,
-                            24f,
-                            null,
-                            null);
-                        if (enabled)
-                        {
-                            using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))
-                            {
-                                float helpWidth = _manualSurfaceMaxPriority > 4
-                                    ? 220f
-                                    : _manualSurfaceCheckboxRect.width;
-                                Rect helpRect = new Rect(
-                                    _manualSurfaceCheckboxRect.x - _manualSurfaceContextRect.x,
-                                    _manualSurfaceCheckboxRect.y +
-                                        _manualSurfaceCheckboxRect.height - 6f -
-                                        _manualSurfaceContextRect.y,
-                                    helpWidth,
-                                    60f);
-                                Widgets.Label(helpRect, _priorityHelpText);
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        GUI.EndGroup();
-                    }
-                }
-                finally
-                {
-                    GL.PopMatrix();
-                }
-
-                return true;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-            finally
-            {
-                GUI.color = previousColor;
-                Text.Font = previousFont;
-                Text.Anchor = previousAnchor;
-                Text.WordWrap = previousWrap;
-                RenderTexture.active = previousTarget;
-            }
-        }
-
-        private static void ReleaseManualPrioritiesSurface(bool enabled)
-        {
-            RenderTexture surface = enabled
-                ? _manualPrioritiesSurfaceEnabled
-                : _manualPrioritiesSurfaceDisabled;
-            if (enabled)
-            {
-                _manualPrioritiesSurfaceEnabledValid = false;
-            }
-            else
-            {
-                _manualPrioritiesSurfaceDisabledValid = false;
-            }
-            if (surface == null)
-            {
-                return;
-            }
-
-            surface.Release();
-            UnityEngine.Object.Destroy(surface);
-            if (enabled)
-            {
-                _manualPrioritiesSurfaceEnabled = null;
-            }
-            else
-            {
-                _manualPrioritiesSurfaceDisabled = null;
-            }
-        }
-
-        private static void ReleaseManualPrioritiesSurfaces()
-        {
-            ReleaseManualPrioritiesSurface(true);
-            ReleaseManualPrioritiesSurface(false);
-        }
-
-        internal static void ReleaseRetainedResources()
-        {
-            ReleaseManualPrioritiesSurfaces();
-            _manualSurfaceKeyValid = false;
-            _manualPrioritiesSurfaceEnabledFailed = false;
-            _manualPrioritiesSurfaceDisabledFailed = false;
-        }
-
-        private static bool SameRect(Rect left, Rect right)
-        {
-            return left.x == right.x &&
-                   left.y == right.y &&
-                   left.width == right.width &&
-                   left.height == right.height;
-        }
-
-        private static Rect EnsureManualCheckboxPresentation(Rect rect)
-        {
-            float uiScale = Prefs.UIScale;
-            if (!_manualCheckboxPresentationValid ||
-                !String.Equals(
-                    _cachedManualCheckboxText,
-                    _manualPrioritiesText,
-                    StringComparison.Ordinal) ||
-                _cachedManualCheckboxUiScale != uiScale ||
-                _cachedManualCheckboxSourceRect.x != rect.x ||
-                _cachedManualCheckboxSourceRect.y != rect.y ||
-                _cachedManualCheckboxSourceRect.width != rect.width ||
-                _cachedManualCheckboxSourceRect.height != rect.height)
-            {
-                Rect labelRect = rect;
-                labelRect.xMax -= 24f;
-                if (uiScale > 1f)
-                {
-                    float halfScale = uiScale / 2f;
-                    if (Math.Abs(halfScale - Math.Floor(halfScale)) > float.Epsilon)
-                    {
-                        labelRect = LudeonTK.UIScaling.AdjustRectToUIScaling(labelRect);
-                    }
-                }
-
-                _cachedManualCheckboxText = _manualPrioritiesText;
-                _manualPrioritiesContent.text = _manualPrioritiesText;
-                _cachedManualCheckboxUiScale = uiScale;
-                _cachedManualCheckboxSourceRect = rect;
-                _cachedManualCheckboxLabelRect = labelRect;
-                _manualCheckboxPresentationValid = true;
-            }
-
-            return _cachedManualCheckboxLabelRect;
         }
 
         private void DrawPriorityLegend(Rect rect)
@@ -876,7 +471,7 @@ namespace Better_Work_Tab.UI.Chrome
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
-        private static void EnsureUiTextCache(int maxPriority)
+        private void EnsureUiTextCache(int maxPriority)
         {
             string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
             long presentationRevision = WorkTabPresentationRevision.Current;
@@ -899,7 +494,7 @@ namespace Better_Work_Tab.UI.Chrome
             _lowerPriorityText = "LowerPriority".Translate() + " =>";
         }
 
-        private static void EnsureChromeTextCache()
+        private void EnsureChromeTextCache()
         {
             string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
             long presentationRevision = WorkTabPresentationRevision.Current;
@@ -917,7 +512,6 @@ namespace Better_Work_Tab.UI.Chrome
             _subWorkExitTooltip = null;
             _cachedSubWorkExitGesture = null;
             _subWorkExitTooltipValid = false;
-            _manualCheckboxPresentationValid = false;
         }
 
         private static void EnsureCounterTextCache(
@@ -1038,7 +632,7 @@ namespace Better_Work_Tab.UI.Chrome
                         inRect.y,
                         Mathf.Max(0f, textRight - inRect.x - 6f),
                         inRect.height);
-                    string instructionText = GetFooterInstructionText(
+                    string instructionText = _footerInstructionTextCache.GetInstructionText(
                         hasOverlayInstruction,
                         overlayShifted,
                         pointerKind,
@@ -1051,159 +645,6 @@ namespace Better_Work_Tab.UI.Chrome
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
             Text.Anchor = TextAnchor.UpperLeft;
-        }
-
-        private static string GetFooterInstructionText(
-            bool hasOverlayInstruction,
-            bool overlayShifted,
-            FooterPointerKind pointerKind,
-            bool subWorkActive,
-            string gesture,
-            float textWidth)
-        {
-            EnsureFooterTextCache();
-
-            string overlayText = null;
-            if (hasOverlayInstruction)
-            {
-                if (!_cachedFooterOverlayTextValid ||
-                    _cachedFooterOverlayShifted != overlayShifted)
-                {
-                    _cachedFooterOverlayShifted = overlayShifted;
-                    _cachedFooterOverlayText = overlayShifted
-                        ? "BWT_Footer_ReleaseShiftForPriorities".Translate()
-                        : "BWT_Footer_HoldShiftForSkills".Translate();
-                    _cachedFooterOverlayTextValid = true;
-                }
-
-                overlayText = _cachedFooterOverlayText;
-            }
-
-            string pointerText = null;
-            switch (pointerKind)
-            {
-                case FooterPointerKind.CtrlClickSchedule:
-                    if (!_cachedFooterCtrlClickTextValid)
-                    {
-                        _cachedFooterCtrlClickText = "BWT_Footer_CtrlClickSchedule".Translate();
-                        _cachedFooterCtrlClickTextValid = true;
-                    }
-
-                    pointerText = _cachedFooterCtrlClickText;
-                    break;
-                case FooterPointerKind.GestureAction:
-                    string actionText = EnsureFooterActionText(subWorkActive);
-                    string gestureText = EnsureFooterGestureText(gesture);
-                    if (!_cachedFooterGestureActionTextValid ||
-                        !String.Equals(
-                            _cachedFooterGestureActionInput,
-                            gestureText,
-                            StringComparison.Ordinal) ||
-                        !String.Equals(
-                            _cachedFooterGestureActionLabelInput,
-                            actionText,
-                            StringComparison.Ordinal))
-                    {
-                        _cachedFooterGestureActionInput = gestureText;
-                        _cachedFooterGestureActionLabelInput = actionText;
-                        _cachedFooterGestureActionText = "BWT_Footer_GestureAction".Translate(
-                            gestureText,
-                            actionText);
-                        _cachedFooterGestureActionTextValid = true;
-                    }
-
-                    pointerText = _cachedFooterGestureActionText;
-                    break;
-            }
-
-            if (!_cachedFooterCompositionValid ||
-                !String.Equals(
-                    _cachedFooterOverlayInput,
-                    overlayText,
-                    StringComparison.Ordinal) ||
-                !String.Equals(
-                    _cachedFooterPointerInput,
-                    pointerText,
-                    StringComparison.Ordinal))
-            {
-                _cachedFooterOverlayInput = overlayText;
-                _cachedFooterPointerInput = pointerText;
-                _cachedFooterJoinedText = overlayText == null
-                    ? pointerText
-                    : pointerText == null
-                        ? overlayText
-                        : overlayText + " | " + pointerText;
-                _cachedFooterCompositionValid = true;
-                _cachedFooterTruncateValid = false;
-            }
-
-            if (_cachedFooterJoinedText == null)
-            {
-                return null;
-            }
-
-            float truncateWidth = Mathf.Max(1f, textWidth);
-            if (!_cachedFooterTruncateValid || _cachedFooterTruncateWidth != truncateWidth)
-            {
-                _cachedFooterTruncateWidth = truncateWidth;
-                _cachedFooterTruncatedText = _cachedFooterJoinedText.Truncate(truncateWidth);
-                _cachedFooterTruncateValid = true;
-            }
-
-            return _cachedFooterTruncatedText;
-        }
-
-        private static string EnsureFooterActionText(bool subWorkActive)
-        {
-            if (!_cachedFooterActionTextValid || _cachedFooterActionActive != subWorkActive)
-            {
-                _cachedFooterActionActive = subWorkActive;
-                _cachedFooterActionText = subWorkActive
-                    ? "BWT_Footer_BackToWorkTypes".Translate()
-                    : "BWT_Footer_OpenSpecificJobs".Translate();
-                _cachedFooterActionTextValid = true;
-            }
-
-            return _cachedFooterActionText;
-        }
-
-        private static string EnsureFooterGestureText(string gesture)
-        {
-            if (!_cachedFooterGestureTextValid ||
-                !String.Equals(_cachedFooterGestureInput, gesture, StringComparison.Ordinal))
-            {
-                _cachedFooterGestureInput = gesture;
-                _cachedFooterGestureText = gesture.CapitalizeFirst();
-                _cachedFooterGestureTextValid = true;
-            }
-
-            return _cachedFooterGestureText;
-        }
-
-        private static void EnsureFooterTextCache()
-        {
-            string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
-            long presentationRevision = WorkTabPresentationRevision.Current;
-            if (_cachedFooterLanguage == language &&
-                _cachedFooterPresentationRevision == presentationRevision)
-            {
-                return;
-            }
-
-            _cachedFooterLanguage = language;
-            _cachedFooterPresentationRevision = presentationRevision;
-            _cachedFooterOverlayTextValid = false;
-            _cachedFooterCtrlClickTextValid = false;
-            _cachedFooterActionTextValid = false;
-            _cachedFooterGestureTextValid = false;
-            _cachedFooterGestureActionTextValid = false;
-            _cachedFooterCompositionValid = false;
-            _cachedFooterTruncateValid = false;
-            _cachedFooterOverlayInput = null;
-            _cachedFooterPointerInput = null;
-            _cachedFooterJoinedText = null;
-            _cachedFooterGestureActionInput = null;
-            _cachedFooterGestureActionLabelInput = null;
         }
 
         private static void DrawInfoButton(Rect gearRect)
