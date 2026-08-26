@@ -6,6 +6,7 @@ using Verse;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.UI.Headers;
 
 namespace Better_Work_Tab.Patches
 {
@@ -112,6 +113,7 @@ namespace Better_Work_Tab.Patches
             BedCachePatchUtility.SafeClear(reason);
             SafeReset(reason, "work-grid snapshot", WorkGridSnapshotProvider.ClearActive);
             SafeReset(reason, "layout geometry", () => PawnOrganizerSystem.Instance?.Layout?.ClearGeometrySnapshot());
+            SafeReset(reason, "retained priority headers", HeaderDrawingCoordinator.ReleaseRetainedResources);
             SafeReset(reason, "invalidation audit", WorkGridInvalidationAudit.Reset);
             SafeReset(reason, "invalidation hub", WorkTabInvalidationHub.ResetForGameTeardown);
         }

@@ -40,6 +40,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string window = Read(
                 root,
                 "Source", "UI", "MainTabWindow_BetterWork.cs");
+            string gameCacheReset = Read(
+                root,
+                "Source", "Features", "Patches", "Patch_Building_Bed_Cache.cs");
 
             ParentRowsDoNotRecomposeDuringColumnAnimation(renderer);
             SnapshotOwnedEmptyBackgroundsDoNotFallBack(renderer, body);
@@ -49,7 +52,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 retainedHeaderKey,
                 headerCoordinator,
                 angledLabels,
-                window);
+                window,
+                gameCacheReset);
             SparseParentChangesKeepSubWorkUpdatesLocal(snapshots);
             CompatibilityAuditUsesLinearSkillAndPriorityPasses(audit);
             RepresentativeOperationCountsAreReduced();
@@ -60,7 +64,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string retainedHeaderKey,
             string headerCoordinator,
             string angledLabels,
-            string window)
+            string window,
+            string gameCacheReset)
         {
             TestAssert.Contains(
                 retainedHeaders,
@@ -167,6 +172,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 resolution,
                 "HeaderDrawingCoordinator.ReleaseRetainedResources();",
                 "resolution changes must release retained header surfaces");
+            string teardown = MemberBody(gameCacheReset, "public static void Reset(string reason)");
+            TestAssert.Contains(
+                teardown,
+                "SafeReset(reason, \"retained priority headers\", HeaderDrawingCoordinator.ReleaseRetainedResources);",
+                "game load and new-game teardown must release retained header surfaces immediately");
+
+            string animatedLayout = MemberBody(
+                headerCoordinator,
+                "public static void InvalidateAnimatedLayout()");
+            TestAssert.False(
+                animatedLayout.IndexOf("_retainedPriorityHeaders.Dispose()", StringComparison.Ordinal) >= 0,
+                "shared row-animation invalidation must not destroy unchanged retained header surfaces");
         }
 
         private static void SnapshotOwnedEmptyBackgroundsDoNotFallBack(
