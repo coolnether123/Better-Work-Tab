@@ -22,12 +22,37 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string retainedRows = Read(
                 root,
                 "Source", "UI", "WorkGrid", "Rendering", "RetainedWorkBoxRowCache.cs");
+            string body = Read(
+                root,
+                "Source", "UI", "WorkGrid", "Rendering", "WorkTabBodyRenderer.cs");
 
             ParentRowsDoNotRecomposeDuringColumnAnimation(renderer);
+            SnapshotOwnedEmptyBackgroundsDoNotFallBack(renderer, body);
             RetainedRowsKeepLogicalImGuiOrientation(retainedRows);
             SparseParentChangesKeepSubWorkUpdatesLocal(snapshots);
             CompatibilityAuditUsesLinearSkillAndPriorityPasses(audit);
             RepresentativeOperationCountsAreReduced();
+        }
+
+        private static void SnapshotOwnedEmptyBackgroundsDoNotFallBack(
+            string renderer,
+            string body)
+        {
+            string ownership = MemberBody(renderer, "public bool TryOwnRowBackground(");
+            TestAssert.Contains(
+                ownership,
+                "(row.VisualFlags & WorkGridRowVisualFlags.HasBackground) != 0",
+                "the snapshot must distinguish an owned empty row from an unavailable row");
+            TestAssert.Contains(
+                ownership,
+                "return true;",
+                "a valid snapshot row must own its empty background without a native retry");
+
+            string pawnRow = MemberBody(body, "private static void DrawPawnRowContentUnclipped(");
+            TestAssert.Contains(
+                pawnRow,
+                "!snapshotLayer.TryOwnRowBackground(rowIndex, rowRect)",
+                "native pawn-colour lookup must run only when snapshot ownership is unavailable");
         }
 
         private static void RetainedRowsKeepLogicalImGuiOrientation(string retainedRows)

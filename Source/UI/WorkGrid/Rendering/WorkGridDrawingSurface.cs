@@ -42,7 +42,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     {
         void BeginRow();
         void EndRow();
-        bool TryDrawRowBackground(int rowIndex, Rect rowRect, out Color textColor);
+        /// <summary>
+        /// Returns true when the snapshot authoritatively owns the row background,
+        /// including the common case where the row intentionally has no fill.
+        /// </summary>
+        bool TryOwnRowBackground(int rowIndex, Rect rowRect);
         bool ShouldVisitCell(int rowIndex, int columnIndex);
         bool TryDrawCell(int rowIndex, int columnIndex, Rect cellRect);
     }

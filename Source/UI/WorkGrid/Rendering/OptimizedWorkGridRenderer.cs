@@ -152,26 +152,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
         }
 
-        public bool TryDrawRowBackground(int rowIndex, Rect rowRect, out Color textColor)
+        public bool TryOwnRowBackground(int rowIndex, Rect rowRect)
         {
-            textColor = Color.white;
             if (_snapshot == null || rowIndex < 0 || rowIndex >= _snapshot.Rows.Count)
             {
                 return false;
             }
 
             WorkGridRowEntry row = _snapshot.Rows[rowIndex];
-            if ((row.VisualFlags & WorkGridRowVisualFlags.HasBackground) == 0)
+            if ((row.VisualFlags & WorkGridRowVisualFlags.HasBackground) != 0)
             {
-                return false;
+                Widgets.DrawBoxSolid(rowRect, UnpackColor(row.BackgroundColor));
             }
 
-            Color color = UnpackColor(row.BackgroundColor);
-            Widgets.DrawBoxSolid(rowRect, color);
-            if (row.Kind == WorkGridRowKind.Pawn)
-            {
-                textColor = Spine.UI.TextColorHelper.GetContrastingTextColor(color);
-            }
             return true;
         }
 
