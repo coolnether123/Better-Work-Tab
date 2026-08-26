@@ -14,6 +14,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string capture = Read(root, "Source", "UI", "WorkGrid", "Rendering", "PreparedPawnLabelPresentation.cs");
             string packet = Read(root, "Source", "UI", "WorkGrid", "Rendering", "PreparedWorkRowPacket.cs");
             string retained = Read(root, "Source", "UI", "WorkGrid", "Rendering", "RetainedWorkBoxRowCache.cs");
+            string composer = Read(root, "Source", "UI", "WorkGrid", "Rendering", "RetainedTextComposer.cs");
+            string preparedBox = Read(root, "Source", "UI", "WorkGrid", "Rendering", "PreparedWorkBoxRenderer.cs");
             string optimized = Read(root, "Source", "UI", "WorkGrid", "Rendering", "OptimizedWorkGridRenderer.cs");
             string provider = Read(root, "Source", "UI", "WorkGrid", "Snapshots", "WorkGridSnapshotProvider.cs");
 
@@ -31,6 +33,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(packet, "PreparedWorkRowCommandKind.PreparedPawnLabel", "stable labels must use the existing ordered row packet");
             TestAssert.Contains(packet, "RetainedWorkBoxRowCache.Cell.PawnLabelText", "label text must use the existing bounded row cache");
             TestAssert.Contains(retained, "CellKind.PawnLabelText", "retained cells must keep label text as an explicit kind");
+            TestAssert.Contains(retained, "RetainedTextComposer.Draw", "retained labels must use the focused text-composition leaf");
+            TestAssert.Contains(composer, "RequestCharactersInTexture", "the text leaf must prepare glyphs before emission");
+            TestAssert.Contains(composer, "font.material", "the text leaf must own font-material compatibility fallback");
+            TestAssert.Contains(composer, "GL.Begin(GL.QUADS)", "the text leaf must own glyph emission");
+            TestAssert.Contains(composer, "StripTags()", "the text leaf must preserve rich-text stripping semantics");
+            TestAssert.Contains(composer, "color=#", "the text leaf must preserve color-tag handling");
+            TestAssert.Contains(composer, "\"/color\"", "the text leaf must restore the base color at color-tag close");
+            TestAssert.False(preparedBox.IndexOf("DrawRetainedText(", StringComparison.Ordinal) >= 0,
+                "the common work-box renderer must not regain pawn-label text composition");
 
             string draw = MemberBody(optimized, "public bool DrawPreparedPawnLabel(");
             TestAssert.Contains(draw, "Widgets.ThingIcon(iconRect, pawn)", "portraits must remain live");

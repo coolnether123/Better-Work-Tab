@@ -264,7 +264,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         localRect.y -= bounds.y;
                         Text.Font = cell.CompactText ? GameFont.Tiny : GameFont.Medium;
                         bool drawn = cell.Kind == CellKind.PawnLabelText
-                            ? PreparedWorkBoxRenderer.DrawRetainedText(
+                            ? RetainedTextComposer.Draw(
                                 localRect,
                                 cell.Text,
                                 cell.TextColor,
