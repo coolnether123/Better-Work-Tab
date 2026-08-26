@@ -375,9 +375,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Rect cellRect)
         {
             WorkGiver workGiver = column.SubWorkGiver;
-            if (workGiver?.def == null ||
-                cell.Pawn == null ||
-                !cell.TryGetSubWorkPresentation(out var presentation) ||
+            if (!cell.TryGetSubWorkPresentation(out var presentation) ||
                 presentation.WorkTypeDisabled ||
                 presentation.ParentPriority <= WorkPrioritySystem.DisabledPriority)
             {
@@ -690,11 +688,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 EndRetainedRun();
                 if (_runs.Count == 0 && _pawnLabel == null)
                 {
+                    // A packet with only native commands cannot optimize the row.
+                    // Returning null gives the legacy renderer complete ownership.
                     return null;
                 }
 
+                PreparedWorkRowCommand[] preparedCommands = _commands.ToArray();
                 PreparedWorkRowRun[] preparedRuns = _runs.ToArray();
                 PreparedWorkRowCell[] preparedSlots = _slots.ToArray();
+                if (!HasValidCommandTopology(
+                        preparedCommands,
+                        context.ColumnCount,
+                        preparedRuns.Length,
+                        _pawnLabel != null))
+                {
+                    return null;
+                }
+
                 int[] runByColumn = CreateRunLookup(
                     context.ColumnCount,
                     preparedRuns,
@@ -708,12 +718,56 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     context.VisibleColumns,
                     context.RowHeight,
                     context.ModeSignature,
-                    _commands.ToArray(),
+                    preparedCommands,
                     preparedRuns,
                     preparedSlots,
                     _pawnLabel,
                     _slotByColumn,
                     runByColumn);
+            }
+
+            /// <summary>
+            /// Validates the producer-owned command stream once, before it can be
+            /// cached. Retained hits can then trust every index without repeating
+            /// defensive checks or risking a partially drawn row.
+            /// </summary>
+            private static bool HasValidCommandTopology(
+                PreparedWorkRowCommand[] commands,
+                int columnCount,
+                int runCount,
+                bool hasPawnLabel)
+            {
+                for (int index = 0; index < commands.Length; index++)
+                {
+                    PreparedWorkRowCommand command = commands[index];
+                    switch (command.Kind)
+                    {
+                        case PreparedWorkRowCommandKind.NativeColumn:
+                            if (command.Index < 0 || command.Index >= columnCount)
+                            {
+                                return false;
+                            }
+                            break;
+                        case PreparedWorkRowCommandKind.RetainedRun:
+                            if (command.Index < 0 || command.Index >= runCount)
+                            {
+                                return false;
+                            }
+                            break;
+                        case PreparedWorkRowCommandKind.PreparedPawnLabel:
+                            if (!hasPawnLabel ||
+                                command.Index < 0 ||
+                                command.Index >= columnCount)
+                            {
+                                return false;
+                            }
+                            break;
+                        default:
+                            return false;
+                    }
+                }
+
+                return true;
             }
 
             private static int[] CreateRunLookup(
