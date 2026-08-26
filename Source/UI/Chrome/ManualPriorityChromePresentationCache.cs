@@ -289,6 +289,8 @@ namespace Better_Work_Tab.UI.Chrome
 
         private bool BuildSurface(RenderTexture surface, bool enabled)
         {
+            // Retained composition is a state transaction: every Unity and
+            // IMGUI value captured here is restored before direct fallback.
             RenderTexture previousTarget = RenderTexture.active;
             Color previousColor = GUI.color;
             GameFont previousFont = Text.Font;
@@ -300,67 +302,8 @@ namespace Better_Work_Tab.UI.Chrome
                 GL.PushMatrix();
                 try
                 {
-                    GL.LoadPixelMatrix(
-                        0f,
-                        _surfaceContextRect.width,
-                        _surfaceContextRect.height,
-                        0f);
-                    GL.Clear(true, true, Color.clear);
-                    GUI.BeginGroup(new Rect(
-                        0f,
-                        0f,
-                        _surfaceContextRect.width,
-                        _surfaceContextRect.height));
-                    try
-                    {
-                        Text.Font = GameFont.Small;
-                        Text.Anchor = TextAnchor.UpperLeft;
-                        Text.WordWrap = previousWrap;
-                        GUI.color = Color.white;
-                        Rect localLabelRect = GetCheckboxLabelRect(
-                            _surfaceCheckboxRect,
-                            _surfaceText);
-                        localLabelRect.x -= _surfaceContextRect.x;
-                        localLabelRect.y -= _surfaceContextRect.y;
-                        Widgets.Label(localLabelRect, _checkboxContent);
-                        float localCheckboxX =
-                            _surfaceCheckboxRect.x +
-                            _surfaceCheckboxRect.width - 24f -
-                            _surfaceContextRect.x;
-                        float localCheckboxY =
-                            _surfaceCheckboxRect.y +
-                            (_surfaceCheckboxRect.height - 24f) / 2f -
-                            _surfaceContextRect.y;
-                        Widgets.CheckboxDraw(
-                            localCheckboxX,
-                            localCheckboxY,
-                            enabled,
-                            false,
-                            24f,
-                            null,
-                            null);
-                        if (enabled)
-                        {
-                            using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))
-                            {
-                                float helpWidth = _surfaceMaxPriority > 4
-                                    ? 220f
-                                    : _surfaceCheckboxRect.width;
-                                Rect helpRect = new Rect(
-                                    _surfaceCheckboxRect.x - _surfaceContextRect.x,
-                                    _surfaceCheckboxRect.y +
-                                        _surfaceCheckboxRect.height - 6f -
-                                        _surfaceContextRect.y,
-                                    helpWidth,
-                                    60f);
-                                Widgets.Label(helpRect, _surfaceHelpText);
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        GUI.EndGroup();
-                    }
+                    PrepareSurfaceTarget();
+                    DrawSurfaceContents(enabled, previousWrap);
                 }
                 finally
                 {
@@ -382,6 +325,90 @@ namespace Better_Work_Tab.UI.Chrome
                 Text.Anchor = previousAnchor;
                 Text.WordWrap = previousWrap;
                 RenderTexture.active = previousTarget;
+            }
+        }
+
+        private void PrepareSurfaceTarget()
+        {
+            GL.LoadPixelMatrix(
+                0f,
+                _surfaceContextRect.width,
+                _surfaceContextRect.height,
+                0f);
+            GL.Clear(true, true, Color.clear);
+        }
+
+        private void DrawSurfaceContents(bool enabled, bool wordWrap)
+        {
+            GUI.BeginGroup(new Rect(
+                0f,
+                0f,
+                _surfaceContextRect.width,
+                _surfaceContextRect.height));
+            try
+            {
+                DrawSurfaceControls(enabled, wordWrap);
+            }
+            finally
+            {
+                GUI.EndGroup();
+            }
+        }
+
+        private void DrawSurfaceControls(bool enabled, bool wordWrap)
+        {
+            Text.Font = GameFont.Small;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.WordWrap = wordWrap;
+            GUI.color = Color.white;
+            DrawSurfaceCheckbox(enabled);
+            if (enabled)
+            {
+                DrawSurfaceHelp();
+            }
+        }
+
+        private void DrawSurfaceCheckbox(bool enabled)
+        {
+            Rect localLabelRect = GetCheckboxLabelRect(
+                _surfaceCheckboxRect,
+                _surfaceText);
+            localLabelRect.x -= _surfaceContextRect.x;
+            localLabelRect.y -= _surfaceContextRect.y;
+            Widgets.Label(localLabelRect, _checkboxContent);
+            float localCheckboxX =
+                _surfaceCheckboxRect.x +
+                _surfaceCheckboxRect.width - 24f -
+                _surfaceContextRect.x;
+            float localCheckboxY =
+                _surfaceCheckboxRect.y +
+                (_surfaceCheckboxRect.height - 24f) / 2f -
+                _surfaceContextRect.y;
+            Widgets.CheckboxDraw(
+                localCheckboxX,
+                localCheckboxY,
+                enabled,
+                false,
+                24f,
+                null,
+                null);
+        }
+
+        private void DrawSurfaceHelp()
+        {
+            using (new TextBlock(new Color(1f, 1f, 1f, 0.5f)))
+            {
+                float helpWidth = _surfaceMaxPriority > 4
+                    ? 220f
+                    : _surfaceCheckboxRect.width;
+                Rect helpRect = new Rect(
+                    _surfaceCheckboxRect.x - _surfaceContextRect.x,
+                    _surfaceCheckboxRect.y +
+                        _surfaceCheckboxRect.height - 6f -
+                        _surfaceContextRect.y,
+                    helpWidth,
+                    60f);
+                Widgets.Label(helpRect, _surfaceHelpText);
             }
         }
 

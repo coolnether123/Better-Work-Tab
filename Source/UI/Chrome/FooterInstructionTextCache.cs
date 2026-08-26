@@ -54,23 +54,41 @@ namespace Better_Work_Tab.UI.Chrome
             float textWidth)
         {
             EnsureCacheKey();
+            string overlayText = ResolveOverlayText(
+                hasOverlayInstruction,
+                overlayShifted);
+            string pointerText = ResolvePointerText(
+                pointerKind,
+                subWorkActive,
+                gesture);
+            string composedText = ComposeInstructionText(overlayText, pointerText);
+            return TruncateInstructionText(composedText, textWidth);
+        }
 
-            string overlayText = null;
-            if (hasOverlayInstruction)
+        private string ResolveOverlayText(bool hasOverlayInstruction, bool overlayShifted)
+        {
+            if (!hasOverlayInstruction)
             {
-                if (!_overlayTextValid || _overlayShifted != overlayShifted)
-                {
-                    _overlayShifted = overlayShifted;
-                    _overlayText = overlayShifted
-                        ? "BWT_Footer_ReleaseShiftForPriorities".Translate()
-                        : "BWT_Footer_HoldShiftForSkills".Translate();
-                    _overlayTextValid = true;
-                }
-
-                overlayText = _overlayText;
+                return null;
             }
 
-            string pointerText = null;
+            if (!_overlayTextValid || _overlayShifted != overlayShifted)
+            {
+                _overlayShifted = overlayShifted;
+                _overlayText = overlayShifted
+                    ? "BWT_Footer_ReleaseShiftForPriorities".Translate()
+                    : "BWT_Footer_HoldShiftForSkills".Translate();
+                _overlayTextValid = true;
+            }
+
+            return _overlayText;
+        }
+
+        private string ResolvePointerText(
+            FooterPointerKind pointerKind,
+            bool subWorkActive,
+            string gesture)
+        {
             switch (pointerKind)
             {
                 case FooterPointerKind.CtrlClickSchedule:
@@ -80,8 +98,7 @@ namespace Better_Work_Tab.UI.Chrome
                         _ctrlClickTextValid = true;
                     }
 
-                    pointerText = _ctrlClickText;
-                    break;
+                    return _ctrlClickText;
                 case FooterPointerKind.GestureAction:
                     string actionText = EnsureActionText(subWorkActive);
                     string gestureText = EnsureGestureText(gesture);
@@ -103,10 +120,14 @@ namespace Better_Work_Tab.UI.Chrome
                         _gestureActionTextValid = true;
                     }
 
-                    pointerText = _gestureActionText;
-                    break;
+                    return _gestureActionText;
             }
 
+            return null;
+        }
+
+        private string ComposeInstructionText(string overlayText, string pointerText)
+        {
             if (!_compositionValid ||
                 !String.Equals(_overlayInput, overlayText, StringComparison.Ordinal) ||
                 !String.Equals(_pointerInput, pointerText, StringComparison.Ordinal))
@@ -122,7 +143,12 @@ namespace Better_Work_Tab.UI.Chrome
                 _truncateValid = false;
             }
 
-            if (_joinedText == null)
+            return _joinedText;
+        }
+
+        private string TruncateInstructionText(string composedText, float textWidth)
+        {
+            if (composedText == null)
             {
                 return null;
             }
@@ -131,7 +157,7 @@ namespace Better_Work_Tab.UI.Chrome
             if (!_truncateValid || _truncateWidth != truncateWidth)
             {
                 _truncateWidth = truncateWidth;
-                _truncatedText = _joinedText.Truncate(truncateWidth);
+                _truncatedText = composedText.Truncate(truncateWidth);
                 _truncateValid = true;
             }
 
