@@ -141,6 +141,16 @@ namespace Better_Work_Tab.UI.Headers
             Rect rect,
             PawnTable table)
         {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            DrawMixedOverlay(worker, rect, table, in presentation);
+        }
+
+        internal static void DrawMixedOverlay(
+            PawnColumnWorker_WorkPriority worker,
+            Rect rect,
+            PawnTable table,
+            in HeaderPresentationPacket presentation)
+        {
             if (!BwtRaisedPriorityFeatureInstaller.IsFeatureActive ||
                 !PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures)
                 return;
@@ -175,7 +185,7 @@ namespace Better_Work_Tab.UI.Headers
                 // The mixed host still owns the header even when the player chooses
                 // vanilla-style headers. Route both styles through the same coordinator
                 // used by the normal BWT header pass.
-                HeaderDrawingCoordinator.TryHandleWorkPriorityHeader(worker, rect, table);
+                HeaderDrawingCoordinator.TryHandleWorkPriorityHeader(worker, rect, table, in presentation);
             }
             catch (System.Exception ex)
             {

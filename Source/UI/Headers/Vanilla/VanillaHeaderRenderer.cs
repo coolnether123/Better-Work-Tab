@@ -34,7 +34,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                                 PawnColumnDef column, bool showMarker)
         {
             HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
-            DrawHeader(
+            DrawPreparedHeader(
                 layout,
                 isMouseOver,
                 isSorted,
@@ -45,7 +45,28 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 in presentation);
         }
 
-        public void DrawHeader(
+        void IHeaderPresentationRenderer.DrawHeader(
+            Angled.AngledLabelDrawer.AngledLabelLayout layout,
+            bool isMouseOver,
+            bool isSorted,
+            bool sortDescending,
+            Rect headerRect,
+            PawnColumnDef column,
+            bool showMarker,
+            in HeaderPresentationPacket presentation)
+        {
+            DrawPreparedHeader(
+                layout,
+                isMouseOver,
+                isSorted,
+                sortDescending,
+                headerRect,
+                column,
+                showMarker,
+                in presentation);
+        }
+
+        private void DrawPreparedHeader(
             Angled.AngledLabelDrawer.AngledLabelLayout layout,
             bool isMouseOver,
             bool isSorted,

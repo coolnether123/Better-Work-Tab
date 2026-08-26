@@ -32,7 +32,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
         public bool ShouldDraw;
         public Rect HeaderRect;
         public IHeaderRenderer Renderer;
-        public HeaderPresentationPacket Presentation;
         public bool IsVanillaStaggered;
     }
 
@@ -45,6 +44,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// Orchestrates the drawing and interaction logic for a header.
         /// </summary>
         public static void HandleInteractions(HeaderInteractionContext ctx)
+        {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            HandleInteractions(in ctx, in presentation);
+        }
+
+        internal static void HandleInteractions(
+            in HeaderInteractionContext ctx,
+            in HeaderPresentationPacket presentation)
         {
             var evt = Event.current;
             var workType = ctx.Worker.def.workType;
@@ -64,7 +71,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     ctx.HeaderRect,
                     ctx.Worker.def,
                     ctx.Layout.ShowMarker,
-                    in ctx.Presentation);
+                    in presentation);
             }
 
             // Early exit for interaction if not over the header or event is irrelevant

@@ -113,10 +113,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 ShouldDraw = shouldDraw,
                 HeaderRect = rect,
                 Renderer = renderer,
-                Presentation = presentation
             };
 
-            AngledHeaderInteraction.HandleInteractions(ctx);
+            AngledHeaderInteraction.HandleInteractions(in ctx, in presentation);
 
             return false; // Skip vanilla
         }
@@ -168,10 +167,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 ShouldDraw = shouldDraw,
                 HeaderRect = rect,
                 Renderer = presentation.ActiveRenderer,
-                Presentation = presentation
             };
 
-            AngledHeaderInteraction.HandleInteractions(ctx);
+            AngledHeaderInteraction.HandleInteractions(in ctx, in presentation);
             return false;
         }
 

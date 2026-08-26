@@ -151,10 +151,9 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 HeaderRect = rect,
                 Renderer = renderer,
                 IsVanillaStaggered = true,
-                Presentation = presentation
             };
 
-            Angled.AngledHeaderInteraction.HandleInteractions(ctx);
+            Angled.AngledHeaderInteraction.HandleInteractions(in ctx, in presentation);
 
             return false; // Skip vanilla execution
         }
@@ -204,10 +203,9 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 HeaderRect = rect,
                 Renderer = presentation.ActiveRenderer,
                 IsVanillaStaggered = true,
-                Presentation = presentation
             };
 
-            Angled.AngledHeaderInteraction.HandleInteractions(ctx);
+            Angled.AngledHeaderInteraction.HandleInteractions(in ctx, in presentation);
             return false;
         }
 
