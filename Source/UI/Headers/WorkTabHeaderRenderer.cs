@@ -160,104 +160,105 @@ namespace Better_Work_Tab.UI.Headers
             Rect animatedHeaderRect,
             in HeaderPresentationPacket presentation)
         {
+            bool isWorkColumn = WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column);
+            Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
+                column.Column,
+                table,
+                animatedHeaderRect);
+            bool timePrioritySourceColumn = isWorkColumn &&
+                TimePriorityScheduleEditor.ShouldHighlightSourceColumn(column);
+            bool shouldHighlightRuleBuilderTarget = false;
+            if (ruleBuilderListening && isWorkColumn)
+            {
+                RuleBuilder2WorkTabOverlay.ResolveTarget(
+                    column,
+                    out WorkTypeDef workType,
+                    out WorkGiverDef workGiver);
+                shouldHighlightRuleBuilderTarget =
+                    RuleBuilderGateway.ShouldHighlightRuleBuilder2Target(workType, workGiver);
+            }
+            bool drawRuleBuilderHighlightAfterHeader =
+                shouldHighlightRuleBuilderTarget && presentation.AngledHeadersEnabled;
 
-                bool isWorkColumn = WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column);
-                Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
-                    column.Column,
-                    table,
-                    animatedHeaderRect);
-                bool timePrioritySourceColumn = isWorkColumn && TimePriorityScheduleEditor.ShouldHighlightSourceColumn(column);
-                bool shouldHighlightRuleBuilderTarget = false;
-                if (ruleBuilderListening && isWorkColumn)
-                {
-                    RuleBuilder2WorkTabOverlay.ResolveTarget(
-                        column,
-                        out WorkTypeDef workType,
-                        out WorkGiverDef workGiver);
-                    shouldHighlightRuleBuilderTarget =
-                        RuleBuilderGateway.ShouldHighlightRuleBuilder2Target(workType, workGiver);
-                }
-                bool drawRuleBuilderHighlightAfterHeader =
-                    shouldHighlightRuleBuilderTarget && presentation.AngledHeadersEnabled;
+            if (showCursorHighlight &&
+                isWorkColumn &&
+                (timePrioritySourceColumn ||
+                 (!timePriorityOwnsMouse &&
+                  !BWTWorkTabTutorial.OwnsCurrentPointer &&
+                  Mouse.IsOver(headerRect))))
+            {
+                Color useColor = settings.Color_MouseHoverHighlight;
+                Rect columnRect = new Rect(
+                    animatedGeometry.BodyScreenX,
+                    layout.TableOrigin.y + layout.HeaderHeight,
+                    animatedGeometry.Width,
+                    totalHeight);
+                DrawColumnHighlightAroundTutorialBand(layout, columnRect, useColor);
+            }
 
-                if (showCursorHighlight &&
-                    isWorkColumn &&
-                    (timePrioritySourceColumn ||
-                     (!timePriorityOwnsMouse &&
-                      !BWTWorkTabTutorial.OwnsCurrentPointer &&
-                      Mouse.IsOver(headerRect))))
-                {
-                    Color useColor = settings.Color_MouseHoverHighlight;
-                    Rect columnRect = new Rect(
-                        animatedGeometry.BodyScreenX,
-                        layout.TableOrigin.y + layout.HeaderHeight,
-                        animatedGeometry.Width,
-                        totalHeight);
-                    DrawColumnHighlightAroundTutorialBand(layout, columnRect, useColor);
-                }
+            if (shouldHighlightRuleBuilderTarget && !drawRuleBuilderHighlightAfterHeader)
+            {
+                RuleBuilder2WorkTabOverlay.DrawColumnHighlight(
+                    layout,
+                    column,
+                    headerRect,
+                    totalHeight,
+                    table);
+            }
 
-                if (shouldHighlightRuleBuilderTarget && !drawRuleBuilderHighlightAfterHeader)
-                {
-                    RuleBuilder2WorkTabOverlay.DrawColumnHighlight(
-                        layout,
-                        column,
-                        headerRect,
-                        totalHeight,
-                        table);
-                }
+            if (isWorkColumn)
+            {
+                SubWorkTransitionOverlay.DrawBlankTransitionFlash(
+                    layout,
+                    column,
+                    headerRect,
+                    totalHeight);
+            }
 
-                if (isWorkColumn)
+            try
+            {
+                SubWorkDrilldownState.SetDrawingColumn(column);
+                if (!TryDrawFluffyHeader(column, headerRect, table, in presentation))
                 {
-                    SubWorkTransitionOverlay.DrawBlankTransitionFlash(
-                        layout,
-                        column,
-                        headerRect,
-                        totalHeight);
-                }
-
-                try
-                {
-                    SubWorkDrilldownState.SetDrawingColumn(column);
-                    if (!TryDrawFluffyHeader(column, headerRect, table, in presentation))
+                    if (column.Column.Worker is PawnColumnWorker_WorkPriority priorityWorker &&
+                        !SleekWorkTabGateway.BetterWorkTabHostsSleek)
                     {
-                        if (column.Column?.Worker is PawnColumnWorker_WorkPriority priorityWorker &&
-                            !SleekWorkTabGateway.BetterWorkTabHostsSleek)
+                        if (!HeaderDrawingCoordinator.TryHandleWorkPriorityHeader(
+                                priorityWorker,
+                                headerRect,
+                                table,
+                                in presentation))
                         {
-                            if (!HeaderDrawingCoordinator.TryHandleWorkPriorityHeader(
-                                    priorityWorker,
-                                    headerRect,
-                                    table,
-                                    in presentation))
-                            {
-                                priorityWorker.DoHeader(headerRect, table);
-                            }
-                        }
-                        else
-                        {
-                            column.Column.Worker.DoHeader(headerRect, table);
+                            priorityWorker.DoHeader(headerRect, table);
                         }
                     }
+                    else
+                    {
+                        column.Column.Worker.DoHeader(headerRect, table);
+                    }
                 }
-                finally
-                {
-                    SubWorkDrilldownState.ClearDrawingColumn();
-                }
+            }
+            finally
+            {
+                SubWorkDrilldownState.ClearDrawingColumn();
+            }
 
-                if (FluffyWorkTabGateway.WasHostedWorkTypeCollapsed(column.Column))
-                {
-                    SubWorkDrilldownState.CollapseAllExpandBeside();
-                    WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
-                }
+            if (FluffyWorkTabGateway.WasHostedWorkTypeCollapsed(column.Column))
+            {
+                SubWorkDrilldownState.CollapseAllExpandBeside();
+                WorkTabInvalidationHub.Invalidate(
+                    WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
+            }
 
-                if (drawRuleBuilderHighlightAfterHeader)
-                {
-                    RuleBuilder2WorkTabOverlay.DrawColumnHighlight(
-                        layout,
-                        column,
-                        headerRect,
-                        totalHeight,
-                        table);
-                }
+            if (drawRuleBuilderHighlightAfterHeader)
+            {
+                RuleBuilder2WorkTabOverlay.DrawColumnHighlight(
+                    layout,
+                    column,
+                    headerRect,
+                    totalHeight,
+                    table);
+            }
         }
 
         private void DrawSleekHeaders(
@@ -287,7 +288,7 @@ namespace Better_Work_Tab.UI.Headers
                     column.Column,
                     table,
                     animatedHeaderRect);
-                if (column.Column?.Worker is PawnColumnWorker_WorkPriority worker)
+                if (column.Column.Worker is PawnColumnWorker_WorkPriority worker)
                 {
                     bool shouldHighlightRuleBuilderTarget = false;
                     if (ruleBuilderListening &&

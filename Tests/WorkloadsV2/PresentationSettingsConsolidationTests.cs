@@ -346,9 +346,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 }
             }
 
-            TestAssert.Equal(112, callCount,
+            TestAssert.Equal(94, callCount,
                 "all remaining presentation facade calls must use the fallback-free cache; preview renderer values are captured on its neutral port");
-            TestAssert.Equal(52, usage.Count, "facade calls must resolve exactly 52 active registry setting IDs");
+            TestAssert.Equal(53, usage.Count, "facade calls must resolve exactly 53 active registry setting IDs");
             return usage;
         }
 

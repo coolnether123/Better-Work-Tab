@@ -18,7 +18,7 @@ namespace Better_Work_Tab.UI.Headers
     /// <summary>
     /// Prepared header inputs cached across Unity main-thread frames by the
     /// neutral presentation revision and header invalidation generation.
-    /// Geometry, input, animation, and cache-miss text resolution remain live.
+    /// Column rectangles, input, animation, and cache-miss text resolution remain live.
     /// </summary>
     internal readonly struct HeaderPresentationPacket
     {
@@ -231,7 +231,7 @@ namespace Better_Work_Tab.UI.Headers
 
             // Preserve compatibility with an external renderer that only
             // implements the original interface contract.
-            renderer?.DrawHeader(
+            renderer.DrawHeader(
                 layout,
                 isMouseOver,
                 isSorted,
