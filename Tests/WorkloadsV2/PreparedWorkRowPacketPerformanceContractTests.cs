@@ -39,6 +39,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(body, "preparedLayer.TryGetPreparedRow", "stable rows must ask the optimized layer for a packet");
             TestAssert.Contains(body, "packet.Commands", "the body must traverse ordered packet commands instead of all columns");
             TestAssert.Contains(body, "PreparedWorkRowCommandKind.RetainedRun", "retained runs must remain ordered with native columns");
+            string preparedRow = MemberBody(body, "private static bool TryDrawPreparedPawnRow(");
+            TestAssert.False(
+                preparedRow.IndexOf("columnIndex < 0", StringComparison.Ordinal) >= 0,
+                "retained hits must trust producer-validated commands instead of silently drawing a partial row");
             TestAssert.Contains(body, "snapshotLayer?.BeginRow();", "legacy drawing must preserve snapshot row ownership");
             TestAssert.Contains(body, "snapshotLayer?.EndRow();", "legacy drawing must close snapshot row ownership");
             TestAssert.Contains(body, "snapshotLayer.ShouldVisitCell", "legacy drawing must preserve cell culling");
@@ -72,6 +76,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(packet, "PreparedColumnDisposition.Hidden", "hidden focus-view parents must remain distinct from native fallback");
             TestAssert.Contains(packet, "WorkGridInteractionGeometry.GetAnimatedBodyContentRect", "packet geometry must use the same content-space calculation as direct drawing");
             TestAssert.Contains(packet, "return delegateScheduleCells", "every sub-work cell must delegate while the live schedule owner is open");
+            string complete = MemberBody(packet, "internal PreparedWorkRowPacket Complete(");
+            TestAssert.Contains(
+                complete,
+                "HasValidCommandTopology(",
+                "the packet producer must validate the complete command stream before caching it");
             TestAssert.False(packet.IndexOf("ParentPriorityRead", StringComparison.Ordinal) >= 0, "packet construction must not read live parent priorities");
             TestAssert.False(packet.IndexOf("AverageOfRelevantSkillsFor", StringComparison.Ordinal) >= 0, "packet construction must not read pawn skills");
             TestAssert.False(packet.IndexOf("WorkGiverCellPresentationCache.Resolve", StringComparison.Ordinal) >= 0, "packet construction must not resolve live sub-work presentation");

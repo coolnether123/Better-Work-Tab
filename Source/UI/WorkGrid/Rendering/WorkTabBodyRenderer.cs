@@ -1463,11 +1463,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
 
                 int columnIndex = command.Index;
-                if (columnIndex < 0 || columnIndex >= columns.Count)
-                {
-                    continue;
-                }
-
                 WorkTabLayoutColumn column = columns[columnIndex];
                 Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
                     column,

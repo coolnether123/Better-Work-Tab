@@ -210,11 +210,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             out int updatedCellCount)
         {
             updatedCellCount = 0;
-            // CanApplySparsePriorityUpdate has already established live authority,
-            // layout identity, and all non-priority revision compatibility. The
-            // slot can still be cleared between those checks and this call, so an
-            // absent/empty baseline remains a legitimate full-build fallback.
-            if (!TryGetSparseUpdateBaseline(out WorkGridSnapshot previous))
+            // Sparse replacement needs an existing cell topology. An absent or
+            // empty baseline is owned by the full snapshot build below.
+            WorkGridSnapshot previous = _slot.Current;
+            if (previous == null || previous.Cells.Count == 0)
             {
                 return false;
             }
@@ -266,12 +265,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 replacements,
                 preparedRowReplacements);
             return true;
-        }
-
-        private bool TryGetSparseUpdateBaseline(out WorkGridSnapshot previous)
-        {
-            previous = _slot.Current;
-            return previous != null && previous.Cells.Count != 0;
         }
 
         /// <summary>
