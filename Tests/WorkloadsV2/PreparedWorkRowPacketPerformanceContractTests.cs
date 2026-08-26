@@ -60,20 +60,37 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         private static void PacketBuilderConsumesPreparedStateOnly(string packet)
         {
             string build = MemberBody(packet, "internal static PreparedWorkRowPacket Build(");
-            TestAssert.Contains(build, "snapshot.Cells[cellIndex]", "packets must consume immutable prepared cells");
-            TestAssert.Contains(build, "cell.TryGetSubWorkPresentation", "sub-work packets must consume prepared child presentation");
+            TestAssert.Contains(build, "new BuildContext(", "the public builder must normalize its inputs once");
+            TestAssert.Contains(build, "new RowPacketAssembly(", "one assembly must own ordered commands, runs, slots, and reverse maps");
+            TestAssert.Contains(build, "TryPreparePawnLabel", "pawn-label preparation must remain an explicit ordered command");
+            TestAssert.Contains(build, "PrepareColumn(in context", "column classification must be separate from packet assembly");
+            TestAssert.Contains(build, "PreparedColumnDisposition.Hidden", "hidden focus-view parents must remain distinct from native fallback");
+            TestAssert.Contains(build, "assembly.Complete(in context)", "final packet construction must belong to the assembly boundary");
+            TestAssert.False(build.IndexOf("WorkGridInteractionGeometry", StringComparison.Ordinal) >= 0,
+                "the builder orchestrator must not also resolve cell geometry");
+            TestAssert.False(build.IndexOf("SubWorkDrilldownState", StringComparison.Ordinal) >= 0,
+                "the builder orchestrator must not also own transition policy");
+            TestAssert.False(build.IndexOf("new List<", StringComparison.Ordinal) >= 0,
+                "the builder orchestrator must not manage parallel assembly lists directly");
+
+            string lookup = MemberBody(packet, "private static bool TryGetPreparedCell(");
+            TestAssert.Contains(lookup, "context.Snapshot.Cells[cellIndex]", "packets must consume immutable prepared cells");
+            string subWorkPreparation = MemberBody(packet, "private static PreparedColumn PrepareSubWorkColumn(");
+            TestAssert.Contains(subWorkPreparation, "cell.TryGetSubWorkPresentation", "sub-work packets must consume prepared child presentation");
             TestAssert.Contains(packet, "PreparedWorkRowCommandKind.NativeColumn", "unsupported workers must remain sparse native commands");
-            TestAssert.Contains(build, "WorkGridInteractionGeometry.GetAnimatedBodyContentRect", "packet geometry must use the same content-space calculation as direct drawing");
-            TestAssert.Contains(build, "MustDelegatePreparedCell", "schedule and overlay ownership must use one packet classification policy");
+            string prepareColumn = MemberBody(packet, "private static PreparedColumn PrepareColumn(");
+            TestAssert.Contains(prepareColumn, "WorkGridInteractionGeometry.GetAnimatedBodyContentRect", "packet geometry must use the same content-space calculation as direct drawing");
+            TestAssert.Contains(prepareColumn, "MustDelegatePreparedCell", "schedule and overlay ownership must use one packet classification policy");
             string delegation = MemberBody(packet, "private static bool MustDelegatePreparedCell(");
             TestAssert.Contains(delegation, "return delegateScheduleCells", "every sub-work cell must delegate while the live schedule owner is open");
-            TestAssert.Contains(build, "AppendNativeColumn(", "unsupported prepared cells must split runs instead of rejecting the whole row");
-            string flush = MemberBody(packet, "private static void FlushRun(");
+            string appendNative = MemberBody(packet, "internal void AppendNativeColumn(");
+            TestAssert.Contains(appendNative, "EndRetainedRun();", "unsupported columns must split retained runs before native dispatch");
+            string flush = MemberBody(packet, "internal void EndRetainedRun(");
             TestAssert.Contains(flush, "PreparedWorkRowCommandKind.RetainedRun", "prepared cells must be grouped into retained runs");
-            TestAssert.False(build.IndexOf("ParentPriorityRead", StringComparison.Ordinal) >= 0, "packet construction must not read live parent priorities");
-            TestAssert.False(build.IndexOf("AverageOfRelevantSkillsFor", StringComparison.Ordinal) >= 0, "packet construction must not read pawn skills");
-            TestAssert.False(build.IndexOf("WorkGiverCellPresentationCache.Resolve", StringComparison.Ordinal) >= 0, "packet construction must not resolve live sub-work presentation");
-            TestAssert.False(build.IndexOf("Workload", StringComparison.Ordinal) >= 0, "packet construction must not read workload domains");
+            TestAssert.False(packet.IndexOf("ParentPriorityRead", StringComparison.Ordinal) >= 0, "packet construction must not read live parent priorities");
+            TestAssert.False(packet.IndexOf("AverageOfRelevantSkillsFor", StringComparison.Ordinal) >= 0, "packet construction must not read pawn skills");
+            TestAssert.False(packet.IndexOf("WorkGiverCellPresentationCache.Resolve", StringComparison.Ordinal) >= 0, "packet construction must not resolve live sub-work presentation");
+            TestAssert.False(packet.IndexOf("Workload", StringComparison.Ordinal) >= 0, "packet construction must not read workload domains");
         }
 
         private static void SparseUpdatesAdvanceOnlyDirtyRows(string snapshot, string provider)
