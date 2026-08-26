@@ -26,23 +26,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Rect cellRect,
             Rect iconRect,
             Rect textRect,
-            PreparedPawnLabelPresentation presentation,
-            RetainedWorkBoxRowCache.PreparedRun retained)
+            string text,
+            PreparedPawnLabelPresentation presentation)
         {
             ColumnIndex = columnIndex;
             CellRect = cellRect;
             IconRect = iconRect;
             TextRect = textRect;
+            Text = text ?? string.Empty;
             Presentation = presentation;
-            Retained = retained;
         }
 
         internal int ColumnIndex { get; }
         internal Rect CellRect { get; }
         internal Rect IconRect { get; }
         internal Rect TextRect { get; }
+        internal string Text { get; }
         internal PreparedPawnLabelPresentation Presentation { get; }
-        internal RetainedWorkBoxRowCache.PreparedRun Retained { get; }
     }
 
     internal readonly struct PreparedWorkRowCommand
@@ -495,22 +495,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Text.WordWrap = previousWrap;
             }
 
-            var retained = new RetainedWorkBoxRowCache.PreparedRun(new[]
-            {
-                RetainedWorkBoxRowCache.Cell.PawnLabelText(
-                    presentation.Pawn.thingIDNumber,
-                    columnIndex,
-                    textRect,
-                    text,
-                    presentation.BaseTextColor)
-            });
             return new PreparedPawnLabelCell(
                 columnIndex,
                 cellRect,
                 iconRect,
                 textRect,
-                presentation,
-                retained);
+                text,
+                presentation);
         }
 
         private enum PreparedColumnDisposition : byte
