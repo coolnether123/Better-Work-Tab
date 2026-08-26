@@ -221,6 +221,7 @@ namespace Better_Work_Tab.UI
             string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
             long presentationRevision = WorkTabPresentationRevision.Current;
             float uiScale = Prefs.UIScale;
+            // Keep a bounded two-entry cache for the ruleset/workload selector labels without accumulating UI state.
             if (!_selectorWidthCacheValid ||
                 _selectorWidthLanguage != language ||
                 _selectorWidthPresentationRevision != presentationRevision ||

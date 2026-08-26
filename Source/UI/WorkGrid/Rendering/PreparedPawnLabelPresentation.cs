@@ -87,6 +87,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             unchecked
             {
+                // Enumerate native label-visible inputs not covered by another revision; add new inputs here when that state grows.
                 int hash = PawnColorDatabase.Version;
                 hash = (hash * 397) ^ (worker?.def?.useLabelShort == true ? 1 : 0);
                 if (table.cachedPawns == null)
