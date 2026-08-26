@@ -15,6 +15,7 @@ namespace Better_Work_Tab.PawnOrganizer.API
         private static Dictionary<string, Color> _pawnColors;
         private static int _version;
 
+        // Mutations and save load/clear advance this value so prepared label signatures become stale.
         internal static int Version => _version;
 
         static PawnColorDatabase()

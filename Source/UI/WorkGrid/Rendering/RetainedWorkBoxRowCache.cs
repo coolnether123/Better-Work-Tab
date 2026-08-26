@@ -7,10 +7,11 @@ using Verse;
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
     /// <summary>
-    /// Retains stable work-box pixels per visible pawn row. Surfaces are composed
-    /// offscreen, then presented through IMGUI while the owning scroll view's clip
-    /// is active. Callers own the non-empty prepared-cell invariant; false means a
-    /// runtime resource/composition failure and activates the direct draw fallback.
+    /// Retains stable row presentation (work boxes and pawn-label text) per visible
+    /// pawn row. Surfaces are composed offscreen, then presented through IMGUI while
+    /// the owning scroll view's clip is active. Callers own the non-empty
+    /// prepared-cell invariant; false means a runtime resource/composition failure
+    /// and activates the direct draw fallback.
     /// </summary>
     internal sealed class RetainedWorkBoxRowCache : IDisposable
     {
@@ -320,6 +321,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         private static ulong GetStaticFingerprint(IReadOnlyList<Cell> cells)
         {
+            // Best-pawn and override-ring markers stay out of the stable surface because
+            // they are live overlays and must remain responsive to current state.
             ulong hash = 1469598103934665603UL;
             for (int index = 0; index < cells.Count; index++)
             {

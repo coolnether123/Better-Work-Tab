@@ -814,7 +814,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private static PawnColumnWorker_Label FindExactLabelWorker(
             IReadOnlyList<WorkTabLayoutColumn> columns)
         {
-            for (int index = 0; columns != null && index < columns.Count; index++)
+            for (int index = 0; index < columns.Count; index++)
             {
                 PawnColumnDef column = columns[index].Column;
                 if (column?.Worker?.GetType() == typeof(PawnColumnWorker_Label))
@@ -988,11 +988,21 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             out WorkGiver workGiver,
             out WorkTypeDef parentWorkType)
         {
-            return SubWorkDrilldownState.TryGetWorkGiverForColumn(
+            workGiver = null;
+            parentWorkType = null;
+            if (!SubWorkDrilldownState.TryGetWorkGiverForColumn(
                 column,
-                out workGiver,
-                out parentWorkType,
-                out _);
+                out WorkGiver resolvedWorkGiver,
+                out WorkTypeDef resolvedParentWorkType,
+                out _)
+                || resolvedWorkGiver?.def == null)
+            {
+                return false;
+            }
+
+            workGiver = resolvedWorkGiver;
+            parentWorkType = resolvedParentWorkType;
+            return true;
         }
 
         private static WorkCellVisualState BuildCell(
@@ -1005,7 +1015,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             uint revision)
         {
             WorkGiverCellPresentationCache.CellPresentation subWorkPresentation = null;
-            if (workGiver?.def != null)
+            if (workGiver != null)
             {
                 subWorkPresentation = WorkGiverCellPresentationCache.Resolve(
                     workGiver,
