@@ -210,27 +210,105 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             out int updatedCellCount)
         {
             updatedCellCount = 0;
-            WorkGridSnapshot previous = _slot.Current;
-            if (previous == null || previous.Cells.Count == 0)
+            // CanApplySparsePriorityUpdate has already established live authority,
+            // layout identity, and all non-priority revision compatibility. The
+            // slot can still be cleared between those checks and this call, so an
+            // absent/empty baseline remains a legitimate full-build fallback.
+            if (!TryGetSparseUpdateBaseline(out WorkGridSnapshot previous))
             {
                 return false;
             }
 
-            var dirty = new HashSet<WorkGridPriorityKey>();
+            NormalizeSparsePriorityScope(
+                dirtyKeys,
+                out HashSet<WorkGridPriorityKey> dirty,
+                out HashSet<ushort> affectedWorkTypeIds);
+            IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
+            if (!TryResolveSparseBestPawnChanges(
+                    table,
+                    columns,
+                    affectedWorkTypeIds,
+                    out Dictionary<ushort, int> bestPawnIds,
+                    out Dictionary<ushort, BestPawnChange> changedBestPawnIds))
+            {
+                return false;
+            }
+
+            Dictionary<int, int> rowIndexByPawnId = BuildSparseRowIndex(previous);
+            var replacements = new Dictionary<int, WorkCellVisualState>();
+            var preparedRowReplacements = new Dictionary<int, WorkGridPreparedRowSpan>();
+            uint cellRevision = unchecked((uint)(_snapshotRevision + 1));
+            if (!TryBuildSparseReplacements(
+                    previous,
+                    columns,
+                    dirty,
+                    changedBestPawnIds,
+                    bestPawnIds,
+                    rowIndexByPawnId,
+                    cellRevision,
+                    replacements,
+                    preparedRowReplacements,
+                    out updatedCellCount))
+            {
+                return false;
+            }
+
+            // All validation and replacement construction completes before this
+            // phase. Publish the snapshot only after the revision and winner
+            // baselines are coherent, so readers never observe a half-update.
+            PublishSparsePriorityUpdate(
+                previous,
+                layout,
+                revisions,
+                effectiveStateRevision,
+                affectedWorkTypeIds,
+                bestPawnIds,
+                replacements,
+                preparedRowReplacements);
+            return true;
+        }
+
+        private bool TryGetSparseUpdateBaseline(out WorkGridSnapshot previous)
+        {
+            previous = _slot.Current;
+            return previous != null && previous.Cells.Count != 0;
+        }
+
+        /// <summary>
+        /// Deduplicates dirty cells and derives the affected parent work types
+        /// in the same pass. The two sets are the existing sparse-update working
+        /// state; keeping them local prevents a failed update from mutating the
+        /// published snapshot's invalidation baseline.
+        /// </summary>
+        private static void NormalizeSparsePriorityScope(
+            IReadOnlyList<WorkGridPriorityKey> dirtyKeys,
+            out HashSet<WorkGridPriorityKey> dirty,
+            out HashSet<ushort> affectedWorkTypeIds)
+        {
+            dirty = new HashSet<WorkGridPriorityKey>();
+            affectedWorkTypeIds = new HashSet<ushort>();
             for (int i = 0; i < dirtyKeys.Count; i++)
             {
-                dirty.Add(dirtyKeys[i]);
-            }
-
-            var affectedWorkTypeIds = new HashSet<ushort>();
-            foreach (WorkGridPriorityKey key in dirty)
-            {
+                WorkGridPriorityKey key = dirtyKeys[i];
+                dirty.Add(key);
                 affectedWorkTypeIds.Add(key.WorkTypeId);
             }
+        }
 
-            IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
-            var bestPawnIds = new Dictionary<ushort, int>(_bestPawnIds);
-            var changedBestPawnIds = new Dictionary<ushort, BestPawnChange>();
+        /// <summary>
+        /// Resolves the comparison-dependent winners against the current table.
+        /// A winner change is retained separately because both the old and new
+        /// rows must be rebuilt to move the best-pawn marker correctly.
+        /// </summary>
+        private bool TryResolveSparseBestPawnChanges(
+            PawnTable table,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            HashSet<ushort> affectedWorkTypeIds,
+            out Dictionary<ushort, int> bestPawnIds,
+            out Dictionary<ushort, BestPawnChange> changedBestPawnIds)
+        {
+            bestPawnIds = new Dictionary<ushort, int>(_bestPawnIds);
+            changedBestPawnIds = new Dictionary<ushort, BestPawnChange>();
             foreach (ushort workTypeId in affectedWorkTypeIds)
             {
                 if (!TryResolvePriorityWorker(
@@ -255,8 +333,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 }
             }
 
-            var replacements = new Dictionary<int, WorkCellVisualState>();
-            var preparedRowReplacements = new Dictionary<int, WorkGridPreparedRowSpan>();
+            return true;
+        }
+
+        private static Dictionary<int, int> BuildSparseRowIndex(WorkGridSnapshot previous)
+        {
             var rowIndexByPawnId = new Dictionary<int, int>();
             for (int rowIndex = 0; rowIndex < previous.Rows.Count; rowIndex++)
             {
@@ -266,7 +347,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     rowIndexByPawnId[pawnId] = rowIndex;
                 }
             }
-            uint cellRevision = unchecked((uint)(_snapshotRevision + 1));
+
+            return rowIndexByPawnId;
+        }
+
+        private static bool TryBuildSparseReplacements(
+            WorkGridSnapshot previous,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            HashSet<WorkGridPriorityKey> dirty,
+            Dictionary<ushort, BestPawnChange> changedBestPawnIds,
+            Dictionary<ushort, int> bestPawnIds,
+            Dictionary<int, int> rowIndexByPawnId,
+            uint cellRevision,
+            Dictionary<int, WorkCellVisualState> replacements,
+            Dictionary<int, WorkGridPreparedRowSpan> preparedRowReplacements,
+            out int updatedCellCount)
+        {
+            updatedCellCount = 0;
             for (int i = 0; i < previous.Cells.Count; i++)
             {
                 WorkCellVisualState cell = previous.Cells[i];
@@ -286,6 +383,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 if (cell.ColumnIndex >= columns.Count ||
                     cell.ColumnIndex >= previous.Columns.Count)
                 {
+                    // The prepared snapshot owns this topology. A missing
+                    // column means its layout contract changed without a full
+                    // rebuild, so sparse publication is no longer safe.
                     return false;
                 }
 
@@ -298,6 +398,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
 
                 if (cell.Pawn == null || cell.WorkType == null)
                 {
+                    // Priority cells are required to carry both identities. Do
+                    // not mask a broken snapshot by publishing a partial update;
+                    // the caller will rebuild from the authoritative layout.
                     return false;
                 }
 
@@ -328,6 +431,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     bestPawnId,
                     cellRevision);
                 updatedCellCount++;
+
+                // Best-pawn markers are derived presentation state. When the
+                // winner changes, widen the row revision to both winner rows;
+                // unrelated rows remain untouched by sparse invalidation.
                 if (rowIndexByPawnId.TryGetValue(cell.PawnId, out int preparedRowIndex) &&
                     preparedRowIndex < previous.PreparedRows.Count)
                 {
@@ -336,6 +443,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 }
             }
 
+            return true;
+        }
+
+        private void PublishSparsePriorityUpdate(
+            WorkGridSnapshot previous,
+            IWorkTabLayoutController layout,
+            WorkGridRevisionSet revisions,
+            WorkTabEffectiveStateRevision effectiveStateRevision,
+            HashSet<ushort> affectedWorkTypeIds,
+            Dictionary<ushort, int> bestPawnIds,
+            Dictionary<int, WorkCellVisualState> replacements,
+            Dictionary<int, WorkGridPreparedRowSpan> preparedRowReplacements)
+        {
             _revisions = revisions;
             foreach (ushort workTypeId in affectedWorkTypeIds)
             {
@@ -361,7 +481,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 previous.UiScaleRevision,
                 previous.FontThemeRevision,
                 previous.PriorityRangeRevision));
-            return true;
         }
 
         private static bool TryResolvePriorityWorker(

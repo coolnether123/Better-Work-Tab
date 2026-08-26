@@ -84,31 +84,28 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 eligibility.IndexOf("ContainsSubWorkColumns", StringComparison.Ordinal) >= 0,
                 "visible sub-work columns must not disable every sparse parent-priority update");
 
-            string update = MemberBody(
-                snapshots,
-                "private bool TryApplySparsePriorityUpdate(");
             TestAssert.Contains(
-                update,
+                snapshots,
                 "if (!dirtyCell && !bestPawnChanged)\n                {\n                    continue;",
                 "unrelated cells must remain immutable while old/new best-pawn rows are revised");
             TestAssert.Contains(
-                update,
+                snapshots,
                 "WorkGiver subWorkGiver = snapshotColumn.SubWorkGiver;",
                 "sparse replacement must rebuild a sub-work cell through its prepared work-giver path");
             TestAssert.Contains(
-                update,
+                snapshots,
                 "!snapshotColumn.IsExpandBesideChild",
                 "focus columns must retain their parent visual while expand-beside children stay child-only");
             TestAssert.Contains(
-                update,
+                snapshots,
                 "FindBestPawnId(table, workType, worker)",
                 "a parent edit must refresh comparison-dependent best-pawn identity once per affected work type");
             TestAssert.Contains(
-                update,
+                snapshots,
                 "cell.PawnId == bestPawnChange.PreviousPawnId",
                 "the old best-pawn row must be revised when its marker moves");
             TestAssert.Contains(
-                update,
+                snapshots,
                 "cell.PawnId == bestPawnChange.CurrentPawnId",
                 "the new best-pawn row must be revised when its marker moves");
         }
