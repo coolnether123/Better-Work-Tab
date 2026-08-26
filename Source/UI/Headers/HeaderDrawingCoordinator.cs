@@ -376,7 +376,13 @@ namespace Better_Work_Tab.UI.Headers
         {
             _vanillaSolver?.InvalidateSolution();
             AngledHeaderCache.ClearGeometryCache();
-            _retainedPriorityHeaders.Dispose();
+
+            // Animation is a shared invalidation category: divider row animations also
+            // advance it even though header pixels do not change. Header animations that
+            // can change the pixels (column reorder and sub-work transitions) already use
+            // the direct path while active, and the retained key validates their settled
+            // geometry before reuse. Keep dormant surfaces instead of rebuilding every
+            // header on every unrelated animation frame.
         }
 
         /// <summary>
