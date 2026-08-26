@@ -62,12 +62,22 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         /// <returns>True to allow vanilla execution (fallback), False to skip (handled).</returns>
         public static bool DoHeader(PawnColumnWorker_WorkPriority worker, Rect rect, PawnTable table)
         {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            return DoHeader(worker, rect, table, in presentation);
+        }
+
+        internal static bool DoHeader(
+            PawnColumnWorker_WorkPriority worker,
+            Rect rect,
+            PawnTable table,
+            in HeaderPresentationPacket presentation)
+        {
             // BWT takes over header rendering to provide robust staggered layout.
 
             // === Collect header data during Layout event ===
             if (Event.current.type == EventType.Layout)
             {
-            bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType);
+            bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType, presentation.ShowMovedMarker);
                 var solver = HeaderDrawingCoordinator.GetVanillaSolver();
                 solver.CollectHeader(worker.def, rect, worker.def.workType, isMoved);
             }
@@ -77,10 +87,14 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             HeaderDrawingCoordinator.EnsureLayoutSolved(table);
 
             // Handle Input/Draw
-            return HandleDrawAndInput(worker, rect, table);
+            return HandleDrawAndInput(worker, rect, table, in presentation);
         }
 
-        private static bool HandleDrawAndInput(PawnColumnWorker_WorkPriority worker, Rect rect, PawnTable table)
+        private static bool HandleDrawAndInput(
+            PawnColumnWorker_WorkPriority worker,
+            Rect rect,
+            PawnTable table,
+            in HeaderPresentationPacket presentation)
         {
             var evt = Event.current;
             if (!HeaderUtility.ShouldHandleHeader(evt.type)) return false;
@@ -88,7 +102,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
                 SubWorkDrilldownState.IsDrawingExpandBesideChild)
             {
-                return HandleExpandBesideChildDrawAndInput(worker, rect, table, evt);
+                return HandleExpandBesideChildDrawAndInput(worker, rect, table, evt, in presentation);
             }
 
             bool shouldDraw = evt.type == EventType.Repaint;
@@ -105,13 +119,14 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
             // Get Render/Layout Objects
             Rect interactionBounds = vanillaSolver.GetBounds(worker.def);
-            bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType);
+            bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType, presentation.ShowMovedMarker);
             
             // Text Layout construction
             string label = HeaderUtility.GetHeaderText(
                 worker.def.workType,
                 isMoved,
-                WorkGiverHeaderLabelStyle.VanillaStaggered);
+                WorkGiverHeaderLabelStyle.VanillaStaggered,
+                in presentation);
             
             var interactionLayout = new Angled.AngledLabelDrawer.AngledLabelLayout(
                 label,
@@ -121,7 +136,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             );
 
             // Use the AngledHeaderInteraction helper (it handles interaction logic via the renderer abstraction)
-            var renderer = HeaderDrawingCoordinator.GetActiveRenderer();
+            var renderer = presentation.ActiveRenderer;
             
             // Group parameters into interaction context
             var ctx = new Angled.HeaderInteractionContext
@@ -135,7 +150,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 ShouldDraw = shouldDraw,
                 HeaderRect = rect,
                 Renderer = renderer,
-                IsVanillaStaggered = true
+                IsVanillaStaggered = true,
+                Presentation = presentation
             };
 
             Angled.AngledHeaderInteraction.HandleInteractions(ctx);
@@ -147,13 +163,15 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             PawnColumnWorker_WorkPriority worker,
             Rect rect,
             PawnTable table,
-            Event evt)
+            Event evt,
+            in HeaderPresentationPacket presentation)
         {
             bool shouldDraw = evt.type == EventType.Repaint;
             string label = HeaderUtility.GetHeaderText(
                 worker.def.workType,
                 false,
-                WorkGiverHeaderLabelStyle.VanillaStaggered);
+                WorkGiverHeaderLabelStyle.VanillaStaggered,
+                in presentation);
             Vector2 size = Text.CalcSize(label);
             Rect bounds = new Rect(
                 rect.x + 1f,
@@ -165,7 +183,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 label,
                 bounds.size,
                 bounds.center,
-                showMarker: WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType),
+                showMarker: WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType, presentation.ShowMovedMarker),
                 isCJKVertical: false);
 
             bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition && bounds.Contains(HeaderInputController.MousePosition);
@@ -184,8 +202,9 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 IsMouseOver = isMouseOver,
                 ShouldDraw = shouldDraw,
                 HeaderRect = rect,
-                Renderer = HeaderDrawingCoordinator.GetActiveRenderer(),
-                IsVanillaStaggered = true
+                Renderer = presentation.ActiveRenderer,
+                IsVanillaStaggered = true,
+                Presentation = presentation
             };
 
             Angled.AngledHeaderInteraction.HandleInteractions(ctx);

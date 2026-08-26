@@ -177,7 +177,8 @@ namespace Better_Work_Tab.Features.Tutorial
             WorkTabLayoutColumn column,
             IWorkTabLayoutController layout)
         {
-            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled) &&
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            if (presentation.AngledHeadersEnabled &&
                 TryGetAngledHeaderQuad(column, layout, out Vector2[] angledQuad))
             {
                 // Offset along the edge normals rather than away from the quad's
@@ -263,16 +264,18 @@ namespace Better_Work_Tab.Features.Tutorial
                     column.SubWorkGiver,
                     WorkGiverHeaderLabelStyle.Standard)
                 : WorkTypeDisplayNameService.HeaderLabel(workType);
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
             AngledHeaderCache.CachedTextMetrics metrics =
-                AngledHeaderCache.GetLabelTextMetrics(label);
+                AngledHeaderCache.GetLabelTextMetrics(label, in presentation);
             Rect drawRect = WorkTabHeaderRenderer.GetHostedAngledHeaderDrawRect(
                 column,
                 WorkGridInteractionGeometry.GetAnimatedHeaderRect(column),
                 metrics.Size,
                 metrics.IsCJKVertical,
-                layout.Table);
-            float cos = metrics.IsCJKVertical ? 1f : AngledLabelDrawer.CurrentRotCos;
-            float sin = metrics.IsCJKVertical ? 0f : AngledLabelDrawer.CurrentRotSin;
+                layout.Table,
+                in presentation);
+            float cos = metrics.IsCJKVertical ? 1f : presentation.RotationCos;
+            float sin = metrics.IsCJKVertical ? 0f : presentation.RotationSin;
             angledQuad = AngledHeaderCache.CalculateRotatedQuad(drawRect, cos, sin);
             return angledQuad != null && angledQuad.Length >= 3;
         }

@@ -13,7 +13,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
     /// Renders vanilla-style headers with exact vanilla positioning rules.
     /// Includes the vertical stem lines for staggered labels.
     /// </summary>
-    public class VanillaHeaderRenderer : IHeaderRenderer
+    public class VanillaHeaderRenderer : IHeaderRenderer, IHeaderPresentationRenderer
     {
         private const float StemBaseHeight = 11f;
         private const float StemWidth = 2f;
@@ -32,6 +32,28 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         public void DrawHeader(Angled.AngledLabelDrawer.AngledLabelLayout layout, bool isMouseOver,
                                 bool isSorted, bool sortDescending, Rect headerRect,
                                 PawnColumnDef column, bool showMarker)
+        {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            DrawHeader(
+                layout,
+                isMouseOver,
+                isSorted,
+                sortDescending,
+                headerRect,
+                column,
+                showMarker,
+                in presentation);
+        }
+
+        public void DrawHeader(
+            Angled.AngledLabelDrawer.AngledLabelLayout layout,
+            bool isMouseOver,
+            bool isSorted,
+            bool sortDescending,
+            Rect headerRect,
+            PawnColumnDef column,
+            bool showMarker,
+            in HeaderPresentationPacket presentation)
         {
             if (column == null || _solver == null)
                 return;
@@ -77,7 +99,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             Rect parentTextRect = Rect.zero;
             if (parentAlpha > 0.001f && column?.workType != null)
             {
-                parentText = HeaderUtility.GetParentHeaderText(column.workType);
+                parentText = HeaderUtility.GetParentHeaderText(column.workType, false, in presentation);
                 if (!parentText.NullOrEmpty() &&
                     parentText != HeaderUtility.RemoveMovedMarker(displayText))
                 {
@@ -116,8 +138,8 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
                 if (parentText != null)
                 {
-                    DrawLabel(parentTextRect, parentText, false, parentAlpha);
-                    DrawStemLine(parentTextRect, headerBottom, parentAlpha);
+                    DrawLabel(parentTextRect, parentText, false, parentAlpha, in presentation);
+                    DrawStemLine(parentTextRect, headerBottom, parentAlpha, in presentation);
                 }
 
                 if (flipScale < 0.999f)
@@ -133,10 +155,10 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 }
 
                 float visibleAlpha = flipAlpha * Mathf.Clamp01(layout.Alpha);
-                DrawLabel(textRect, displayText, showMarker, visibleAlpha);
+                DrawLabel(textRect, displayText, showMarker, visibleAlpha, in presentation);
 
                 // Stem Line
-                DrawStemLine(textRect, headerBottom, visibleAlpha);
+                DrawStemLine(textRect, headerBottom, visibleAlpha, in presentation);
                 GUI.matrix = oldMatrix;
 
                 // Sort Indicator
@@ -160,19 +182,28 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
         /// Draws the vertical stem line connecting the text to the pawn table row.
         /// Logic: specific height based on stagger level to match vanilla visuals.
         /// </summary>
-        private static void DrawLabel(Rect textRect, string text, bool showMarker, float alpha)
+        private static void DrawLabel(
+            Rect textRect,
+            string text,
+            bool showMarker,
+            float alpha,
+            in HeaderPresentationPacket presentation)
         {
             // Text Color: Apply moved marker color only if color tint is enabled
-            GUI.color = (showMarker && BWTWorkTabEffectiveSettings.GetBool("columns.showMovedColorTint"))
-                ? HeaderUtility.Colors.MovedMarkerColor
-                : BWTWorkTabEffectiveSettings.GetColor("headers.angledColor");
+            GUI.color = (showMarker && presentation.ShowMovedColorTint)
+                ? presentation.MovedMarkerColor
+                : presentation.AngledColor;
             GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * Mathf.Clamp01(alpha));
             Widgets.Label(textRect, text);
         }
 
-        private void DrawStemLine(Rect textRect, float headerBottom, float alpha = 1f)
+        private void DrawStemLine(
+            Rect textRect,
+            float headerBottom,
+            float alpha,
+            in HeaderPresentationPacket presentation)
         {
-            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DragdropRemoveHeaderUnderline))
+            if (presentation.RemoveUnderline)
                 return;
 
             // Calculate which level this is based on distance from headerBottom
@@ -191,7 +222,7 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             {
                 // Draw the vanilla grey stem (2px wide)
                 Rect stemRect = new Rect(centerX, stemTop, StemWidth, stemHeight);
-                Color color = HeaderUtility.Colors.VanillaStemColor;
+                Color color = presentation.VanillaStemColor;
                 color.a *= Mathf.Clamp01(alpha);
                 GUI.color = color;
                 Widgets.DrawBoxSolid(stemRect, GUI.color);

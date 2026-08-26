@@ -226,18 +226,20 @@ namespace Better_Work_Tab.UI.Headers
                 return false;
             }
 
-            if (AreAngledHeadersEnabled())
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            if (presentation.AngledHeadersEnabled)
             {
-                float rotation = AngledLabelDrawer.CurrentRotation;
-                float cos = Mathf.Cos(rotation * Mathf.Deg2Rad);
-                float sin = Mathf.Sin(rotation * Mathf.Deg2Rad);
+                float rotation = presentation.Rotation;
+                float cos = presentation.RotationCos;
+                float sin = presentation.RotationSin;
                 if (AngledHeaderCache.TryGetLayout(
                         headerRect,
                         columnDef.workType,
                         cos,
                         sin,
                         AngledLabelDrawer.STEM_BOTTOM_GAP,
-                        AngledLabelDrawer.EffectiveHorizontalOffset,
+                        presentation.EffectiveHorizontalOffset,
+                        in presentation,
                         out var cached) &&
                     IsUsableRect(cached.Bounds))
                 {
@@ -294,7 +296,7 @@ namespace Better_Work_Tab.UI.Headers
 
         private static bool AreAngledHeadersEnabled()
         {
-            return BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
+            return HeaderDrawingCoordinator.CapturePresentation().AngledHeadersEnabled;
         }
 
         private static bool IsUsableRect(Rect rect)

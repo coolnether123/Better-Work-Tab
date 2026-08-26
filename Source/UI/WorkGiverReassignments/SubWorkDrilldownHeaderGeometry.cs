@@ -164,7 +164,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private static float GetRequiredHeaderHeight(PawnTable table)
         {
             var settings = BetterWorkTabMod.Settings;
-            bool useAngledHeaders = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled);
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            bool useAngledHeaders = presentation.AngledHeadersEnabled;
             if (settings == null || !useAngledHeaders)
             {
                 var solver = HeaderDrawingCoordinator.GetVanillaSolver();
@@ -195,9 +196,9 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             }
 
             float maxHeight = 0f;
-            float rotation = AngledLabelDrawer.CurrentRotation;
-            float absSin = Mathf.Abs(Mathf.Sin(rotation * Mathf.Deg2Rad));
-            float absCos = Mathf.Abs(Mathf.Cos(rotation * Mathf.Deg2Rad));
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            float absSin = Mathf.Abs(presentation.RotationSin);
+            float absCos = Mathf.Abs(presentation.RotationCos);
 
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;

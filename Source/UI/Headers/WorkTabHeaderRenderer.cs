@@ -82,7 +82,7 @@ namespace Better_Work_Tab.UI.Headers
             bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition;
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             bool showCursorHighlight = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HighlightsHover);
-            bool angledHeadersEnabled = HeaderDrawingCoordinator.AreAngledHeadersEnabled();
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
 
             foreach (var column in layout.Columns)
             {
@@ -112,7 +112,7 @@ namespace Better_Work_Tab.UI.Headers
                         RuleBuilderGateway.ShouldHighlightRuleBuilder2Target(workType, workGiver);
                 }
                 bool drawRuleBuilderHighlightAfterHeader =
-                    shouldHighlightRuleBuilderTarget && angledHeadersEnabled;
+                    shouldHighlightRuleBuilderTarget && presentation.AngledHeadersEnabled;
 
                 if (showCursorHighlight &&
                     isWorkColumn &&
@@ -152,7 +152,7 @@ namespace Better_Work_Tab.UI.Headers
                 try
                 {
                     SubWorkDrilldownState.SetDrawingColumn(column);
-                    if (!TryDrawFluffyHeader(column, headerRect, table, angledHeadersEnabled))
+                    if (!TryDrawFluffyHeader(column, headerRect, table, in presentation))
                     {
                         if (column.Column?.Worker is PawnColumnWorker_WorkPriority priorityWorker &&
                             !SleekWorkTabGateway.BetterWorkTabHostsSleek)
@@ -160,7 +160,8 @@ namespace Better_Work_Tab.UI.Headers
                             if (!HeaderDrawingCoordinator.TryHandleWorkPriorityHeader(
                                     priorityWorker,
                                     headerRect,
-                                    table))
+                                    table,
+                                    in presentation))
                             {
                                 priorityWorker.DoHeader(headerRect, table);
                             }
@@ -287,11 +288,29 @@ namespace Better_Work_Tab.UI.Headers
             bool isCJKVertical,
             PawnTable table)
         {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            return GetHostedAngledHeaderDrawRect(
+                column,
+                headerRect,
+                labelSize,
+                isCJKVertical,
+                table,
+                in presentation);
+        }
+
+        internal static Rect GetHostedAngledHeaderDrawRect(
+            WorkTabLayoutColumn column,
+            Rect headerRect,
+            Vector2 labelSize,
+            bool isCJKVertical,
+            PawnTable table,
+            in HeaderPresentationPacket presentation)
+        {
             Rect drawRect;
             if (isCJKVertical)
             {
                 drawRect = new Rect(
-                    headerRect.center.x - (labelSize.x / 2f) + AngledLabelDrawer.EffectiveHorizontalOffset,
+                    headerRect.center.x - (labelSize.x / 2f) + presentation.EffectiveHorizontalOffset,
                     headerRect.yMax - labelSize.y - AngledLabelDrawer.STEM_BOTTOM_GAP,
                     labelSize.x,
                     labelSize.y);
@@ -306,13 +325,13 @@ namespace Better_Work_Tab.UI.Headers
                 {
                     center = headerRect.center
                 };
-                drawRect.x += AngledLabelDrawer.EffectiveHorizontalOffset;
+                drawRect.x += presentation.EffectiveHorizontalOffset;
                 drawRect.position += SubWorkDrilldownHeaderGeometry.GetExpandBesideAngledAnchorOffset(
                     table,
                     headerRect.height,
                     drawRect.width,
                     drawRect.height,
-                    AngledLabelDrawer.CurrentRotation);
+                    presentation.Rotation);
             }
 
             if (column.IsExpandBesideChild && column.SubWorkSlot == 0)
@@ -373,7 +392,7 @@ namespace Better_Work_Tab.UI.Headers
             WorkTabLayoutColumn column,
             Rect headerRect,
             PawnTable table,
-            bool angledHeadersEnabled)
+            in HeaderPresentationPacket presentation)
         {
             if (!FluffyWorkTabGateway.IsFluffyColumn(column.Column))
             {
@@ -414,7 +433,7 @@ namespace Better_Work_Tab.UI.Headers
                 (resolvedFocusedWorkGiver ||
                  column.IsExpandBesideChild ||
                  FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column));
-            WorkGiverHeaderLabelStyle labelStyle = angledHeadersEnabled
+            WorkGiverHeaderLabelStyle labelStyle = presentation.AngledHeadersEnabled
                 ? WorkGiverHeaderLabelStyle.Standard
                 : WorkGiverHeaderLabelStyle.VanillaStaggered;
 
@@ -449,13 +468,13 @@ namespace Better_Work_Tab.UI.Headers
                 }
             }
 
-            if (angledHeadersEnabled)
+            if (presentation.AngledHeadersEnabled)
             {
-                DrawHostedAngledHeader(column, headerRect, parentWorkType, label, isMouseOver, table);
+                DrawHostedAngledHeader(column, headerRect, parentWorkType, label, isMouseOver, table, in presentation);
             }
             else
             {
-                DrawHostedVanillaHeader(column, headerRect, parentWorkType, label, isMouseOver, table);
+                DrawHostedVanillaHeader(column, headerRect, parentWorkType, label, isMouseOver, table, in presentation);
             }
 
             if (isMouseOver)
@@ -503,7 +522,8 @@ namespace Better_Work_Tab.UI.Headers
             WorkTypeDef parentWorkType,
             string label,
             bool isMouseOver,
-            PawnTable table)
+            PawnTable table,
+            in HeaderPresentationPacket presentation)
         {
             if (Event.current.type != EventType.Repaint)
             {
@@ -511,31 +531,39 @@ namespace Better_Work_Tab.UI.Headers
             }
 
             AngledHeaderCache.CachedTextMetrics textMetrics =
-                AngledHeaderCache.GetLabelTextMetrics(label);
+                AngledHeaderCache.GetLabelTextMetrics(label, in presentation);
             bool isCJKVertical = textMetrics.IsCJKVertical;
             Vector2 size = textMetrics.Size;
 
-            Rect drawRect = GetHostedAngledHeaderDrawRect(column, headerRect, size, isCJKVertical, table);
+            Rect drawRect = GetHostedAngledHeaderDrawRect(
+                column,
+                headerRect,
+                size,
+                isCJKVertical,
+                table,
+                in presentation);
 
             var labelLayout = new AngledLabelDrawer.AngledLabelLayout(
                 label,
                 size,
                 drawRect.center,
-                WorkColumnCustomizationService.ShouldShowColumnMarker(parentWorkType),
+                WorkColumnCustomizationService.ShouldShowColumnMarker(parentWorkType, presentation.ShowMovedMarker),
                 isCJKVertical,
                 drawRect)
                 .WithAlpha(GetHostedSubWorkHeaderAlpha(column));
 
             bool isSorted = table != null && table.SortingBy == column.Column;
             bool sortDescending = table != null && table.SortingDescending;
-            HeaderDrawingCoordinator.GetActiveRenderer().DrawHeader(
+            HeaderDrawingCoordinator.DrawHeader(
+                presentation.ActiveRenderer,
                 labelLayout,
                 isMouseOver,
                 isSorted,
                 sortDescending,
                 headerRect,
                 column.Column,
-                labelLayout.ShowMarker);
+                labelLayout.ShowMarker,
+                in presentation);
         }
 
         private static void DrawHostedVanillaHeader(
@@ -544,10 +572,11 @@ namespace Better_Work_Tab.UI.Headers
             WorkTypeDef parentWorkType,
             string label,
             bool isMouseOver,
-            PawnTable table)
+            PawnTable table,
+            in HeaderPresentationPacket presentation)
         {
             var solver = HeaderDrawingCoordinator.GetVanillaSolver();
-            bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(parentWorkType);
+            bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(parentWorkType, presentation.ShowMovedMarker);
             if (Event.current.type == EventType.Layout)
             {
                 solver?.CollectHeader(column.Column, headerRect, parentWorkType, isMoved);
@@ -575,14 +604,16 @@ namespace Better_Work_Tab.UI.Headers
 
             bool isSorted = table != null && table.SortingBy == column.Column;
             bool sortDescending = table != null && table.SortingDescending;
-            HeaderDrawingCoordinator.GetActiveRenderer().DrawHeader(
+            HeaderDrawingCoordinator.DrawHeader(
+                presentation.ActiveRenderer,
                 labelLayout,
                 isMouseOver,
                 isSorted,
                 sortDescending,
                 headerRect,
                 column.Column,
-                labelLayout.ShowMarker);
+                labelLayout.ShowMarker,
+                in presentation);
         }
 
         private static float GetHostedSubWorkHeaderAlpha(WorkTabLayoutColumn column)

@@ -42,6 +42,16 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// <returns>True to allow vanilla execution (fallback), False to skip (handled).</returns>
         public static bool DoHeader(PawnColumnWorker_WorkPriority worker, Rect rect, PawnTable table)
         {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            return DoHeader(worker, rect, table, in presentation);
+        }
+
+        internal static bool DoHeader(
+            PawnColumnWorker_WorkPriority worker,
+            Rect rect,
+            PawnTable table,
+            in HeaderPresentationPacket presentation)
+        {
             var evt = Event.current;
             if (!HeaderUtility.ShouldHandleHeader(evt.type)) return false;
 
@@ -54,14 +64,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
             if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
                 SubWorkDrilldownState.IsDrawingExpandBesideChild)
             {
-                return DoExpandBesideChildHeader(worker, rect, table, evt);
+                return DoExpandBesideChildHeader(worker, rect, table, evt, in presentation);
             }
 
             bool shouldDraw = evt.type == EventType.Repaint;
 
-            float rot = AngledLabelDrawer.CurrentRotation;
-            float rotCos = Mathf.Cos(rot * Mathf.Deg2Rad);
-            float rotSin = Mathf.Sin(rot * Mathf.Deg2Rad);
+            float rot = presentation.Rotation;
+            float rotCos = presentation.RotationCos;
+            float rotSin = presentation.RotationSin;
             float stableDrawWidth = !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
                 SubWorkDrilldownState.HasAnyDrilldown
                 ? SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(table, rect.height)
@@ -73,7 +83,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     rotCos,
                     rotSin,
                     AngledLabelDrawer.STEM_BOTTOM_GAP,
-                    AngledLabelDrawer.EffectiveHorizontalOffset,
+                    presentation.EffectiveHorizontalOffset,
+                    in presentation,
                     out var cached,
                     stableDrawWidth))
             {
@@ -88,7 +99,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 HeaderInputController.SetHoveredWorkType(worker.def.workType, GetVisualBounds(cached));
             }
 
-            var renderer = HeaderDrawingCoordinator.GetActiveRenderer();
+            var renderer = presentation.ActiveRenderer;
 
             // Group parameters into interaction context
             var ctx = new HeaderInteractionContext
@@ -101,7 +112,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 IsMouseOver = isMouseOver,
                 ShouldDraw = shouldDraw,
                 HeaderRect = rect,
-                Renderer = renderer
+                Renderer = renderer,
+                Presentation = presentation
             };
 
             AngledHeaderInteraction.HandleInteractions(ctx);
@@ -113,29 +125,30 @@ namespace Better_Work_Tab.UI.Headers.Angled
             PawnColumnWorker_WorkPriority worker,
             Rect rect,
             PawnTable table,
-            Event evt)
+            Event evt,
+            in HeaderPresentationPacket presentation)
         {
             bool shouldDraw = evt.type == EventType.Repaint;
-            string label = HeaderUtility.GetHeaderText(worker.def.workType);
+            string label = HeaderUtility.GetHeaderText(worker.def.workType, false, WorkGiverHeaderLabelStyle.Standard, in presentation);
             Vector2 size = Text.CalcSize(label);
             float stableDrawWidth = SubWorkDrilldownHeaderGeometry.GetBaseHeaderDrawWidth(table, rect.height);
             Rect drawRect = new Rect(rect.x, rect.y, Mathf.Max(rect.width, stableDrawWidth), size.y)
             {
                 center = rect.center
             };
-            drawRect.x += AngledLabelDrawer.EffectiveHorizontalOffset;
+            drawRect.x += presentation.EffectiveHorizontalOffset;
             drawRect.position += SubWorkDrilldownHeaderGeometry.GetExpandBesideAngledAnchorOffset(
                 table,
                 rect.height,
                 drawRect.width,
                 drawRect.height,
-                AngledLabelDrawer.CurrentRotation);
+                presentation.Rotation);
 
             var layout = new AngledLabelDrawer.AngledLabelLayout(
                 label,
                 size,
                 drawRect.center,
-                showMarker: WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType),
+                showMarker: WorkColumnCustomizationService.ShouldShowColumnMarker(worker.def.workType, presentation.ShowMovedMarker),
                 isCJKVertical: false,
                 customDrawRect: drawRect);
             bool isMouseOver = !TimePriorityScheduleEditor.OwnsCurrentMousePosition && rect.Contains(HeaderInputController.MousePosition);
@@ -154,7 +167,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 IsMouseOver = isMouseOver,
                 ShouldDraw = shouldDraw,
                 HeaderRect = rect,
-                Renderer = HeaderDrawingCoordinator.GetActiveRenderer()
+                Renderer = presentation.ActiveRenderer,
+                Presentation = presentation
             };
 
             AngledHeaderInteraction.HandleInteractions(ctx);
