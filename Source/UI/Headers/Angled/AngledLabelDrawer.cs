@@ -31,25 +31,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// </summary>
         public const float STEM_BOTTOM_GAP = 2f;
 
-        /// <summary>
-        /// Returns the prepared rotation angle; the packet is cached across frames.
-        /// </summary>
+        // Public compatibility accessors capture through the shared cache. BWT's
+        // own header pass carries one packet instead of calling these per column.
         public static float CurrentRotation => HeaderDrawingCoordinator.CapturePresentation().Rotation;
-        
-        /// <summary>
-        /// Returns the prepared rotation cosine.
-        /// </summary>
+
         public static float CurrentRotCos => HeaderDrawingCoordinator.CapturePresentation().RotationCos;
-        
-        /// <summary>
-        /// Returns the prepared rotation sine.
-        /// </summary>
+
         public static float CurrentRotSin => HeaderDrawingCoordinator.CapturePresentation().RotationSin;
 
-        /// <summary>
-        /// Returns the prepared horizontal offset. At -90 degrees it is forced
-        /// to zero for vertical stacking; the setting is preserved for restore.
-        /// </summary>
         public static float EffectiveHorizontalOffset
         {
             get
