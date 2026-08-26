@@ -181,6 +181,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         }
     }
 
+    /// <summary>
+    /// Compiles pass-stable snapshot data into retained runs and explicit native
+    /// fallbacks. This boundary must not resolve live domain state: unsupported
+    /// cells remain native so the existing renderer can preserve their behavior.
+    /// </summary>
     internal static class PreparedWorkRowPacketBuilder
     {
         internal static PreparedWorkRowPacket Build(
@@ -590,6 +595,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 LayoutColumns.Count == Snapshot.Columns.Count;
         }
 
+        /// <summary>
+        /// Groups consecutive retained cells into one presentation command and
+        /// builds reverse lookups for live input and sparse overlays. Its arrays
+        /// are allocated only when a packet is rebuilt, never on a retained hit.
+        /// </summary>
         private struct RowPacketAssembly
         {
             private readonly List<PreparedWorkRowCommand> _commands =
