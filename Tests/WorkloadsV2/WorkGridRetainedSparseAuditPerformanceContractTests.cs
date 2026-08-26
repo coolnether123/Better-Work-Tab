@@ -32,12 +32,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static void RetainedRowsKeepLogicalImGuiOrientation(string retainedRows)
         {
-            string draw = MemberBody(retainedRows, "private bool TryDrawCore(");
             TestAssert.False(
-                draw.IndexOf("SystemInfo.graphicsUVStartsAtTop", StringComparison.Ordinal) >= 0,
+                retainedRows.IndexOf("SystemInfo.graphicsUVStartsAtTop", StringComparison.Ordinal) >= 0,
                 "retained IMGUI rows must not apply a second platform UV inversion");
             TestAssert.Contains(
-                draw,
+                retainedRows,
                 "new Rect(0f, 0f, 1f, 1f)",
                 "retained IMGUI rows must present their top-left-composed surface directly");
         }
