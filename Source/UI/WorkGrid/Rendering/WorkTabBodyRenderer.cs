@@ -111,191 +111,172 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             WorkTabHorizontalScrollbarDragResult horizontalScrollbarDrag =
                 _viewportController.PrepareHorizontalScrollbarDrag(
-                    viewport.OutRect,
-                    viewport.ViewRect,
-                    table.scrollPosition,
-                    Event.current);
+                    viewport.OutRect, viewport.ViewRect, table.scrollPosition, Event.current);
 
             Widgets.BeginScrollView(viewport.OutRect, ref table.scrollPosition, viewport.ViewRect);
             try
             {
-                if (horizontalScrollbarDrag.ApplyCapturedScroll)
-                {
-                    Vector2 scrollPosition = table.scrollPosition;
-                    scrollPosition.x = horizontalScrollbarDrag.CapturedScrollX;
-                    table.scrollPosition = scrollPosition;
-                }
-
-                _viewportController.CaptureHorizontalScrollbarDragIfNeeded(
-                    in horizontalScrollbarDrag,
-                    table.scrollPosition);
+                ApplyAndCaptureHorizontalViewportDrag(
+                    table,
+                    in horizontalScrollbarDrag);
 
                 if (Event.current.type == EventType.Layout)
                 {
                     return;
                 }
 
-                var nameColumn = FindNameColumn(columns);
-                IReadOnlyList<WorkTabLayoutColumn> renderColumns = columns;
-                if (snapshotLayer == null &&
-                    viewport.ViewRect.width > viewport.OutRect.width + 0.5f)
-                {
-                    float visibleLeft = table.scrollPosition.x - HorizontalCullBuffer;
-                    float visibleRight = table.scrollPosition.x + viewport.OutRect.width + HorizontalCullBuffer;
-                    _visibleRenderColumns.Clear();
-                    for (int i = 0; i < columns.Count; i++)
-                    {
-                        WorkTabLayoutColumn column = columns[i];
-                        WorkGridAnimatedColumnGeometry geometry =
-                            WorkGridInteractionGeometry.GetAnimatedColumn(column);
-                        if (geometry.BodyContentX + geometry.Width >= visibleLeft &&
-                            geometry.BodyContentX <= visibleRight)
-                        {
-                            _visibleRenderColumns.Add(column);
-                        }
-                    }
-
-                    renderColumns = _visibleRenderColumns;
-                }
-
+                WorkTabLayoutColumn? nameColumn = FindNameColumn(columns);
+                IReadOnlyList<WorkTabLayoutColumn> renderColumns =
+                    PrepareVisibleRenderColumns(columns, viewport, table.scrollPosition.x, snapshotLayer);
                 WorkGridGeometrySnapshot rowGeometry = layout.GeometrySnapshot;
                 if (rowGeometry != null && rowGeometry.Rows.Count != rowDescriptors.Count)
                 {
                     rowGeometry = null;
                 }
+                WorkGridIndexRange visibleRows = PrepareVisibleRowRange(
+                    rowDescriptors.Count,
+                    rowGeometry,
+                    viewport,
+                    table.scrollPosition.y);
+                WorkGridIndexRange visibleColumns = PrepareVisibleColumnRange(
+                    columns.Count,
+                    renderColumns.Count,
+                    snapshotLayer);
 
-                WorkGridIndexRange visibleRows = new WorkGridIndexRange(0, rowDescriptors.Count);
-                if (rowGeometry != null)
-                {
-                    visibleRows = rowGeometry.GetVisibleRowRange(
-                        viewport.OutRect,
-                        table.scrollPosition.y,
-                        RowCullBuffer);
-                }
-
-                int visibleStart = Math.Max(
-                    0,
-                    Math.Min(rowDescriptors.Count, visibleRows.Start));
-                long requestedEnd = (long)visibleRows.Start + visibleRows.Count;
-                int visibleEnd = requestedEnd <= visibleStart
-                    ? visibleStart
-                    : requestedEnd >= rowDescriptors.Count
-                        ? rowDescriptors.Count
-                        : (int)requestedEnd;
-                visibleRows = new WorkGridIndexRange(
-                    visibleStart,
-                    visibleEnd - visibleStart);
-
-                WorkGridIndexRange visibleColumns =
-                    new WorkGridIndexRange(0, renderColumns.Count);
-                if (snapshotLayer is IWorkGridVisibleColumnRangeProvider rangeProvider)
-                {
-                    visibleColumns = ClampRange(
-                        rangeProvider.VisibleColumnRange,
-                        columns.Count);
-                }
-
-                // Calculate dimensions once for all highlight operations.
-                float totalWidth = CalculateTotalColumnWidth(columns);
-                float totalHeight = layout.ContentHeight;
-
-                if (SpineTiming.Enabled)
-                {
-                    SpineTiming.Time("WorkTab.Rows.DrawAllHighlights", () => DrawAllHighlights(
-                        rowDescriptors,
-                        columns,
-                        totalWidth,
-                        totalHeight,
-                        rowGeometry,
-                        visibleRows));
-                    SpineTiming.Time("WorkTab.Rows.DrawAllRowContent", () => DrawAllRowContent(table,
-                        rowDescriptors,
-                        renderColumns,
-                        viewport.ViewRect.width,
-                        nameColumn,
-                        snapshotLayer,
-                        rowGeometry,
-                        visibleRows,
-                        visibleColumns));
-                    SpineTiming.Time("WorkTab.Rows.DrawRowSeparators", () => DrawRowSeparators(
-                        rowDescriptors,
-                        viewport.ViewRect.width,
-                        rowGeometry,
-                        visibleRows));
-                    SpineTiming.Time("WorkTab.Rows.DrawPreviewMembership", () => DrawPreviewMembershipIndicators(
-                        rowDescriptors,
-                        totalWidth,
-                        rowGeometry,
-                        visibleRows,
-                        preview));
-                    SpineTiming.Time("WorkTab.Rows.DrawPreviewInspection", () => DrawPreviewInspectionHighlights(
-                        rowDescriptors,
-                        columns,
-                        totalWidth,
-                        rowGeometry,
-                        visibleRows,
-                        layout.LayoutRevision,
-                        table.scrollPosition.x,
-                        viewport.OutRect.width,
-                        preview));
-                }
-                else
-                {
-                    // Phase 1: Draw all highlights (selected, hovered, float menu, similar worktypes).
-                    DrawAllHighlights(
-                        rowDescriptors,
-                        columns,
-                        totalWidth,
-                        totalHeight,
-                        rowGeometry,
-                        visibleRows);
-
-                    // Phase 2: Draw actual row content (pawn data, divider labels, backgrounds).
-                    DrawAllRowContent(table,
-                        rowDescriptors,
-                        renderColumns,
-                        viewport.ViewRect.width,
-                        nameColumn,
-                        snapshotLayer,
-                        rowGeometry,
-                        visibleRows,
-                        visibleColumns);
-
-                    // Phase 3: Draw separator lines between rows.
-                    DrawRowSeparators(
-                        rowDescriptors,
-                        viewport.ViewRect.width,
-                        rowGeometry,
-                        visibleRows);
-
-                    DrawPreviewMembershipIndicators(
-                        rowDescriptors,
-                        totalWidth,
-                        rowGeometry,
-                        visibleRows,
-                        preview);
-
-                    // Inspection is a contextual overlay, not one of the
-                    // optional normal highlight features. Paint it after row
-                    // content so changed cells/rows remain visible even when
-                    // ordinary highlights are disabled or content draws over
-                    // the earlier highlight pass.
-                    DrawPreviewInspectionHighlights(
-                        rowDescriptors,
-                        columns,
-                        totalWidth,
-                        rowGeometry,
-                        visibleRows,
-                        layout.LayoutRevision,
-                        table.scrollPosition.x,
-                        viewport.OutRect.width,
-                        preview);
-                }
+                DrawOrderedPhases(
+                    table, rowDescriptors, columns, renderColumns, nameColumn,
+                    snapshotLayer, rowGeometry, visibleRows, visibleColumns, preview,
+                    layout, viewport, CalculateTotalColumnWidth(columns), layout.ContentHeight);
             }
             finally
             {
                 Widgets.EndScrollView();
             }
+        }
+
+        private void ApplyAndCaptureHorizontalViewportDrag(
+            PawnTable table,
+            in WorkTabHorizontalScrollbarDragResult horizontalScrollbarDrag)
+        {
+            if (horizontalScrollbarDrag.ApplyCapturedScroll)
+            {
+                Vector2 scrollPosition = table.scrollPosition;
+                scrollPosition.x = horizontalScrollbarDrag.CapturedScrollX;
+                table.scrollPosition = scrollPosition;
+            }
+
+            _viewportController.CaptureHorizontalScrollbarDragIfNeeded(
+                in horizontalScrollbarDrag,
+                table.scrollPosition);
+        }
+
+        private IReadOnlyList<WorkTabLayoutColumn> PrepareVisibleRenderColumns(
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            WorkTabViewport viewport,
+            float horizontalScrollX,
+            IWorkGridSnapshotLayer snapshotLayer)
+        {
+            if (snapshotLayer != null ||
+                viewport.ViewRect.width <= viewport.OutRect.width + 0.5f)
+            {
+                return columns;
+            }
+
+            float visibleLeft = horizontalScrollX - HorizontalCullBuffer;
+            float visibleRight = horizontalScrollX + viewport.OutRect.width + HorizontalCullBuffer;
+            _visibleRenderColumns.Clear();
+            for (int i = 0; i < columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = columns[i];
+                WorkGridAnimatedColumnGeometry geometry =
+                    WorkGridInteractionGeometry.GetAnimatedColumn(column);
+                if (geometry.BodyContentX + geometry.Width >= visibleLeft &&
+                    geometry.BodyContentX <= visibleRight)
+                {
+                    _visibleRenderColumns.Add(column);
+                }
+            }
+
+            return _visibleRenderColumns;
+        }
+
+        private static WorkGridIndexRange PrepareVisibleRowRange(
+            int rowCount,
+            WorkGridGeometrySnapshot rowGeometry,
+            WorkTabViewport viewport,
+            float verticalScrollY)
+        {
+            WorkGridIndexRange visibleRows = rowGeometry == null
+                ? new WorkGridIndexRange(0, rowCount)
+                : rowGeometry.GetVisibleRowRange(
+                    viewport.OutRect,
+                    verticalScrollY,
+                    RowCullBuffer);
+            return ClampRange(visibleRows, rowCount);
+        }
+
+        private static WorkGridIndexRange PrepareVisibleColumnRange(
+            int columnCount,
+            int renderColumnCount,
+            IWorkGridSnapshotLayer snapshotLayer)
+        {
+            return snapshotLayer is IWorkGridVisibleColumnRangeProvider rangeProvider
+                ? ClampRange(rangeProvider.VisibleColumnRange, columnCount)
+                : new WorkGridIndexRange(0, renderColumnCount);
+        }
+
+        private void DrawOrderedPhases(
+            PawnTable table, List<RowDescriptor> rows,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            IReadOnlyList<WorkTabLayoutColumn> renderColumns,
+            WorkTabLayoutColumn? nameColumn, IWorkGridSnapshotLayer snapshotLayer,
+            WorkGridGeometrySnapshot rowGeometry, WorkGridIndexRange visibleRows,
+            WorkGridIndexRange visibleColumns, IWorkGridPreviewPort preview,
+            IWorkTabLayoutController layout, WorkTabViewport viewport,
+            float totalWidth, float totalHeight)
+        {
+            if (SpineTiming.Enabled)
+            {
+                DrawTimedPhases(
+                    table, rows, columns, renderColumns, nameColumn, snapshotLayer, rowGeometry,
+                    visibleRows, visibleColumns, preview, layout, viewport, totalWidth, totalHeight);
+                return;
+            }
+
+            DrawAllHighlights(rows, columns, totalWidth, totalHeight, rowGeometry, visibleRows);
+            DrawAllRowContent(
+                table, rows, renderColumns, viewport.ViewRect.width, nameColumn, snapshotLayer,
+                rowGeometry, visibleRows, visibleColumns);
+            DrawRowSeparators(rows, viewport.ViewRect.width, rowGeometry, visibleRows);
+            DrawPreviewMembershipIndicators(rows, totalWidth, rowGeometry, visibleRows, preview);
+            DrawPreviewInspectionHighlights(
+                rows, columns, totalWidth, rowGeometry, visibleRows, layout.LayoutRevision,
+                table.scrollPosition.x, viewport.OutRect.width, preview);
+        }
+
+        private void DrawTimedPhases(
+            PawnTable table, List<RowDescriptor> rows,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            IReadOnlyList<WorkTabLayoutColumn> renderColumns,
+            WorkTabLayoutColumn? nameColumn, IWorkGridSnapshotLayer snapshotLayer,
+            WorkGridGeometrySnapshot rowGeometry, WorkGridIndexRange visibleRows,
+            WorkGridIndexRange visibleColumns, IWorkGridPreviewPort preview,
+            IWorkTabLayoutController layout, WorkTabViewport viewport,
+            float totalWidth, float totalHeight)
+        {
+            SpineTiming.Time("WorkTab.Rows.DrawAllHighlights", () =>
+                DrawAllHighlights(rows, columns, totalWidth, totalHeight, rowGeometry, visibleRows));
+            SpineTiming.Time("WorkTab.Rows.DrawAllRowContent", () => DrawAllRowContent(
+                table, rows, renderColumns, viewport.ViewRect.width, nameColumn, snapshotLayer,
+                rowGeometry, visibleRows, visibleColumns));
+            SpineTiming.Time("WorkTab.Rows.DrawRowSeparators", () =>
+                DrawRowSeparators(rows, viewport.ViewRect.width, rowGeometry, visibleRows));
+            SpineTiming.Time("WorkTab.Rows.DrawPreviewMembership", () =>
+                DrawPreviewMembershipIndicators(rows, totalWidth, rowGeometry, visibleRows, preview));
+            SpineTiming.Time("WorkTab.Rows.DrawPreviewInspection", () =>
+                DrawPreviewInspectionHighlights(
+                    rows, columns, totalWidth, rowGeometry, visibleRows, layout.LayoutRevision,
+                    table.scrollPosition.x, viewport.OutRect.width, preview));
         }
 
         private void DrawPreviewMembershipIndicators(
@@ -439,9 +420,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             return priorityBoxRect.Contains(mousePosition);
         }
 
-        /// <summary>
-        /// Calculates the total width of all columns combined once per frame.
-        /// </summary>
         private static float CalculateTotalColumnWidth(IReadOnlyList<WorkTabLayoutColumn> columns)
         {
             float totalWidth = 0f;
@@ -453,11 +431,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             return totalWidth;
         }
 
-        /// <summary>
-        /// Phase 1: Draws all highlighting overlays.
-        /// This includes selected and hovered rows, float-menu worktype columns,
-        /// hovered columns, and similar-worktype columns.
-        /// </summary>
         private static void DrawAllHighlights(
             List<RowDescriptor> rowDescriptors,
             IReadOnlyList<WorkTabLayoutColumn> columns,
@@ -472,34 +445,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
-            WorkTabLayoutColumn? hoveredColumn = null;
-            WorkTypeDef hoveredWorkType = null;
             bool timePriorityOwnsMouse = TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
                                          BWTWorkTabTutorial.OwnsCurrentPointer;
-
-            // 1. Detect hovered column.
-            if (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HighlightsHover) &&
-                !timePriorityOwnsMouse)
-            {
-                for (int i = 0; i < columns.Count; i++)
-                {
-                    var col = columns[i];
-                    WorkGridAnimatedColumnGeometry geometry =
-                        WorkGridInteractionGeometry.GetAnimatedColumn(col);
-                    var columnRect = new Rect(
-                        geometry.BodyContentX,
-                        0f,
-                        geometry.Width,
-                        totalHeight);
-
-                    if (Mouse.IsOver(columnRect))
-                    {
-                        hoveredColumn = col;
-                        hoveredWorkType = col.Column?.workType;
-                        break;
-                    }
-                }
-            }
+            ResolveHoveredHighlight(
+                columns, totalHeight, timePriorityOwnsMouse,
+                out WorkTabLayoutColumn? hoveredColumn,
+                out WorkTypeDef hoveredWorkType);
 
             if (hoveredWorkType == null && !timePriorityOwnsMouse)
             {
@@ -517,7 +468,58 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGiverDef highlightedWorkGiver = HighlightState.GetHighlightedWorkGiver();
             bool floatMenuOpen = Find.WindowStack?.IsOpen<FloatMenu>() == true;
 
-            // 2. Draw horizontal highlights (rows).
+            DrawPawnRowHighlights(
+                rowDescriptors, totalWidth, rowGeometry, visibleRows,
+                highlightedPawn, timePriorityOwnsMouse, floatMenuOpen);
+            DrawDividerHighlights(
+                rowDescriptors, totalWidth, rowGeometry, visibleRows,
+                timePriorityOwnsMouse, floatMenuOpen);
+            DrawColumnHighlights(
+                columns, totalHeight, hoveredWorkType, cachedSimilarWorktypes,
+                highlightedWorkType, highlightedWorkGiver,
+                timePriorityOwnsMouse, floatMenuOpen);
+        }
+
+        private static void ResolveHoveredHighlight(
+            IReadOnlyList<WorkTabLayoutColumn> columns, float totalHeight,
+            bool timePriorityOwnsMouse,
+            out WorkTabLayoutColumn? hoveredColumn,
+            out WorkTypeDef hoveredWorkType)
+        {
+            hoveredColumn = null;
+            hoveredWorkType = null;
+            if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HighlightsHover) ||
+                timePriorityOwnsMouse)
+            {
+                return;
+            }
+
+            for (int i = 0; i < columns.Count; i++)
+            {
+                WorkTabLayoutColumn column = columns[i];
+                WorkGridAnimatedColumnGeometry geometry =
+                    WorkGridInteractionGeometry.GetAnimatedColumn(column);
+                var columnRect = new Rect(
+                    geometry.BodyContentX,
+                    0f,
+                    geometry.Width,
+                    totalHeight);
+                if (!Mouse.IsOver(columnRect))
+                {
+                    continue;
+                }
+
+                hoveredColumn = column;
+                hoveredWorkType = column.Column?.workType;
+                return;
+            }
+        }
+
+        private static void DrawPawnRowHighlights(
+            List<RowDescriptor> rowDescriptors, float totalWidth,
+            WorkGridGeometrySnapshot rowGeometry, WorkGridIndexRange visibleRows,
+            Pawn highlightedPawn, bool timePriorityOwnsMouse, bool floatMenuOpen)
+        {
             float currentY = 0f;
             for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
             {
@@ -559,41 +561,53 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     currentY += descriptor.Height;
                 }
             }
+        }
 
-            // 3. Draw divider highlights if active.
-            if (BWTWorkTabEffectiveSettings.GetBool("dividers.highlight") &&
-                BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesDividers))
+        private static void DrawDividerHighlights(
+            List<RowDescriptor> rowDescriptors, float totalWidth,
+            WorkGridGeometrySnapshot rowGeometry, WorkGridIndexRange visibleRows,
+            bool timePriorityOwnsMouse, bool floatMenuOpen)
+        {
+            if (!BWTWorkTabEffectiveSettings.GetBool("dividers.highlight") ||
+                !BWTWorkTabEffectiveSettings.GetBool(SettingIDs.FeaturesDividers))
             {
-                currentY = 0f;
-                for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
-                {
-                    if (rowGeometry != null)
-                    {
-                        currentY = rowGeometry.Rows[i].OffsetY;
-                    }
-
-                    var descriptor = rowDescriptors[i];
-                    Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
-
-                    if (descriptor.IsDivider &&
-                        !timePriorityOwnsMouse &&
-                        !floatMenuOpen &&
-                        Mouse.IsOver(rowRect))
-                    {
-                        HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
-                    }
-
-                    if (rowGeometry == null)
-                    {
-                        currentY += descriptor.Height;
-                    }
-                }
+                return;
             }
 
-            // 4. Draw vertical highlights (columns).
+            float currentY = 0f;
+            for (int i = visibleRows.Start; i < visibleRows.EndExclusive; i++)
+            {
+                if (rowGeometry != null)
+                {
+                    currentY = rowGeometry.Rows[i].OffsetY;
+                }
+
+                RowDescriptor descriptor = rowDescriptors[i];
+                Rect rowRect = new Rect(0f, currentY, totalWidth, descriptor.Height);
+                if (descriptor.IsDivider &&
+                    !timePriorityOwnsMouse &&
+                    !floatMenuOpen &&
+                    Mouse.IsOver(rowRect))
+                {
+                    HighlightDrawer.DrawHighlight(rowRect, HighlightDrawer.GetRowHoverColor());
+                }
+
+                if (rowGeometry == null)
+                {
+                    currentY += descriptor.Height;
+                }
+            }
+        }
+
+        private static void DrawColumnHighlights(
+            IReadOnlyList<WorkTabLayoutColumn> columns, float totalHeight,
+            WorkTypeDef hoveredWorkType, List<WorkTypeDef> cachedSimilarWorktypes,
+            WorkTypeDef highlightedWorkType, WorkGiverDef highlightedWorkGiver,
+            bool timePriorityOwnsMouse, bool floatMenuOpen)
+        {
             for (int i = 0; i < columns.Count; i++)
             {
-                var column = columns[i];
+                WorkTabLayoutColumn column = columns[i];
                 WorkGridAnimatedColumnGeometry geometry =
                     WorkGridInteractionGeometry.GetAnimatedColumn(column);
                 Rect columnRect = new Rect(
@@ -633,9 +647,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 {
                     HighlightDrawer.DrawHighlight(columnRect, HighlightDrawer.GetSimilarWorktypeColor());
                 }
-
             }
-
         }
 
         private void DrawPreviewInspectionHighlights(
@@ -688,6 +700,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
+            PrepareVisibleInspectionRows(rowDescriptors, rowGeometry, visibleRows);
+            CollectInspectionTargets(
+                targets, columns, horizontalScrollX, horizontalViewportWidth);
+            DrawInspectionCells(
+                rowDescriptors, columns, totalWidth, visibleRows, opacity);
+        }
+
+        private void PrepareVisibleInspectionRows(
+            List<RowDescriptor> rowDescriptors,
+            WorkGridGeometrySnapshot rowGeometry,
+            WorkGridIndexRange visibleRows)
+        {
             _inspectionVisibleRows.Clear();
             _inspectionVisiblePawnRows.Clear();
             _inspectionVisibleRowOffsets.Clear();
@@ -715,7 +739,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     currentY += rowDescriptors[rowIndex]?.Height ?? 0f;
                 }
             }
+        }
 
+        private void CollectInspectionTargets(
+            IReadOnlyList<WorkGridInspectionTarget> targets,
+            IReadOnlyList<WorkTabLayoutColumn> columns,
+            float horizontalScrollX, float horizontalViewportWidth)
+        {
             for (int targetIndex = 0; targetIndex < targets.Count; targetIndex++)
             {
                 WorkGridInspectionTarget target = targets[targetIndex];
@@ -733,9 +763,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         int index = matchingColumns[columnIndex];
                         if (index < 0 || index >= columns.Count ||
                             !IsInspectionColumnVisible(
-                                columns[index],
-                                horizontalScrollX,
-                                horizontalViewportWidth))
+                                columns[index], horizontalScrollX, horizontalViewportWidth))
                         {
                             continue;
                         }
@@ -767,7 +795,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         globalColumn.Value);
                 }
             }
+        }
 
+        private void DrawInspectionCells(
+            List<RowDescriptor> rowDescriptors, IReadOnlyList<WorkTabLayoutColumn> columns,
+            float totalWidth, WorkGridIndexRange visibleRows, float opacity)
+        {
             foreach (KeyValuePair<WorkGridInspectionCellKey, WorkGridInspectionCellKind> cell in
                      _inspectionCellMasks.Entries)
             {
@@ -1089,9 +1122,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             return column.Column.workType == highlightedWorkType;
         }
 
-        /// <summary>
-        /// Phase 2: Draws the actual content of each row.
-        /// </summary>
         private static void DrawAllRowContent(
             PawnTable table,
             List<RowDescriptor> rowDescriptors,
@@ -1248,9 +1278,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
-        /// <summary>
-        /// Phase 3: Draws thin separator lines between rows.
-        /// </summary>
         private static void DrawRowSeparators(
             List<RowDescriptor> rowDescriptors,
             float viewWidth,
@@ -1406,48 +1433,73 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridIndexRange visibleColumns)
         {
             bool scheduleOpen = FluffyTimeScheduleAssigner.IsOpen;
-            WorkTypeDef expandedParentPriorityWorkType = null;
-            int expandedParentPriority = WorkPrioritySystem.DisabledPriority;
-            if (Event.current.type == EventType.Repaint &&
-                snapshotLayer is IPreparedWorkGridRowLayer preparedLayer &&
-                preparedLayer.TryGetPreparedRow(rowIndex, rowRect, out PreparedWorkRowPacket packet))
+            if (TryDrawPreparedPawnRow(
+                    table, pawn, rowRect, columns, rowIndex, snapshotLayer, scheduleOpen))
             {
-                for (int commandIndex = 0; commandIndex < packet.Commands.Length; commandIndex++)
-                {
-                    PreparedWorkRowCommand command = packet.Commands[commandIndex];
-                    if (command.Kind == PreparedWorkRowCommandKind.RetainedRun)
-                    {
-                        preparedLayer.DrawPreparedRun(packet, command.Index, rowRect.y);
-                        continue;
-                    }
-
-                    if (command.Kind == PreparedWorkRowCommandKind.PreparedPawnLabel &&
-                        preparedLayer.DrawPreparedPawnLabel(packet, rowRect.y))
-                    {
-                        continue;
-                    }
-
-                    int columnIndex = command.Index;
-                    if (columnIndex < 0 || columnIndex >= columns.Count)
-                    {
-                        continue;
-                    }
-                    WorkTabLayoutColumn column = columns[columnIndex];
-                    Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
-                        column,
-                        rowRect);
-                    DrawNativePawnCell(
-                        table,
-                        pawn,
-                        column,
-                        cellRect,
-                        scheduleOpen,
-                        ref expandedParentPriorityWorkType,
-                        ref expandedParentPriority);
-                }
                 return;
             }
 
+            DrawLegacyPawnRow(
+                table, pawn, rowRect, columns, rowIndex, snapshotLayer,
+                visibleColumns, scheduleOpen);
+        }
+
+        private static bool TryDrawPreparedPawnRow(
+            PawnTable table, Pawn pawn, Rect rowRect,
+            IReadOnlyList<WorkTabLayoutColumn> columns, int rowIndex,
+            IWorkGridSnapshotLayer snapshotLayer, bool scheduleOpen)
+        {
+            if (Event.current.type != EventType.Repaint ||
+                !(snapshotLayer is IPreparedWorkGridRowLayer preparedLayer) ||
+                !preparedLayer.TryGetPreparedRow(rowIndex, rowRect, out PreparedWorkRowPacket packet))
+            {
+                return false;
+            }
+
+            WorkTypeDef expandedParentPriorityWorkType = null;
+            int expandedParentPriority = WorkPrioritySystem.DisabledPriority;
+            for (int commandIndex = 0; commandIndex < packet.Commands.Length; commandIndex++)
+            {
+                PreparedWorkRowCommand command = packet.Commands[commandIndex];
+                if (command.Kind == PreparedWorkRowCommandKind.RetainedRun)
+                {
+                    preparedLayer.DrawPreparedRun(packet, command.Index, rowRect.y);
+                    continue;
+                }
+
+                if (command.Kind == PreparedWorkRowCommandKind.PreparedPawnLabel &&
+                    preparedLayer.DrawPreparedPawnLabel(packet, rowRect.y))
+                {
+                    continue;
+                }
+
+                int columnIndex = command.Index;
+                if (columnIndex < 0 || columnIndex >= columns.Count)
+                {
+                    continue;
+                }
+
+                WorkTabLayoutColumn column = columns[columnIndex];
+                Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
+                    column,
+                    rowRect);
+                DrawNativePawnCell(
+                    table, pawn, column, cellRect, scheduleOpen,
+                    ref expandedParentPriorityWorkType,
+                    ref expandedParentPriority);
+            }
+
+            return true;
+        }
+
+        private static void DrawLegacyPawnRow(
+            PawnTable table, Pawn pawn, Rect rowRect,
+            IReadOnlyList<WorkTabLayoutColumn> columns, int rowIndex,
+            IWorkGridSnapshotLayer snapshotLayer, WorkGridIndexRange visibleColumns,
+            bool scheduleOpen)
+        {
+            WorkTypeDef expandedParentPriorityWorkType = null;
+            int expandedParentPriority = WorkPrioritySystem.DisabledPriority;
             snapshotLayer?.BeginRow();
             try
             {
