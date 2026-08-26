@@ -26,7 +26,11 @@ using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Snapshots
 {
-    /// <summary>Builds and owns immutable presentation snapshots without retaining domain objects.</summary>
+    /// <summary>
+    /// Builds and owns snapshots whose collections and topology are immutable
+    /// after publication. Selected domain references remain live and are read
+    /// only by the explicitly delegated draw and interaction paths.
+    /// </summary>
     internal sealed class WorkGridSnapshotProvider
     {
         private static WorkGridSnapshotProvider _active;
@@ -49,6 +53,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private long _snapshotRevision;
         private long _topologyRevision;
         private int _pawnLabelSourceSignature;
+        private int _pawnLabelSignatureFrame = -1;
+        private PawnTable _pawnLabelSignatureTable;
+        private PawnColumnWorker_Label _pawnLabelSignatureWorker;
+        private int _pawnLabelFrameSignature;
         private PawnColumnWorker_Label _labelWorker;
         private int _labelWorkerLayoutRevision = int.MinValue;
         private WorkTabEffectiveStateRevision _effectiveStateRevision;
@@ -100,9 +108,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 _labelWorkerLayoutRevision == layout.LayoutRevision
                     ? _labelWorker
                     : FindExactLabelWorker(layout.Columns);
-            int pawnLabelSourceSignature = PreparedPawnLabelCapture.ComputeSourceSignature(
-                labelWorker,
-                table);
+            int pawnLabelSourceSignature = GetPawnLabelSourceSignature(labelWorker, table);
             unchecked
             {
                 pawnLabelSourceSignature = (pawnLabelSourceSignature * 397) ^
@@ -420,9 +426,37 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _effectiveStateRevision = default;
             _hasEffectiveStateRevision = false;
             _pawnLabelSourceSignature = 0;
+            _pawnLabelSignatureFrame = -1;
+            _pawnLabelSignatureTable = null;
+            _pawnLabelSignatureWorker = null;
+            _pawnLabelFrameSignature = 0;
             _labelWorker = null;
             _labelWorkerLayoutRevision = int.MinValue;
             WorkGridRendererDiagnostics.RecordSnapshotCleared();
+        }
+
+        private int GetPawnLabelSourceSignature(
+            PawnColumnWorker_Label worker,
+            PawnTable table)
+        {
+            int frame = Time.frameCount;
+            if (_pawnLabelSignatureFrame == frame &&
+                ReferenceEquals(_pawnLabelSignatureTable, table) &&
+                ReferenceEquals(_pawnLabelSignatureWorker, worker))
+            {
+                return _pawnLabelFrameSignature;
+            }
+
+            // Reuse the roster hash inside one Unity frame. Any same-frame label
+            // mutation becomes visible on the next frame, matching snapshot
+            // publication while avoiding a second full-roster scan.
+            _pawnLabelFrameSignature = PreparedPawnLabelCapture.ComputeSourceSignature(
+                worker,
+                table);
+            _pawnLabelSignatureFrame = frame;
+            _pawnLabelSignatureTable = table;
+            _pawnLabelSignatureWorker = worker;
+            return _pawnLabelFrameSignature;
         }
 
         private void Build(
