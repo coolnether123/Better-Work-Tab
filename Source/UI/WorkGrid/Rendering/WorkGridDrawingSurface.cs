@@ -47,7 +47,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         bool ShouldTraverseRows(Event currentEvent);
     }
 
-    public interface IWorkGridSnapshotLayer
+    internal interface IWorkGridSnapshotLayer
     {
         void BeginRow();
         void EndRow();
@@ -71,7 +71,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     /// <see cref="DrawBody"/>. This keeps the vanilla-header reorder path on
     /// the same optimized body route as angled headers.
     /// </remarks>
-    public interface IWorkGridDrawingSurface
+    internal interface IWorkGridDrawingSurface
     {
         /// <summary>Draws the BWT-owned header row, including vanilla-header routing.</summary>
         void DrawHeaders(in WorkTabView view);

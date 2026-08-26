@@ -61,6 +61,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(eligibility, "DividerCollapseAnimationState.HasActiveAnimations", "collapsing rows must use direct clipped rendering");
             TestAssert.Contains(eligibility, "DividerInsertionAnimationState.HasActiveAnimations", "inserted rows must use direct clipped rendering");
             TestAssert.Contains(eligibility, "SubWorkDrilldownState.IsTransitioning", "sub-work transitions must use direct clipped rendering");
+            TestAssert.Contains(eligibility, "!_hasMatchingLayoutRevision", "stale pass geometry must use direct clipped rendering");
+            TestAssert.Contains(eligibility, "!_liveReferenceTopologyValid", "incomplete live interaction topology must use direct clipped rendering");
             TestAssert.Contains(eligibility, "_delegateScheduleCells && WorkTabEffectiveStateRuntime.IsPreviewActive", "preview plus Fluffy schedule must use the reporting fallback");
             string hover = MemberBody(optimized, "private void ResolveHoverTargets(");
             TestAssert.Contains(hover, "_columnIndexByHoverKey.TryGetValue", "hover mapping must not rescan every visible column");
@@ -120,11 +122,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         private static void PacketBuilderConsumesPreparedStateOnly(string packet)
         {
             TestAssert.Contains(packet, "Snapshot.Cells[cellIndex]", "packets must consume immutable prepared cells");
-            TestAssert.Contains(packet, "cell.TryGetSubWorkPresentation", "sub-work packets must consume prepared child presentation");
+            TestAssert.Contains(packet, "WorkGridSubWorkVisualState presentation = cell.SubWork", "sub-work packets must consume prepared child scalars");
             TestAssert.Contains(packet, "PreparedWorkRowCommandKind.NativeColumn", "unsupported workers must remain sparse native commands");
             TestAssert.Contains(packet, "PreparedWorkRowCommandKind.RetainedRun", "prepared cells must be grouped into retained runs");
             TestAssert.Contains(packet, "PreparedColumnDisposition.Hidden", "hidden focus-view parents must remain distinct from native fallback");
-            TestAssert.Contains(packet, "WorkGridInteractionGeometry.GetAnimatedBodyContentRect", "packet geometry must use the same content-space calculation as direct drawing");
+            TestAssert.Contains(packet, "request.Geometry.Columns[columnIndex]", "packet geometry must come from the finished pass geometry");
             TestAssert.Contains(packet, "return delegateScheduleCells", "every sub-work cell must delegate while the live schedule owner is open");
             string complete = MemberBody(packet, "internal PreparedWorkRowPacket Complete(");
             TestAssert.Contains(
@@ -134,6 +136,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(packet.IndexOf("ParentPriorityRead", StringComparison.Ordinal) >= 0, "packet construction must not read live parent priorities");
             TestAssert.False(packet.IndexOf("AverageOfRelevantSkillsFor", StringComparison.Ordinal) >= 0, "packet construction must not read pawn skills");
             TestAssert.False(packet.IndexOf("WorkGiverCellPresentationCache.Resolve", StringComparison.Ordinal) >= 0, "packet construction must not resolve live sub-work presentation");
+            TestAssert.False(packet.IndexOf("SubWorkDrilldownState", StringComparison.Ordinal) >= 0, "packet construction must not query live transition state");
+            TestAssert.False(packet.IndexOf("Text.CalcSize", StringComparison.Ordinal) >= 0, "packet construction must not measure labels from ambient GUI state");
             TestAssert.False(packet.IndexOf("Workload", StringComparison.Ordinal) >= 0, "packet construction must not read workload domains");
         }
 

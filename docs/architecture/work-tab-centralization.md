@@ -187,12 +187,12 @@ A migration batch does not merge when it only adds contracts, forwarding classes
 
 The existing snapshot and geometry/context types feed one finished `WorkTabView`. The view is a small pass envelope around those existing values, not a second snapshot object graph.
 
-The BWT-owned ExpandBeside path reads its `CellPresentation` from the completed
-snapshot through `IWorkGridSubWorkPresentationLayer`. `WorkGridSnapshotProvider`
-prepares that value before drawing, and the adapter has one caller and one
-implementation. Native and Harmony paths keep their live renderer fallback when
-no completed optimized snapshot is available; remove the adapter when those
-paths receive the same finished view.
+`WorkGridSnapshotProvider` captures the scalar pixels and overlay flags for each
+BWT-owned parent or specific-job cell. The snapshot contains IDs and immutable
+presentation values. It does not contain `Pawn`, `WorkTypeDef`, `WorkGiver`, or
+cache-owned objects. `OptimizedWorkGridRenderer` gets live objects from the
+layout captured by `WorkTabView` only for interaction and native fallback. A
+topology mismatch returns control to the native renderer.
 
 For each IMGUI pass:
 
@@ -208,7 +208,7 @@ This preserves same-event local feedback without treating a multiplayer submissi
 
 The migration must not add per-cell allocations, repeated reflection, repeated authority or schedule resolution, full-grid rebuilds for sparse changes, or repeated workload fingerprints during one immediate-mode event. A precise parent-priority change publishes its `(pawn, WorkType)` identity and patches only that cell and any prepared sub-work presentation for the same identity. The compatibility audit reads each relevant priority once and hashes each pawn skill record once per audit pass.
 
-Retained parent and pawn sub-work rows are bounded resources, not a second state model. They render only completed snapshot data, release on resource invalidation or device loss, and fall back to direct clipped drawing during column-reorder animation. Final presentation remains inside the IMGUI scroll/group clip.
+Retained parent and pawn sub-work rows are bounded resources, not a second state model. They render only completed snapshot data, release on resource invalidation or device loss, and fall back to direct clipped drawing during column-reorder or specific-job transition animation. Final presentation remains inside the IMGUI scroll/group clip.
 
 The finished view is frame-stable. Drawing and hit testing consume the same geometry and effective state. Hover, drag, animation, and tutorial activity do not advance persistent state revisions.
 

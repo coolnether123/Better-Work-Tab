@@ -216,7 +216,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
         public EventType EventType { get; }
         public IWorkTabLayoutController Layout { get; }
         public PawnTable Table { get; }
-        public WorkGridSnapshot Snapshot { get; }
+        internal WorkGridSnapshot Snapshot { get; }
         public WorkGridGeometrySnapshot Geometry { get; }
         public IWorkTabEffectiveStateProvider EffectiveState { get; }
         public WorkTabEffectiveStateRevision EffectiveStateRevision { get; }

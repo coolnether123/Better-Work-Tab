@@ -27,6 +27,24 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(signature, "pawn.story?.Title", "title changes must invalidate prepared text");
             TestAssert.Contains(signature, "PawnColorDatabase.Version", "contrast changes must invalidate prepared text");
             TestAssert.False(signature.IndexOf("Widgets.ThingIcon", StringComparison.Ordinal) >= 0, "portraits must not enter snapshot capture");
+            TestAssert.False(capture.IndexOf("internal Pawn Pawn", StringComparison.Ordinal) >= 0,
+                "prepared label state must not retain a live pawn");
+            TestAssert.Contains(capture, "richText ?? throw new ArgumentNullException",
+                "the capture boundary must establish its non-null label invariant once");
+            TestAssert.False(packet.IndexOf("text ?? string.Empty", StringComparison.Ordinal) >= 0,
+                "downstream packet values must not hide a broken label capture invariant");
+            TestAssert.Contains(capture, "TruncateForPreparedCell", "label measurement must finish at snapshot capture");
+            TestAssert.Contains(capture, "previous.MatchesSource(",
+                "full snapshot rebuilds must reuse labels whose exact source and metric inputs are unchanged");
+            string captureMethod = MemberBody(capture, "internal static PreparedPawnLabelPresentation Capture(");
+            TestAssert.True(
+                captureMethod.IndexOf("previous.MatchesSource(", StringComparison.Ordinal) <
+                    captureMethod.IndexOf("TruncateForPreparedCell(", StringComparison.Ordinal),
+                "exact reuse must be decided before text measurement or truncation");
+            TestAssert.Contains(provider, "_reusablePawnLabels",
+                "label reuse must follow pawn identity across row movement and roster additions");
+            TestAssert.False(packet.IndexOf("Text.CalcSize", StringComparison.Ordinal) >= 0,
+                "row-packet compilation must not measure unchanged label text");
 
             TestAssert.Contains(provider, "_pawnLabelSourceSignature == pawnLabelSourceSignature", "unchanged snapshots need a label freshness guard");
             TestAssert.Contains(packet, "PreparedWorkRowCommandKind.PreparedPawnLabel", "stable labels must use the existing ordered row packet");

@@ -183,14 +183,13 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             WorkGiver workGiver,
             Pawn pawn,
             Rect boxRect,
-            WorkGiverCellPresentationCache.CellPresentation presentation)
+            bool hasGoldRing)
         {
-            if (workGiver?.def == null || pawn == null || presentation == null)
+            if (workGiver?.def == null || pawn == null)
             {
                 return;
             }
 
-            bool hasGoldRing = presentation.HasPawnOverride || presentation.HasScheduleIndicator;
             if (!hasGoldRing && MouseOverPriorityBox(boxRect))
             {
                 Widgets.DrawHighlight(boxRect);

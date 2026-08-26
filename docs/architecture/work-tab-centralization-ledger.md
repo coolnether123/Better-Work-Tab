@@ -40,7 +40,7 @@ The publisher consumes an explicit change receipt with before/after revision vec
 
 ## Finished view and input
 
-`WorkTabView` is the pass envelope for geometry, effective state, settings, and prepared snapshot data. Input and drawing use the same view. The optimized BWT path receives prepared specific-job `CellPresentation` values from its snapshot. No concrete workload type is part of the shared WorkGrid contracts, and the BWT-owned body renderer does not resolve live workload state while drawing. Native and Harmony fallback drawing retains one documented live edge until those call sites can receive a finished BWT view.
+`WorkTabView` is the pass envelope for geometry, effective state, settings, and prepared snapshot data. Input and drawing use the same view. The optimized BWT path receives immutable specific-job pixels and overlay flags from its snapshot. The snapshot contains no live RimWorld objects and no cache-owned presentation objects. The renderer uses a separate pass-captured layout lookup for hover, tooltips, selection, and native fallback. No concrete workload type is part of the shared WorkGrid contracts, and the BWT-owned body renderer does not resolve live workload state while drawing.
 
 Workload drafts use a shared bounded history implementation. `Ctrl+Z` and `Ctrl+Y` or `Ctrl+Shift+Z` undo and redo accepted draft edits. Canceling a dirty preview retains its projected state and both history stacks; the next `Ctrl+Z` restores the canceled workload with the unsaved changes. Restoration remains preview-only and does not mutate live game state.
 
