@@ -50,6 +50,24 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 in presentation);
         }
 
+        /// <summary>
+        /// Draws the same stable label pixels into a cache-local surface. The
+        /// cache owns eligibility, so hover, selection, sorting, and transition
+        /// visuals continue through the ordinary header path.
+        /// </summary>
+        internal void DrawRetainedStable(
+            AngledLabelDrawer.AngledLabelLayout layout,
+            Rect headerRect,
+            PawnColumnDef column,
+            in HeaderPresentationPacket presentation)
+        {
+            AngledLabelDrawer.DrawRetainedStable(
+                layout,
+                headerRect,
+                column,
+                in presentation);
+        }
+
         private static void DrawPreparedHeader(
             AngledLabelDrawer.AngledLabelLayout layout,
             bool isMouseOver,
