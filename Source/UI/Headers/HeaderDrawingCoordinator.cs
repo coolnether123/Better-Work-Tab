@@ -111,6 +111,8 @@ namespace Better_Work_Tab.UI.Headers
         private static HeaderPresentationPacket _presentationPacket;
         private static long _presentationPacketSettingsRevision = long.MinValue;
         private static int _presentationPacketVersion = int.MinValue;
+        private static readonly RetainedPriorityHeaderCache _retainedPriorityHeaders =
+            new RetainedPriorityHeaderCache();
 
         static HeaderDrawingCoordinator()
         {
@@ -217,6 +219,19 @@ namespace Better_Work_Tab.UI.Headers
         {
             if (renderer is IHeaderPresentationRenderer preparedRenderer)
             {
+                if (_retainedPriorityHeaders.TryDraw(
+                        preparedRenderer,
+                        layout,
+                        isMouseOver,
+                        isSorted,
+                        headerRect,
+                        column,
+                        showMarker,
+                        in presentation))
+                {
+                    return;
+                }
+
                 preparedRenderer.DrawHeader(
                     layout,
                     isMouseOver,
@@ -324,6 +339,7 @@ namespace Better_Work_Tab.UI.Headers
         /// </summary>
         internal static void PrepareFrame(WorkTabInvalidationVersion current)
         {
+            _retainedPriorityHeaders.PrepareFrame(current);
             bool headerTextChanged = current.HeaderText != _lastInvalidationVersions.HeaderText ||
                                      current.RenderResources != _lastInvalidationVersions.RenderResources;
             bool headerGeometryChanged = current.HeaderGeometry != _lastInvalidationVersions.HeaderGeometry ||
@@ -360,6 +376,7 @@ namespace Better_Work_Tab.UI.Headers
         {
             _vanillaSolver?.InvalidateSolution();
             AngledHeaderCache.ClearGeometryCache();
+            _retainedPriorityHeaders.Dispose();
         }
 
         /// <summary>
@@ -377,6 +394,16 @@ namespace Better_Work_Tab.UI.Headers
             _presentationPacketSettingsRevision = long.MinValue;
             _presentationPacketVersion = int.MinValue;
             AngledHeaderCache.ClearCache();
+            _retainedPriorityHeaders.Dispose();
+        }
+
+        /// <summary>
+        /// Releases GPU-backed header presentation when the Work window closes.
+        /// The next open rebuilds lazily through the same direct-render fallback.
+        /// </summary>
+        internal static void ReleaseRetainedResources()
+        {
+            _retainedPriorityHeaders.Dispose();
         }
 
         /// <summary>

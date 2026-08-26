@@ -25,13 +25,148 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string body = Read(
                 root,
                 "Source", "UI", "WorkGrid", "Rendering", "WorkTabBodyRenderer.cs");
+            string retainedHeaders = Read(
+                root,
+                "Source", "UI", "Headers", "RetainedPriorityHeaderCache.cs");
+            string retainedHeaderKey = Read(
+                root,
+                "Source", "UI", "Headers", "RetainedPriorityHeaderVisualKey.cs");
+            string headerCoordinator = Read(
+                root,
+                "Source", "UI", "Headers", "HeaderDrawingCoordinator.cs");
+            string angledLabels = Read(
+                root,
+                "Source", "UI", "Headers", "Angled", "AngledLabelDrawer.cs");
+            string window = Read(
+                root,
+                "Source", "UI", "MainTabWindow_BetterWork.cs");
 
             ParentRowsDoNotRecomposeDuringColumnAnimation(renderer);
             SnapshotOwnedEmptyBackgroundsDoNotFallBack(renderer, body);
             RetainedRowsKeepLogicalImGuiOrientation(retainedRows);
+            RetainedHeadersKeepDynamicAndForeignRenderingLive(
+                retainedHeaders,
+                retainedHeaderKey,
+                headerCoordinator,
+                angledLabels,
+                window);
             SparseParentChangesKeepSubWorkUpdatesLocal(snapshots);
             CompatibilityAuditUsesLinearSkillAndPriorityPasses(audit);
             RepresentativeOperationCountsAreReduced();
+        }
+
+        private static void RetainedHeadersKeepDynamicAndForeignRenderingLive(
+            string retainedHeaders,
+            string retainedHeaderKey,
+            string headerCoordinator,
+            string angledLabels,
+            string window)
+        {
+            TestAssert.Contains(
+                retainedHeaders,
+                "MaximumEntries = 64",
+                "retained headers need a hard surface-count bound");
+            TestAssert.Contains(
+                retainedHeaders,
+                "MaximumEstimatedSurfaceBytes = 32L * 1024L * 1024L",
+                "retained headers need a hard estimated-byte bound");
+            TestAssert.Contains(
+                retainedHeaders,
+                "if (!HasCapacity(requestedBytes, existing ? 0 : 1))",
+                "retained headers must prove bounded capacity before allocation");
+            TestAssert.Contains(
+                retainedHeaders,
+                "renderer.GetType() != typeof(AngledHeaderRenderer)",
+                "subclassed or foreign header renderers must retain the direct fallback");
+            TestAssert.Contains(
+                retainedHeaders,
+                "column.Worker?.GetType() != typeof(PawnColumnWorker_WorkPriority)",
+                "only the exact BWT-owned vanilla priority worker may retain pixels");
+            TestAssert.Contains(
+                retainedHeaders,
+                "FluffyWorkTabGateway.IsFluffyColumn(column)",
+                "Fluffy-owned headers must retain their direct path");
+            TestAssert.Contains(
+                retainedHeaders,
+                "SleekWorkTabGateway.BetterWorkTabHostsSleek",
+                "mixed Sleek header composition must retain its direct path");
+
+            string eligibility = MemberBody(retainedHeaders, "private static bool CanRetain(");
+            TestAssert.Contains(eligibility, "isMouseOver", "hover pixels must stay live");
+            TestAssert.Contains(eligibility, "isSorted", "sort indicators must stay live");
+            TestAssert.Contains(
+                eligibility,
+                "ColumnSelectionManager.IsSelected(column)",
+                "selection highlights must stay live");
+            TestAssert.Contains(
+                eligibility,
+                "ColumnReorderAnimationState.IsActive",
+                "column animation must use direct header rendering");
+            TestAssert.Contains(
+                eligibility,
+                "PawnOrganizerSystem.Instance.IsDraggingColumn",
+                "column dragging must use direct header rendering");
+            TestAssert.False(
+                eligibility.IndexOf("PawnOrganizerSystem.Instance == null", StringComparison.Ordinal) >= 0,
+                "the open Work window must trust its established organizer lifecycle invariant");
+            TestAssert.False(
+                eligibility.IndexOf("layout.Text == null", StringComparison.Ordinal) >= 0,
+                "prepared headers must keep their exact non-null label invariant");
+            TestAssert.Contains(
+                eligibility,
+                "SubWorkDrilldownState.HasAnyDrilldown",
+                "sub-work header presentation must use its established direct renderer");
+
+            TestAssert.Contains(
+                retainedHeaders,
+                "new Rect(0f, 0f, 1f, 1f)",
+                "cropped retained headers must preserve the proven top-left IMGUI orientation");
+            TestAssert.False(
+                retainedHeaders.IndexOf("1f - destination.yMax / logicalHeight", StringComparison.Ordinal) >= 0,
+                "retained headers must not apply a second platform UV inversion");
+            string retainedAngled = MemberBody(
+                angledLabels,
+                "internal static void DrawRetainedStable(");
+            TestAssert.Contains(
+                retainedAngled,
+                "useUnclippedPivot: false",
+                "cache-local angled composition must not unclip back into screen space");
+            TestAssert.Contains(
+                retainedHeaders,
+                "_failedRenderResourcesRevision == renderResourcesRevision",
+                "a failed retained header resource must not retry every repaint");
+            TestAssert.Contains(
+                retainedHeaders,
+                "UnityEngine.Object.Destroy(surface)",
+                "released retained header surfaces must destroy their Unity resources");
+            TestAssert.Contains(
+                retainedHeaderKey,
+                "private readonly Matrix4x4 _guiMatrix;",
+                "the exact cache key must include the GUI transform used for composition");
+            TestAssert.Contains(
+                retainedHeaderKey,
+                "private readonly long _settingsThemeLanguageScaleRevision;",
+                "the exact cache key must include the font/theme/language resource generation");
+            TestAssert.False(
+                retainedHeaderKey.IndexOf("activeLanguage?", StringComparison.Ordinal) >= 0,
+                "header composition must trust RimWorld's active-language UI invariant");
+
+            string draw = MemberBody(headerCoordinator, "internal static void DrawHeader(");
+            int retainedAttempt = draw.IndexOf("_retainedPriorityHeaders.TryDraw(", StringComparison.Ordinal);
+            int directDraw = draw.IndexOf("preparedRenderer.DrawHeader(", StringComparison.Ordinal);
+            TestAssert.True(
+                retainedAttempt >= 0 && directDraw > retainedAttempt,
+                "retained failure must flow into the existing prepared direct renderer");
+            string close = MemberBody(window, "private void ResetTransientWindowState()");
+            TestAssert.Contains(
+                close,
+                "HeaderDrawingCoordinator.ReleaseRetainedResources();",
+                "closing the Work tab must release retained header surfaces");
+            string resolution = MemberBody(window, "public override void Notify_ResolutionChanged()");
+            TestAssert.Contains(
+                resolution,
+                "HeaderDrawingCoordinator.ReleaseRetainedResources();",
+                "resolution changes must release retained header surfaces");
         }
 
         private static void SnapshotOwnedEmptyBackgroundsDoNotFallBack(

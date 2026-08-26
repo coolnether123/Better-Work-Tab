@@ -791,6 +791,7 @@ namespace Better_Work_Tab.UI
             _windowSizingController.InvalidateRequestedTabSizeCache();
             _optimizedWorkGridRenderer.ReleaseRetainedResources();
             _workTabChrome.ReleaseRetainedResources();
+            HeaderDrawingCoordinator.ReleaseRetainedResources();
             base.Notify_ResolutionChanged();
         }
 
@@ -910,6 +911,7 @@ namespace Better_Work_Tab.UI
             HeaderButtons.ResetOptionalFooterState();
             _optimizedWorkGridRenderer.ReleaseRetainedResources();
             _workTabChrome.ReleaseRetainedResources();
+            HeaderDrawingCoordinator.ReleaseRetainedResources();
             // Work-grid snapshots and audit state belong to the game session, not this window.
             // GameCacheResetUtility owns their load/new-game teardown boundary.
         }

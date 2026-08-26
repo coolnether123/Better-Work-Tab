@@ -179,6 +179,49 @@ namespace Better_Work_Tab.UI.Headers.Angled
             PawnColumnDef column,
             in HeaderPresentationPacket presentation)
         {
+            DrawCore(
+                layout,
+                isMouseOver,
+                isSorted,
+                sortDescending,
+                headerRect,
+                column,
+                useUnclippedPivot: true,
+                in presentation);
+        }
+
+        /// <summary>
+        /// Draws a root header whose coordinates have already been translated
+        /// into a cache-local surface. The normal path still owns every dynamic
+        /// visual and input decision.
+        /// </summary>
+        internal static void DrawRetainedStable(
+            AngledLabelLayout layout,
+            Rect headerRect,
+            PawnColumnDef column,
+            in HeaderPresentationPacket presentation)
+        {
+            DrawCore(
+                layout,
+                isMouseOver: false,
+                isSorted: false,
+                sortDescending: false,
+                headerRect,
+                column,
+                useUnclippedPivot: false,
+                in presentation);
+        }
+
+        private static void DrawCore(
+            AngledLabelLayout layout,
+            bool isMouseOver,
+            bool isSorted,
+            bool sortDescending,
+            Rect headerRect,
+            PawnColumnDef column,
+            bool useUnclippedPivot,
+            in HeaderPresentationPacket presentation)
+        {
             bool isCJKVertical = layout.IsCJKVertical;
             float rotation = isCJKVertical ? 0f : presentation.Rotation;
             Vector2 labelSize = layout.Size;
@@ -237,7 +280,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
             {
                 // Reset to identity matrix and unclip the pivot for screen-space rendering
                 GUI.matrix = Matrix4x4.identity;
-                Vector2 pivotPoint = GUIClipUtility.Unclip(drawRect.center);
+                Vector2 pivotPoint = useUnclippedPivot
+                    ? GUIClipUtility.Unclip(drawRect.center)
+                    : drawRect.center;
 
                 Vector2 scale = flipScale < 0.999f
                     ? subWorkOrderingAvailable && SubWorkDrilldownState.UsePixelWaveTransition
