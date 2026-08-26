@@ -11,6 +11,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Compatibility;
 using Better_Work_Tab.UI.WorkGrid.Diagnostics;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
@@ -30,7 +31,8 @@ using Verse;
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
     internal sealed class OptimizedWorkGridRenderer : IWorkGridRenderer, IWorkGridSnapshotLayer,
-        IWorkGridVisibleColumnRangeProvider, IPreparedWorkGridRowLayer, IDisposable
+        IWorkGridVisibleColumnRangeProvider, IPreparedWorkGridRowLayer,
+        IWorkGridRowEventTraversalPolicy, IDisposable
     {
         internal const string RendererId = "bwt.optimized-layered";
         private readonly IWorkGridDrawingSurface _drawingSurface;
@@ -273,6 +275,28 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             return rowIndex >= _visibleRows.Start && rowIndex < _visibleRows.EndExclusive &&
                    columnIndex >= _visibleColumns.Start && columnIndex < _visibleColumns.EndExclusive;
+        }
+
+        public bool ShouldTraverseRows(Event currentEvent)
+        {
+            bool viewportScroll = currentEvent.type == EventType.ScrollWheel ||
+                (currentEvent.type == EventType.Used &&
+                 currentEvent.rawType == EventType.ScrollWheel);
+            if (!viewportScroll)
+            {
+                return true;
+            }
+
+            // The window already routes BWT priority input directly to one cell,
+            // and BeginScrollView owns viewport movement. Skip the subsequent row
+            // walk only when topology inspection proved every remaining worker is
+            // wheel-passive and no live compatibility feature needs native DoCell.
+            return _delegateSleekPriorityCells ||
+                   _delegateScheduleCells ||
+                   _snapshot == null ||
+                   !WorkGridVanillaCompatibilityPolicy.CanSkipViewportScrollRowTraversal(
+                       _currentLayoutColumns,
+                       _snapshot);
         }
 
         public void Dispose()
