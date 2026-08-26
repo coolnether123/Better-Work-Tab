@@ -121,6 +121,21 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// <returns>True if the layout is valid and available.</returns>
         public static bool TryGetLayout(Rect rect, WorkTypeDef workType, float cos, float sin, float stemGap, float horizontalOffset, out CachedHeaderData cached, float drawWidthOverride = -1f)
         {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            return TryGetLayout(rect, workType, cos, sin, stemGap, horizontalOffset, in presentation, out cached, drawWidthOverride);
+        }
+
+        internal static bool TryGetLayout(
+            Rect rect,
+            WorkTypeDef workType,
+            float cos,
+            float sin,
+            float stemGap,
+            float horizontalOffset,
+            in HeaderPresentationPacket presentation,
+            out CachedHeaderData cached,
+            float drawWidthOverride = -1f)
+        {
             int currentSig = ComputeParamSignature(rect, cos, sin, stemGap, horizontalOffset, drawWidthOverride);
 
             if (workType != null && _cache.TryGetValue(workType, out var workTypeCache))
@@ -142,8 +157,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             // Calculation
-            bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(workType);
-            CachedTextMetrics textMetrics = GetHeaderTextMetrics(workType, isMoved);
+            bool isMoved = WorkColumnCustomizationService.ShouldShowColumnMarker(workType, presentation.ShowMovedMarker);
+            CachedTextMetrics textMetrics = GetHeaderTextMetrics(workType, isMoved, WorkGiverHeaderLabelStyle.Standard, in presentation);
             string label = textMetrics.Label;
             bool isCJKVertical = textMetrics.IsCJKVertical;
             Vector2 size = textMetrics.Size;
@@ -176,7 +191,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                         rect.height,
                         drawRect.width,
                         drawRect.height,
-                        AngledLabelDrawer.CurrentRotation);
+                        presentation.Rotation);
                 }
 
                 if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
@@ -220,35 +235,69 @@ namespace Better_Work_Tab.UI.Headers.Angled
             bool isMoved,
             WorkGiverHeaderLabelStyle labelStyle = WorkGiverHeaderLabelStyle.Standard)
         {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            return GetHeaderTextMetrics(workType, isMoved, labelStyle, in presentation);
+        }
+
+        internal static CachedTextMetrics GetHeaderTextMetrics(
+            WorkTypeDef workType,
+            bool isMoved,
+            WorkGiverHeaderLabelStyle labelStyle,
+            in HeaderPresentationPacket presentation)
+        {
+            HeaderPresentationPacket packet = presentation;
             return GetTextMetrics(
-                ComputeTextMetricsKey(workType, isMoved, labelStyle, parentOnly: false),
-                () => HeaderUtility.GetHeaderText(workType, isMoved, labelStyle));
+                ComputeTextMetricsKey(workType, isMoved, labelStyle, parentOnly: false, in presentation),
+                () => HeaderUtility.GetHeaderText(workType, isMoved, labelStyle, in packet),
+                presentation.UseVerticalStackingForCjk);
         }
 
         internal static CachedTextMetrics GetParentTextMetrics(WorkTypeDef workType, bool isMoved)
         {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            return GetParentTextMetrics(workType, isMoved, in presentation);
+        }
+
+        internal static CachedTextMetrics GetParentTextMetrics(
+            WorkTypeDef workType,
+            bool isMoved,
+            in HeaderPresentationPacket presentation)
+        {
+            HeaderPresentationPacket packet = presentation;
             return GetTextMetrics(
-                ComputeTextMetricsKey(workType, isMoved, WorkGiverHeaderLabelStyle.Standard, parentOnly: true),
-                () => HeaderUtility.GetParentHeaderText(workType, isMoved));
+                ComputeTextMetricsKey(workType, isMoved, WorkGiverHeaderLabelStyle.Standard, parentOnly: true, in presentation),
+                () => HeaderUtility.GetParentHeaderText(workType, isMoved, in packet),
+                presentation.UseVerticalStackingForCjk);
         }
 
         internal static CachedTextMetrics GetLabelTextMetrics(string label)
         {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            return GetLabelTextMetrics(label, in presentation);
+        }
+
+        internal static CachedTextMetrics GetLabelTextMetrics(
+            string label,
+            in HeaderPresentationPacket presentation)
+        {
             var key = new LabelTextMetricsKey(
                 label ?? string.Empty,
-                BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersUseVerticalStackingForCJK),
+                presentation.UseVerticalStackingForCjk,
                 Quantize(BetterWorkTabMod.Settings?.cjkVerticalKerning ?? 1f));
             if (LabelTextMetricsCache.TryGetValue(key, out CachedTextMetrics metrics))
             {
                 return metrics;
             }
 
-            metrics = MeasureTextMetrics(key.Label);
+            metrics = MeasureTextMetrics(key.Label, presentation.UseVerticalStackingForCjk);
             LabelTextMetricsCache[key] = metrics;
             return metrics;
         }
 
-        private static CachedTextMetrics GetTextMetrics(int key, System.Func<string> labelFactory)
+        private static CachedTextMetrics GetTextMetrics(
+            int key,
+            System.Func<string> labelFactory,
+            bool useVerticalStackingForCjk)
         {
             if (TextMetricsCache.TryGetValue(key, out CachedTextMetrics metrics))
             {
@@ -256,14 +305,14 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             string label = labelFactory();
-            metrics = MeasureTextMetrics(label);
+            metrics = MeasureTextMetrics(label, useVerticalStackingForCjk);
             TextMetricsCache[key] = metrics;
             return metrics;
         }
 
-        private static CachedTextMetrics MeasureTextMetrics(string label)
+        private static CachedTextMetrics MeasureTextMetrics(string label, bool useVerticalStackingForCjk)
         {
-            bool isCJKVertical = HeaderUtility.ShouldUseCJKVerticalLabel(label);
+            bool isCJKVertical = useVerticalStackingForCjk && HeaderUtility.IsCJK(label);
 
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;
@@ -330,6 +379,17 @@ namespace Better_Work_Tab.UI.Headers.Angled
             WorkGiverHeaderLabelStyle labelStyle,
             bool parentOnly)
         {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            return ComputeTextMetricsKey(workType, isMoved, labelStyle, parentOnly, in presentation);
+        }
+
+        private static int ComputeTextMetricsKey(
+            WorkTypeDef workType,
+            bool isMoved,
+            WorkGiverHeaderLabelStyle labelStyle,
+            bool parentOnly,
+            in HeaderPresentationPacket presentation)
+        {
             unchecked
             {
                 int hash = 17;
@@ -343,8 +403,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
                 hash = hash * 23 + (WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked ? 1 : 0);
                 hash = hash * 23 + CustomLabelStore.Version;
-                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator) ? 1 : 0);
-                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersUseVerticalStackingForCJK) ? 1 : 0);
+                hash = hash * 23 + (presentation.ShowMovedMarker ? 1 : 0);
+                hash = hash * 23 + (presentation.UseVerticalStackingForCjk ? 1 : 0);
                 hash = hash * 23 + Quantize(BetterWorkTabMod.Settings?.cjkVerticalKerning ?? 1f);
                 if (!parentOnly &&
                     !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&

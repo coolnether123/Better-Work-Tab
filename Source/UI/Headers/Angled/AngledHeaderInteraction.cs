@@ -32,6 +32,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
         public bool ShouldDraw;
         public Rect HeaderRect;
         public IHeaderRenderer Renderer;
+        public HeaderPresentationPacket Presentation;
         public bool IsVanillaStaggered;
     }
 
@@ -54,7 +55,16 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             if (ctx.ShouldDraw)
             {
-                ctx.Renderer.DrawHeader(ctx.Layout, ctx.IsMouseOver, isSorted, sortDescending, ctx.HeaderRect, ctx.Worker.def, ctx.Layout.ShowMarker);
+                HeaderDrawingCoordinator.DrawHeader(
+                    ctx.Renderer,
+                    ctx.Layout,
+                    ctx.IsMouseOver,
+                    isSorted,
+                    sortDescending,
+                    ctx.HeaderRect,
+                    ctx.Worker.def,
+                    ctx.Layout.ShowMarker,
+                    in ctx.Presentation);
             }
 
             // Early exit for interaction if not over the header or event is irrelevant
@@ -295,9 +305,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
         {
             string label = WorkGiverDisplayNameService.FullLabel(workGiverDef);
             bool isMoved = WorkGiverReassignmentManager.ShouldShowMovedWorkGiverMarker(workType, workGiverDef);
-            var settings = BetterWorkTabMod.Settings;
-            bool showMovedMarker = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator);
-            bool showMovedTint = BWTWorkTabEffectiveSettings.GetBool("columns.showMovedColorTint");
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            bool showMovedMarker = presentation.ShowMovedMarker;
+            bool showMovedTint = presentation.ShowMovedColorTint;
             if (isMoved && showMovedMarker && !label.EndsWith(HeaderUtility.MovedMarker))
             {
                 label += HeaderUtility.MovedMarker;
@@ -305,7 +315,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
 
             if (isMoved && showMovedTint)
             {
-                label = label.Colorize(HeaderUtility.Colors.MovedMarkerColor);
+                label = label.Colorize(presentation.MovedMarkerColor);
             }
 
             return label;

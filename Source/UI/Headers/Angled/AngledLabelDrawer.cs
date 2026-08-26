@@ -34,19 +34,17 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// <summary>
         /// Returns the current rotation angle from settings or default.
         /// </summary>
-        public static float CurrentRotation => BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersAngled)
-                ? BWTWorkTabEffectiveSettings.GetInt(SettingIDs.HeadersAngleRotation)
-                : DefaultRotationAngle;
+        public static float CurrentRotation => HeaderDrawingCoordinator.CapturePresentation().Rotation;
         
         /// <summary>
         /// Returns the cosine of the current rotation angle.
         /// </summary>
-        public static float CurrentRotCos => Mathf.Cos(CurrentRotation * Mathf.Deg2Rad);
+        public static float CurrentRotCos => HeaderDrawingCoordinator.CapturePresentation().RotationCos;
         
         /// <summary>
         /// Returns the sine of the current rotation angle.
         /// </summary>
-        public static float CurrentRotSin => Mathf.Sin(CurrentRotation * Mathf.Deg2Rad);
+        public static float CurrentRotSin => HeaderDrawingCoordinator.CapturePresentation().RotationSin;
 
         /// <summary>
         /// Returns the horizontal offset to use. At -90 degrees, the offset is forced to 0
@@ -56,13 +54,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
         {
             get
             {
-                float rotation = CurrentRotation;
-                // Force 0 offset at -90 degrees for perfect vertical stacking alignment.
-                if (Mathf.Abs(rotation + 90f) < 0.1f)
-                {
-                    return 0f;
-                }
-                return BWTWorkTabEffectiveSettings.GetInt("headers.horizontalOffset");
+                return HeaderDrawingCoordinator.CapturePresentation().EffectiveHorizontalOffset;
             }
         }
 
@@ -79,16 +71,17 @@ namespace Better_Work_Tab.UI.Headers.Angled
             var columns = table.Columns;
             if (columns == null) return 0f;
 
-            float rotation = CurrentRotation;
-            float absSin = Mathf.Abs(Mathf.Sin(rotation * Mathf.Deg2Rad));
-            float absCos = Mathf.Abs(Mathf.Cos(rotation * Mathf.Deg2Rad));
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            float rotation = presentation.Rotation;
+            float absSin = Mathf.Abs(presentation.RotationSin);
+            float absCos = Mathf.Abs(presentation.RotationCos);
 
             foreach (var col in columns)
             {
                 if (col.Worker is PawnColumnWorker_WorkPriority && col.workType != null)
                 {
                     // For height calculation, the moved indicator is incorporated to maintain layout stability.
-                    AngledHeaderCache.CachedTextMetrics metrics = AngledHeaderCache.GetHeaderTextMetrics(col.workType, true);
+                    AngledHeaderCache.CachedTextMetrics metrics = AngledHeaderCache.GetHeaderTextMetrics(col.workType, true, WorkGiverHeaderLabelStyle.Standard, in presentation);
 
                     float h;
                     if (metrics.IsCJKVertical)
@@ -184,10 +177,23 @@ namespace Better_Work_Tab.UI.Headers.Angled
         /// </summary>
         public static void Draw(AngledLabelLayout layout, bool isMouseOver, bool isSorted = false, bool sortDescending = false, Rect headerRect = default, PawnColumnDef column = null)
         {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            Draw(layout, isMouseOver, isSorted, sortDescending, headerRect, column, in presentation);
+        }
+
+        internal static void Draw(
+            AngledLabelLayout layout,
+            bool isMouseOver,
+            bool isSorted,
+            bool sortDescending,
+            Rect headerRect,
+            PawnColumnDef column,
+            in HeaderPresentationPacket presentation)
+        {
             bool isCJKVertical = layout.IsCJKVertical;
-            float rotation = isCJKVertical ? 0f : CurrentRotation;
+            float rotation = isCJKVertical ? 0f : presentation.Rotation;
             Vector2 labelSize = layout.Size;
-            float horizontalOffset = EffectiveHorizontalOffset;
+            float horizontalOffset = presentation.EffectiveHorizontalOffset;
 
             // Center horizontally, and either bottom-anchor (CJK) or center-anchor (Standard) vertically.
             Rect drawRect;
@@ -236,7 +242,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             float labelAlpha = Mathf.Clamp01(layout.Alpha);
-            DrawParentHeaderGhost(layout, headerRect, column, rotation, horizontalOffset, originalMatrix, parentAlpha * labelAlpha);
+            DrawParentHeaderGhost(layout, headerRect, column, rotation, horizontalOffset, originalMatrix, parentAlpha * labelAlpha, in presentation);
 
             try
             {
@@ -269,9 +275,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
 
                 // Text: Apply moved marker color only if color tint is enabled
-                GUI.color = (layout.ShowMarker && BWTWorkTabEffectiveSettings.GetBool("columns.showMovedColorTint"))
-                    ? HeaderUtility.Colors.MovedMarkerColor
-                    : BWTWorkTabEffectiveSettings.GetColor("headers.angledColor");
+                GUI.color = (layout.ShowMarker && presentation.ShowMovedColorTint)
+                    ? presentation.MovedMarkerColor
+                    : presentation.AngledColor;
                 float visibleAlpha = flipAlpha * labelAlpha;
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * visibleAlpha);
 
@@ -295,11 +301,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
 
                 // Underline: Traditionally vertical CJK text does not use work-tab-style underlines as they conflict with legibility.
-                if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DragdropRemoveHeaderUnderline) &&
+                if (!presentation.RemoveUnderline &&
                     !isCJKVertical)
                 {
                     float textWidth = Mathf.Min(layout.UnderlineWidth, drawRect.width);
-                    Color underlineColor = HeaderUtility.Colors.HeaderUnderlineColor;
+                    Color underlineColor = presentation.UnderlineColor;
                     underlineColor.a *= visibleAlpha;
                     DrawHorizontalUnderline(drawRect.xMin, drawRect.yMax, textWidth, underlineColor);
                 }
@@ -327,7 +333,8 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float currentRotation,
             float horizontalOffset,
             Matrix4x4 originalMatrix,
-            float alpha)
+            float alpha,
+            in HeaderPresentationPacket presentation)
         {
             if (alpha <= 0.001f ||
                 headerRect.width <= 0f ||
@@ -338,7 +345,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             AngledHeaderCache.CachedTextMetrics parentMetrics =
-                AngledHeaderCache.GetParentTextMetrics(column.workType, false);
+                AngledHeaderCache.GetParentTextMetrics(column.workType, false, in presentation);
             string parentText = parentMetrics.Label;
             if (parentText.NullOrEmpty() ||
                 parentText == HeaderUtility.RemoveMovedMarker(currentLayout.Text))
@@ -384,7 +391,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 GUI.matrix = GetTransformMatrix(originalMatrix, pivotPoint, rotation, Vector2.one);
 
                 Text.Anchor = isCJKVertical ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
-                GUI.color = BWTWorkTabEffectiveSettings.GetColor("headers.angledColor");
+                GUI.color = presentation.AngledColor;
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * alpha);
 
                 if (isCJKVertical)
@@ -403,11 +410,11 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     Widgets.Label(drawRect, parentText);
                 }
 
-                if (!BWTWorkTabEffectiveSettings.GetBool(SettingIDs.DragdropRemoveHeaderUnderline) &&
+                if (!presentation.RemoveUnderline &&
                     !isCJKVertical)
                 {
                     float underlineWidth = Mathf.Min(size.x, drawRect.width);
-                    Color underlineColor = HeaderUtility.Colors.HeaderUnderlineColor;
+                    Color underlineColor = presentation.UnderlineColor;
                     underlineColor.a *= alpha;
                     DrawHorizontalUnderline(drawRect.xMin, drawRect.yMax, underlineWidth, underlineColor);
                 }

@@ -56,7 +56,17 @@ namespace Better_Work_Tab.UI.Headers
             bool isMoved = false,
             WorkGiverHeaderLabelStyle subWorkLabelStyle = WorkGiverHeaderLabelStyle.Standard)
         {
-            int key = ComputeHeaderTextKey(workType, isMoved, subWorkLabelStyle, parentOnly: false);
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            return GetHeaderText(workType, isMoved, subWorkLabelStyle, in presentation);
+        }
+
+        internal static string GetHeaderText(
+            WorkTypeDef workType,
+            bool isMoved,
+            WorkGiverHeaderLabelStyle subWorkLabelStyle,
+            in HeaderPresentationPacket presentation)
+        {
+            int key = ComputeHeaderTextKey(workType, isMoved, subWorkLabelStyle, parentOnly: false, in presentation);
             if (HeaderTextCache.TryGetValue(key, out string cached))
             {
                 return cached;
@@ -76,7 +86,7 @@ namespace Better_Work_Tab.UI.Headers
                      drawingWorkGiver?.def != null)
             {
                 label = WorkGiverDisplayNameService.HeaderLabel(drawingWorkGiver.def, subWorkLabelStyle);
-                if (isMoved && BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator) &&
+                if (isMoved && presentation.ShowMovedMarker &&
                     !label.EndsWith(MovedMarker))
                 {
                     label += MovedMarker;
@@ -85,13 +95,13 @@ namespace Better_Work_Tab.UI.Headers
             }
             else if (!WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
                      SubWorkDrilldownState.IsActive &&
-                TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, out var subWorkText))
+                     TryGetSubWorkHeaderText(workType, isMoved, subWorkLabelStyle, in presentation, out var subWorkText))
             {
                 label = subWorkText;
             }
             else
             {
-                label = BuildParentHeaderText(workType, isMoved);
+                label = BuildParentHeaderText(workType, isMoved, in presentation);
             }
 
             HeaderTextCache[key] = label;
@@ -100,25 +110,37 @@ namespace Better_Work_Tab.UI.Headers
 
         public static string GetParentHeaderText(WorkTypeDef workType, bool isMoved = false)
         {
-            int key = ComputeHeaderTextKey(workType, isMoved, WorkGiverHeaderLabelStyle.Standard, parentOnly: true);
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            return GetParentHeaderText(workType, isMoved, in presentation);
+        }
+
+        internal static string GetParentHeaderText(
+            WorkTypeDef workType,
+            bool isMoved,
+            in HeaderPresentationPacket presentation)
+        {
+            int key = ComputeHeaderTextKey(workType, isMoved, WorkGiverHeaderLabelStyle.Standard, parentOnly: true, in presentation);
             if (HeaderTextCache.TryGetValue(key, out string cached))
             {
                 return cached;
             }
 
-            string label = BuildParentHeaderText(workType, isMoved);
+            string label = BuildParentHeaderText(workType, isMoved, in presentation);
             HeaderTextCache[key] = label;
             return label;
         }
 
-        private static string BuildParentHeaderText(WorkTypeDef workType, bool isMoved)
+        private static string BuildParentHeaderText(
+            WorkTypeDef workType,
+            bool isMoved,
+            in HeaderPresentationPacket presentation)
         {
             if (workType == null) return DefaultHeaderText;
 
             string label = WorkTypeDisplayNameService.HeaderLabel(workType);
 
             var settings = BetterWorkTabMod.Settings;
-            if (isMoved && BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator) &&
+            if (isMoved && presentation.ShowMovedMarker &&
                 !label.EndsWith(MovedMarker))
             {
                 label += MovedMarker;
@@ -133,6 +155,17 @@ namespace Better_Work_Tab.UI.Headers
             WorkGiverHeaderLabelStyle labelStyle,
             bool parentOnly)
         {
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
+            return ComputeHeaderTextKey(workType, isMoved, labelStyle, parentOnly, in presentation);
+        }
+
+        private static int ComputeHeaderTextKey(
+            WorkTypeDef workType,
+            bool isMoved,
+            WorkGiverHeaderLabelStyle labelStyle,
+            bool parentOnly,
+            in HeaderPresentationPacket presentation)
+        {
             unchecked
             {
                 int hash = 17;
@@ -146,7 +179,7 @@ namespace Better_Work_Tab.UI.Headers
                     hash = hash * 23 + SubWorkDrilldownState.CurrentDrawingHeaderSignature;
                 }
                 hash = hash * 23 + CustomLabelStore.Version;
-                hash = hash * 23 + (BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator) ? 1 : 0);
+                hash = hash * 23 + (presentation.ShowMovedMarker ? 1 : 0);
                 if (!parentOnly &&
                     !WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked &&
                     SubWorkDrilldownState.IsActive)
@@ -162,6 +195,7 @@ namespace Better_Work_Tab.UI.Headers
             WorkTypeDef workType,
             bool isMoved,
             WorkGiverHeaderLabelStyle labelStyle,
+            in HeaderPresentationPacket presentation,
             out string label)
         {
             label = string.Empty;
@@ -197,7 +231,7 @@ namespace Better_Work_Tab.UI.Headers
 
                 label = WorkGiverDisplayNameService.HeaderLabel(workGiver.def, labelStyle);
                 var settings = BetterWorkTabMod.Settings;
-                if (isMoved && BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator) &&
+                if (isMoved && presentation.ShowMovedMarker &&
                     !label.EndsWith(MovedMarker))
                 {
                     label += MovedMarker;
@@ -231,8 +265,7 @@ namespace Better_Work_Tab.UI.Headers
 
         public static bool ShouldUseCJKVerticalLabel(string text)
         {
-            return BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersUseVerticalStackingForCJK) &&
-                IsCJK(text);
+            return HeaderDrawingCoordinator.CapturePresentation().UseVerticalStackingForCjk && IsCJK(text);
         }
 
         /// <summary>
@@ -244,15 +277,16 @@ namespace Better_Work_Tab.UI.Headers
         public static bool IsAnyCJKVertical(PawnTable table)
         {
             var settings = BetterWorkTabMod.Settings;
+            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
             if (settings == null ||
-                !BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersUseVerticalStackingForCJK) ||
+                !presentation.UseVerticalStackingForCjk ||
                 table?.Columns == null)
                 return false;
 
             foreach (var col in table.Columns)
             {
-                string headerText = col.workType != null ? GetHeaderText(col.workType, false) : null;
-                if (!headerText.NullOrEmpty() && ShouldUseCJKVerticalLabel(headerText))
+                string headerText = col.workType != null ? GetHeaderText(col.workType, false, WorkGiverHeaderLabelStyle.Standard, in presentation) : null;
+                if (!headerText.NullOrEmpty() && IsCJK(headerText))
                     return true;
             }
 
@@ -290,7 +324,7 @@ namespace Better_Work_Tab.UI.Headers
             /// Color for the yellow marker indicating a moved column.
             /// Reads from settings to allow user customization.
             /// </summary>
-            public static Color MovedMarkerColor => BetterWorkTabMod.Settings?.movedMarkerColor ?? new Color(1f, 0.85f, 0.2f, 1f);
+            public static Color MovedMarkerColor => HeaderDrawingCoordinator.CapturePresentation().MovedMarkerColor;
 
             /// <summary>
             /// Color for the highlight box when a column is selected.
@@ -310,8 +344,7 @@ namespace Better_Work_Tab.UI.Headers
             /// <summary>
             /// User-configurable underline color for angled headers.
             /// </summary>
-            public static Color HeaderUnderlineColor =>
-                BWTWorkTabEffectiveSettings.GetColor(SettingIDs.HeadersUnderlineColor);
+            public static Color HeaderUnderlineColor => HeaderDrawingCoordinator.CapturePresentation().UnderlineColor;
 
             /// <summary>
             /// User-configurable stem color for vanilla-style headers. The default preserves RimWorld's grey.
@@ -320,14 +353,7 @@ namespace Better_Work_Tab.UI.Headers
             {
                 get
                 {
-                    var settings = BetterWorkTabMod.Settings;
-                    Color underlineColor = BWTWorkTabEffectiveSettings.GetColor(SettingIDs.HeadersUnderlineColor);
-                    if (Approximately(underlineColor, DefaultSettings.Color_HeaderUnderline))
-                    {
-                        return DefaultVanillaStemColor;
-                    }
-
-                    return underlineColor;
+                    return HeaderDrawingCoordinator.CapturePresentation().VanillaStemColor;
                 }
             }
 

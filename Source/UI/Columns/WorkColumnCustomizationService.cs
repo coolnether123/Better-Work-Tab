@@ -203,6 +203,13 @@ namespace Better_Work_Tab.UI.Columns
         /// </summary>
         internal static bool ShouldShowColumnMarker(WorkTypeDef workType)
         {
+            return ShouldShowColumnMarker(
+                workType,
+                BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator));
+        }
+
+        internal static bool ShouldShowColumnMarker(WorkTypeDef workType, bool showColumnMarker)
+        {
             if (workType?.defName == null)
                 return false;
 
@@ -210,7 +217,6 @@ namespace Better_Work_Tab.UI.Columns
             if (settings == null)
                 return false;
 
-            bool showColumnMarker = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator);
             if (!showColumnMarker)
                 return false;
 
