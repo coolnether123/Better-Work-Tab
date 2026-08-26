@@ -141,10 +141,22 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     renderColumns.Count,
                     snapshotLayer);
 
-                DrawOrderedPhases(
-                    table, rowDescriptors, columns, renderColumns, nameColumn,
-                    snapshotLayer, rowGeometry, visibleRows, visibleColumns, preview,
-                    layout, viewport, CalculateTotalColumnWidth(columns), layout.ContentHeight);
+                var pass = new WorkTabBodyDrawPass(
+                    table: table,
+                    rows: rowDescriptors,
+                    columns: columns,
+                    renderColumns: renderColumns,
+                    nameColumn: nameColumn,
+                    snapshotLayer: snapshotLayer,
+                    rowGeometry: rowGeometry,
+                    visibleRows: visibleRows,
+                    visibleColumns: visibleColumns,
+                    preview: preview,
+                    layout: layout,
+                    viewport: viewport,
+                    totalWidth: CalculateTotalColumnWidth(columns),
+                    totalHeight: layout.ContentHeight);
+                DrawOrderedPhases(in pass);
             }
             finally
             {
@@ -223,58 +235,110 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 : new WorkGridIndexRange(0, renderColumnCount);
         }
 
-        private void DrawOrderedPhases(
-            PawnTable table, List<RowDescriptor> rows,
-            IReadOnlyList<WorkTabLayoutColumn> columns,
-            IReadOnlyList<WorkTabLayoutColumn> renderColumns,
-            WorkTabLayoutColumn? nameColumn, IWorkGridSnapshotLayer snapshotLayer,
-            WorkGridGeometrySnapshot rowGeometry, WorkGridIndexRange visibleRows,
-            WorkGridIndexRange visibleColumns, IWorkGridPreviewPort preview,
-            IWorkTabLayoutController layout, WorkTabViewport viewport,
-            float totalWidth, float totalHeight)
+        private void DrawOrderedPhases(in WorkTabBodyDrawPass pass)
         {
             if (SpineTiming.Enabled)
             {
-                DrawTimedPhases(
-                    table, rows, columns, renderColumns, nameColumn, snapshotLayer, rowGeometry,
-                    visibleRows, visibleColumns, preview, layout, viewport, totalWidth, totalHeight);
+                DrawTimedPhases(pass);
                 return;
             }
 
-            DrawAllHighlights(rows, columns, totalWidth, totalHeight, rowGeometry, visibleRows);
+            DrawAllHighlights(
+                pass.Rows, pass.Columns, pass.TotalWidth, pass.TotalHeight,
+                pass.RowGeometry, pass.VisibleRows);
             DrawAllRowContent(
-                table, rows, renderColumns, viewport.ViewRect.width, nameColumn, snapshotLayer,
-                rowGeometry, visibleRows, visibleColumns);
-            DrawRowSeparators(rows, viewport.ViewRect.width, rowGeometry, visibleRows);
-            DrawPreviewMembershipIndicators(rows, totalWidth, rowGeometry, visibleRows, preview);
+                pass.Table, pass.Rows, pass.RenderColumns, pass.ViewWidth,
+                pass.NameColumn, pass.SnapshotLayer, pass.RowGeometry,
+                pass.VisibleRows, pass.VisibleColumns);
+            DrawRowSeparators(
+                pass.Rows, pass.ViewWidth, pass.RowGeometry, pass.VisibleRows);
+            DrawPreviewMembershipIndicators(
+                pass.Rows, pass.TotalWidth, pass.RowGeometry, pass.VisibleRows, pass.Preview);
             DrawPreviewInspectionHighlights(
-                rows, columns, totalWidth, rowGeometry, visibleRows, layout.LayoutRevision,
-                table.scrollPosition.x, viewport.OutRect.width, preview);
+                pass.Rows, pass.Columns, pass.TotalWidth, pass.RowGeometry, pass.VisibleRows,
+                pass.Layout.LayoutRevision, pass.Table.scrollPosition.x,
+                pass.ViewportWidth, pass.Preview);
         }
 
-        private void DrawTimedPhases(
-            PawnTable table, List<RowDescriptor> rows,
-            IReadOnlyList<WorkTabLayoutColumn> columns,
-            IReadOnlyList<WorkTabLayoutColumn> renderColumns,
-            WorkTabLayoutColumn? nameColumn, IWorkGridSnapshotLayer snapshotLayer,
-            WorkGridGeometrySnapshot rowGeometry, WorkGridIndexRange visibleRows,
-            WorkGridIndexRange visibleColumns, IWorkGridPreviewPort preview,
-            IWorkTabLayoutController layout, WorkTabViewport viewport,
-            float totalWidth, float totalHeight)
+        private void DrawTimedPhases(WorkTabBodyDrawPass pass)
         {
             SpineTiming.Time("WorkTab.Rows.DrawAllHighlights", () =>
-                DrawAllHighlights(rows, columns, totalWidth, totalHeight, rowGeometry, visibleRows));
+                DrawAllHighlights(
+                    pass.Rows, pass.Columns, pass.TotalWidth, pass.TotalHeight,
+                    pass.RowGeometry, pass.VisibleRows));
             SpineTiming.Time("WorkTab.Rows.DrawAllRowContent", () => DrawAllRowContent(
-                table, rows, renderColumns, viewport.ViewRect.width, nameColumn, snapshotLayer,
-                rowGeometry, visibleRows, visibleColumns));
+                pass.Table, pass.Rows, pass.RenderColumns, pass.ViewWidth,
+                pass.NameColumn, pass.SnapshotLayer, pass.RowGeometry,
+                pass.VisibleRows, pass.VisibleColumns));
             SpineTiming.Time("WorkTab.Rows.DrawRowSeparators", () =>
-                DrawRowSeparators(rows, viewport.ViewRect.width, rowGeometry, visibleRows));
+                DrawRowSeparators(
+                    pass.Rows, pass.ViewWidth,
+                    pass.RowGeometry, pass.VisibleRows));
             SpineTiming.Time("WorkTab.Rows.DrawPreviewMembership", () =>
-                DrawPreviewMembershipIndicators(rows, totalWidth, rowGeometry, visibleRows, preview));
+                DrawPreviewMembershipIndicators(
+                    pass.Rows, pass.TotalWidth, pass.RowGeometry,
+                    pass.VisibleRows, pass.Preview));
             SpineTiming.Time("WorkTab.Rows.DrawPreviewInspection", () =>
                 DrawPreviewInspectionHighlights(
-                    rows, columns, totalWidth, rowGeometry, visibleRows, layout.LayoutRevision,
-                    table.scrollPosition.x, viewport.OutRect.width, preview));
+                    pass.Rows, pass.Columns, pass.TotalWidth, pass.RowGeometry,
+                    pass.VisibleRows, pass.Layout.LayoutRevision,
+                    pass.Table.scrollPosition.x, pass.ViewportWidth, pass.Preview));
+        }
+
+        /// <summary>
+        /// Carries inputs for one body draw. Row geometry and visibility ranges
+        /// are captured together after applying the horizontal scroll drag.
+        /// </summary>
+        private readonly struct WorkTabBodyDrawPass
+        {
+            internal WorkTabBodyDrawPass(
+                PawnTable table,
+                List<RowDescriptor> rows,
+                IReadOnlyList<WorkTabLayoutColumn> columns,
+                IReadOnlyList<WorkTabLayoutColumn> renderColumns,
+                WorkTabLayoutColumn? nameColumn,
+                IWorkGridSnapshotLayer snapshotLayer,
+                WorkGridGeometrySnapshot rowGeometry,
+                WorkGridIndexRange visibleRows,
+                WorkGridIndexRange visibleColumns,
+                IWorkGridPreviewPort preview,
+                IWorkTabLayoutController layout,
+                WorkTabViewport viewport,
+                float totalWidth,
+                float totalHeight)
+            {
+                Table = table;
+                Rows = rows;
+                Columns = columns;
+                RenderColumns = renderColumns;
+                NameColumn = nameColumn;
+                SnapshotLayer = snapshotLayer;
+                RowGeometry = rowGeometry;
+                VisibleRows = visibleRows;
+                VisibleColumns = visibleColumns;
+                Preview = preview;
+                Layout = layout;
+                ViewWidth = viewport.ViewRect.width;
+                ViewportWidth = viewport.OutRect.width;
+                TotalWidth = totalWidth;
+                TotalHeight = totalHeight;
+            }
+
+            internal PawnTable Table { get; }
+            internal List<RowDescriptor> Rows { get; }
+            internal IReadOnlyList<WorkTabLayoutColumn> Columns { get; }
+            internal IReadOnlyList<WorkTabLayoutColumn> RenderColumns { get; }
+            internal WorkTabLayoutColumn? NameColumn { get; }
+            internal IWorkGridSnapshotLayer SnapshotLayer { get; }
+            internal WorkGridGeometrySnapshot RowGeometry { get; }
+            internal WorkGridIndexRange VisibleRows { get; }
+            internal WorkGridIndexRange VisibleColumns { get; }
+            internal IWorkGridPreviewPort Preview { get; }
+            internal IWorkTabLayoutController Layout { get; }
+            internal float ViewWidth { get; }
+            internal float ViewportWidth { get; }
+            internal float TotalWidth { get; }
+            internal float TotalHeight { get; }
         }
 
         private void DrawPreviewMembershipIndicators(
