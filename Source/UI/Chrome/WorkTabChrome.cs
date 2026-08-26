@@ -284,12 +284,10 @@ namespace Better_Work_Tab.UI.Chrome
 
             int pawnCount = showPawns ? table?.cachedPawns?.Count ?? 0 : 0;
 
-            // Use cached bed count instead of calculating every frame.
             int bedCount = 0;
             if (showBeds)
             {
                 Map map = Find.CurrentMap;
-                // Cached lookup: invalidated via Harmony patches and time-based expiry.
                 bedCount = BedCountCache.GetBedCount(map);
             }
 
@@ -302,21 +300,18 @@ namespace Better_Work_Tab.UI.Chrome
                 pawnCount,
                 bedCount);
 
-            // Draw colonist count in gray.
             if (showPawns)
             {
                 GUI.color = new Color(1f, 1f, 1f, 0.7f);
                 Widgets.Label(rect, _cachedColonistLabel);
             }
 
-            // Draw bed count in red if insufficient, otherwise gray.
             if (showBeds)
             {
                 string bedLabel = showPawns ? _cachedJoinedBedLabel : _cachedBedLabel;
                 float colonistWidth = showPawns ? _cachedColonistWidth : 0f;
                 Rect bedRect = new Rect(rect.x + colonistWidth, rect.y, rect.width - colonistWidth, rect.height);
 
-                // Red if fewer beds than pawns, gray otherwise.
                 if (bedCount < pawnCount)
                 {
                     GUI.color = new Color(0.8f, 0.1f, 0.1f);
