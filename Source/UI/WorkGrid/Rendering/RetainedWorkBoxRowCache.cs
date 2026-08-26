@@ -391,62 +391,111 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 pixelHeight,
                 renderResourcesRevision);
 
-            bool existing = _entries.TryGetValue(key, out Entry entry);
+            if (!TryAcquireSurface(
+                    key,
+                    pixelWidth,
+                    pixelHeight,
+                    requestedBytes,
+                    renderResourcesRevision,
+                    out Entry entry))
+            {
+                return false;
+            }
+
+            if (!TryRebuildSurfaceIfChanged(
+                    entry,
+                    fingerprint,
+                    bounds,
+                    cells,
+                    baseColor))
+            {
+                return false;
+            }
+
+            PresentSurface(entry.Surface, destination);
+            return true;
+        }
+
+        private bool TryAcquireSurface(
+            RowKey key,
+            int pixelWidth,
+            int pixelHeight,
+            long requestedBytes,
+            int renderResourcesRevision,
+            out Entry entry)
+        {
+            bool existing = _entries.TryGetValue(key, out entry);
             if (!existing)
             {
                 entry = new Entry();
             }
 
             entry.LastUsedSequence = ++_accessSequence;
-            if (entry.Surface == null ||
-                !entry.Surface.IsCreated() ||
-                entry.PixelWidth != pixelWidth ||
-                entry.PixelHeight != pixelHeight)
+            if (entry.Surface != null &&
+                entry.Surface.IsCreated() &&
+                entry.PixelWidth == pixelWidth &&
+                entry.PixelHeight == pixelHeight)
             {
-                ReleaseSurface(entry);
-                if (!EnsureCapacity(requestedBytes, existing ? 0 : 1, entry))
-                {
-                    return false;
-                }
-
-                entry.Surface = CreateSurface(pixelWidth, pixelHeight);
-                if (entry.Surface == null)
-                {
-                    _failedRenderResourcesRevision = renderResourcesRevision;
-                    return false;
-                }
-
-                entry.EstimatedBytes = requestedBytes;
-                _estimatedSurfaceBytes += requestedBytes;
-                entry.PixelWidth = pixelWidth;
-                entry.PixelHeight = pixelHeight;
-                entry.Fingerprint = 0UL;
-                if (!existing)
-                {
-                    _entries.Add(key, entry);
-                    existing = true;
-                }
+                return true;
             }
 
-            if (entry.Fingerprint != fingerprint || entry.Bounds != bounds)
+            ReleaseSurface(entry);
+            if (!EnsureCapacity(requestedBytes, existing ? 0 : 1, entry))
             {
-                if (!BuildSurface(entry.Surface, bounds, cells, baseColor))
-                {
-                    DisableAfterFailure("retained row composition failed");
-                    return false;
-                }
-                entry.Fingerprint = fingerprint;
-                entry.Bounds = bounds;
+                return false;
             }
 
+            entry.Surface = CreateSurface(pixelWidth, pixelHeight);
+            if (entry.Surface == null)
+            {
+                _failedRenderResourcesRevision = renderResourcesRevision;
+                return false;
+            }
+
+            entry.EstimatedBytes = requestedBytes;
+            _estimatedSurfaceBytes += requestedBytes;
+            entry.PixelWidth = pixelWidth;
+            entry.PixelHeight = pixelHeight;
+            entry.Fingerprint = 0UL;
+            if (!existing)
+            {
+                _entries.Add(key, entry);
+            }
+            return true;
+        }
+
+        private bool TryRebuildSurfaceIfChanged(
+            Entry entry,
+            ulong fingerprint,
+            Rect bounds,
+            IReadOnlyList<Cell> cells,
+            Color baseColor)
+        {
+            if (entry.Fingerprint == fingerprint && entry.Bounds == bounds)
+            {
+                return true;
+            }
+
+            if (!BuildSurface(entry.Surface, bounds, cells, baseColor))
+            {
+                DisableAfterFailure("retained row composition failed");
+                return false;
+            }
+
+            entry.Fingerprint = fingerprint;
+            entry.Bounds = bounds;
+            return true;
+        }
+
+        private static void PresentSurface(RenderTexture surface, Rect destination)
+        {
             // The surface was composed through a top-left pixel matrix, and
             // IMGUI presents it inside the owning scroll-view/group clip.
             GUI.DrawTextureWithTexCoords(
                 destination,
-                entry.Surface,
+                surface,
                 new Rect(0f, 0f, 1f, 1f),
                 true);
-            return true;
         }
 
         private bool IsResourceFailureLatched(int renderResourcesRevision)
