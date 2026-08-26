@@ -113,14 +113,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     internal sealed class PreparedWorkRowPacket
     {
         internal PreparedWorkRowPacket(
-            int rowIndex,
-            int pawnId,
-            uint preparedRevision,
-            long topologyRevision,
-            int geometryRevision,
-            WorkGridIndexRange visibleColumns,
-            float rowHeight,
-            int modeSignature,
+            in PreparedWorkRowBuildRequest request,
             PreparedWorkRowCommand[] commands,
             PreparedWorkRowRun[] runs,
             PreparedWorkRowCell[] slots,
@@ -128,14 +121,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int[] slotByColumn,
             int[] runByColumn)
         {
-            RowIndex = rowIndex;
-            PawnId = pawnId;
-            PreparedRevision = preparedRevision;
-            TopologyRevision = topologyRevision;
-            GeometryRevision = geometryRevision;
-            VisibleColumns = visibleColumns;
-            RowHeight = rowHeight;
-            ModeSignature = modeSignature;
+            RowIndex = request.RowIndex;
+            PawnId = request.Snapshot.Rows[request.RowIndex].PawnId;
+            PreparedRevision = request.Span.Revision;
+            TopologyRevision = request.Snapshot.TopologyRevision;
+            GeometryRevision = request.Snapshot.LayoutRevision;
+            VisibleColumns = request.VisibleColumns;
+            RowHeight = request.RowHeight;
+            ModeSignature = request.Mode.Signature;
             Commands = commands;
             Runs = runs;
             Slots = slots;
@@ -159,26 +152,89 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         internal int[] SlotByColumn { get; }
         internal int[] RunByColumn { get; }
 
-        internal bool Matches(
-            int rowIndex,
-            int pawnId,
-            uint preparedRevision,
-            long topologyRevision,
-            int geometryRevision,
-            WorkGridIndexRange visibleColumns,
-            float rowHeight,
-            int modeSignature)
+        internal bool Matches(in PreparedWorkRowBuildRequest request)
         {
-            return RowIndex == rowIndex &&
-                   PawnId == pawnId &&
-                   PreparedRevision == preparedRevision &&
-                   TopologyRevision == topologyRevision &&
-                   GeometryRevision == geometryRevision &&
-                   VisibleColumns.Start == visibleColumns.Start &&
-                   VisibleColumns.Count == visibleColumns.Count &&
-                   Mathf.Abs(RowHeight - rowHeight) < 0.001f &&
-                   ModeSignature == modeSignature;
+            return RowIndex == request.RowIndex &&
+                   PawnId == request.Snapshot.Rows[request.RowIndex].PawnId &&
+                   PreparedRevision == request.Span.Revision &&
+                   TopologyRevision == request.Snapshot.TopologyRevision &&
+                   GeometryRevision == request.Snapshot.LayoutRevision &&
+                   VisibleColumns.Start == request.VisibleColumns.Start &&
+                   VisibleColumns.Count == request.VisibleColumns.Count &&
+                   Mathf.Abs(RowHeight - request.RowHeight) < 0.001f &&
+                   ModeSignature == request.Mode.Signature;
         }
+    }
+
+    /// <summary>
+    /// Describes the presentation decisions that can change packet topology.
+    /// The mode owns its cache signature so packet matching cannot drift from
+    /// the decisions used during compilation.
+    /// </summary>
+    internal readonly struct PreparedWorkRowMode
+    {
+        internal PreparedWorkRowMode(
+            bool focusViewActive,
+            bool hideParentWork,
+            bool delegateShiftedSkillOverlay,
+            bool delegateScheduleCells)
+        {
+            FocusViewActive = focusViewActive;
+            HideParentWork = focusViewActive && hideParentWork;
+            DelegateShiftedSkillOverlay = delegateShiftedSkillOverlay;
+            DelegateScheduleCells = delegateScheduleCells;
+            Signature =
+                (delegateShiftedSkillOverlay ? 1 : 0) |
+                (delegateScheduleCells ? 2 : 0) |
+                (focusViewActive ? 4 : 0) |
+                (HideParentWork ? 8 : 0);
+        }
+
+        internal bool FocusViewActive { get; }
+        internal bool HideParentWork { get; }
+        internal bool DelegateShiftedSkillOverlay { get; }
+        internal bool DelegateScheduleCells { get; }
+        internal int Signature { get; }
+    }
+
+    /// <summary>
+    /// Carries one packet lookup or compilation. The snapshot, lookup, layout,
+    /// and row span must come from the same prepared pass; transitional modes
+    /// are rejected before this boundary.
+    /// </summary>
+    internal readonly struct PreparedWorkRowBuildRequest
+    {
+        internal PreparedWorkRowBuildRequest(
+            WorkGridSnapshot snapshot,
+            int[] cellLookup,
+            IReadOnlyList<WorkTabLayoutColumn> layoutColumns,
+            WorkGridIndexRange visibleColumns,
+            int rowIndex,
+            float rowHeight,
+            WorkGridPreparedRowSpan span,
+            PreparedWorkRowMode mode)
+        {
+            Snapshot = snapshot;
+            CellLookup = cellLookup;
+            LayoutColumns = layoutColumns;
+            VisibleColumns = visibleColumns;
+            RowIndex = rowIndex;
+            RowHeight = rowHeight;
+            Span = span;
+            Mode = mode;
+        }
+
+        internal WorkGridSnapshot Snapshot { get; }
+        internal int[] CellLookup { get; }
+        internal IReadOnlyList<WorkTabLayoutColumn> LayoutColumns { get; }
+        internal WorkGridIndexRange VisibleColumns { get; }
+        internal int RowIndex { get; }
+        internal float RowHeight { get; }
+        internal WorkGridPreparedRowSpan Span { get; }
+        internal PreparedWorkRowMode Mode { get; }
+        internal int ColumnCount => Snapshot.Columns.Count;
+        internal bool HasMatchingColumnTopology =>
+            LayoutColumns.Count == Snapshot.Columns.Count;
     }
 
     /// <summary>
@@ -190,53 +246,31 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     internal static class PreparedWorkRowPacketBuilder
     {
         internal static PreparedWorkRowPacket Build(
-            WorkGridSnapshot snapshot,
-            int[] cellLookup,
-            IReadOnlyList<WorkTabLayoutColumn> layoutColumns,
-            WorkGridIndexRange visibleColumns,
-            int rowIndex,
-            float rowHeight,
-            WorkGridPreparedRowSpan span,
-            int modeSignature,
-            bool focusViewActive,
-            float parentAlpha,
-            bool delegateShiftedSkillOverlay,
-            bool delegateScheduleCells)
+            in PreparedWorkRowBuildRequest request)
         {
-            var context = new BuildContext(
-                snapshot,
-                cellLookup,
-                layoutColumns,
-                visibleColumns,
-                rowIndex,
-                rowHeight,
-                span,
-                modeSignature,
-                focusViewActive,
-                parentAlpha,
-                delegateShiftedSkillOverlay,
-                delegateScheduleCells);
-            if (!context.HasMatchingColumnTopology)
+            if (!request.HasMatchingColumnTopology)
             {
                 return null;
             }
 
             var assembly = new RowPacketAssembly(
-                context.ColumnCount,
-                visibleColumns.Count);
-            int visibleEnd = Math.Min(context.ColumnCount, visibleColumns.EndExclusive);
-            for (int columnIndex = Math.Max(0, visibleColumns.Start);
+                request.ColumnCount,
+                request.VisibleColumns.Count);
+            int visibleEnd = Math.Min(
+                request.ColumnCount,
+                request.VisibleColumns.EndExclusive);
+            for (int columnIndex = Math.Max(0, request.VisibleColumns.Start);
                  columnIndex < visibleEnd;
                  columnIndex++)
             {
                 if (!assembly.HasPawnLabel &&
-                    TryPreparePawnLabel(in context, columnIndex, out PreparedPawnLabelCell pawnLabel))
+                    TryPreparePawnLabel(in request, columnIndex, out PreparedPawnLabelCell pawnLabel))
                 {
                     assembly.AppendPawnLabel(pawnLabel);
                     continue;
                 }
 
-                PreparedColumn prepared = PrepareColumn(in context, columnIndex);
+                PreparedColumn prepared = PrepareColumn(in request, columnIndex);
                 switch (prepared.Disposition)
                 {
                     case PreparedColumnDisposition.Retained:
@@ -251,24 +285,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
             }
 
-            return assembly.Complete(in context);
+            return assembly.Complete(in request);
         }
 
         private static bool TryPreparePawnLabel(
-            in BuildContext context,
+            in PreparedWorkRowBuildRequest request,
             int columnIndex,
             out PreparedPawnLabelCell pawnLabel)
         {
             pawnLabel = null;
-            if (context.Snapshot.Columns[columnIndex].WorkerKind !=
+            if (request.Snapshot.Columns[columnIndex].WorkerKind !=
                     WorkGridColumnWorkerKind.PawnLabel ||
-                context.RowIndex >= context.Snapshot.PawnLabels.Count)
+                request.RowIndex >= request.Snapshot.PawnLabels.Count)
             {
                 return false;
             }
 
             PreparedPawnLabelPresentation presentation =
-                context.Snapshot.PawnLabels[context.RowIndex];
+                request.Snapshot.PawnLabels[request.RowIndex];
             if (!presentation.IsPrepared)
             {
                 return false;
@@ -276,65 +310,65 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             pawnLabel = BuildPawnLabel(
                 presentation,
-                context.LayoutColumns[columnIndex],
+                request.LayoutColumns[columnIndex],
                 columnIndex,
-                context.RowHeight);
+                request.RowHeight);
             return true;
         }
 
         private static PreparedColumn PrepareColumn(
-            in BuildContext context,
+            in PreparedWorkRowBuildRequest request,
             int columnIndex)
         {
-            WorkGridColumnEntry column = context.Snapshot.Columns[columnIndex];
+            WorkGridColumnEntry column = request.Snapshot.Columns[columnIndex];
             bool subWorkCell = column.WorkerKind ==
                 WorkGridColumnWorkerKind.SubWorkPriority;
             bool preparedKind = column.WorkerKind ==
                     WorkGridColumnWorkerKind.WorkPriority ||
                 subWorkCell;
             if (!preparedKind ||
-                !TryGetPreparedCell(in context, columnIndex, out WorkCellVisualState cell) ||
+                !TryGetPreparedCell(in request, columnIndex, out WorkCellVisualState cell) ||
                 MustDelegatePreparedCell(
                     subWorkCell,
-                    context.FocusViewActive,
-                    context.DelegateShiftedSkillOverlay,
-                    context.DelegateScheduleCells))
+                    request.Mode.FocusViewActive,
+                    request.Mode.DelegateShiftedSkillOverlay,
+                    request.Mode.DelegateScheduleCells))
             {
                 return PreparedColumn.Native;
             }
 
             if (!subWorkCell &&
-                context.FocusViewActive &&
-                context.ParentAlpha <= 0.001f)
+                request.Mode.FocusViewActive &&
+                request.Mode.HideParentWork)
             {
                 return PreparedColumn.Hidden;
             }
 
             Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
-                context.LayoutColumns[columnIndex],
-                new Rect(0f, 0f, 0f, context.RowHeight));
+                request.LayoutColumns[columnIndex],
+                new Rect(0f, 0f, 0f, request.RowHeight));
             return subWorkCell
                 ? PrepareSubWorkColumn(column, cell, columnIndex, cellRect)
                 : PrepareParentColumn(cell, columnIndex, cellRect);
         }
 
         private static bool TryGetPreparedCell(
-            in BuildContext context,
+            in PreparedWorkRowBuildRequest request,
             int columnIndex,
             out WorkCellVisualState cell)
         {
-            int lookupIndex = (context.RowIndex * context.ColumnCount) + columnIndex;
-            int cellIndex = lookupIndex >= 0 && lookupIndex < context.CellLookup.Length
-                ? context.CellLookup[lookupIndex]
+            int lookupIndex = (request.RowIndex * request.ColumnCount) + columnIndex;
+            int cellIndex = lookupIndex >= 0 && lookupIndex < request.CellLookup.Length
+                ? request.CellLookup[lookupIndex]
                 : -1;
-            if (cellIndex < context.Span.FirstCellIndex ||
-                cellIndex >= context.Span.FirstCellIndex + context.Span.CellCount)
+            if (cellIndex < request.Span.FirstCellIndex ||
+                cellIndex >= request.Span.FirstCellIndex + request.Span.CellCount)
             {
                 cell = default;
                 return false;
             }
 
-            cell = context.Snapshot.Cells[cellIndex];
+            cell = request.Snapshot.Cells[cellIndex];
             return true;
         }
 
@@ -544,53 +578,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             internal bool SubWork { get; }
         }
 
-        private readonly struct BuildContext
-        {
-            internal BuildContext(
-                WorkGridSnapshot snapshot,
-                int[] cellLookup,
-                IReadOnlyList<WorkTabLayoutColumn> layoutColumns,
-                WorkGridIndexRange visibleColumns,
-                int rowIndex,
-                float rowHeight,
-                WorkGridPreparedRowSpan span,
-                int modeSignature,
-                bool focusViewActive,
-                float parentAlpha,
-                bool delegateShiftedSkillOverlay,
-                bool delegateScheduleCells)
-            {
-                Snapshot = snapshot;
-                CellLookup = cellLookup;
-                LayoutColumns = layoutColumns;
-                VisibleColumns = visibleColumns;
-                RowIndex = rowIndex;
-                RowHeight = rowHeight;
-                Span = span;
-                ModeSignature = modeSignature;
-                FocusViewActive = focusViewActive;
-                ParentAlpha = parentAlpha;
-                DelegateShiftedSkillOverlay = delegateShiftedSkillOverlay;
-                DelegateScheduleCells = delegateScheduleCells;
-            }
-
-            internal WorkGridSnapshot Snapshot { get; }
-            internal int[] CellLookup { get; }
-            internal IReadOnlyList<WorkTabLayoutColumn> LayoutColumns { get; }
-            internal WorkGridIndexRange VisibleColumns { get; }
-            internal int RowIndex { get; }
-            internal float RowHeight { get; }
-            internal WorkGridPreparedRowSpan Span { get; }
-            internal int ModeSignature { get; }
-            internal bool FocusViewActive { get; }
-            internal float ParentAlpha { get; }
-            internal bool DelegateShiftedSkillOverlay { get; }
-            internal bool DelegateScheduleCells { get; }
-            internal int ColumnCount => Snapshot.Columns.Count;
-            internal bool HasMatchingColumnTopology =>
-                LayoutColumns.Count == Snapshot.Columns.Count;
-        }
-
         /// <summary>
         /// Groups consecutive retained cells into one presentation command and
         /// builds reverse lookups for live input and sparse overlays. Its arrays
@@ -683,7 +670,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 _subWorkSlotIndexes.Clear();
             }
 
-            internal PreparedWorkRowPacket Complete(in BuildContext context)
+            internal PreparedWorkRowPacket Complete(
+                in PreparedWorkRowBuildRequest request)
             {
                 EndRetainedRun();
                 if (_runs.Count == 0 && _pawnLabel == null)
@@ -698,7 +686,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 PreparedWorkRowCell[] preparedSlots = _slots.ToArray();
                 if (!HasValidCommandTopology(
                         preparedCommands,
-                        context.ColumnCount,
+                        request.ColumnCount,
                         preparedRuns.Length,
                         _pawnLabel != null))
                 {
@@ -706,18 +694,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
 
                 int[] runByColumn = CreateRunLookup(
-                    context.ColumnCount,
+                    request.ColumnCount,
                     preparedRuns,
                     preparedSlots);
                 return new PreparedWorkRowPacket(
-                    context.RowIndex,
-                    context.Snapshot.Rows[context.RowIndex].PawnId,
-                    context.Span.Revision,
-                    context.Snapshot.TopologyRevision,
-                    context.Snapshot.LayoutRevision,
-                    context.VisibleColumns,
-                    context.RowHeight,
-                    context.ModeSignature,
+                    in request,
                     preparedCommands,
                     preparedRuns,
                     preparedSlots,

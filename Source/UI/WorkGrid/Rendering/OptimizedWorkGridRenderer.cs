@@ -333,33 +333,28 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return false;
             }
 
-            int modeSignature = (_delegateShiftedSkillOverlay ? 1 : 0) |
-                (_delegateScheduleCells ? 2 : 0) |
-                (focusViewActive ? 4 : 0) |
-                (parentAlpha <= 0.001f ? 8 : 0);
-            int geometryRevision = _snapshot.LayoutRevision;
+            var mode = new PreparedWorkRowMode(
+                focusViewActive: focusViewActive,
+                hideParentWork: parentAlpha <= 0.001f,
+                delegateShiftedSkillOverlay: _delegateShiftedSkillOverlay,
+                delegateScheduleCells: _delegateScheduleCells);
+            var request = new PreparedWorkRowBuildRequest(
+                snapshot: _snapshot,
+                cellLookup: _cellLookup,
+                layoutColumns: _currentLayoutColumns,
+                visibleColumns: _visibleColumns,
+                rowIndex: rowIndex,
+                rowHeight: rowRect.height,
+                span: span,
+                mode: mode);
             PreparedWorkRowPacket current = _preparedRowPackets[rowIndex];
-            if (current != null && current.Matches(
-                    rowIndex,
-                    row.PawnId,
-                    span.Revision,
-                    _snapshot.TopologyRevision,
-                    geometryRevision,
-                    _visibleColumns,
-                    rowRect.height,
-                    modeSignature))
+            if (current != null && current.Matches(in request))
             {
                 packet = current;
                 return true;
             }
 
-            packet = BuildPreparedRowPacket(
-                rowIndex,
-                rowRect.height,
-                span,
-                modeSignature,
-                focusViewActive,
-                parentAlpha);
+            packet = PreparedWorkRowPacketBuilder.Build(in request);
             _preparedRowPackets[rowIndex] = packet;
             return packet != null;
         }
@@ -541,29 +536,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     pending.BoxRect,
                     pending.Presentation);
             }
-        }
-
-        private PreparedWorkRowPacket BuildPreparedRowPacket(
-            int rowIndex,
-            float rowHeight,
-            WorkGridPreparedRowSpan span,
-            int modeSignature,
-            bool focusViewActive,
-            float parentAlpha)
-        {
-            return PreparedWorkRowPacketBuilder.Build(
-                _snapshot,
-                _cellLookup,
-                _currentLayoutColumns,
-                _visibleColumns,
-                rowIndex,
-                rowHeight,
-                span,
-                modeSignature,
-                focusViewActive,
-                parentAlpha,
-                _delegateShiftedSkillOverlay,
-                _delegateScheduleCells);
         }
 
         private void DrawPreparedRunDirect(
