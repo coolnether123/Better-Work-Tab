@@ -16,10 +16,11 @@ using Better_Work_Tab.UI.Headers.Angled;
 namespace Better_Work_Tab.UI.Headers
 {
     /// <summary>
-    /// Stable presentation inputs captured at the header-pass boundary.
-    /// Geometry, input, animation state, and cache-miss text resolution remain live.
+    /// Prepared header inputs cached across Unity main-thread frames by the
+    /// neutral presentation revision and header invalidation generation.
+    /// Geometry, input, animation, and cache-miss text resolution remain live.
     /// </summary>
-    public readonly struct HeaderPresentationPacket
+    internal readonly struct HeaderPresentationPacket
     {
         internal HeaderPresentationPacket(
             bool angledHeadersEnabled,
@@ -160,9 +161,9 @@ namespace Better_Work_Tab.UI.Headers
         }
 
         /// <summary>
-        /// Captures stable header presentation values once per neutral settings
-        /// revision and header invalidation generation. The packet contains no
-        /// retained surface or input state.
+        /// Captures the pass packet. Rotation, offset, CJK mode, colors, and
+        /// renderer choice are prepared inputs; legacy entry points use this
+        /// same cache for compatibility. No surface or input state is retained.
         /// </summary>
         internal static HeaderPresentationPacket CapturePresentation()
         {
@@ -188,24 +189,19 @@ namespace Better_Work_Tab.UI.Headers
                 rotation,
                 Mathf.Cos(rotationRadians),
                 Mathf.Sin(rotationRadians),
-                GetEffectiveHorizontalOffset(rotation),
+                Mathf.Abs(rotation + 90f) < 0.1f
+                    ? 0f
+                    : BWTWorkTabEffectiveSettings.GetInt("headers.horizontalOffset"),
                 BWTWorkTabEffectiveSettings.GetBool(SettingIDs.ColumnsShowMovedIndicator),
                 BWTWorkTabEffectiveSettings.GetBool("columns.showMovedColorTint"),
                 removeUnderline,
                 BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HeadersUseVerticalStackingForCJK),
                 BWTWorkTabEffectiveSettings.GetColor("headers.angledColor"),
                 BWTWorkTabEffectiveSettings.GetColor(SettingIDs.HeadersUnderlineColor),
-                BetterWorkTabMod.Settings?.movedMarkerColor ?? DefaultSettings.Color_MovedMarkerColor);
+                BWTWorkTabEffectiveSettings.GetColor("columns.movedMarkerColor"));
             _presentationPacketSettingsRevision = settingsRevision;
             _presentationPacketVersion = presentationVersion;
             return _presentationPacket;
-        }
-
-        private static float GetEffectiveHorizontalOffset(float rotation)
-        {
-            return Mathf.Abs(rotation + 90f) < 0.1f
-                ? 0f
-                : BWTWorkTabEffectiveSettings.GetInt("headers.horizontalOffset");
         }
 
         internal static void DrawHeader(

@@ -32,23 +32,23 @@ namespace Better_Work_Tab.UI.Headers.Angled
         public const float STEM_BOTTOM_GAP = 2f;
 
         /// <summary>
-        /// Returns the current rotation angle from settings or default.
+        /// Returns the prepared rotation angle; the packet is cached across frames.
         /// </summary>
         public static float CurrentRotation => HeaderDrawingCoordinator.CapturePresentation().Rotation;
         
         /// <summary>
-        /// Returns the cosine of the current rotation angle.
+        /// Returns the prepared rotation cosine.
         /// </summary>
         public static float CurrentRotCos => HeaderDrawingCoordinator.CapturePresentation().RotationCos;
         
         /// <summary>
-        /// Returns the sine of the current rotation angle.
+        /// Returns the prepared rotation sine.
         /// </summary>
         public static float CurrentRotSin => HeaderDrawingCoordinator.CapturePresentation().RotationSin;
 
         /// <summary>
-        /// Returns the horizontal offset to use. At -90 degrees, the offset is forced to 0
-        /// for perfect centering, but the original setting is preserved when switching back.
+        /// Returns the prepared horizontal offset. At -90 degrees it is forced
+        /// to zero for vertical stacking; the setting is preserved for restore.
         /// </summary>
         public static float EffectiveHorizontalOffset
         {

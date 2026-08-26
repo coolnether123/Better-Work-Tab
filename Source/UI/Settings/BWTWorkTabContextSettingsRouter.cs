@@ -2592,7 +2592,11 @@ namespace Better_Work_Tab.UI.Settings
                 string.Equals(settingId, HeadersAngleRotation, StringComparison.Ordinal) ||
                 string.Equals(settingId, "headers.horizontalOffset", StringComparison.Ordinal) ||
                 string.Equals(settingId, "headers.angledColor", StringComparison.Ordinal) ||
-                string.Equals(settingId, HeadersUnderlineColor, StringComparison.Ordinal);
+                string.Equals(settingId, HeadersUnderlineColor, StringComparison.Ordinal) ||
+                string.Equals(settingId, ColumnsShowMovedIndicator, StringComparison.Ordinal) ||
+                string.Equals(settingId, "columns.showMovedColorTint", StringComparison.Ordinal) ||
+                string.Equals(settingId, HeadersUseVerticalStackingForCJK, StringComparison.Ordinal) ||
+                string.Equals(settingId, "columns.movedMarkerColor", StringComparison.Ordinal);
         }
 
         private static bool IncludesHeaderSetting(IEnumerable<string> settingIds)

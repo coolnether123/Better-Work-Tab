@@ -139,7 +139,6 @@ namespace Better_Work_Tab.UI.Headers
 
             string label = WorkTypeDisplayNameService.HeaderLabel(workType);
 
-            var settings = BetterWorkTabMod.Settings;
             if (isMoved && presentation.ShowMovedMarker &&
                 !label.EndsWith(MovedMarker))
             {
@@ -147,16 +146,6 @@ namespace Better_Work_Tab.UI.Headers
             }
 
             return label;
-        }
-
-        private static int ComputeHeaderTextKey(
-            WorkTypeDef workType,
-            bool isMoved,
-            WorkGiverHeaderLabelStyle labelStyle,
-            bool parentOnly)
-        {
-            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
-            return ComputeHeaderTextKey(workType, isMoved, labelStyle, parentOnly, in presentation);
         }
 
         private static int ComputeHeaderTextKey(
@@ -230,7 +219,6 @@ namespace Better_Work_Tab.UI.Headers
                 }
 
                 label = WorkGiverDisplayNameService.HeaderLabel(workGiver.def, labelStyle);
-                var settings = BetterWorkTabMod.Settings;
                 if (isMoved && presentation.ShowMovedMarker &&
                     !label.EndsWith(MovedMarker))
                 {

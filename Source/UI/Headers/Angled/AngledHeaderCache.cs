@@ -233,15 +233,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
         internal static CachedTextMetrics GetHeaderTextMetrics(
             WorkTypeDef workType,
             bool isMoved,
-            WorkGiverHeaderLabelStyle labelStyle = WorkGiverHeaderLabelStyle.Standard)
-        {
-            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
-            return GetHeaderTextMetrics(workType, isMoved, labelStyle, in presentation);
-        }
-
-        internal static CachedTextMetrics GetHeaderTextMetrics(
-            WorkTypeDef workType,
-            bool isMoved,
             WorkGiverHeaderLabelStyle labelStyle,
             in HeaderPresentationPacket presentation)
         {
@@ -250,12 +241,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 ComputeTextMetricsKey(workType, isMoved, labelStyle, parentOnly: false, in presentation),
                 () => HeaderUtility.GetHeaderText(workType, isMoved, labelStyle, in packet),
                 presentation.UseVerticalStackingForCjk);
-        }
-
-        internal static CachedTextMetrics GetParentTextMetrics(WorkTypeDef workType, bool isMoved)
-        {
-            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
-            return GetParentTextMetrics(workType, isMoved, in presentation);
         }
 
         internal static CachedTextMetrics GetParentTextMetrics(
@@ -268,12 +253,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 ComputeTextMetricsKey(workType, isMoved, WorkGiverHeaderLabelStyle.Standard, parentOnly: true, in presentation),
                 () => HeaderUtility.GetParentHeaderText(workType, isMoved, in packet),
                 presentation.UseVerticalStackingForCjk);
-        }
-
-        internal static CachedTextMetrics GetLabelTextMetrics(string label)
-        {
-            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
-            return GetLabelTextMetrics(label, in presentation);
         }
 
         internal static CachedTextMetrics GetLabelTextMetrics(
@@ -371,16 +350,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     return (hash * 397) ^ CjkKerning;
                 }
             }
-        }
-
-        private static int ComputeTextMetricsKey(
-            WorkTypeDef workType,
-            bool isMoved,
-            WorkGiverHeaderLabelStyle labelStyle,
-            bool parentOnly)
-        {
-            HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
-            return ComputeTextMetricsKey(workType, isMoved, labelStyle, parentOnly, in presentation);
         }
 
         private static int ComputeTextMetricsKey(

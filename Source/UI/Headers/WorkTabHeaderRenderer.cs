@@ -84,6 +84,43 @@ namespace Better_Work_Tab.UI.Headers
             bool showCursorHighlight = BWTWorkTabEffectiveSettings.GetBool(SettingIDs.HighlightsHover);
             HeaderPresentationPacket presentation = HeaderDrawingCoordinator.CapturePresentation();
 
+            DrawStandardHeaders(
+                layout,
+                table,
+                totalHeight,
+                viewportLeft,
+                viewportRight,
+                ruleBuilderListening,
+                timePriorityOwnsMouse,
+                settings,
+                showCursorHighlight,
+                in presentation);
+
+            if (SleekWorkTabGateway.BetterWorkTabHostsSleek)
+            {
+                DrawSleekHeaders(
+                    layout,
+                    table,
+                    totalHeight,
+                    viewportLeft,
+                    viewportRight,
+                    ruleBuilderListening,
+                    in presentation);
+            }
+        }
+
+        private void DrawStandardHeaders(
+            IWorkTabLayoutController layout,
+            PawnTable table,
+            float totalHeight,
+            float viewportLeft,
+            float viewportRight,
+            bool ruleBuilderListening,
+            bool timePriorityOwnsMouse,
+            BetterWorkTabSettings settings,
+            bool showCursorHighlight,
+            in HeaderPresentationPacket presentation)
+        {
             foreach (var column in layout.Columns)
             {
                 WorkGridAnimatedColumnGeometry animatedGeometry =
@@ -94,6 +131,35 @@ namespace Better_Work_Tab.UI.Headers
                 {
                     continue;
                 }
+
+                DrawStandardHeaderColumn(
+                    layout,
+                    table,
+                    totalHeight,
+                    ruleBuilderListening,
+                    timePriorityOwnsMouse,
+                    settings,
+                    showCursorHighlight,
+                    column,
+                    animatedGeometry,
+                    animatedHeaderRect,
+                    in presentation);
+            }
+        }
+
+        private void DrawStandardHeaderColumn(
+            IWorkTabLayoutController layout,
+            PawnTable table,
+            float totalHeight,
+            bool ruleBuilderListening,
+            bool timePriorityOwnsMouse,
+            BetterWorkTabSettings settings,
+            bool showCursorHighlight,
+            WorkTabLayoutColumn column,
+            WorkGridAnimatedColumnGeometry animatedGeometry,
+            Rect animatedHeaderRect,
+            in HeaderPresentationPacket presentation)
+        {
 
                 bool isWorkColumn = WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column);
                 Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
@@ -192,86 +258,87 @@ namespace Better_Work_Tab.UI.Headers
                         totalHeight,
                         table);
                 }
-            }
+        }
 
-            if (SleekWorkTabGateway.BetterWorkTabHostsSleek)
+        private void DrawSleekHeaders(
+            IWorkTabLayoutController layout,
+            PawnTable table,
+            float totalHeight,
+            float viewportLeft,
+            float viewportRight,
+            bool ruleBuilderListening,
+            in HeaderPresentationPacket presentation)
+        {
+            // Sleek's header prefix still runs above so its frame/order/input state stays live.
+            // BWT clears that surface and redraws its angled headers in one pass.
+            SleekWorkTabGateway.DrawMixedHeaderBackdrop(
+                new Rect(viewportLeft, layout.TableOrigin.y, viewportRight - viewportLeft, layout.HeaderHeight));
+
+            foreach (var column in layout.Columns)
             {
-                // Sleek's header prefix still runs above so its frame/order/input state stays
-                // live. BWT now clears that complete surface and redraws its angled headers in
-                // one pass, which prevents a long angled label from being erased by the next
-                // column's cleanup rectangle.
-                SleekWorkTabGateway.DrawMixedHeaderBackdrop(
-                    new Rect(viewportLeft, layout.TableOrigin.y, viewportRight - viewportLeft, layout.HeaderHeight));
-
-                foreach (var column in layout.Columns)
+                Rect animatedHeaderRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
+                if (animatedHeaderRect.xMax < viewportLeft - HorizontalCullBuffer ||
+                    animatedHeaderRect.xMin > viewportRight + HorizontalCullBuffer)
                 {
-                    Rect animatedHeaderRect = WorkGridInteractionGeometry.GetAnimatedHeaderRect(column);
-                    if (animatedHeaderRect.xMax < viewportLeft - HorizontalCullBuffer ||
-                        animatedHeaderRect.xMin > viewportRight + HorizontalCullBuffer)
+                    continue;
+                }
+
+                Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
+                    column.Column,
+                    table,
+                    animatedHeaderRect);
+                if (column.Column?.Worker is PawnColumnWorker_WorkPriority worker)
+                {
+                    bool shouldHighlightRuleBuilderTarget = false;
+                    if (ruleBuilderListening &&
+                        WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column))
                     {
-                        continue;
+                        RuleBuilder2WorkTabOverlay.ResolveTarget(
+                            column,
+                            out WorkTypeDef workType,
+                            out WorkGiverDef workGiver);
+                        shouldHighlightRuleBuilderTarget =
+                            RuleBuilderGateway.ShouldHighlightRuleBuilder2Target(workType, workGiver);
                     }
 
-                    Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
-                        column.Column,
-                        table,
-                        animatedHeaderRect);
-                    if (column.Column?.Worker is PawnColumnWorker_WorkPriority worker)
+                    try
                     {
-                        bool shouldHighlightRuleBuilderTarget = false;
-                        if (ruleBuilderListening &&
-                            WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column))
-                        {
-                            RuleBuilder2WorkTabOverlay.ResolveTarget(
-                                column,
-                                out WorkTypeDef workType,
-                                out WorkGiverDef workGiver);
-                            shouldHighlightRuleBuilderTarget =
-                                RuleBuilderGateway.ShouldHighlightRuleBuilder2Target(workType, workGiver);
-                        }
-
-                        try
-                        {
-                            SubWorkDrilldownState.SetDrawingColumn(column);
-                            PawnColumnWorker_WorkPriority_DoHeader_Patch.DrawMixedOverlay(
-                                worker,
-                                headerRect,
-                                table);
-                        }
-                        finally
-                        {
-                            SubWorkDrilldownState.ClearDrawingColumn();
-                        }
-
-                        // The Sleek backdrop intentionally clears the complete header lane before
-                        // BWT redraws its angled headers. Redraw Rule Builder 2's header-side
-                        // highlight after that clear; its body highlight was already painted by
-                        // the first pass.
-                        if (shouldHighlightRuleBuilderTarget)
-                        {
-                            RuleBuilder2WorkTabOverlay.DrawColumnHighlight(
-                                layout,
-                                column,
-                                headerRect,
-                                totalHeight,
-                                table,
-                                drawBody: false);
-                        }
+                        SubWorkDrilldownState.SetDrawingColumn(column);
+                        PawnColumnWorker_WorkPriority_DoHeader_Patch.DrawMixedOverlay(
+                            worker,
+                            headerRect,
+                            table,
+                            in presentation);
                     }
-                    else if (SleekWorkTabGateway.IsSleekInlineJobColumn(column.Column))
+                    finally
                     {
-                        // Inline-job headers are Sleek-owned columns. Redraw them after BWT
-                        // clears the common lane so the Sleek sub-work search/card affordances
-                        // remain visible.
-                        try
-                        {
-                            SubWorkDrilldownState.SetDrawingColumn(column);
-                            column.Column.Worker.DoHeader(headerRect, table);
-                        }
-                        finally
-                        {
-                            SubWorkDrilldownState.ClearDrawingColumn();
-                        }
+                        SubWorkDrilldownState.ClearDrawingColumn();
+                    }
+
+                    // The backdrop clears the common lane; restore Rule Builder's header-side
+                    // highlight after the BWT redraw. Its body highlight was painted first.
+                    if (shouldHighlightRuleBuilderTarget)
+                    {
+                        RuleBuilder2WorkTabOverlay.DrawColumnHighlight(
+                            layout,
+                            column,
+                            headerRect,
+                            totalHeight,
+                            table,
+                            drawBody: false);
+                    }
+                }
+                else if (SleekWorkTabGateway.IsSleekInlineJobColumn(column.Column))
+                {
+                    // Inline-job headers are Sleek-owned; redraw them after BWT clears the lane.
+                    try
+                    {
+                        SubWorkDrilldownState.SetDrawingColumn(column);
+                        column.Column.Worker.DoHeader(headerRect, table);
+                    }
+                    finally
+                    {
+                        SubWorkDrilldownState.ClearDrawingColumn();
                     }
                 }
             }
