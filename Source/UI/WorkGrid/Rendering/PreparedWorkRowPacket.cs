@@ -1,14 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Features.WorkGiverReassignments;
-using Better_Work_Tab.PawnOrganizer;
-using Better_Work_Tab.UI.WorkGiverReassignments;
-using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
-using RimWorld;
 using UnityEngine;
-using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
@@ -33,7 +27,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             CellRect = cellRect;
             IconRect = iconRect;
             TextRect = textRect;
-            Text = text ?? string.Empty;
+            Text = text;
             Presentation = presentation;
         }
 
@@ -65,16 +59,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Rect boxRect,
             WorkCellVisualState cell,
             WorkBoxVisualState visual,
-            WorkGiver workGiver,
-            WorkGiverCellPresentationCache.CellPresentation subWorkPresentation)
+            bool isSubWork)
         {
             ColumnIndex = columnIndex;
             CellRect = cellRect;
             BoxRect = boxRect;
             Cell = cell;
             Visual = visual;
-            WorkGiver = workGiver;
-            SubWorkPresentation = subWorkPresentation;
+            IsSubWork = isSubWork;
         }
 
         internal int ColumnIndex { get; }
@@ -82,9 +74,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         internal Rect BoxRect { get; }
         internal WorkCellVisualState Cell { get; }
         internal WorkBoxVisualState Visual { get; }
-        internal WorkGiver WorkGiver { get; }
-        internal WorkGiverCellPresentationCache.CellPresentation SubWorkPresentation { get; }
-        internal bool IsSubWork => WorkGiver != null;
+        internal bool IsSubWork { get; }
     }
 
     internal sealed class PreparedWorkRowRun
@@ -125,7 +115,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             PawnId = request.Snapshot.Rows[request.RowIndex].PawnId;
             PreparedRevision = request.Span.Revision;
             TopologyRevision = request.Snapshot.TopologyRevision;
-            GeometryRevision = request.Snapshot.LayoutRevision;
+            GeometryRevision = request.Geometry.Revision;
             VisibleColumns = request.VisibleColumns;
             RowHeight = request.RowHeight;
             ModeSignature = request.Mode.Signature;
@@ -158,7 +148,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                    PawnId == request.Snapshot.Rows[request.RowIndex].PawnId &&
                    PreparedRevision == request.Span.Revision &&
                    TopologyRevision == request.Snapshot.TopologyRevision &&
-                   GeometryRevision == request.Snapshot.LayoutRevision &&
+                   GeometryRevision == request.Geometry.Revision &&
                    VisibleColumns.Start == request.VisibleColumns.Start &&
                    VisibleColumns.Count == request.VisibleColumns.Count &&
                    Mathf.Abs(RowHeight - request.RowHeight) < 0.001f &&
@@ -198,16 +188,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     }
 
     /// <summary>
-    /// Carries one packet lookup or compilation. The snapshot, lookup, layout,
-    /// and row span must come from the same prepared pass; transitional modes
-    /// are rejected before this boundary.
+    /// Carries one packet lookup or compilation. The snapshot, finished geometry,
+    /// and row span must come from the same prepared pass; transitional modes are
+    /// rejected before this boundary.
     /// </summary>
     internal readonly struct PreparedWorkRowBuildRequest
     {
         internal PreparedWorkRowBuildRequest(
             WorkGridSnapshot snapshot,
-            int[] cellLookup,
-            IReadOnlyList<WorkTabLayoutColumn> layoutColumns,
+            WorkGridGeometrySnapshot geometry,
             WorkGridIndexRange visibleColumns,
             int rowIndex,
             float rowHeight,
@@ -215,8 +204,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             PreparedWorkRowMode mode)
         {
             Snapshot = snapshot;
-            CellLookup = cellLookup;
-            LayoutColumns = layoutColumns;
+            Geometry = geometry;
             VisibleColumns = visibleColumns;
             RowIndex = rowIndex;
             RowHeight = rowHeight;
@@ -225,8 +213,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         }
 
         internal WorkGridSnapshot Snapshot { get; }
-        internal int[] CellLookup { get; }
-        internal IReadOnlyList<WorkTabLayoutColumn> LayoutColumns { get; }
+        internal WorkGridGeometrySnapshot Geometry { get; }
         internal WorkGridIndexRange VisibleColumns { get; }
         internal int RowIndex { get; }
         internal float RowHeight { get; }
@@ -234,7 +221,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         internal PreparedWorkRowMode Mode { get; }
         internal int ColumnCount => Snapshot.Columns.Count;
         internal bool HasMatchingColumnTopology =>
-            LayoutColumns.Count == Snapshot.Columns.Count;
+            Geometry.Revision == Snapshot.LayoutRevision &&
+            Geometry.Columns.Count == Snapshot.Columns.Count;
     }
 
     /// <summary>
@@ -310,7 +298,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             pawnLabel = BuildPawnLabel(
                 presentation,
-                request.LayoutColumns[columnIndex],
+                request.Geometry.Columns[columnIndex],
                 columnIndex,
                 request.RowHeight);
             return true;
@@ -344,9 +332,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return PreparedColumn.Hidden;
             }
 
-            Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
-                request.LayoutColumns[columnIndex],
-                new Rect(0f, 0f, 0f, request.RowHeight));
+            WorkGridColumnGeometry geometry = request.Geometry.Columns[columnIndex];
+            Rect cellRect = new Rect(
+                geometry.OffsetX,
+                0f,
+                geometry.Width,
+                request.RowHeight);
             return subWorkCell
                 ? PrepareSubWorkColumn(column, cell, columnIndex, cellRect)
                 : PrepareParentColumn(cell, columnIndex, cellRect);
@@ -358,8 +349,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             out WorkCellVisualState cell)
         {
             int lookupIndex = (request.RowIndex * request.ColumnCount) + columnIndex;
-            int cellIndex = lookupIndex >= 0 && lookupIndex < request.CellLookup.Length
-                ? request.CellLookup[lookupIndex]
+            int cellIndex = lookupIndex >= 0 && lookupIndex < request.Snapshot.CellIndexes.Count
+                ? request.Snapshot.CellIndexes[lookupIndex]
                 : -1;
             if (cellIndex < request.Span.FirstCellIndex ||
                 cellIndex >= request.Span.FirstCellIndex + request.Span.CellCount)
@@ -388,8 +379,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     boxRect,
                     cell,
                     visual,
-                    null,
-                    null),
+                    isSubWork: false),
                 new RetainedWorkBoxRowCache.Cell(
                     cell.PawnId,
                     columnIndex,
@@ -408,24 +398,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int columnIndex,
             Rect cellRect)
         {
-            WorkGiver workGiver = column.SubWorkGiver;
-            if (!cell.TryGetSubWorkPresentation(out var presentation) ||
-                presentation.WorkTypeDisabled ||
-                presentation.ParentPriority <= WorkPrioritySystem.DisabledPriority)
-            {
-                return PreparedColumn.Native;
-            }
-
-            float visualAlpha = 1f;
-            float visualScale = 1f;
-            if (!column.IsExpandBesideChild)
-            {
-                SubWorkDrilldownState.TryGetSubWorkContentTransitionVisuals(
-                    workGiver,
-                    out visualAlpha,
-                    out visualScale);
-            }
-            if (visualAlpha <= 0.999f || Mathf.Abs(visualScale - 1f) >= 0.001f)
+            WorkGridSubWorkVisualState presentation = cell.SubWork;
+            if (!presentation.IsPrepared || !presentation.CanUseStablePresentation)
             {
                 return PreparedColumn.Native;
             }
@@ -443,8 +417,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     boxRect,
                     cell,
                     visual,
-                    workGiver,
-                    presentation),
+                    isSubWork: true),
                 new RetainedWorkBoxRowCache.Cell(
                     cell.PawnId,
                     columnIndex,
@@ -453,20 +426,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     presentation.EffectivePriority,
                     compactText),
                 parentDynamicOverlay: false,
-                subWorkRingOverlay: presentation.HasPawnOverride ||
-                    presentation.HasScheduleIndicator,
+                subWorkRingOverlay: presentation.HasDynamicRing,
                 subWork: true);
         }
 
         private static PreparedPawnLabelCell BuildPawnLabel(
             PreparedPawnLabelPresentation presentation,
-            WorkTabLayoutColumn column,
+            WorkGridColumnGeometry column,
             int columnIndex,
             float rowHeight)
         {
-            Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(
-                column,
-                new Rect(0f, 0f, 0f, rowHeight));
+            Rect cellRect = new Rect(column.OffsetX, 0f, column.Width, rowHeight);
             cellRect.height = Mathf.Min(cellRect.height, presentation.MaximumContentHeight);
             Rect textRect = cellRect;
             textRect.xMin += 3f;
@@ -477,30 +447,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 textRect.xMin += cellRect.height;
             }
 
-            string text = presentation.RichText;
-            GameFont previousFont = Text.Font;
-            bool previousWrap = Text.WordWrap;
-            try
-            {
-                Text.Font = GameFont.Small;
-                Text.WordWrap = false;
-                if (Text.CalcSize(text).x > textRect.width)
-                {
-                    text = text.Truncate(textRect.width);
-                }
-            }
-            finally
-            {
-                Text.Font = previousFont;
-                Text.WordWrap = previousWrap;
-            }
-
             return new PreparedPawnLabelCell(
                 columnIndex,
                 cellRect,
                 iconRect,
                 textRect,
-                text,
+                presentation.RichText,
                 presentation);
         }
 
@@ -668,7 +620,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 if (_runs.Count == 0 && _pawnLabel == null)
                 {
                     // A packet with only native commands cannot optimize the row.
-                    // Returning null gives the legacy renderer complete ownership.
+                    // Returning null gives the direct renderer complete ownership.
                     return null;
                 }
 

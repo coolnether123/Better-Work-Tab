@@ -1,20 +1,16 @@
 using System;
-using RimWorld;
 using Spine.Collections;
-using Better_Work_Tab.UI.WorkGiverReassignments;
-using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
-using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Snapshots
 {
-    public enum WorkGridRowKind : byte
+    internal enum WorkGridRowKind : byte
     {
         Pawn,
         Divider
     }
 
-    public enum WorkGridColumnWorkerKind : byte
+    internal enum WorkGridColumnWorkerKind : byte
     {
         Other,
         PawnLabel,
@@ -23,14 +19,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
     }
 
     [Flags]
-    public enum WorkGridRowVisualFlags : byte
+    internal enum WorkGridRowVisualFlags : byte
     {
         None = 0,
         HasBackground = 1 << 0
     }
 
     [Flags]
-    public enum WorkCellVisualFlags : ushort
+    internal enum WorkCellVisualFlags : ushort
     {
         None = 0,
         Disabled = 1 << 0,
@@ -44,9 +40,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         ManualPriorityMode = 1 << 8
     }
 
-    public readonly struct WorkGridRowEntry
+    internal readonly struct WorkGridRowEntry
     {
-        public WorkGridRowEntry(
+        internal WorkGridRowEntry(
             WorkGridRowKind kind,
             int pawnId,
             string dividerLabel,
@@ -66,14 +62,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             VisualFlags = visualFlags;
         }
 
-        public WorkGridRowKind Kind { get; }
-        public int PawnId { get; }
-        public string DividerLabel { get; }
-        public uint DividerColor { get; }
-        public int DividerOrder { get; }
-        public bool DividerCollapsed { get; }
-        public uint BackgroundColor { get; }
-        public WorkGridRowVisualFlags VisualFlags { get; }
+        internal WorkGridRowKind Kind { get; }
+        internal int PawnId { get; }
+        internal string DividerLabel { get; }
+        internal uint DividerColor { get; }
+        internal int DividerOrder { get; }
+        internal bool DividerCollapsed { get; }
+        internal uint BackgroundColor { get; }
+        internal WorkGridRowVisualFlags VisualFlags { get; }
     }
 
     internal readonly struct WorkGridPreparedRowSpan
@@ -95,31 +91,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         }
     }
 
-    public readonly struct WorkGridColumnEntry
+    internal readonly struct WorkGridColumnEntry
     {
-        public WorkGridColumnEntry(
-            ushort columnIndex,
-            ushort workTypeId,
-            ushort workGiverId,
-            string workTypeName,
-            string workGiverName,
-            string workerClass,
-            WorkGridColumnWorkerKind workerKind,
-            bool isExpandBesideChild = false)
-            : this(
-                columnIndex,
-                workTypeId,
-                workGiverId,
-                workTypeName,
-                workGiverName,
-                workerClass,
-                workerKind,
-                isExpandBesideChild,
-                null,
-                null)
-        {
-        }
-
         internal WorkGridColumnEntry(
             ushort columnIndex,
             ushort workTypeId,
@@ -128,9 +101,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             string workGiverName,
             string workerClass,
             WorkGridColumnWorkerKind workerKind,
-            bool isExpandBesideChild,
-            WorkTypeDef workType,
-            WorkGiver subWorkGiver)
+            bool isExpandBesideChild = false)
         {
             ColumnIndex = columnIndex;
             WorkTypeId = workTypeId;
@@ -140,20 +111,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             WorkerClass = workerClass ?? string.Empty;
             WorkerKind = workerKind;
             IsExpandBesideChild = isExpandBesideChild;
-            WorkType = workType;
-            SubWorkGiver = subWorkGiver;
         }
 
-        public ushort ColumnIndex { get; }
-        public ushort WorkTypeId { get; }
-        public ushort WorkGiverId { get; }
-        public string WorkTypeName { get; }
-        public string WorkGiverName { get; }
-        public string WorkerClass { get; }
-        public WorkGridColumnWorkerKind WorkerKind { get; }
-        public bool IsExpandBesideChild { get; }
-        internal WorkTypeDef WorkType { get; }
-        internal WorkGiver SubWorkGiver { get; }
+        internal ushort ColumnIndex { get; }
+        internal ushort WorkTypeId { get; }
+        internal ushort WorkGiverId { get; }
+        internal string WorkTypeName { get; }
+        internal string WorkGiverName { get; }
+        internal string WorkerClass { get; }
+        internal WorkGridColumnWorkerKind WorkerKind { get; }
+        internal bool IsExpandBesideChild { get; }
     }
 
     internal readonly struct WorkBoxVisualState
@@ -182,14 +149,89 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         internal WorkCellVisualFlags Flags { get; }
     }
 
-    public readonly struct WorkCellVisualState
+    /// <summary>
+    /// Stable child-cell pixels and sparse overlay flags captured before drawing.
+    /// Live pawn and definition references belong to the renderer's layout lookup,
+    /// not to this immutable presentation value.
+    /// </summary>
+    internal readonly struct WorkGridSubWorkVisualState
     {
-        private readonly WorkGiverCellPresentationCache.CellPresentation _subWorkPresentation;
+        internal WorkGridSubWorkVisualState(
+            WorkBoxVisualState workBoxVisual,
+            byte effectivePriority,
+            bool hasPawnOverride,
+            bool hasScheduleIndicator,
+            bool canUseStablePresentation)
+        {
+            WorkBoxVisual = workBoxVisual;
+            EffectivePriority = effectivePriority;
+            HasPawnOverride = hasPawnOverride;
+            HasScheduleIndicator = hasScheduleIndicator;
+            CanUseStablePresentation = canUseStablePresentation;
+            IsPrepared = true;
+        }
+
+        internal WorkBoxVisualState WorkBoxVisual { get; }
+        internal byte EffectivePriority { get; }
+        internal bool HasPawnOverride { get; }
+        internal bool HasScheduleIndicator { get; }
+        internal bool CanUseStablePresentation { get; }
+        internal bool IsPrepared { get; }
+        internal bool HasDynamicRing => HasPawnOverride || HasScheduleIndicator;
+    }
+
+    /// <summary>
+    /// Exact presentation inputs shared by every retained work-box surface.
+    /// Keep these values separate: cache correctness must not depend on a
+    /// collision-prone precomputed hash masquerading as a revision.
+    /// </summary>
+    internal readonly struct WorkGridRetainedVisualKey : IEquatable<WorkGridRetainedVisualKey>
+    {
+        internal WorkGridRetainedVisualKey(
+            int uiScaleMilli,
+            long settingsThemeLanguageScaleRevision,
+            int maximumPriority)
+        {
+            UiScaleMilli = uiScaleMilli;
+            SettingsThemeLanguageScaleRevision = settingsThemeLanguageScaleRevision;
+            MaximumPriority = maximumPriority;
+        }
+
+        internal int UiScaleMilli { get; }
+        internal long SettingsThemeLanguageScaleRevision { get; }
+        internal int MaximumPriority { get; }
+
+        public bool Equals(WorkGridRetainedVisualKey other)
+        {
+            return UiScaleMilli == other.UiScaleMilli &&
+                   SettingsThemeLanguageScaleRevision ==
+                       other.SettingsThemeLanguageScaleRevision &&
+                   MaximumPriority == other.MaximumPriority;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is WorkGridRetainedVisualKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = UiScaleMilli;
+                hash = (hash * 397) ^ SettingsThemeLanguageScaleRevision.GetHashCode();
+                hash = (hash * 397) ^ MaximumPriority;
+                return hash;
+            }
+        }
+    }
+
+    internal readonly struct WorkCellVisualState
+    {
 
         internal WorkCellVisualState(
-            Pawn pawn,
-            WorkTypeDef workType,
             int pawnId,
+            ushort workTypeId,
             ushort columnIndex,
             byte priority,
             byte skillBand,
@@ -197,12 +239,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             byte passion,
             uint priorityColor,
             WorkCellVisualFlags flags,
-            uint revision,
-            WorkGiverCellPresentationCache.CellPresentation subWorkPresentation = null)
+            WorkGridSubWorkVisualState subWork = default)
         {
-            Pawn = pawn;
-            WorkType = workType;
             PawnId = pawnId;
+            WorkTypeId = workTypeId;
             ColumnIndex = columnIndex;
             Priority = priority;
             SkillBand = skillBand;
@@ -210,82 +250,58 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             Passion = passion;
             PriorityColor = priorityColor;
             Flags = flags;
-            Revision = revision;
-            _subWorkPresentation = subWorkPresentation;
+            SubWork = subWork;
         }
 
-        public Pawn Pawn { get; }
-        public WorkTypeDef WorkType { get; }
-        public int PawnId { get; }
-        public ushort ColumnIndex { get; }
-        public byte Priority { get; }
-        public byte SkillBand { get; }
-        public float SkillBlend { get; }
-        public byte Passion { get; }
-        public uint PriorityColor { get; }
-        public WorkCellVisualFlags Flags { get; }
-        public uint Revision { get; }
-
-        internal bool TryGetSubWorkPresentation(
-            out WorkGiverCellPresentationCache.CellPresentation presentation)
-        {
-            presentation = _subWorkPresentation;
-            return presentation != null;
-        }
-
+        internal int PawnId { get; }
+        internal ushort WorkTypeId { get; }
+        internal ushort ColumnIndex { get; }
+        internal byte Priority { get; }
+        internal byte SkillBand { get; }
+        internal float SkillBlend { get; }
+        internal byte Passion { get; }
+        internal uint PriorityColor { get; }
+        internal WorkCellVisualFlags Flags { get; }
+        internal WorkGridSubWorkVisualState SubWork { get; }
     }
 
-    public sealed class WorkGridSnapshot
+    /// <summary>
+    /// Immutable, domain-derived prepared state reused until invalidated.
+    /// Per-pass geometry and live interaction references remain separate in
+    /// <c>WorkTabView</c>; this type never owns RimWorld entities or cache objects.
+    /// </summary>
+    internal sealed class WorkGridSnapshot
     {
         internal WorkGridSnapshot(
-            long revision,
             long topologyRevision,
             int layoutRevision,
-            WorkGridRevisionSet revisions,
             ImmutableSnapshotArray<WorkGridRowEntry> rows,
             ImmutableSnapshotArray<WorkGridColumnEntry> columns,
             ImmutableSnapshotArray<WorkCellVisualState> cells,
+            ImmutableSnapshotArray<int> cellIndexes,
             ImmutableSnapshotArray<WorkGridPreparedRowSpan> preparedRows,
             ImmutableSnapshotArray<PreparedPawnLabelPresentation> pawnLabels,
-            int retainedCapacityBytes,
-            bool manualPriorities,
-            int maxPriority,
-            int uiScaleRevision,
-            int fontThemeRevision,
-            int priorityRangeRevision)
+            WorkGridRetainedVisualKey retainedVisualKey)
         {
-            Revision = revision;
             TopologyRevision = topologyRevision;
             LayoutRevision = layoutRevision;
-            Revisions = revisions;
-            Rows = rows ?? ImmutableSnapshotArray<WorkGridRowEntry>.Empty;
-            Columns = columns ?? ImmutableSnapshotArray<WorkGridColumnEntry>.Empty;
-            Cells = cells ?? ImmutableSnapshotArray<WorkCellVisualState>.Empty;
-            PreparedRows = preparedRows ?? ImmutableSnapshotArray<WorkGridPreparedRowSpan>.Empty;
-            PawnLabels = pawnLabels ?? ImmutableSnapshotArray<PreparedPawnLabelPresentation>.Empty;
-            RetainedCapacityBytes = retainedCapacityBytes;
-            ManualPriorities = manualPriorities;
-            MaxPriority = maxPriority;
-            UiScaleRevision = uiScaleRevision;
-            FontThemeRevision = fontThemeRevision;
-            PriorityRangeRevision = priorityRangeRevision;
+            Rows = rows;
+            Columns = columns;
+            Cells = cells;
+            CellIndexes = cellIndexes;
+            PreparedRows = preparedRows;
+            PawnLabels = pawnLabels;
+            RetainedVisualKey = retainedVisualKey;
         }
 
-        public long Revision { get; }
         internal long TopologyRevision { get; }
-        public int LayoutRevision { get; }
-        public WorkGridRevisionSet Revisions { get; }
-        public ImmutableSnapshotArray<WorkGridRowEntry> Rows { get; }
-        public ImmutableSnapshotArray<WorkGridColumnEntry> Columns { get; }
-        public ImmutableSnapshotArray<WorkCellVisualState> Cells { get; }
+        internal int LayoutRevision { get; }
+        internal ImmutableSnapshotArray<WorkGridRowEntry> Rows { get; }
+        internal ImmutableSnapshotArray<WorkGridColumnEntry> Columns { get; }
+        internal ImmutableSnapshotArray<WorkCellVisualState> Cells { get; }
+        internal ImmutableSnapshotArray<int> CellIndexes { get; }
         internal ImmutableSnapshotArray<WorkGridPreparedRowSpan> PreparedRows { get; }
         internal ImmutableSnapshotArray<PreparedPawnLabelPresentation> PawnLabels { get; }
-        public int RetainedCapacityBytes { get; }
-        public bool ManualPriorities { get; }
-        public int MaxPriority { get; }
-        public int UiScaleRevision { get; }
-        public int FontThemeRevision { get; }
-        public int PriorityRangeRevision { get; }
-
+        internal WorkGridRetainedVisualKey RetainedVisualKey { get; }
     }
 }

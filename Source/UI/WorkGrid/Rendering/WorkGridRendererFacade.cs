@@ -25,7 +25,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private IWorkGridRenderer _active;
         private string _activeId;
 
-        public WorkGridRendererFacade(
+        internal WorkGridRendererFacade(
             IWorkGridDrawingSurface drawingSurface,
             Func<WorkGridRendererMode> selectionMode,
             IWorkGridRendererCapabilityCheck capabilityCheck = null,

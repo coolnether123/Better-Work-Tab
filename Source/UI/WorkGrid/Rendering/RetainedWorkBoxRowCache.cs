@@ -75,7 +75,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             PreparedRun run,
             float rowOffsetY,
             Color baseColor,
-            WorkGridSnapshot snapshot,
+            int layoutRevision,
+            WorkGridRetainedVisualKey retainedVisualKey,
             int renderResourcesRevision)
         {
             if (_disabled ||
@@ -95,7 +96,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     run.Cells,
                     run.StaticFingerprint,
                     baseColor,
-                    snapshot,
+                    layoutRevision,
+                    retainedVisualKey,
                     renderResourcesRevision);
             }
             catch (Exception exception)
@@ -108,7 +110,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         internal bool TryDraw(
             List<Cell> cells,
             Color baseColor,
-            WorkGridSnapshot snapshot,
+            int layoutRevision,
+            WorkGridRetainedVisualKey retainedVisualKey,
             int renderResourcesRevision)
         {
             if (_disabled ||
@@ -134,7 +137,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     cells,
                     GetStaticFingerprint(cells),
                     baseColor,
-                    snapshot,
+                    layoutRevision,
+                    retainedVisualKey,
                     renderResourcesRevision);
             }
             catch (Exception exception)
@@ -254,16 +258,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private static ulong GetFingerprint(
             ulong staticFingerprint,
             Color baseColor,
-            WorkGridSnapshot snapshot,
+            int layoutRevision,
+            WorkGridRetainedVisualKey retainedVisualKey,
             int pixelWidth,
             int pixelHeight,
             int renderResourcesRevision)
         {
             ulong hash = 1469598103934665603UL;
-            Mix(ref hash, snapshot.LayoutRevision);
-            Mix(ref hash, snapshot.UiScaleRevision);
-            Mix(ref hash, snapshot.FontThemeRevision);
-            Mix(ref hash, snapshot.PriorityRangeRevision);
+            Mix(ref hash, layoutRevision);
+            Mix(ref hash, retainedVisualKey.UiScaleMilli);
+            Mix(ref hash, unchecked((int)retainedVisualKey.SettingsThemeLanguageScaleRevision));
+            Mix(ref hash, unchecked((int)(retainedVisualKey.SettingsThemeLanguageScaleRevision >> 32)));
+            Mix(ref hash, retainedVisualKey.MaximumPriority);
             Mix(ref hash, renderResourcesRevision);
             Mix(ref hash, pixelWidth);
             Mix(ref hash, pixelHeight);
@@ -314,7 +320,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             IReadOnlyList<Cell> cells,
             ulong staticFingerprint,
             Color baseColor,
-            WorkGridSnapshot snapshot,
+            int layoutRevision,
+            WorkGridRetainedVisualKey retainedVisualKey,
             int renderResourcesRevision)
         {
             float pixelScale = Verse.UI.screenWidth > 0
@@ -331,7 +338,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             ulong fingerprint = GetFingerprint(
                 staticFingerprint,
                 baseColor,
-                snapshot,
+                layoutRevision,
+                retainedVisualKey,
                 pixelWidth,
                 pixelHeight,
                 renderResourcesRevision);
@@ -350,6 +358,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if (!TryRebuildSurfaceIfChanged(
                     entry,
                     fingerprint,
+                    retainedVisualKey,
                     bounds,
                     cells,
                     baseColor))
@@ -412,11 +421,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private bool TryRebuildSurfaceIfChanged(
             Entry entry,
             ulong fingerprint,
+            WorkGridRetainedVisualKey retainedVisualKey,
             Rect bounds,
             IReadOnlyList<Cell> cells,
             Color baseColor)
         {
-            if (entry.Fingerprint == fingerprint && entry.Bounds == bounds)
+            if (entry.Fingerprint == fingerprint &&
+                entry.RetainedVisualKey.Equals(retainedVisualKey) &&
+                entry.Bounds == bounds)
             {
                 return true;
             }
@@ -428,6 +440,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             entry.Fingerprint = fingerprint;
+            entry.RetainedVisualKey = retainedVisualKey;
             entry.Bounds = bounds;
             return true;
         }
@@ -575,6 +588,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             internal int PixelWidth;
             internal int PixelHeight;
             internal ulong Fingerprint;
+            internal WorkGridRetainedVisualKey RetainedVisualKey;
             internal long LastUsedSequence;
             internal long EstimatedBytes;
         }

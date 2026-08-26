@@ -90,8 +90,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "unrelated cells must remain immutable while old/new best-pawn rows are revised");
             TestAssert.Contains(
                 snapshots,
-                "WorkGiver subWorkGiver = snapshotColumn.SubWorkGiver;",
-                "sparse replacement must rebuild a sub-work cell through its prepared work-giver path");
+                "TryResolveSubWorkColumn(",
+                "sparse replacement must resolve live definitions from the authoritative layout rather than the snapshot");
+            TestAssert.False(
+                snapshots.IndexOf("snapshotColumn.SubWorkGiver", StringComparison.Ordinal) >= 0,
+                "snapshot columns must not own live WorkGiver references");
             TestAssert.Contains(
                 snapshots,
                 "!snapshotColumn.IsExpandBesideChild",
