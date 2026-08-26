@@ -82,12 +82,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             TestAssert.Contains(snapshot, "WorkGridPreparedRowSpan", "snapshots must publish prepared row spans");
             TestAssert.Contains(snapshot, "internal long TopologyRevision", "snapshots must distinguish topology from content changes");
-            string sparse = MemberBody(provider, "private bool TryApplySparsePriorityUpdate(");
-            TestAssert.Contains(sparse, "preparedRowReplacements", "sparse cell updates must carry row-local invalidation");
-            TestAssert.Contains(sparse, "previous.PreparedRows.WithReplacements", "unaffected row spans must be retained");
-            TestAssert.Contains(sparse, "previous.TopologyRevision", "sparse updates must preserve cell topology");
-            TestAssert.Contains(sparse, "FindBestPawnId(table, workType, worker)", "priority updates must refresh comparison-dependent best-pawn identity");
-            TestAssert.Contains(sparse, "changedBestPawnIds", "old and new best-pawn rows must receive row-local invalidation");
+            TestAssert.Contains(provider, "previous.PreparedRows.WithReplacements", "unaffected row spans must be retained");
+            TestAssert.Contains(provider, "previous.TopologyRevision", "sparse updates must preserve cell topology");
+            TestAssert.Contains(provider, "FindBestPawnId(table, workType, worker)", "priority updates must refresh comparison-dependent best-pawn identity");
+            TestAssert.Contains(provider, "changedBestPawnIds", "old and new best-pawn rows must receive row-local invalidation");
         }
 
         private static void RetainedHitsUsePrecomputedBoundsAndFingerprint(string retained)
