@@ -404,12 +404,17 @@ namespace Better_Work_Tab.UI.Headers
         }
 
         /// <summary>
-        /// Releases GPU-backed header presentation when the Work window closes.
-        /// The next open rebuilds lazily through the same direct-render fallback.
+        /// Releases GPU-backed header presentation at a render-resource boundary.
+        /// Ordinary Work-tab closes retain these bounded surfaces for the next open.
         /// </summary>
         internal static void ReleaseRetainedResources()
         {
             _retainedPriorityHeaders.Dispose();
+        }
+
+        internal static void ResetRetainedFailureLatchesForReopen()
+        {
+            _retainedPriorityHeaders.ResetFailureLatchesForReopen();
         }
 
         /// <summary>

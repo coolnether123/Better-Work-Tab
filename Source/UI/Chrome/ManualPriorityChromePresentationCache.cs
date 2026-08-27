@@ -120,8 +120,20 @@ namespace Better_Work_Tab.UI.Chrome
 
         internal void ReleaseRetainedResources()
         {
-            ReleaseSurfaces();
-            _surfaceKeyValid = false;
+            try
+            {
+                ReleaseSurfaces();
+            }
+            finally
+            {
+                _surfaceKeyValid = false;
+                _enabledSurfaceFailed = false;
+                _disabledSurfaceFailed = false;
+            }
+        }
+
+        internal void ResetFailureLatchesForReopen()
+        {
             _enabledSurfaceFailed = false;
             _disabledSurfaceFailed = false;
         }
@@ -418,32 +430,38 @@ namespace Better_Work_Tab.UI.Chrome
             if (enabled)
             {
                 _enabledSurfaceValid = false;
+                _enabledSurface = null;
             }
             else
             {
                 _disabledSurfaceValid = false;
+                _disabledSurface = null;
             }
             if (surface == null)
             {
                 return;
             }
 
-            surface.Release();
-            UnityEngine.Object.Destroy(surface);
-            if (enabled)
+            try
             {
-                _enabledSurface = null;
+                surface.Release();
             }
-            else
+            finally
             {
-                _disabledSurface = null;
+                UnityEngine.Object.Destroy(surface);
             }
         }
 
         private void ReleaseSurfaces()
         {
-            ReleaseSurface(true);
-            ReleaseSurface(false);
+            try
+            {
+                ReleaseSurface(true);
+            }
+            finally
+            {
+                ReleaseSurface(false);
+            }
         }
 
         private static bool SameRect(Rect left, Rect right)

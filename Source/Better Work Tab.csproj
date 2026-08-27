@@ -442,6 +442,7 @@
     <Compile Include="UI\Columns\WorkColumnCustomizationService.cs" />
     <Compile Include="UI\WindowSession\WorkTabWindowSizingController.cs" />
     <Compile Include="UI\WindowSession\WorkTabWindowSessionState.cs" />
+    <Compile Include="UI\RetainedResourceReleaseSequence.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
     <Compile Include="UI\PawnTitleUtility.cs" />
     <Compile Include="UI\WorkPriorityCellGeometry.cs" />

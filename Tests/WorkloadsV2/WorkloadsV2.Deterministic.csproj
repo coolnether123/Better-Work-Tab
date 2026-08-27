@@ -62,6 +62,7 @@
     <Compile Include="..\..\Source\UI\Workloads\Projection\LiveWorkTabEffectiveStateProvider.cs" Link="Production\LiveWorkTabEffectiveStateProvider.cs" />
     <Compile Include="..\..\Source\UI\Workloads\Projection\ProjectedWorkTabEffectiveStateProvider.cs" Link="Production\ProjectedWorkTabEffectiveStateProvider.cs" />
     <Compile Include="..\..\Source\UI\Settings\WorkTabPresentationPreviewPort.cs" Link="Production\WorkTabPresentationPreviewPort.cs" />
+    <Compile Include="..\..\Source\UI\RetainedResourceReleaseSequence.cs" Link="Production\RetainedResourceReleaseSequence.cs" />
     <!-- The synchronized transaction protocol is linked directly. Multiplayer
          API types are supplied only by the test stub below. -->
     <Compile Include="..\..\Source\Mod Support\Multiplayer\MultiplayerBridge.cs" Link="Production\MultiplayerBridge.cs" />

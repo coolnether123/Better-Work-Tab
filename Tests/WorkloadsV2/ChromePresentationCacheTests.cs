@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using Better_Work_Tab.UI;
 
 namespace BetterWorkTab.WorkloadsV2.Deterministic
 {
@@ -17,6 +19,19 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "UI",
                 "Chrome",
                 "ManualPriorityChromePresentationCache.cs");
+            string retainedRows = Read(
+                root,
+                "Source",
+                "UI",
+                "WorkGrid",
+                "Rendering",
+                "RetainedWorkBoxRowCache.cs");
+            string retainedHeaders = Read(
+                root,
+                "Source",
+                "UI",
+                "Headers",
+                "RetainedPriorityHeaderCache.cs");
             string footerCache = Read(
                 root,
                 "Source",
@@ -25,10 +40,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "FooterInstructionTextCache.cs");
             string header = Read(root, "Source", "UI", "HeaderButtons.cs");
             string window = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
-
             ManualSurfaceRetainsOnlyStablePixels(manualCache);
             ManualInputAndOverlaysRemainLive(chrome);
             RetainedResourcesFollowWindowLifecycle(chrome, manualCache, window);
+            RetainedResourceReleaseContinuesAfterFailures();
+            SurfaceReleaseAlwaysAttemptsDestroy(manualCache, retainedRows, retainedHeaders);
             FooterAndCounterPathsAvoidStableAllocations(chrome, footerCache);
             SelectorAndTooltipCachesRemainBounded(header);
         }
@@ -55,13 +71,74 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "public override void Notify_ResolutionChanged()");
             TestAssert.Contains(
                 resolution,
-                "_workTabChrome.ReleaseRetainedResources();",
+                "ReleaseRetainedResources();",
                 "resolution changes must release retained chrome resources");
             string close = MemberBody(window, "private void ResetTransientWindowState()");
-            TestAssert.Contains(
-                close,
-                "_workTabChrome.ReleaseRetainedResources();",
-                "closing the Work tab must release retained chrome resources");
+            TestAssert.False(
+                close.IndexOf("_workTabChrome.ReleaseRetainedResources();", StringComparison.Ordinal) >= 0,
+                "ordinary Work-tab close must retain valid chrome surfaces");
+            TestAssert.False(
+                close.IndexOf("ReleaseRetainedResources();", StringComparison.Ordinal) >= 0,
+                "ordinary Work-tab close must not cross the render-resource release boundary");
+        }
+
+        private static void RetainedResourceReleaseContinuesAfterFailures()
+        {
+            var releaseOrder = new List<string>();
+            var reportedGroups = new List<string>();
+
+            RetainedResourceReleaseSequence.Release(
+                () =>
+                {
+                    releaseOrder.Add("rows");
+                    throw new InvalidOperationException("row device lost");
+                },
+                () =>
+                {
+                    releaseOrder.Add("chrome");
+                    throw new InvalidOperationException("chrome device lost");
+                },
+                () => releaseOrder.Add("headers"),
+                (group, exception) => reportedGroups.Add(group + ":" + exception.GetType().Name));
+
+            TestAssert.Sequence(
+                new[] { "rows", "chrome", "headers" },
+                releaseOrder,
+                "each retained owner must be attempted after an earlier release fails");
+            TestAssert.Sequence(
+                new[]
+                {
+                    "retained work-grid rows:InvalidOperationException",
+                    "retained Work tab chrome:InvalidOperationException"
+                },
+                reportedGroups,
+                "each failed owner must report without suppressing a later release");
+        }
+
+        private static void SurfaceReleaseAlwaysAttemptsDestroy(
+            string manualCache,
+            string retainedRows,
+            string retainedHeaders)
+        {
+            AssertReleaseAttemptsDestroy(
+                MemberBody(manualCache, "private void ReleaseSurface(bool enabled)"),
+                "manual chrome");
+            AssertReleaseAttemptsDestroy(
+                MemberBody(retainedRows, "private void ReleaseSurface(Entry entry)"),
+                "retained work-grid rows");
+            AssertReleaseAttemptsDestroy(
+                MemberBody(retainedHeaders, "private void ReleaseSurface(Entry entry)"),
+                "retained priority headers");
+        }
+
+        private static void AssertReleaseAttemptsDestroy(string release, string surfaceOwner)
+        {
+            int releaseCall = release.IndexOf("surface.Release();", StringComparison.Ordinal);
+            int finallyBlock = release.IndexOf("finally", StringComparison.Ordinal);
+            int destroyCall = release.IndexOf("UnityEngine.Object.Destroy(surface);", StringComparison.Ordinal);
+            TestAssert.True(
+                releaseCall >= 0 && finallyBlock > releaseCall && destroyCall > finallyBlock,
+                surfaceOwner + " must destroy a surface even when Unity release throws");
         }
 
         private static void ManualSurfaceRetainsOnlyStablePixels(string source)
