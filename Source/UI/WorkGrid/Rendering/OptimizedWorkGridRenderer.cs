@@ -387,8 +387,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         internal void ReleaseRetainedResources()
         {
+            try
+            {
+                FinalizeTransientRenderState();
+            }
+            finally
+            {
+                _retainedRows.Dispose();
+            }
+        }
+
+        internal void FinalizeTransientRenderState()
+        {
             EndCellBatch();
-            _retainedRows.Dispose();
+        }
+
+        internal void ResetRetainedRowResourceFailureLatchForReopen()
+        {
+            _retainedRows.ResetResourceFailureLatchForReopen();
         }
 
         public bool TryGetPreparedRow(

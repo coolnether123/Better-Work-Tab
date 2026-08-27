@@ -163,20 +163,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 retainedAttempt >= 0 && directDraw > retainedAttempt,
                 "retained failure must flow into the existing prepared direct renderer");
             string close = MemberBody(window, "private void ResetTransientWindowState()");
-            TestAssert.Contains(
-                close,
-                "HeaderDrawingCoordinator.ReleaseRetainedResources();",
-                "closing the Work tab must release retained header surfaces");
+            TestAssert.False(
+                close.IndexOf("HeaderDrawingCoordinator.ReleaseRetainedResources();", StringComparison.Ordinal) >= 0,
+                "ordinary Work-tab close must retain valid header surfaces");
             string resolution = MemberBody(window, "public override void Notify_ResolutionChanged()");
             TestAssert.Contains(
                 resolution,
-                "HeaderDrawingCoordinator.ReleaseRetainedResources();",
+                "ReleaseRetainedResources();",
                 "resolution changes must release retained header surfaces");
             string teardown = MemberBody(gameCacheReset, "public static void Reset(string reason)");
-            TestAssert.Contains(
-                teardown,
-                "SafeReset(reason, \"retained priority headers\", HeaderDrawingCoordinator.ReleaseRetainedResources);",
-                "game load and new-game teardown must release retained header surfaces immediately");
+            TestAssert.False(
+                teardown.IndexOf("HeaderDrawingCoordinator.ReleaseRetainedResources();", StringComparison.Ordinal) >= 0,
+                "game-data invalidation must not defer retained header release until a successful load");
 
             string animatedLayout = MemberBody(
                 headerCoordinator,

@@ -150,12 +150,36 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         public void Dispose()
         {
+            Exception releaseFailure = null;
             foreach (Entry entry in _entries.Values)
             {
-                ReleaseSurface(entry);
+                try
+                {
+                    ReleaseSurface(entry);
+                }
+                catch (Exception exception)
+                {
+                    if (releaseFailure == null)
+                    {
+                        releaseFailure = exception;
+                    }
+                }
             }
             _entries.Clear();
             _estimatedSurfaceBytes = 0L;
+            if (releaseFailure != null)
+            {
+                Log.Warning(
+                    "[BWT] Failed to release one or more retained work-grid rows: " +
+                    releaseFailure.GetType().Name + ": " + releaseFailure.Message);
+            }
+        }
+
+        internal void ResetResourceFailureLatchForReopen()
+        {
+            // A resource allocation can recover after the tab has been closed.
+            // A composition failure remains a permanent direct-render fallback.
+            _failedRenderResourcesRevision = int.MinValue;
         }
 
         private static Rect GetBounds(IReadOnlyList<Cell> cells)
@@ -536,8 +560,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 _estimatedSurfaceBytes = 0L;
             }
             entry.EstimatedBytes = 0L;
-            surface.Release();
-            UnityEngine.Object.Destroy(surface);
+            try
+            {
+                surface.Release();
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(surface);
+            }
         }
 
         internal readonly struct RowKey : IEquatable<RowKey>

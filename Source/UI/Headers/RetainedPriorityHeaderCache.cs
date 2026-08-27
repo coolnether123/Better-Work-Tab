@@ -190,8 +190,19 @@ namespace Better_Work_Tab.UI.Headers
 
         public void Dispose()
         {
-            ReleaseEntries();
-            _game = null;
+            try
+            {
+                ReleaseEntries();
+            }
+            finally
+            {
+                _game = null;
+                _failedRenderResourcesRevision = int.MinValue;
+            }
+        }
+
+        internal void ResetFailureLatchesForReopen()
+        {
             _failedRenderResourcesRevision = int.MinValue;
         }
 
@@ -485,12 +496,29 @@ namespace Better_Work_Tab.UI.Headers
 
         private void ReleaseEntries()
         {
+            Exception releaseFailure = null;
             foreach (Entry entry in _entries.Values)
             {
-                ReleaseSurface(entry);
+                try
+                {
+                    ReleaseSurface(entry);
+                }
+                catch (Exception exception)
+                {
+                    if (releaseFailure == null)
+                    {
+                        releaseFailure = exception;
+                    }
+                }
             }
             _entries.Clear();
             _estimatedSurfaceBytes = 0L;
+            if (releaseFailure != null)
+            {
+                Log.Warning(
+                    "[BWT] Failed to release one or more retained priority headers: " +
+                    releaseFailure.GetType().Name + ": " + releaseFailure.Message);
+            }
         }
 
         private void ReleaseSurface(Entry entry)
@@ -508,8 +536,14 @@ namespace Better_Work_Tab.UI.Headers
                 _estimatedSurfaceBytes = 0L;
             }
             entry.EstimatedBytes = 0L;
-            surface.Release();
-            UnityEngine.Object.Destroy(surface);
+            try
+            {
+                surface.Release();
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(surface);
+            }
         }
 
         private sealed class Entry

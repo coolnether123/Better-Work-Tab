@@ -82,6 +82,11 @@ namespace Better_Work_Tab.UI.Chrome
             _manualPriorityPresentationCache.ReleaseRetainedResources();
         }
 
+        internal void ResetRetainedFailureLatchesForReopen()
+        {
+            _manualPriorityPresentationCache.ResetFailureLatchesForReopen();
+        }
+
         internal void DrawTopControls(IWorkTabLayoutController layout, Rect inRect)
         {
             if (SpineTiming.Enabled)

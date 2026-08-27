@@ -31,6 +31,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             SparseUpdatesAdvanceOnlyDirtyRows(snapshot, provider);
             RetainedHitsUsePrecomputedBoundsAndFingerprint(retained);
             ResourceOwnershipIsBounded(retained, optimized, window);
+            ReopenRetriesOnlyRevisionScopedRowFailures(retained, optimized, window);
             RepresentativeStableWorkIsRemoved();
         }
 
@@ -178,18 +179,49 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(retained, "UnityEngine.Object.Destroy(surface)", "released Unity surfaces must be destroyed");
 
             string release = MemberBody(optimized, "internal void ReleaseRetainedResources(");
-            TestAssert.Contains(release, "EndCellBatch();", "resource release must first restore any active retained render target");
+            TestAssert.Contains(release, "FinalizeTransientRenderState();", "resource release must first restore any active retained render target");
             TestAssert.Contains(release, "_retainedRows.Dispose();", "the optimized renderer must release every retained row surface");
             string resolution = MemberBody(window, "public override void Notify_ResolutionChanged()");
             TestAssert.Contains(
                 resolution,
-                "_optimizedWorkGridRenderer.ReleaseRetainedResources();",
+                "ReleaseRetainedResources();",
                 "resolution changes must release retained row surfaces");
             string close = MemberBody(window, "private void ResetTransientWindowState()");
             TestAssert.Contains(
                 close,
-                "_optimizedWorkGridRenderer.ReleaseRetainedResources();",
-                "closing the Work tab must release retained row surfaces");
+                "_optimizedWorkGridRenderer.FinalizeTransientRenderState();",
+                "ordinary Work-tab close must finalize transient row rendering");
+        }
+
+        private static void ReopenRetriesOnlyRevisionScopedRowFailures(
+            string retained,
+            string optimized,
+            string window)
+        {
+            string retryLatch = MemberBody(
+                retained,
+                "internal void ResetResourceFailureLatchForReopen()");
+            TestAssert.Contains(
+                retryLatch,
+                "_failedRenderResourcesRevision = int.MinValue;",
+                "a new Work-tab open must retry only a revision-scoped row allocation failure");
+            TestAssert.False(
+                retryLatch.IndexOf("_disabled", StringComparison.Ordinal) >= 0,
+                "a composition failure must keep the permanent direct-render fallback latched");
+
+            string rendererRetry = MemberBody(
+                optimized,
+                "internal void ResetRetainedRowResourceFailureLatchForReopen()");
+            TestAssert.Contains(
+                rendererRetry,
+                "_retainedRows.ResetResourceFailureLatchForReopen();",
+                "the renderer must keep row-cache retry policy at its ownership boundary");
+
+            string reopen = MemberBody(window, "public override void PreOpen()");
+            TestAssert.Contains(
+                reopen,
+                "_optimizedWorkGridRenderer.ResetRetainedRowResourceFailureLatchForReopen();",
+                "reopening the cached Work tab must restore allocation retries without releasing healthy rows");
         }
 
         private static void RepresentativeStableWorkIsRemoved()
