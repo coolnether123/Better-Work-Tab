@@ -280,6 +280,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 RenderTexture.active = surface;
                 GL.InvalidateState();
+                PreparedWorkBoxRenderer.ConfigureSrgbWriteForSrgbTarget();
                 GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));
                 // The retained surface contains textures only. Match the
                 // header/chrome retained boundaries and keep prepared logical
