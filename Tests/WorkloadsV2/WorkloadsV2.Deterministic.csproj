@@ -36,6 +36,7 @@
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadDefinition.cs" Link="Production\WorkloadDefinition.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadScope.cs" Link="Production\WorkloadScope.cs" />
     <Compile Include="..\..\Source\UI\WorkGrid\Rendering\WorkGridInspectionSemantics.cs" Link="Production\WorkGridInspectionSemantics.cs" />
+    <Compile Include="..\..\Source\UI\WorkGrid\Rendering\PreparedPawnLabelText.cs" Link="Production\PreparedPawnLabelText.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadMembership.cs" Link="Production\WorkloadMembership.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadPersistenceReceiptRecovery.cs" Link="Production\WorkloadPersistenceReceiptRecovery.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadState.cs" Link="Production\WorkloadState.cs" />
@@ -89,6 +90,7 @@
     <Compile Include="PreparedWorkRowPacketPerformanceContractTests.cs" />
     <Compile Include="WorkGridSnapshotIsolationContractTests.cs" />
     <Compile Include="PreparedPawnLabelPerformanceContractTests.cs" />
+    <Compile Include="PreparedPawnLabelTextTests.cs" />
     <Compile Include="DependencyDirectionContractTests.cs" />
     <Compile Include="WorkloadFeatureIsolationContractTests.cs" />
     <Compile Include="LegacyWorldComponentDependencyContractTests.cs" />
