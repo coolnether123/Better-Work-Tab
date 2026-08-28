@@ -2035,6 +2035,15 @@ namespace Better_Work_Tab.UI.Settings
             }
 
             BWTPresentationSettingOwnershipState state = Describe(definition);
+            if (state.IsPreviewActive &&
+                IsStageablePresentationSetting(definition?.Id))
+            {
+                // The row's ownership button already explains whether the
+                // setting is global or staged. Keep the setting label itself
+                // stable so the action does not consume its text width.
+                return label;
+            }
+
             if (!state.IsWorkloadOwnedInActiveTemplate &&
                 !state.IsBlocked &&
                 !state.CanAcquireWorkloadOwnership)
