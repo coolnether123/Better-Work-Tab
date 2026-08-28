@@ -25,6 +25,7 @@ using UnityEngine;
 using Verse;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Spine.Collections;
+using Spine.Profiling;
 
 namespace Better_Work_Tab.PawnOrganizer
 {
@@ -128,10 +129,20 @@ namespace Better_Work_Tab.PawnOrganizer
             if (!Approximately(dividerHeight, _lastDividerHeight))
                 return true;
 
-            if (ComputeColumnSignature(table) != _lastColumnSignature)
+            int columnSignature = SpineTiming.Enabled
+                ? TimeSafely(
+                    "WorkTab.Layout.ShouldRebuild.ColumnSignature",
+                    () => ComputeColumnSignature(table))
+                : ComputeColumnSignature(table);
+            if (columnSignature != _lastColumnSignature)
                 return true;
 
-            if (ComputeHiddenWorktypesSignature() != _lastHiddenWorktypesSignature)
+            int hiddenWorktypesSignature = SpineTiming.Enabled
+                ? TimeSafely(
+                    "WorkTab.Layout.ShouldRebuild.HiddenWorktypesSignature",
+                    ComputeHiddenWorktypesSignature)
+                : ComputeHiddenWorktypesSignature();
+            if (hiddenWorktypesSignature != _lastHiddenWorktypesSignature)
                 return true;
 
             if (SubWorkDrilldownState.LayoutSignature != _publishedSubWorkSignature)
@@ -155,10 +166,20 @@ namespace Better_Work_Tab.PawnOrganizer
             if (TimePriorityScheduleEditor.LayoutSignature != _lastTimePrioritySignature)
                 return true;
 
-            if (ComputeDividerAnimationSignature() != _lastDividerAnimationSignature)
+            int dividerAnimationSignature = SpineTiming.Enabled
+                ? TimeSafely(
+                    "WorkTab.Layout.ShouldRebuild.DividerAnimationSignature",
+                    ComputeDividerAnimationSignature)
+                : ComputeDividerAnimationSignature();
+            if (dividerAnimationSignature != _lastDividerAnimationSignature)
                 return true;
 
-            if (ComputeSubWorkLayoutSettingsSignature() != _lastSubWorkLayoutSettingsSignature)
+            int subWorkLayoutSettingsSignature = SpineTiming.Enabled
+                ? TimeSafely(
+                    "WorkTab.Layout.ShouldRebuild.SubWorkSettingsSignature",
+                    ComputeSubWorkLayoutSettingsSignature)
+                : ComputeSubWorkLayoutSettingsSignature();
+            if (subWorkLayoutSettingsSignature != _lastSubWorkLayoutSettingsSignature)
                 return true;
 
             if (SleekWorkTabGateway.BetterWorkTabHostsSleek &&
@@ -181,6 +202,28 @@ namespace Better_Work_Tab.PawnOrganizer
                 return true;
 
             // Check pawn display order changes (after drag-reorder)
+            bool pawnDisplayOrderChanged = SpineTiming.Enabled
+                ? TimeSafely(
+                    "WorkTab.Layout.ShouldRebuild.PawnDisplayOrder",
+                    () => HasPawnDisplayOrderChanged(snapshot))
+                : HasPawnDisplayOrderChanged(snapshot);
+            if (pawnDisplayOrderChanged) return true;
+
+            // Check divider collapse states
+            bool dividerCollapseStateChanged = SpineTiming.Enabled
+                ? TimeSafely(
+                    "WorkTab.Layout.ShouldRebuild.DividerCollapseState",
+                    () => HasDividerCollapseStateChanged(snapshot))
+                : HasDividerCollapseStateChanged(snapshot);
+            if (dividerCollapseStateChanged) return true;
+
+            return false;
+        }
+
+        // Keep the two scans isolated so profiling can attribute their aggregate
+        // cost without placing a probe inside either element loop.
+        private bool HasPawnDisplayOrderChanged(IPawnOrganizerSnapshot snapshot)
+        {
             for (int i = 0; i < snapshot.Pawns.Count; i++)
             {
                 var pawn = snapshot.Pawns[i];
@@ -191,17 +234,62 @@ namespace Better_Work_Tab.PawnOrganizer
                     return true;
             }
 
-            // Check divider collapse states
-            if (snapshot.Dividers != null && snapshot.Dividers.Count == _lastCollapsedStates.Count)
+            return false;
+        }
+
+        private bool HasDividerCollapseStateChanged(IPawnOrganizerSnapshot snapshot)
+        {
+            if (snapshot.Dividers == null || snapshot.Dividers.Count != _lastCollapsedStates.Count)
+                return false;
+
+            for (int i = 0; i < snapshot.Dividers.Count; i++)
             {
-                for (int i = 0; i < snapshot.Dividers.Count; i++)
-                {
-                    if (snapshot.Dividers[i].IsCollapsed != _lastCollapsedStates[i])
-                        return true;
-                }
+                if (snapshot.Dividers[i].IsCollapsed != _lastCollapsedStates[i])
+                    return true;
             }
 
             return false;
+        }
+
+        private static T TimeSafely<T>(string name, Func<T> action)
+        {
+            bool completed = false;
+            T result = default(T);
+            try
+            {
+                return SpineTiming.Time(
+                    name,
+                    () =>
+                    {
+                        result = action();
+                        completed = true;
+                        return result;
+                    });
+            }
+            catch (Exception) when (completed)
+            {
+                // A profiler recorder failure must not change the layout result.
+                return result;
+            }
+        }
+
+        private static void TimeSafely(string name, Action action)
+        {
+            bool completed = false;
+            try
+            {
+                SpineTiming.Time(
+                    name,
+                    () =>
+                    {
+                        action();
+                        completed = true;
+                    });
+            }
+            catch (Exception) when (completed)
+            {
+                // A profiler recorder failure must not clear a successfully built layout.
+            }
         }
 
         /// <summary>
@@ -517,7 +605,12 @@ namespace Better_Work_Tab.PawnOrganizer
             lock (_stateLock)
             {
                 // SKIP REBUILD IF NOTHING CHANGED
-                if (!ShouldRebuild(table, snapshot, origin))
+                bool shouldRebuild = SpineTiming.Enabled
+                    ? TimeSafely(
+                        "WorkTab.Layout.ShouldRebuild",
+                        () => ShouldRebuild(table, snapshot, origin))
+                    : ShouldRebuild(table, snapshot, origin);
+                if (!shouldRebuild)
                 {
                     return; // All cached data is still valid
                 }
@@ -560,8 +653,21 @@ namespace Better_Work_Tab.PawnOrganizer
                     _headerHeight = SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(_table);
                     SubWorkDrilldownHeaderGeometry.RecordNormalHeaderHeight(_table, _headerHeight);
 
-                    BuildColumns();
-                    BuildRows();
+                    if (SpineTiming.Enabled)
+                    {
+                        TimeSafely(
+                            "WorkTab.Layout.RebuildBody",
+                            () =>
+                            {
+                                BuildColumns();
+                                BuildRows();
+                            });
+                    }
+                    else
+                    {
+                        BuildColumns();
+                        BuildRows();
+                    }
 
                     _rowDescriptorsDirty = true;
                     _layoutRevision++;

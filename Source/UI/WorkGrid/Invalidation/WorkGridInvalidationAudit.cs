@@ -1,8 +1,10 @@
+using System;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using RimWorld;
+using Spine.Profiling;
 using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Invalidation
@@ -26,7 +28,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             }
 
             _nextRosterAuditTick = ticks + AuditIntervalTicks;
-            if (RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(table?.cachedPawns))
+            bool rosterMatches = SpineTiming.Enabled
+                ? TimeSafely(
+                    "WorkTab.InvalidationAudit.RosterSignature",
+                    () => RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(table?.cachedPawns))
+                : RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(table?.cachedPawns);
+            if (rosterMatches)
             {
                 return;
             }
@@ -44,11 +51,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             }
 
             _nextAuditTick = ticks + AuditIntervalTicks;
-            if (TimePriorityService.ReconcileDirectMutationsFromAudit())
+            bool directMutationsFound = SpineTiming.Enabled
+                ? TimeSafely(
+                    "WorkTab.InvalidationAudit.Reconcile",
+                    TimePriorityService.ReconcileDirectMutationsFromAudit)
+                : TimePriorityService.ReconcileDirectMutationsFromAudit();
+            if (directMutationsFound)
             {
                 WorkTabApplication.Current?.ReportObservedScheduleChange();
             }
-            int signature = ComputeSignature(table);
+            int signature = SpineTiming.Enabled
+                ? TimeSafely(
+                    "WorkTab.InvalidationAudit.ComputeSignature",
+                    () => ComputeSignature(table))
+                : ComputeSignature(table);
             WorkGridRevisionSet revisions = WorkTabInvalidationHub.Current.CategoryRevisions;
             bool knownTrackedChange =
                 _lastTrackedRevisions.GameState != revisions.GameState ||
@@ -78,6 +94,28 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             _lastSignature = 0;
             _hasSignature = false;
             _lastTrackedRevisions = default;
+        }
+
+        private static T TimeSafely<T>(string name, Func<T> action)
+        {
+            bool completed = false;
+            T result = default(T);
+            try
+            {
+                return SpineTiming.Time(
+                    name,
+                    () =>
+                    {
+                        result = action();
+                        completed = true;
+                        return result;
+                    });
+            }
+            catch (Exception) when (completed)
+            {
+                // A profiler recorder failure must not change audit decisions.
+                return result;
+            }
         }
 
         private static int RosterSignature(System.Collections.Generic.IEnumerable<Pawn> pawns)

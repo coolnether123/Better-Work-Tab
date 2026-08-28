@@ -2927,6 +2927,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 var liveManualModes = new List<WorkloadManualModeEntry>();
                 var liveSpecificOverrides = new List<WorkloadSpecificJobOverrideEntry>();
                 var liveSpecificOrder = new List<WorkloadSpecificJobOrderEntry>();
+                List<WorkTypeDef> allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
 
                 foreach (Pawn pawn in runtime.Pawns.Values)
                 {
@@ -2936,7 +2937,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         continue;
                     }
 
-                    List<WorkTypeDef> allWorkTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
                     if (allWorkTypes == null) continue;
                     for (int workTypeIndex = 0; workTypeIndex < allWorkTypes.Count; workTypeIndex++)
                     {
@@ -3129,7 +3129,16 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         " liveEntries=" + ((profileLiveEntries - profileScope) * tickMs).ToString("F3") +
                         " runtimeBaseline=" + ((profileRuntimeBaseline - profileLiveEntries) * tickMs).ToString("F3") +
                         " backend=" + ((profileBackend - profileRuntimeBaseline) * tickMs).ToString("F3") +
-                        " state=" + ((profileState - profileBackend) * tickMs).ToString("F3"));
+                        " state=" + ((profileState - profileBackend) * tickMs).ToString("F3") +
+                        " counts=pawns:" + runtime.Pawns.Count +
+                        ",workTypes:" + (allWorkTypes?.Count ?? 0) +
+                        ",workGivers:" + runtime.WorkGivers.Count +
+                        ",entries:" +
+                        (runtimePriorities.Count +
+                         livePriorities.Count +
+                         liveManualModes.Count +
+                         liveSpecificOverrides.Count +
+                         liveSpecificOrder.Count));
                 }
 
                 return WorkloadOperationResult<WorkloadLiveBaselineCapture>.Ok(

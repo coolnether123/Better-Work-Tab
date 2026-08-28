@@ -31,6 +31,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("gateway-multiplayer-contracts", GatewayMultiplayerTests.Run),
             new TestCase("gateway-lifecycle-contracts", GatewayLifecycleTests.Run),
             new TestCase("backend-transaction-contracts", BackendTransactionTests.Run),
+            new TestCase("workload-performance-instrumentation-contracts", WorkloadPerformanceInstrumentationContractTests.Run),
             new TestCase("presentation-settings-consolidation", PresentationSettingsConsolidationTests.Run),
             new TestCase("chrome-presentation-cache-contracts", ChromePresentationCacheTests.Run),
             new TestCase("retained-surface-presentation", RetainedSurfacePresentationTests.Run),
