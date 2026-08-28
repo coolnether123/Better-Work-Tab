@@ -283,7 +283,6 @@ namespace Better_Work_Tab.UI.Workloads.Projection
             _observedDraftRevision = publishedDraftRevision;
             _hasUnfingerprintedExactParentState = true;
             _revision = unchecked(_revision + 1L);
-            WorkTabEffectiveStateRuntime.InvalidateRenderPass();
             return true;
         }
 

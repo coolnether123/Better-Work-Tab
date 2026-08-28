@@ -47,7 +47,6 @@ namespace Better_Work_Tab.UI.Workloads
             out string reason)
         {
             key = null;
-            EnsureFresh();
             ParentPriorityTarget target = ParentPriorityRead.TargetFor(pawn, workType);
             if (!_ownership.Owns(WorkloadStateDimension.ParentPriorities))
                 reason = "The active workload preview does not own parent priorities.";
@@ -58,14 +57,16 @@ namespace Better_Work_Tab.UI.Workloads
                 key = new WorkloadParentPriorityKey(
                     new PawnKey(target.PawnThingId.ToString(CultureInfo.InvariantCulture)),
                     new WorkTypeKey(target.WorkTypeDefName));
-                _draft.SetParentPriority(key, priority);
 
                 // A previous WorkTabView can still read the old immutable
                 // snapshot during this input event. Copy only the priority map
                 // for this cell instead of rebuilding the entire workload
                 // draft, its schedules, specific jobs, and presentation state.
+                // Rejected edits deliberately do not refresh that snapshot.
+                EnsureFresh();
                 var priorities = new Dictionary<ParentPriorityTarget, ParentProjectionValue<int>>(
                     _priorities);
+                _draft.SetParentPriority(key, priority);
                 priorities[target] = ParentProjectionValue<int>.Set(priority);
                 _priorities = priorities;
                 _snapshot = new ParentPriorityProjectionSnapshot(

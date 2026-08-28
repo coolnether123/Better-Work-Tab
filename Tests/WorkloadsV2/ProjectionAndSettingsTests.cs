@@ -260,8 +260,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 editablePawnIds: new[] { pawn });
 
             long revision = projection.ProjectionRevision;
+            bool captured = initial.TrySetCapturedParentPriority(
+                parent,
+                4,
+                out WorkloadProjectedState capturedParentState,
+                out _);
+            TestAssert.True(captured,
+                "the test must create an authoritative captured parent state outside the generic draft materializer");
+
             draft.SetParentPriority(parent, 4);
-            WorkloadProjectedState capturedParentState = draft.ProjectedState;
+            WorkloadProjectedState materializedDraftState = draft.ProjectedState;
+            TestAssert.False(ReferenceEquals(capturedParentState, materializedDraftState),
+                "the generic draft materializer must produce a distinct state from the authoritative captured parent update");
             projection.InvalidateDraft();
             TestAssert.False(
                 projection.TryPublishCapturedParentPriority(
@@ -277,7 +287,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Equal(revision + 1L, projection.ProjectionRevision,
                 "a captured parent edit must publish exactly one projected provider revision");
             TestAssert.True(ReferenceEquals(capturedParentState, projection.ProjectedState),
-                "the next provider read must use the captured parent state without rebuilding the full draft");
+                "the next provider read must use the captured parent state without materializing the generic draft");
 
             draft.SetPresentationSetting("ui.angled", WorkloadScalarValue.FromBoolean(true));
             projection.InvalidateDraft();
