@@ -319,6 +319,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string previewMutation = MemberBody(
                 workloadGateway,
                 "internal bool TrySetPreviewParentPriority(");
+            int synchronizeBeforeParent = previewMutation.IndexOf(
+                "_projectedProvider.ProjectionRevision !=",
+                StringComparison.Ordinal);
+            int parentMutation = previewMutation.IndexOf(
+                "_parentPriorityProjection.TrySet(",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                synchronizeBeforeParent >= 0 && parentMutation > synchronizeBeforeParent,
+                "a pending generic provider edit must synchronize before a captured parent edit replaces the session");
             TestAssert.Contains(
                 previewMutation,
                 "WorkloadGateway.EditV2PreviewCapturedParentPriority(key, priority);",
@@ -336,12 +345,40 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the copied parent projection must acknowledge its provider revision instead of rebuilding the whole draft on repaint");
             TestAssert.Contains(
                 previewMutation,
-                "else if (!SynchronizeAfterInput())",
-                "unusual parent records must retain the generic synchronization fallback");
+                "_projectedProvider.TryPublishCapturedParentPriority(",
+                "a captured parent edit must publish its known state after exactly one draft invalidation");
+            int sparsePublish = previewMutation.IndexOf(
+                "_projectedProvider.TryPublishCapturedParentPriority(",
+                StringComparison.Ordinal);
+            int draftInvalidation = previewMutation.IndexOf(
+                "_projectedProvider.InvalidateDraft();",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                draftInvalidation >= 0 && sparsePublish > draftInvalidation,
+                "the typed publish must acknowledge the exact invalidated draft revision before the next render pass");
             TestAssert.Contains(
                 previewMutation,
                 "WorkTabInvalidationHub.InvalidatePriority(pawn.thingIDNumber, workType.shortHash);",
                 "a successful preview parent-priority edit must publish one exact sparse invalidation");
+
+            string projectedProvider = Read(root, "Source", "UI", "Workloads", "Projection",
+                "ProjectedWorkTabEffectiveStateProvider.cs");
+            string sparseProviderAdvance = MemberBody(
+                projectedProvider,
+                "internal bool TryPublishCapturedParentPriority(");
+            TestAssert.False(
+                sparseProviderAdvance.IndexOf("_draft.ProjectedState", StringComparison.Ordinal) >= 0 ||
+                sparseProviderAdvance.IndexOf("GetSemanticFingerprint", StringComparison.Ordinal) >= 0 ||
+                sparseProviderAdvance.IndexOf("RebuildIndexes", StringComparison.Ordinal) >= 0,
+                "the captured parent provider update must not materialize, fingerprint, or reindex the full draft");
+            TestAssert.Contains(
+                sparseProviderAdvance,
+                "_observedDraftRevision = publishedDraftRevision;",
+                "the captured parent provider update must acknowledge the exact draft revision before the next render pass");
+            TestAssert.Contains(
+                sparseProviderAdvance,
+                "_hasUnfingerprintedExactParentState = true;",
+                "the next generic mutation must force its normal full reconciliation even if it returns to an earlier fingerprint");
 
             string parentProjection = Read(root, "Source", "UI", "Workloads",
                 "WorkloadParentPriorityProjection.cs");

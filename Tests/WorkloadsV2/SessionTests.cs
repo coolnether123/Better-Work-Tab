@@ -170,6 +170,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 capturedPriorityEdit.Apply().AppliedState.SemanticallyEquals(
                     capturedPriorityEdit.ProjectedState),
                 "Apply must use the state produced by a narrow parent edit");
+            WorkloadSession genericEditBeforeParent = session.Edit(draft =>
+                draft.SetSpecificPriority(specificKey, 7));
+            TestAssert.True(
+                genericEditBeforeParent.TryEditCapturedParentPriority(
+                    parent,
+                    4,
+                    out WorkloadSession parentAfterGenericEdit),
+                "a captured parent edit must accept a session already advanced by another preview mutation");
+            TestAssert.Equal(
+                7,
+                parentAfterGenericEdit.ProjectedState.SpecificPriorityIntents[0].Intent.Value.Priority,
+                "a captured parent edit must retain a preceding generic preview mutation");
             bool capturedMissingTarget = session.TryEditCapturedParentPriority(
                 new WorkloadParentPriorityKey(parent.Pawn, TestSupport.WorkType("Missing")),
                 4,

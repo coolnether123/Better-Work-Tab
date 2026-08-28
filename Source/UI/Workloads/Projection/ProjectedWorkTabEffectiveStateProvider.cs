@@ -52,6 +52,7 @@ namespace Better_Work_Tab.UI.Workloads.Projection
 
         private WorkloadProjectedState _projectedState;
         private string _semanticFingerprint;
+        private bool _hasUnfingerprintedExactParentState;
         private long _baseRevision;
         private long _draftRevision;
         private long _observedDraftRevision;
@@ -123,6 +124,7 @@ namespace Better_Work_Tab.UI.Workloads.Projection
             _presentationOwnershipTouched = source._presentationOwnershipTouched;
             _projectedState = source._projectedState;
             _semanticFingerprint = source._semanticFingerprint;
+            _hasUnfingerprintedExactParentState = source._hasUnfingerprintedExactParentState;
             _baseRevision = source._baseRevision;
             _draftRevision = source._draftRevision;
             _observedDraftRevision = source._observedDraftRevision;
@@ -259,6 +261,30 @@ namespace Better_Work_Tab.UI.Workloads.Projection
 
             _draftRevision = unchecked(_draftRevision + 1L);
             WorkTabEffectiveStateRuntime.InvalidateRenderPass();
+        }
+
+        /// <summary>
+        /// Publishes an authoritative captured parent-priority state after its
+        /// draft revision was assigned. Parent priorities render through their
+        /// dedicated projection, so the generic provider needs no reindex.
+        /// The next real generic edit will reconcile and fingerprint normally.
+        /// </summary>
+        internal bool TryPublishCapturedParentPriority(
+            WorkloadProjectedState projectedState,
+            long publishedDraftRevision)
+        {
+            if (_isCapturedView || projectedState == null ||
+                publishedDraftRevision != _draftRevision)
+            {
+                return false;
+            }
+
+            _projectedState = projectedState;
+            _observedDraftRevision = publishedDraftRevision;
+            _hasUnfingerprintedExactParentState = true;
+            _revision = unchecked(_revision + 1L);
+            WorkTabEffectiveStateRuntime.InvalidateRenderPass();
+            return true;
         }
 
         /// <summary>
@@ -1509,6 +1535,7 @@ namespace Better_Work_Tab.UI.Workloads.Projection
                 string fingerprint = projected.GetSemanticFingerprint(
                     EffectiveOwnedDimensions(projected));
                 projectedChanged = firstProjection ||
+                                   _hasUnfingerprintedExactParentState ||
                                    !StringComparer.Ordinal.Equals(
                                        _semanticFingerprint,
                                        fingerprint);
@@ -1521,6 +1548,7 @@ namespace Better_Work_Tab.UI.Workloads.Projection
                 }
 
                 _observedDraftRevision = _draftRevision;
+                _hasUnfingerprintedExactParentState = false;
             }
 
             if (firstProjection)

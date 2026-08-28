@@ -1881,8 +1881,22 @@ namespace Better_Work_Tab.UI.Workloads
             int priority)
         {
             string reason = null;
-            if (!IsActive || _parentPriorityProjection == null ||
-                !_parentPriorityProjection.TrySet(
+            if (!IsActive || _parentPriorityProjection == null)
+            {
+                return false;
+            }
+
+            // An input owner can stage another projected change immediately
+            // before this parent edit. Bring the session forward first so the
+            // narrow parent replacement never overwrites that newer state.
+            if (_projectedProvider.ProjectionRevision !=
+                    _synchronizedProjectedProviderRevision &&
+                !SynchronizeAfterInput())
+            {
+                return false;
+            }
+
+            if (!_parentPriorityProjection.TrySet(
                     pawn,
                     workType,
                     priority,
@@ -1897,25 +1911,30 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
-            // The generic provider still owns the remaining draft dimensions
-            // and future generic synchronization. Tell it about this
-            // boundary-owned draft mutation without retaining a second parent
-            // index there.
-            _projectedProvider.InvalidateDraft();
-            long providerRevision = _projectedProvider.ProjectionRevision;
             WorkloadSession previous = _session;
             WorkloadOperationResult<WorkloadSession> result =
                 WorkloadGateway.EditV2PreviewCapturedParentPriority(key, priority);
-            if (result.Succeeded && result.Value != null)
+            _projectedProvider.InvalidateDraft();
+            long providerRevision = _projectedProvider.ProjectionRevision;
+            if (result.Succeeded && result.Value != null &&
+                _projectedProvider.TryPublishCapturedParentPriority(
+                    result.Value.ProjectedState,
+                    providerRevision))
             {
                 AcceptCapturedParentPriorityReplacement(
                     result.Value,
                     previous,
                     providerRevision);
             }
-            else if (!SynchronizeAfterInput())
+            else
             {
-                return false;
+                // The generic provider owns all non-parent edits and unusual
+                // legacy targets. It also recovers if the typed publish could
+                // not prove it observed this exact draft revision.
+                if (!SynchronizeAfterInput())
+                {
+                    return false;
+                }
             }
 
             WorkTabInvalidationHub.InvalidatePriority(pawn.thingIDNumber, workType.shortHash);
