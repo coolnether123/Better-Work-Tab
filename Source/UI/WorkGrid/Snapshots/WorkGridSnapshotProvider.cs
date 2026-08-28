@@ -263,7 +263,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 return false;
             }
 
-            HashSet<WorkGridPriorityKey> dirty = NormalizeSparsePriorityScope(dirtyKeys);
+            var dirty = new HashSet<WorkGridPriorityKey>(dirtyKeys);
             IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
             Dictionary<int, int> rowIndexByPawnId = BuildSparseRowIndex(previous);
             var replacements = new Dictionary<int, WorkCellVisualState>();
@@ -293,22 +293,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 replacements,
                 preparedRowReplacements);
             return true;
-        }
-
-        /// <summary>
-        /// Deduplicates the ledger snapshot without mutating it. A failed
-        /// replacement therefore leaves the full-build fallback its original
-        /// invalidation evidence.
-        /// </summary>
-        private static HashSet<WorkGridPriorityKey> NormalizeSparsePriorityScope(
-            IReadOnlyList<WorkGridPriorityKey> dirtyKeys)
-        {
-            var dirty = new HashSet<WorkGridPriorityKey>();
-            for (int i = 0; i < dirtyKeys.Count; i++)
-            {
-                dirty.Add(dirtyKeys[i]);
-            }
-            return dirty;
         }
 
         private static Dictionary<int, int> BuildSparseRowIndex(WorkGridSnapshot previous)
@@ -1250,7 +1234,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     continue;
                 }
 
-                if (bestPawn == null || IsBetterPawn(candidate, bestPawn, worker))
+                if (bestPawn == null || worker.Compare(candidate, bestPawn) > 0)
                 {
                     bestPawn = candidate;
                 }
@@ -1337,7 +1321,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     continue;
                 }
 
-                if (bestPawn == null || IsBetterPawn(candidate, bestPawn, worker))
+                if (bestPawn == null || worker.Compare(candidate, bestPawn) > 0)
                 {
                     bestPawn = candidate;
                 }
@@ -1411,14 +1395,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                    pawn.workSettings.EverWork &&
                    !pawn.WorkTypeIsDisabled(workType) &&
                    WorkTabActionability.CanApplyAnyWorkGiver(pawn, workType);
-        }
-
-        private static bool IsBetterPawn(
-            Pawn candidate,
-            Pawn bestPawn,
-            PawnColumnWorker_WorkPriority worker)
-        {
-            return worker.Compare(candidate, bestPawn) > 0;
         }
 
         private static uint PackColor(Color color)

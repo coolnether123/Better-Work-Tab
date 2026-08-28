@@ -201,8 +201,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Projection
 
     /// <summary>
     /// Small immutable stamp for snapshot and cache consumers. A preview edit
-    /// changes this stamp on its projected provider only; it does not call the
-    /// live WorkTab invalidation hub.
+    /// changes its projected provider stamp. A targeted parent-priority edit
+    /// also publishes its dirty cell for sparse snapshot replacement.
     /// </summary>
     public readonly struct WorkTabEffectiveStateRevision : IEquatable<WorkTabEffectiveStateRevision>
     {

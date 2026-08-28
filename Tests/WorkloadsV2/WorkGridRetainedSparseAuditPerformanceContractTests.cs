@@ -43,6 +43,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string workloadGateway = Read(
                 root,
                 "Source", "UI", "Workloads", "WorkloadGateway.cs");
+            string priorityPatch = Read(
+                root,
+                "Source", "Features", "Patches", "Patch_WorkPriority_DoCell_Unified.cs");
 
             ParentRowsDoNotRecomposeDuringColumnAnimation(renderer);
             SnapshotOwnedEmptyBackgroundsDoNotFallBack(renderer, body);
@@ -54,7 +57,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 window,
                 gameCacheReset);
             MapWorldClearIsAnAuthoritativeTeardownHook(gameCacheReset);
-            SparseParentChangesKeepSubWorkUpdatesLocal(snapshots, workloadGateway);
+            SparseParentChangesKeepSubWorkUpdatesLocal(
+                snapshots,
+                workloadGateway,
+                priorityPatch);
             CompatibilityAuditUsesLinearSkillAndPriorityPasses(audit);
             RepresentativeOperationCountsAreReduced();
         }
@@ -210,7 +216,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static void SparseParentChangesKeepSubWorkUpdatesLocal(
             string snapshots,
-            string workloadGateway)
+            string workloadGateway,
+            string priorityPatch)
         {
             string eligibility = MemberBody(
                 snapshots,
@@ -244,19 +251,27 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 snapshots,
                 "!snapshotColumn.IsExpandBesideChild",
                 "focus columns must retain their parent visual while expand-beside children stay child-only");
-            string bestPawn = MemberBody(
-                snapshots,
-                "private static bool IsBetterPawn(");
             TestAssert.Contains(
-                bestPawn,
-                "return worker.Compare(candidate, bestPawn) > 0;",
+                snapshots,
+                "worker.Compare(candidate, bestPawn) > 0",
                 "best-pawn selection must remain RimWorld's worker-defined skill and eligibility comparison");
             TestAssert.False(
-                bestPawn.IndexOf("ParentPriorityRead", StringComparison.Ordinal) >= 0,
-                "best-pawn selection must not use the displayed parent priority");
+                snapshots.IndexOf("IsBetterPawn(", StringComparison.Ordinal) >= 0,
+                "best-pawn selection must use RimWorld's comparison directly instead of a forwarding helper");
             TestAssert.False(
-                bestPawn.IndexOf("IsPreviewActive", StringComparison.Ordinal) >= 0,
-                "preview mode must not change best-pawn selection");
+                priorityPatch.IndexOf("private static bool IsBetterPawn(", StringComparison.Ordinal) >= 0,
+                "the direct fallback must use RimWorld's best-pawn comparison directly");
+            string directBestPawn = MemberBody(
+                priorityPatch,
+                "private static Pawn GetBestPawnForWorktype(");
+            TestAssert.Contains(
+                directBestPawn,
+                "worker.Compare(p, bestPawn) > 0",
+                "the direct fallback must rank best pawns by RimWorld's worker comparison");
+            TestAssert.False(
+                directBestPawn.IndexOf("WorkTabEffectiveStateRuntime", StringComparison.Ordinal) >= 0 ||
+                directBestPawn.IndexOf("ParentPriorityRead", StringComparison.Ordinal) >= 0,
+                "preview priority edits must not clear or recalculate direct fallback best-pawn selection");
 
             string transition = MemberBody(
                 snapshots,
