@@ -1061,15 +1061,15 @@ namespace Better_Work_Tab.PawnOrganizer
                     !showSubWork &&
                     !blockPreviewSpecificJobOrdering &&
                     SubWorkDrilldownState.GetExpandBesideWidthProgress(def.workType) > 0.001f &&
-                    FluffyWorkTabGateway.TryBuildHostedColumnSpecs(
+                    BwtExpandBesideColumns.TryBuildColumnSpecs(
                         def,
                         def.workType,
                         out _,
-                        out List<PawnColumnDef> hostedChildren))
+                        out List<PawnColumnDef> childColumns))
                 {
-                    for (int slot = 0; slot < hostedChildren.Count; slot++)
+                    for (int slot = 0; slot < childColumns.Count; slot++)
                     {
-                        WorkGiverDef workGiverDef = FluffyWorkTabGateway.TryGetHostedWorkGiver(hostedChildren[slot]);
+                        WorkGiverDef workGiverDef = BwtExpandBesideColumns.TryGetWorkGiver(childColumns[slot]);
                         if (workGiverDef == null)
                         {
                             continue;
@@ -1082,7 +1082,7 @@ namespace Better_Work_Tab.PawnOrganizer
                         }
 
                         visibleColumns.Add(new VisibleColumnSpec(
-                            hostedChildren[slot],
+                            childColumns[slot],
                             i,
                             def.workType,
                             workGiverDef,
@@ -1147,7 +1147,7 @@ namespace Better_Work_Tab.PawnOrganizer
                         : 30f;
                 }
 
-                w = FluffyWorkTabGateway.GetHostedColumnWidth(columnDef, _table, w);
+                w = BwtExpandBesideColumns.GetColumnWidth(columnDef, _table, w);
                 
                 if (visibleColumns[i].IsExpandBesideChild)
                 {

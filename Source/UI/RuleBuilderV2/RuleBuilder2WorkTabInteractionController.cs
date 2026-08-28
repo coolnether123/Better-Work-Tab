@@ -161,7 +161,7 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
             for (int i = 0; i < layout.Columns.Count; i++)
             {
                 WorkTabLayoutColumn column = layout.Columns[i];
-                Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
+                Rect headerRect = BwtExpandBesideColumns.GetHeaderLaneRect(
                     column.Column,
                     layout.Table,
                     WorkGridInteractionGeometry.GetAnimatedHeaderRect(column));

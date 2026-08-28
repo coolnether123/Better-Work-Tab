@@ -4,6 +4,7 @@ using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.ComplexJobs;
@@ -689,7 +690,7 @@ namespace Better_Work_Tab.UI.Settings
                                                                                                                      _ => "Compact window width keeps focused columns at their natural widths.",
                                                                                                                  SuppressorSettingId = LayoutWorkTabMinimumWidth, LinkLabel = "Keep vanilla minimum width" },
                                                                                         new SettingSuppression { When =
-                                                                                                                     _ => FluffyWorkTabGateway.CanHostFluffySubWorkColumns && UsesExpandBesideDrilldown(),
+                                                                                                                     _ => BwtExpandBesideColumns.CanBuild && UsesExpandBesideDrilldown(),
                                                                                                                  Reason =
                                                                                                                      _ => "Expand beside uses BWT's dedicated child columns.",
                                                                                                                  SuppressorSettingId = SubWorkDrilldownStyle, LinkLabel = "Specific-job view" },

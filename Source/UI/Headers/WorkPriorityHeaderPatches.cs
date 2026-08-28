@@ -109,8 +109,7 @@ namespace Better_Work_Tab.UI.Headers
                 // Fluffy work-giver columns derive from PawnColumnWorker_WorkPriority but carry their
                 // parent's workType. Drawing a Better Work Tab header here would label every sub-work
                 // column with the work type. Let Fluffy's own worker and transpiler render them.
-                if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def) &&
-                    !FluffyWorkTabGateway.IsHostedFluffyWorkGiverColumn(__instance.def))
+                if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance.def))
                 {
                     return true;
                 }
@@ -162,8 +161,7 @@ namespace Better_Work_Tab.UI.Headers
                 return;
             }
 
-            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(worker.def) &&
-                !FluffyWorkTabGateway.IsHostedFluffyWorkGiverColumn(worker.def))
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(worker.def))
             {
                 return;
             }
@@ -215,8 +213,7 @@ namespace Better_Work_Tab.UI.Headers
                 return;
 
             // Fluffy sizes its own work-giver column headers.
-            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance?.def) &&
-                !FluffyWorkTabGateway.IsHostedFluffyWorkGiverColumn(__instance?.def))
+            if (FluffyWorkTabGateway.IsFluffyWorkGiverColumn(__instance?.def))
                 return;
 
             var settings = BetterWorkTabMod.Settings;
