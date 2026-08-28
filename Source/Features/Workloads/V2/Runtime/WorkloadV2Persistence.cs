@@ -554,14 +554,28 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             string expectedFingerprint,
             out string error)
         {
+            return TryValidateCompareAndSwap(
+                expectedRevision,
+                expectedFingerprint,
+                out _,
+                out error);
+        }
+
+        private bool TryValidateCompareAndSwap(
+            int expectedRevision,
+            string expectedFingerprint,
+            out string actualFingerprint,
+            out string error)
+        {
             error = string.Empty;
+            actualFingerprint = string.Empty;
             if (expectedRevision < 0)
             {
                 error = "The expected workload persistence revision is invalid.";
                 return false;
             }
 
-            string actualFingerprint = ComputeContentFingerprint();
+            actualFingerprint = ComputeContentFingerprint();
             if (expectedRevision != PersistenceRevision)
             {
                 error = "The workload persistence revision changed while the preview was open.";
@@ -583,7 +597,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             string expectedFingerprint,
             out string error)
         {
-            if (!TryValidateCompareAndSwap(expectedRevision, expectedFingerprint, out error))
+            if (!TryValidateCompareAndSwap(
+                    expectedRevision,
+                    expectedFingerprint,
+                    out string actualFingerprint,
+                    out error))
             {
                 return false;
             }
@@ -595,7 +613,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             PersistenceRevision = expectedRevision + 1;
-            PersistenceFingerprint = ComputeContentFingerprint();
+            // Revision metadata is excluded from the content fingerprint, and
+            // the record mutation happens only after this CAS succeeds. Reuse
+            // the value validated above instead of hashing the same document
+            // a second time.
+            PersistenceFingerprint = actualFingerprint;
             return true;
         }
 
