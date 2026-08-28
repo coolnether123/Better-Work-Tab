@@ -769,7 +769,6 @@ namespace Better_Work_Tab.UI.Workloads
             WorkloadSurfaceCoordinator.RegisterPreviewState(
                 () => IsActive,
                 message => SetMessage(message));
-            BWTWorkloadSettingsOwnershipPolicy.RegisterPresentationPreviewPort(this);
             WorkTabEffectiveStateRuntime.RegisterPreviewScopePusher(
                 () => Current?.PushEffectiveStateScope());
             Current = this;
@@ -3279,6 +3278,12 @@ namespace Better_Work_Tab.UI.Workloads
             _previewRecoveryBlocked = false;
             _session = session;
             _boundComponent = WorkloadWorldStates.Current;
+
+            // RimWorld may construct an inactive Work-tab window while another
+            // window still owns the active preview. Bind settings to the
+            // controller that actually opened the session, not to whichever
+            // controller happened to be constructed most recently.
+            BWTWorkloadSettingsOwnershipPolicy.RegisterPresentationPreviewPort(this);
             RebuildProjection(_session.ProjectedState);
             ColumnSelectionManager.Clear();
             BWTWorkTabTutorial.NotifyWorkloadPresentationOpened();

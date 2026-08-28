@@ -458,12 +458,25 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "a new stamp must invalidate the cached presentation snapshot");
 
             string open = MethodBody(gateway, "private void OpenSession(");
+            string controllerConstructor = MethodBody(
+                gateway,
+                "internal WorkloadPreviewController()");
             string synchronize = MethodBody(gateway, "internal bool SynchronizeAfterInput()");
             string acceptDraft = MethodBody(gateway, "private void AcceptDraftReplacement(");
             string rebuild = MethodBody(gateway, "private void RebuildProjection(");
             string close = MethodBody(gateway, "private void ClearLocalSession()");
             TestAssert.Contains(open, "RebuildProjection(_session.ProjectedState)",
                 "preview start must cross the observed projection boundary");
+            TestAssert.False(controllerConstructor.Contains("RegisterPresentationPreviewPort("),
+                "constructing an inactive Work-tab window must not replace the active settings preview port");
+            TestAssert.Contains(open, "RegisterPresentationPreviewPort(this)",
+                "the controller that opens the preview must own the settings preview port");
+            TestAssert.True(
+                open.IndexOf("_session = session", StringComparison.Ordinal) <
+                open.IndexOf("RegisterPresentationPreviewPort(this)", StringComparison.Ordinal) &&
+                open.IndexOf("RegisterPresentationPreviewPort(this)", StringComparison.Ordinal) <
+                open.IndexOf("RebuildProjection(_session.ProjectedState)", StringComparison.Ordinal),
+                "settings preview ownership must bind after session installation and before projection invalidation");
             TestAssert.Contains(synchronize, "AcceptDraftReplacement(",
                 "synchronized staged edits must cross the shared accepted-draft boundary");
             TestAssert.Contains(acceptDraft, "_session = accepted",
