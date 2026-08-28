@@ -1,4 +1,3 @@
-using System.Reflection;
 using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
@@ -417,19 +416,9 @@ namespace Better_Work_Tab.UI.Headers
                 PawnTable table = WorkTabWindowSessionState.ReadPawnTable(workTab);
                 if (table != null)
                 {
-                    // Mark the table as dirty to force a full recache of heights and widths.
-                    MethodInfo setDirtyMethod = typeof(PawnTable).GetMethod(
-                        "SetDirty",
-                        BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (setDirtyMethod != null)
-                    {
-                        setDirtyMethod.Invoke(table, null);
-                    }
-                    else
-                    {
-                        // Fallback if SetDirty is not found (unlikely in vanilla but safe).
-                        MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-                    }
+                    // Only the active Work table owns this geometry. Mark it
+                    // dirty directly instead of refreshing every pawn table.
+                    table.SetDirty();
                 }
             }
         }
