@@ -599,6 +599,25 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return true;
         }
 
+        /// <summary>
+        /// Publishes metadata after a direct repository mutation such as Create,
+        /// Rename, Select, or Delete. Transactional Update/Fork paths continue to
+        /// use compare-and-swap through <see cref="TryCommitRevision"/>.
+        /// </summary>
+        internal bool TryAdvanceDirectMutationRevision(out string error)
+        {
+            error = string.Empty;
+            if (PersistenceRevision == int.MaxValue)
+            {
+                error = "The workload persistence revision cannot advance further.";
+                return false;
+            }
+
+            PersistenceRevision = Math.Max(0, PersistenceRevision) + 1;
+            PersistenceFingerprint = ComputeContentFingerprint();
+            return true;
+        }
+
         public void RefreshPersistenceMetadata(bool initializeMissingRevision)
         {
             if (initializeMissingRevision && PersistenceRevision <= 0 && HasPendingData)

@@ -1775,6 +1775,12 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         : store.DiagnosticCode);
             }
 
+            if (store.PersistenceRevision == int.MaxValue)
+            {
+                return WorkloadOperationResult.Fail(
+                    WorkloadDiagnosticCode.InvalidState);
+            }
+
             return WorkloadOperationResult.Ok();
         }
 
@@ -1785,7 +1791,13 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
         private void NotifyChanged()
         {
-            _component?.NotifyV2Changed();
+            WorkloadV2PersistenceEnvelope store = Store;
+            if (!store.TryAdvanceDirectMutationRevision(out string error))
+            {
+                throw new InvalidOperationException(error);
+            }
+
+            _component.NotifyV2Changed();
         }
 
         private string FindFirstStableId()
