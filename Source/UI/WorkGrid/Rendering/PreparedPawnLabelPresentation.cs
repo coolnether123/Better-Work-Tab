@@ -124,11 +124,37 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             bool contrast = PawnColorDatabase.TryGetColor(pawn, out Color background) &&
                 background.a > 0f;
             TaggedString nativeLabel = GetLabel(worker, pawn);
-            string resolvedLabel = nativeLabel.Resolve();
             bool colorizePawnName = pawn.IsSlave || pawn.IsColonyMech;
             Color pawnNameColor = !contrast && colorizePawnName
                 ? PawnNameColorUtility.PawnNameColorOf(pawn)
                 : Color.white;
+
+            float maximumHeight = worker.def.groupable
+                ? float.MaxValue
+                : worker.GetMinCellHeight(pawn);
+            float contentHeight = Mathf.Min(rowHeight, maximumHeight);
+            float textWidth = columnWidth - 3f -
+                (worker.def.showIcon ? contentHeight : 0f);
+
+            // PawnColumnWorker_Label performs this exact conditional before
+            // Widgets.Label. Keep it at snapshot time so the live draw still
+            // owns glyph rasterization, while avoiding the old unconditional
+            // custom ellipsis path. Contrast mode intentionally follows BWT's
+            // native override, which strips markup and lets Widgets.Label clip.
+            TaggedString preparedLabel = nativeLabel;
+            if (!contrast)
+            {
+                // The TaggedString -> string conversion is intentional: native
+                // DoCell uses it, and RimWorld's operator strips markup before
+                // measuring. RawText would measure tags that native ignores.
+                string nativeLabelForMeasurement = nativeLabel;
+                if (Text.CalcSize(nativeLabelForMeasurement).x > textWidth)
+                {
+                    preparedLabel = GenText.Truncate(nativeLabel, textWidth, null);
+                }
+            }
+
+            string resolvedLabel = preparedLabel.Resolve();
             Color baseTextColor = Color.white;
             string richText;
             if (contrast)
@@ -151,13 +177,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
             }
 
-            float maximumHeight = worker.def.groupable
-                ? float.MaxValue
-                : worker.GetMinCellHeight(pawn);
-            float contentHeight = Mathf.Min(rowHeight, maximumHeight);
-            float textWidth = columnWidth - 3f -
-                (worker.def.showIcon ? contentHeight : 0f);
-            textWidth = Mathf.Max(0f, textWidth);
             if (previous.MatchesSource(
                     richText,
                     baseTextColor,
