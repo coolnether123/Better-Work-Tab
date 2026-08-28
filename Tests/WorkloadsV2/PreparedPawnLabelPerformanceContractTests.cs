@@ -36,29 +36,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "downstream packet values must not hide a broken label capture invariant");
             TestAssert.False(capture.IndexOf("TruncateForPreparedCell", StringComparison.Ordinal) >= 0,
                 "prepared labels must not use the former unconditional truncator");
-            TestAssert.Contains(capture,
-                "string nativeLabelForMeasurement = nativeLabel;",
-                "prepared labels must use native TaggedString-to-string measurement conversion");
-            TestAssert.Contains(capture,
-                "Text.CalcSize(nativeLabelForMeasurement).x > textWidth",
-                "prepared labels must retain the native conditional width test");
-            TestAssert.Contains(capture,
-                "GameFont previousFont = Text.Font;",
-                "snapshot measurement must preserve the caller's font state");
-            TestAssert.Contains(capture,
-                "Text.Font = GameFont.Small;",
-                "snapshot measurement must establish the pawn-table row font inherited by native DoCell");
-            TestAssert.Contains(capture,
-                "Text.Font = previousFont;",
-                "snapshot measurement must restore the caller's font state");
-            TestAssert.Contains(capture,
-                "GenText.Truncate(nativeLabel, textWidth, null)",
-                "overflowing prepared labels must use native tagged truncation");
-            TestAssert.Contains(capture,
-                "if (!contrast)\n            {\n                // The TaggedString -> string conversion is intentional:",
-                "contrast labels must keep BWT's no-truncation override");
-            TestAssert.Contains(capture, "string resolvedLabel = preparedLabel.Resolve();",
-                "the conditionally prepared native label must be resolved once");
+            TestAssert.False(capture.IndexOf("Text.CalcSize", StringComparison.Ordinal) >= 0,
+                "prepared labels must not repeat native's transient width check");
+            TestAssert.False(capture.IndexOf("GenText.Truncate", StringComparison.Ordinal) >= 0,
+                "prepared labels must preserve native's stable full-label clipping result");
+            TestAssert.Contains(capture, "string resolvedLabel = nativeLabel.Resolve();",
+                "the complete native label must be resolved once");
             TestAssert.False(capture.IndexOf("preparedBaseText.Resolve", StringComparison.Ordinal) >= 0,
                 "prepared label variants must not re-enter ColoredText resolution");
             string captureMethod = MemberBody(capture, "internal static PreparedPawnLabelPresentation Capture(");
@@ -68,8 +51,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "prepared labels must not synthesize an unconditional ellipsis");
             TestAssert.Equal(1, CountOccurrences(captureMethod, ".Resolve()"),
                 "capture must resolve only the conditionally prepared source label");
-            TestAssert.Contains(captureMethod, "TaggedString preparedLabel = nativeLabel;",
-                "native fitting labels must stay unchanged before live rendering");
             TestAssert.False(captureMethod.IndexOf("new Dictionary<", StringComparison.Ordinal) >= 0,
                 "snapshot capture must not introduce a process-wide native label cache");
             TestAssert.Contains(captureMethod,
