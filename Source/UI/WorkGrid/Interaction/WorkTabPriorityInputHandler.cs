@@ -46,6 +46,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 return false;
             }
 
+            // Shift keeps the skill overlay visible and reserves the wheel for
+            // the PawnTable viewport instead of changing the hovered priority.
+            if (evt.type == EventType.ScrollWheel && evt.shift)
+            {
+                return false;
+            }
+
             if (RuleBuilderGateway.IsRuleBuilder2ListeningToWorkTab)
             {
                 return false;

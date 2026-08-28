@@ -1085,6 +1085,7 @@ namespace Better_Work_Tab.Patches
             if (evt == null ||
                 !(BetterWorkTabMod.Settings?.enableScrollWheelPriority ?? false) ||
                 evt.type != EventType.ScrollWheel ||
+                evt.shift ||
                 TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
                 (!trustHit &&
                  (BWTWorkTabTutorial.OwnsCurrentPointer || !Mouse.IsOver(cellRect))))
