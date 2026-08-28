@@ -68,6 +68,7 @@ namespace Spine.Profiling
         private static long _peakWorkingSetBytes;
         private static readonly int[] _startCollectionCounts = new int[3];
         private static int _nextMemorySampleFrame;
+        private static int _recordingFailureCount;
 
         private static Action<string> _log = _ => { };
         private static Func<double> _activitySecondsProvider;
@@ -102,6 +103,7 @@ namespace Spine.Profiling
                     _startRealtime = UTime.realtimeSinceStartup;
                     _activitySecondsBaseline = ReadActivitySeconds();
                     _data.Clear();
+                    _recordingFailureCount = 0;
                     ResetMemoryBaseline();
                 }
 
@@ -134,7 +136,7 @@ namespace Spine.Profiling
             }
             finally
             {
-                Record(name, Stopwatch.GetTimestamp() - start);
+                RecordSafely(name, Stopwatch.GetTimestamp() - start);
             }
         }
 
@@ -153,8 +155,29 @@ namespace Spine.Profiling
             }
             finally
             {
-                Record(name, Stopwatch.GetTimestamp() - start);
+                RecordSafely(name, Stopwatch.GetTimestamp() - start);
             }
+        }
+
+        private static void RecordSafely(string name, long elapsed)
+        {
+            try
+            {
+                Record(name, elapsed);
+            }
+            catch (Exception exception) when (!IsFatal(exception))
+            {
+                // Profiling is observational. A recorder fault must not replace an
+                // exception from the measured operation or change game behavior.
+                _recordingFailureCount++;
+            }
+        }
+
+        private static bool IsFatal(Exception exception)
+        {
+            return exception is OutOfMemoryException ||
+                   exception is StackOverflowException ||
+                   exception is AccessViolationException;
         }
 
         private static void Record(string name, long elapsed)
@@ -231,6 +254,7 @@ namespace Spine.Profiling
         public static void Clear()
         {
             _data.Clear();
+            _recordingFailureCount = 0;
             _startFrame = UTime.frameCount;
             _startRealtime = UTime.realtimeSinceStartup;
             _activitySecondsBaseline = ReadActivitySeconds();
@@ -256,7 +280,10 @@ namespace Spine.Profiling
         {
             if (_data.Count == 0)
             {
-                return "[SpineTiming] No data collected.";
+                return _recordingFailureCount == 0
+                    ? "[SpineTiming] No data collected."
+                    : "[SpineTiming] No complete data collected; timing recorder failures=" +
+                      _recordingFailureCount + ". Discard this profiling run.";
             }
 
             var sb = new StringBuilder();
@@ -304,6 +331,12 @@ namespace Spine.Profiling
                 $"gen1 {GC.CollectionCount(1) - _startCollectionCounts[1]} | " +
                 $"gen2 {GC.CollectionCount(2) - _startCollectionCounts[2]}");
             sb.AppendLine("Sorted by highest total cost over time.");
+            if (_recordingFailureCount > 0)
+            {
+                sb.AppendLine(
+                    $"WARNING: {_recordingFailureCount} timing samples could not be recorded; " +
+                    "discard this profiling run.");
+            }
             sb.AppendLine();
 
             foreach (var kv in _data.OrderByDescending(k => k.Value.TotalTicks))

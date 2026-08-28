@@ -3133,12 +3133,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         " counts=pawns:" + runtime.Pawns.Count +
                         ",workTypes:" + (allWorkTypes?.Count ?? 0) +
                         ",workGivers:" + runtime.WorkGivers.Count +
-                        ",entries:" +
-                        (runtimePriorities.Count +
-                         livePriorities.Count +
-                         liveManualModes.Count +
-                         liveSpecificOverrides.Count +
-                         liveSpecificOrder.Count));
+                        ",runtimePriorities:" + runtimePriorities.Count +
+                        ",livePriorities:" + livePriorities.Count +
+                        ",manualModes:" + liveManualModes.Count +
+                        ",specificOverrides:" + liveSpecificOverrides.Count +
+                        ",specificOrder:" + liveSpecificOrder.Count);
                 }
 
                 return WorkloadOperationResult<WorkloadLiveBaselineCapture>.Ok(
