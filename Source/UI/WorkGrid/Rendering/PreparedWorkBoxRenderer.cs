@@ -226,17 +226,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     return false;
                 }
             }
-            if ((visual.Flags & WorkCellVisualFlags.LowSkillWarning) != 0)
-            {
-                if (!DrawRetainedTexture(
-                        boxRect.ContractedBy(-LowSkillWarningOutset),
-                        WidgetsWork.WorkBoxOverlay_Warning,
-                        Color.white))
-                {
-                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
-                    return false;
-                }
-            }
             if (visual.Passion > 0)
             {
                 Rect passionRect = boxRect;
@@ -442,6 +431,40 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     _retainedMaterial.SetInt("_ZWrite", 0);
                 }
                 return _retainedMaterial;
+            }
+        }
+
+        internal static bool HasLiveLowSkillWarning(WorkBoxVisualState visual)
+        {
+            return (visual.Flags & WorkCellVisualFlags.LowSkillWarning) != 0 &&
+                   (visual.Flags & WorkCellVisualFlags.Disabled) == 0;
+        }
+
+        /// <summary>
+        /// Draws the low-skill warning on the live IMGUI target. Its transparent
+        /// border must be composed once against the final work-tab background.
+        /// </summary>
+        internal static void DrawLiveLowSkillWarning(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            float visualAlpha)
+        {
+            if (!HasLiveLowSkillWarning(visual) || visualAlpha <= 0.001f)
+            {
+                return;
+            }
+
+            Color previousColor = GUI.color;
+            try
+            {
+                GUI.color = new Color(1f, 1f, 1f, visualAlpha);
+                GUI.DrawTexture(
+                    boxRect.ContractedBy(-LowSkillWarningOutset),
+                    WidgetsWork.WorkBoxOverlay_Warning);
+            }
+            finally
+            {
+                GUI.color = previousColor;
             }
         }
 

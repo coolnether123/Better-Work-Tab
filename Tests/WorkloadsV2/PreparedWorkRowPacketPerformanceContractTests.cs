@@ -206,6 +206,25 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "boxRect.ContractedBy(-PriorityLabelOutset)",
                 "all priority glyphs must keep the vanilla three-pixel label geometry");
 
+            string liveWarning = MemberBody(
+                preparedBox,
+                "internal static void DrawLiveLowSkillWarning(");
+            TestAssert.Contains(
+                liveWarning,
+                "GUI.DrawTexture(",
+                "transparent warning borders must use the shared live IMGUI texture path");
+            TestAssert.Contains(
+                liveWarning,
+                "boxRect.ContractedBy(-LowSkillWarningOutset)",
+                "live warning borders must keep the vanilla two-pixel geometry");
+            string hasWarning = MemberBody(
+                preparedBox,
+                "internal static bool HasLiveLowSkillWarning(");
+            TestAssert.Contains(
+                hasWarning,
+                "WorkCellVisualFlags.Disabled",
+                "disabled cells must not reintroduce a low-skill warning that direct drawing omits");
+
             TestAssert.Contains(
                 packet,
                 "LivePrioritySlotIndexes",
@@ -215,12 +234,21 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 run,
                 "livePrioritySlotIndexes",
                 "prepared run packets must carry the live-priority index set");
+            TestAssert.Contains(
+                packet,
+                "LiveLowSkillWarningSlotIndexes",
+                "prepared runs must publish sparse live-warning slot indexes");
+            TestAssert.Contains(
+                run,
+                "liveLowSkillWarningSlotIndexes",
+                "prepared run packets must carry the live-warning index set");
             string preparedDraw = MemberBody(optimized, "public void DrawPreparedRun(");
             int retainedDraw = preparedDraw.IndexOf("_retainedRows.TryDraw(", StringComparison.Ordinal);
+            int warningDraw = preparedDraw.IndexOf("DrawPreparedRunLowSkillWarnings(", StringComparison.Ordinal);
             int liveDraw = preparedDraw.IndexOf("DrawPreparedRunPriorityLabels(", StringComparison.Ordinal);
             TestAssert.True(
-                retainedDraw >= 0 && liveDraw > retainedDraw,
-                "prepared rows must draw live numerals only after retained presentation succeeds");
+                retainedDraw >= 0 && warningDraw > retainedDraw && liveDraw > warningDraw,
+                "prepared rows must draw the live warning and then live numerals after retained presentation succeeds");
             TestAssert.Contains(
                 preparedDraw,
                 "if (!retained)\n            {\n                DrawPreparedRunDirect(",
@@ -229,11 +257,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 directFallback.IndexOf("DrawPreparedRunPriorityLabels(", StringComparison.Ordinal) >= 0,
                 "direct prepared-row fallback must draw each manual numeral through DrawInBatch exactly once");
+            TestAssert.False(
+                directFallback.IndexOf("DrawPreparedRunLowSkillWarnings(", StringComparison.Ordinal) >= 0,
+                "direct prepared-row fallback must draw each warning through DrawInBatch exactly once");
             string flush = MemberBody(optimized, "private void FlushRetainedCells(");
             TestAssert.Contains(
                 flush,
-                "if (retained)\n            {\n                DrawPendingPriorityLabels();",
-                "batched retained cells must draw live numerals only on the retained-success path");
+                "if (retained)\n            {\n                DrawPendingLowSkillWarnings();\n                DrawPendingPriorityLabels();",
+                "batched retained cells must draw live warnings and numerals only on the retained-success path");
             TestAssert.Contains(
                 flush,
                 "if (!retained)\n                {\n                    Text.Font = GameFont.Medium;",
@@ -248,10 +279,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 stable,
                 "failure = RetainedWorkBoxDrawFailure.ResourceUnavailable",
                 "retained composition must classify unavailable texture resources");
-            TestAssert.Contains(
-                stable,
-                "WidgetsWork.WorkBoxOverlay_Warning",
-                "retained cells must keep the authoritative low-skill warning pixel");
+            TestAssert.False(
+                stable.IndexOf("WidgetsWork.WorkBoxOverlay_Warning", StringComparison.Ordinal) >= 0,
+                "transparent low-skill warning borders must not be composed into a retained surface");
             TestAssert.Contains(
                 stable,
                 "WidgetsWork.WorkBoxOverlay_PreceptWarning",
@@ -425,12 +455,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(prepared, "Bounds = GetBounds(Cells)", "run bounds must be computed once during packet preparation");
             TestAssert.Contains(prepared, "StaticFingerprint = GetStaticFingerprint(Cells)", "cell fingerprints must be computed once during packet preparation");
             string bounds = MemberBody(retained, "private static Rect GetBounds(");
-            TestAssert.Contains(bounds, "float stableOutset", "prepared bounds must account for stable visuals that extend beyond cell boxes");
-            TestAssert.Contains(bounds, "GetStableVisualOutset", "stable bounds must derive extent from prepared visual state");
-            TestAssert.Contains(bounds, "bounds.ExpandedBy(stableOutset)", "retained surfaces must include the full stable visual extent");
-            string stableOutset = MemberBody(retained, "private static float GetStableVisualOutset(");
-            TestAssert.False(stableOutset.IndexOf("PriorityLabelOutset", StringComparison.Ordinal) >= 0, "live priority numerals must not expand retained surface bounds");
-            TestAssert.Contains(stableOutset, "PreparedWorkBoxRenderer.LowSkillWarningOutset", "warning bounds must use the native warning outset");
+            TestAssert.False(
+                bounds.IndexOf("ExpandedBy", StringComparison.Ordinal) >= 0,
+                "live warning borders must not enlarge retained work-box surfaces");
+            TestAssert.False(
+                retained.IndexOf("GetStableVisualOutset", StringComparison.Ordinal) >= 0,
+                "no live visual may contribute unused retained-surface padding");
             string fingerprint = MemberBody(retained, "private static ulong GetFingerprint(");
             TestAssert.False(fingerprint.IndexOf("for (", StringComparison.Ordinal) >= 0, "steady retained hits must not rescan cells");
             TestAssert.Contains(fingerprint, "staticFingerprint", "steady fingerprints must mix the packet fingerprint in O(1)");
@@ -439,6 +469,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(staticFingerprint.IndexOf("visual.Priority", StringComparison.Ordinal) >= 0, "manual priority values must not rebuild texture-only retained surfaces");
             TestAssert.False(staticFingerprint.IndexOf("PriorityColor", StringComparison.Ordinal) >= 0, "manual priority colors belong to the live label pass");
             TestAssert.False(staticFingerprint.IndexOf("CompactText", StringComparison.Ordinal) >= 0, "font-size metadata must not rebuild texture-only retained surfaces");
+            TestAssert.Contains(
+                staticFingerprint,
+                "WorkCellVisualFlags.LowSkillWarning",
+                "live warning state must not rebuild the texture-only retained surface");
             TestAssert.Contains(staticFingerprint, "retainedCheck", "retained fingerprints must preserve checkbox visibility changes");
             string buildSurface = MemberBody(retained, "private static bool BuildSurface(");
             TestAssert.False(buildSurface.IndexOf("Widgets.Label", StringComparison.Ordinal) >= 0, "retained surface composition must remain texture-only");
