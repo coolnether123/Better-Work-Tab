@@ -112,6 +112,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             LifecycleRefreshUsesApplicationPublicationReceipt(header, gateway, backend);
             RepositoryLifecycleActionsAvoidPawnTableRecache(header, backend);
             NoChangePublicationDoesNotTriggerFallbackRecache(header, backend);
+            MultiplayerNoChangeConfirmationIsLeaseFree(backend);
             PresentationOnlyCommitPublishesApplication(header, backend);
             PresentationOnlyConfirmationPublishesApplication(backend);
             ProvisionalConfirmationIsIdempotent(backend);
@@ -744,6 +745,53 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 backend,
                 "if (provisional && hasRetainedChanges)",
                 "a no-op multiplayer apply must not create a pending rollback lease");
+        }
+
+        private static void MultiplayerNoChangeConfirmationIsLeaseFree(string backend)
+        {
+            string execute = MethodBody(
+                backend,
+                "public void OnExecuteRequested(");
+            TestAssert.Contains(
+                execute,
+                "pending?.Result?.ApplicationPublication",
+                "the multiplayer execute report must classify a backend-proven no-op");
+            TestAssert.Contains(
+                execute,
+                "WorkloadTransactionCodes.NoChange",
+                "the no-op classification must cross the synchronized execute boundary");
+            TestAssert.Contains(
+                execute,
+                "result.Code",
+                "the host's local execute report must retain the no-op classification");
+
+            string confirmation = MethodBody(
+                backend,
+                "public void OnConfirmationControlReceived(");
+            TestAssert.Contains(
+                confirmation,
+                "pending.Lease == null",
+                "a proven no-op must be acknowledged without minting a rollback lease");
+            TestAssert.Contains(
+                confirmation,
+                "pending.Lease != null",
+                "a real provisional mutation must continue to require its rollback lease");
+            TestAssert.Contains(
+                confirmation,
+                "pending.Result?.ApplicationPublication ==\n                                      WorkloadApplicationPublication.NoChange",
+                "the lease-free branch must be gated by the backend's explicit no-change publication");
+
+            string finalConfirmation = MethodBody(
+                backend,
+                "public void OnFinalConfirmationRequested(");
+            TestAssert.Contains(
+                finalConfirmation,
+                "state?.IsNoChange == true",
+                "the final control must preserve the synchronized no-change mode");
+            TestAssert.Contains(
+                backend,
+                "return _applyService.ConfirmPrepared(lease);",
+                "terminal completion must still use the shared lease confirmation boundary");
         }
 
         private static void PresentationOnlyCommitPublishesApplication(
