@@ -565,6 +565,15 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
         Rejected = 2
     }
 
+    internal static class WorkloadTransactionCodes
+    {
+        // A successful provisional no-op has no rollback lease. Carry the
+        // distinction through the existing code field so the wire shape and
+        // protocol version stay unchanged; older handlers that do not know
+        // this code fail closed at the lease boundary.
+        internal const string NoChange = "no-change";
+    }
+
     internal interface IWorkloadTransactionAuthentication
     {
         bool IsAvailable { get; }
@@ -1393,7 +1402,9 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             bool confirmationControlAccepted = false,
             IEnumerable<string> finalConfirmationAcknowledgedParticipants = null,
             bool commitDecisionReached = false,
-            int timeoutBudget = 1)
+            int timeoutBudget = 1,
+            IEnumerable<string> noChangeParticipants = null,
+            bool isNoChange = false)
         {
             RequestId = requestId;
             RequestFingerprint = requestFingerprint;
@@ -1404,6 +1415,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             ExecutedParticipants = Freeze(executedParticipants);
             RollbackParticipants = Freeze(rollbackParticipants);
             RollbackReportedParticipants = Freeze(rollbackReportedParticipants);
+            NoChangeParticipants = Freeze(noChangeParticipants);
             ConfirmationAcknowledgedParticipants = Freeze(confirmationAcknowledgedParticipants);
             FinalConfirmationAcknowledgedParticipants = Freeze(
                 finalConfirmationAcknowledgedParticipants);
@@ -1411,6 +1423,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             AbortDispatched = abortDispatched;
             HostParticipantKey = hostParticipantKey ?? string.Empty;
             ConfirmationControlAccepted = confirmationControlAccepted;
+            IsNoChange = isNoChange;
             CommitDecisionReached = commitDecisionReached;
             TimeoutBudget = Math.Max(1, timeoutBudget);
             MutationStarted = mutationStarted;
@@ -1430,12 +1443,14 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
         internal IReadOnlyList<string> ExecutedParticipants { get; }
         internal IReadOnlyList<string> RollbackParticipants { get; }
         internal IReadOnlyList<string> RollbackReportedParticipants { get; }
+        internal IReadOnlyList<string> NoChangeParticipants { get; }
         internal IReadOnlyList<string> ConfirmationAcknowledgedParticipants { get; }
         internal IReadOnlyList<string> FinalConfirmationAcknowledgedParticipants { get; }
         internal bool ConfirmationControlReceived { get; }
         internal bool AbortDispatched { get; }
         internal string HostParticipantKey { get; }
         internal bool ConfirmationControlAccepted { get; }
+        internal bool IsNoChange { get; }
         internal bool CommitDecisionReached { get; }
         internal int TimeoutBudget { get; }
         internal bool MutationStarted { get; }
@@ -1502,6 +1517,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
         internal string ReportFingerprint { get; }
         internal long Sequence { get; }
         internal bool RequiresRollback { get; }
+        internal bool IsNoChange =>
+            string.Equals(Code, WorkloadTransactionCodes.NoChange, StringComparison.Ordinal);
 
         internal static WorkloadTransactionEvent RequestSent(string requestId, long sequence)
         {
@@ -1947,9 +1964,22 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 return Rollback(state, transactionEvent, "execute-report-mismatch");
             }
 
+            bool noChange = transactionEvent.Accepted && transactionEvent.IsNoChange;
+            if (noChange && transactionEvent.RequiresRollback)
+            {
+                return Rollback(
+                    state,
+                    transactionEvent,
+                    "invalid-no-change-report",
+                    state.ExecutedParticipants,
+                    "A no-change execute report cannot also require rollback.");
+            }
             var executed = transactionEvent.Accepted || transactionEvent.RequiresRollback
                 ? Add(state.ExecutedParticipants, transactionEvent.PeerKey)
                 : state.ExecutedParticipants;
+            var noChangeParticipants = noChange
+                ? Add(state.NoChangeParticipants, transactionEvent.PeerKey)
+                : state.NoChangeParticipants;
             if (!transactionEvent.Accepted)
             {
                 if (transactionEvent.RequiresRollback || executed.Count > 0)
@@ -1969,6 +1999,22 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                     abortDispatched: true), WorkloadTransactionTransitionAction.SendAbort, transactionEvent.Code, transactionEvent.Detail);
             }
 
+            bool mutationStarted = state.MutationStarted || !noChange;
+            bool noChangeTransaction =
+                noChangeParticipants.Count == state.ParticipantKeys.Count;
+
+            if (executed.Count == state.ParticipantKeys.Count &&
+                noChangeParticipants.Count > 0 &&
+                !noChangeTransaction)
+            {
+                return Rollback(
+                    state,
+                    transactionEvent,
+                    "execute-mode-mismatch",
+                    executed,
+                    "The synchronized workload peers disagreed about whether the transaction changed state.");
+            }
+
             if (executed.Count != state.ParticipantKeys.Count)
             {
                 return Applied(With(
@@ -1978,10 +2024,14 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                     state.PreparedParticipants,
                     executed,
                     state.RollbackParticipants,
-                    true,
+                    mutationStarted,
                     transactionEvent,
                     transactionEvent.Code,
-                    transactionEvent.Detail), WorkloadTransactionTransitionAction.None, transactionEvent.Code, transactionEvent.Detail);
+                    transactionEvent.Detail,
+                    noChangeParticipants: noChangeParticipants),
+                    WorkloadTransactionTransitionAction.None,
+                    transactionEvent.Code,
+                    transactionEvent.Detail);
             }
 
             if (state.ParticipantKeys.Count == 1 &&
@@ -1994,10 +2044,12 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                     state.PreparedParticipants,
                     executed,
                     state.RollbackParticipants,
-                    true,
+                    mutationStarted,
                     transactionEvent,
                     "confirmed",
-                    "The host-only workload transaction requires no remote final delivery."),
+                    "The host-only workload transaction requires no remote final delivery.",
+                    noChangeParticipants: noChangeParticipants,
+                    isNoChange: noChangeTransaction),
                     WorkloadTransactionTransitionAction.None,
                     "confirmed",
                     "The host-only workload transaction requires no remote final delivery.");
@@ -2010,10 +2062,12 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 state.PreparedParticipants,
                 executed,
                 state.RollbackParticipants,
-                true,
+                mutationStarted,
                 transactionEvent,
                 transactionEvent.Code,
                 transactionEvent.Detail,
+                noChangeParticipants: noChangeParticipants,
+                isNoChange: noChangeTransaction,
                 confirmationAcknowledgedParticipants: Add(null, state.HostParticipantKey),
                 reportFingerprintOverride: string.Empty), WorkloadTransactionTransitionAction.SendConfirm, transactionEvent.Code, transactionEvent.Detail);
         }
@@ -2042,6 +2096,7 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 transactionEvent.Detail,
                 confirmationControlReceived: true,
                 confirmationControlAccepted: transactionEvent.Accepted,
+                isNoChange: transactionEvent.IsNoChange,
                 reportFingerprintOverride: string.Empty),
                 WorkloadTransactionTransitionAction.ConfirmLocally,
                 transactionEvent.Code,
@@ -2061,6 +2116,15 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
 
             if (Contains(state.ConfirmationAcknowledgedParticipants, transactionEvent.PeerKey))
                 return Ignored(state, "duplicate-confirmation", "The peer confirmation acknowledgement was already recorded.");
+
+            if (transactionEvent.IsNoChange != state.IsNoChange)
+            {
+                return Abort(
+                    state,
+                    transactionEvent,
+                    "confirmation-mode-mismatch",
+                    "The peer confirmation mode did not match the synchronized workload transaction.");
+            }
 
             if (!transactionEvent.Accepted)
                 return Rollback(state, transactionEvent, "confirmation-rejected", state.ExecutedParticipants);
@@ -2115,6 +2179,15 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             if (state.Phase != WorkloadTransactionPhase.Confirm ||
                 !state.ConfirmationControlReceived)
                 return Ignored(state, "final-confirmation-not-expected", "The workload peer has not accepted host confirmation control.");
+
+            if (transactionEvent.IsNoChange != state.IsNoChange)
+            {
+                return Abort(
+                    state,
+                    transactionEvent,
+                    "confirmation-mode-mismatch",
+                    "The final confirmation mode did not match the prepared workload transaction.");
+            }
 
             if (!transactionEvent.Accepted)
             {
@@ -2341,7 +2414,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             WorkloadTransactionState state,
             WorkloadTransactionEvent transactionEvent,
             string code,
-            IEnumerable<string> executedParticipants = null)
+            IEnumerable<string> executedParticipants = null,
+            string detail = null)
         {
             return Applied(With(
                 state,
@@ -2353,8 +2427,8 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 true,
                 transactionEvent,
                 code,
-                transactionEvent.Detail,
-                abortDispatched: true), WorkloadTransactionTransitionAction.SendAbort, code, transactionEvent.Detail);
+                detail ?? transactionEvent.Detail,
+                abortDispatched: true), WorkloadTransactionTransitionAction.SendAbort, code, detail ?? transactionEvent.Detail);
         }
 
         private static WorkloadTransactionTransitionResult Timeout(
@@ -2478,6 +2552,9 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
 
         private static bool MutationMayHaveStarted(WorkloadTransactionState state)
         {
+            if (state.IsNoChange)
+                return false;
+
             return state.MutationStarted ||
                    state.Phase == WorkloadTransactionPhase.Execute ||
                    state.Phase == WorkloadTransactionPhase.Confirm ||
@@ -2514,7 +2591,9 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
             bool confirmationControlAccepted = false,
             IEnumerable<string> finalConfirmationAcknowledgedParticipants = null,
             bool commitDecisionReached = false,
-            long? deadlineSequenceOverride = null)
+            long? deadlineSequenceOverride = null,
+            IEnumerable<string> noChangeParticipants = null,
+            bool isNoChange = false)
         {
             return new WorkloadTransactionState(
                 state.RequestId,
@@ -2541,7 +2620,9 @@ namespace Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads
                 finalConfirmationAcknowledgedParticipants ??
                     state.FinalConfirmationAcknowledgedParticipants,
                 commitDecisionReached || state.CommitDecisionReached,
-                state.TimeoutBudget);
+                state.TimeoutBudget,
+                noChangeParticipants ?? state.NoChangeParticipants,
+                isNoChange || state.IsNoChange);
         }
 
         private static bool Contains(IReadOnlyList<string> values, string value)

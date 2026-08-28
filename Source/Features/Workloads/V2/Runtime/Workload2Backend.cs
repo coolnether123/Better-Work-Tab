@@ -2104,6 +2104,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         pending.Result.Code,
                         pending.Result);
             }
+            bool noChange = accepted &&
+                pending?.Result?.ApplicationPublication ==
+                WorkloadApplicationPublication.NoChange;
             var result = new WorkloadTransactionWireResult
             {
                 Phase = (byte)WorkloadTransactionPhase.Execute,
@@ -2114,7 +2117,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 HostSessionEpoch = request.ExpectedRevisions.HostSessionEpoch,
                 RosterFingerprint = request.ExpectedRevisions.RosterFingerprint,
                 PeerKey = MultiplayerBridge.LocalPlayerName,
-                Code = accepted ? "executed" : "execute-failed",
+                Code = accepted
+                    ? noChange
+                        ? WorkloadTransactionCodes.NoChange
+                        : "executed"
+                    : "execute-failed",
                 Detail = detail,
                 ReportFingerprint = pending?.ReportFingerprint,
                 Sequence = Next(state)
@@ -2129,7 +2136,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadTransactionMultiplayer.Protocol.RecordLocalExecuteResult(
                     MultiplayerBridge.LocalPlayerName,
                     accepted,
-                    accepted ? "executed" : "execute-failed",
+                    result.Code,
                     detail,
                     pending?.ReportFingerprint,
                     result.Sequence,
@@ -2151,18 +2158,28 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadTransactionControlKind.ConfirmationRequest,
                 true,
                 false,
-                "confirm-requested",
+                state?.IsNoChange == true
+                    ? WorkloadTransactionCodes.NoChange
+                    : "confirm-requested",
                 "The host is requesting per-peer confirmation before terminal success."));
         }
 
         public void OnConfirmationControlReceived(WorkloadTransactionRequest request, WorkloadTransactionState state)
         {
             _pending.TryGetValue(request.TableKey, out var pending);
+            bool noChange = state?.IsNoChange == true;
             bool accepted = state != null && state.ConfirmationControlAccepted &&
-                            pending != null && pending.Lease != null &&
-                            !pending.Lease.RecoveryRequired;
+                            pending != null &&
+                            (noChange
+                                ? pending.Result?.ApplicationPublication ==
+                                      WorkloadApplicationPublication.NoChange &&
+                                  pending.Lease == null
+                                : pending.Lease != null &&
+                                  !pending.Lease.RecoveryRequired);
             string detail = accepted
-                ? "The peer retained its rollback lease and acknowledged host confirmation."
+                ? noChange
+                    ? "The peer confirmed that the synchronized workload transaction made no changes."
+                    : "The peer retained its rollback lease and acknowledged host confirmation."
                 : "The peer could not acknowledge host confirmation safely.";
             var acknowledgement = new WorkloadTransactionWireAcknowledgement
             {
@@ -2174,7 +2191,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 HostSessionEpoch = request.ExpectedRevisions.HostSessionEpoch,
                 RosterFingerprint = request.ExpectedRevisions.RosterFingerprint,
                 PeerKey = MultiplayerBridge.LocalPlayerName,
-                Code = accepted ? "confirmation-ready" : "confirmation-failed",
+                Code = accepted
+                    ? noChange
+                        ? WorkloadTransactionCodes.NoChange
+                        : "confirmation-ready"
+                    : "confirmation-failed",
                 Detail = detail,
                 ReportFingerprint = pending?.ReportFingerprint,
                 Sequence = Next(state)
@@ -2204,7 +2225,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkloadTransactionControlKind.FinalConfirmation,
                 true,
                 false,
-                "confirmed",
+                state?.IsNoChange == true
+                    ? WorkloadTransactionCodes.NoChange
+                    : "confirmed",
                 "The synchronized workload transaction passed the peer confirmation barrier."));
         }
 
