@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using UnityEngine;
@@ -103,7 +104,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             catch (Exception exception)
             {
-                DisableAfterFailure("retained row exception: " + exception);
+                HandleCompositionException(renderResourcesRevision, exception);
                 return false;
             }
         }
@@ -144,7 +145,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             catch (Exception exception)
             {
-                DisableAfterFailure("retained row exception: " + exception);
+                HandleCompositionException(renderResourcesRevision, exception);
                 return false;
             }
         }
@@ -168,10 +169,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             _entries.Clear();
             _estimatedSurfaceBytes = 0L;
-            // Allocation failures are scoped to the generation whose surfaces
-            // just left this cache. The next open must be allowed to retry. Keep
-            // _disabled untouched: composition failure is an intentional,
-            // permanent direct-render fallback for this cache instance.
+            // Allocation and resource-readiness failures are scoped to the
+            // generation whose surfaces just left this cache. The next open
+            // must be allowed to retry. Keep _disabled untouched: only an
+            // explicit unsupported composition is a permanent fallback.
             _failedRenderResourcesRevision = int.MinValue;
             if (releaseFailure != null)
             {
@@ -183,23 +184,46 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         internal void ResetResourceFailureLatchForReopen()
         {
-            // A resource allocation can recover after the tab has been closed.
-            // A composition failure remains a permanent direct-render fallback.
+            // A resource allocation or readiness failure can recover after the
+            // tab has been closed. An explicit unsupported composition remains
+            // a permanent direct-render fallback.
             _failedRenderResourcesRevision = int.MinValue;
         }
 
         private static Rect GetBounds(IReadOnlyList<Cell> cells)
         {
             Rect bounds = cells[0].BoxRect;
+            float stableOutset = GetStableVisualOutset(cells[0]);
             for (int index = 1; index < cells.Count; index++)
             {
-                Rect rect = cells[index].BoxRect;
+                Cell cell = cells[index];
+                Rect rect = cell.BoxRect;
                 bounds.xMin = Mathf.Min(bounds.xMin, rect.xMin);
                 bounds.yMin = Mathf.Min(bounds.yMin, rect.yMin);
                 bounds.xMax = Mathf.Max(bounds.xMax, rect.xMax);
                 bounds.yMax = Mathf.Max(bounds.yMax, rect.yMax);
+                stableOutset = Mathf.Max(stableOutset, GetStableVisualOutset(cell));
             }
-            return bounds;
+            return bounds.ExpandedBy(stableOutset);
+        }
+
+        private static float GetStableVisualOutset(Cell cell)
+        {
+            WorkCellVisualFlags flags = cell.Visual.Flags;
+            if ((flags & WorkCellVisualFlags.Disabled) == 0 &&
+                (flags & WorkCellVisualFlags.ManualPriorityMode) != 0 &&
+                cell.DisplayPriority > WorkPrioritySystem.DisabledPriority)
+            {
+                return PreparedWorkBoxRenderer.PriorityLabelOutset;
+            }
+
+            if ((flags & WorkCellVisualFlags.LowSkillWarning) != 0 &&
+                (flags & WorkCellVisualFlags.Disabled) == 0)
+            {
+                return PreparedWorkBoxRenderer.LowSkillWarningOutset;
+            }
+
+            return 0f;
         }
 
         private static RenderTexture CreateSurface(int width, int height)
@@ -236,8 +260,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             RenderTexture surface,
             Rect bounds,
             IReadOnlyList<Cell> cells,
-            Color baseColor)
+            Color baseColor,
+            out RetainedWorkBoxDrawFailure failure)
         {
+            failure = RetainedWorkBoxDrawFailure.None;
             RenderTexture previous = RenderTexture.active;
             Matrix4x4 previousMatrix = GUI.matrix;
             GameFont previousFont = Text.Font;
@@ -271,9 +297,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                                 localRect,
                                 cell.Visual,
                                 cell.DisplayPriority,
-                                baseColor);
+                                baseColor,
+                                out RetainedWorkBoxDrawFailure cellFailure);
                             if (!drawn)
                             {
+                                failure = cellFailure;
                                 return false;
                             }
                         }
@@ -288,6 +316,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     GL.PopMatrix();
                 }
                 return true;
+            }
+            catch (NotSupportedException)
+            {
+                failure = RetainedWorkBoxDrawFailure.Unsupported;
+                return false;
             }
             finally
             {
@@ -405,7 +438,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     retainedVisualKey,
                     bounds,
                     cells,
-                    baseColor))
+                    baseColor,
+                    renderResourcesRevision))
             {
                 return false;
             }
@@ -468,7 +502,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridRetainedVisualKey retainedVisualKey,
             Rect bounds,
             IReadOnlyList<Cell> cells,
-            Color baseColor)
+            Color baseColor,
+            int renderResourcesRevision)
         {
             if (entry.Fingerprint == fingerprint &&
                 entry.RetainedVisualKey.Equals(retainedVisualKey) &&
@@ -477,9 +512,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return true;
             }
 
-            if (!BuildSurface(entry.Surface, bounds, cells, baseColor))
+            if (!BuildSurface(
+                    entry.Surface,
+                    bounds,
+                    cells,
+                    baseColor,
+                    out RetainedWorkBoxDrawFailure failure))
             {
-                DisableAfterFailure("retained row composition failed");
+                if (failure == RetainedWorkBoxDrawFailure.Unsupported)
+                {
+                    DisableAfterFailure("retained row composition unsupported");
+                }
+                else
+                {
+                    LatchResourceFailure(
+                        renderResourcesRevision,
+                        "retained row composition resources unavailable");
+                }
                 return false;
             }
 
@@ -517,6 +566,35 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return false;
             }
             return true;
+        }
+
+        private void HandleCompositionException(
+            int renderResourcesRevision,
+            Exception exception)
+        {
+            // NotSupportedException is the only exception that proves this
+            // composition cannot be supported. Other Unity/resource failures
+            // may recover with the next render-resource generation.
+            if (exception is NotSupportedException)
+            {
+                DisableAfterFailure("retained row composition unsupported: " + exception);
+            }
+            else
+            {
+                LatchResourceFailure(
+                    renderResourcesRevision,
+                    "retained row exception: " + exception);
+            }
+        }
+
+        private void LatchResourceFailure(
+            int renderResourcesRevision,
+            string message)
+        {
+            _failedRenderResourcesRevision = renderResourcesRevision;
+            Log.WarningOnce(
+                "[Better Work Tab] " + message + "; using direct clipped rendering.",
+                1884630218);
         }
 
         private bool EnsureCapacity(long requestedBytes, int entryDelta, Entry protectedEntry)
@@ -560,6 +638,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         private void DisableAfterFailure(string message)
         {
+            // This path is reserved for an explicitly unsupported composition;
+            // resource readiness failures use LatchResourceFailure instead.
             if (_disabled)
             {
                 return;

@@ -10,6 +10,13 @@ using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
+    internal enum RetainedWorkBoxDrawFailure : byte
+    {
+        None,
+        ResourceUnavailable,
+        Unsupported
+    }
+
     /// <summary>
     /// Captures and paints the common visual portion of a pawn work box. The
     /// specialized parent and sub-work renderers add only their own interaction
@@ -18,6 +25,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     [StaticConstructorOnStartup]
     internal static class PreparedWorkBoxRenderer
     {
+        internal const float LowSkillWarningOutset = 2f;
+        internal const float PriorityLabelOutset = 3f;
+
         private static Material _retainedMaterial;
 
         internal static WorkBoxVisualState Capture(
@@ -149,11 +159,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Rect boxRect,
             WorkBoxVisualState visual,
             int displayPriority,
-            Color baseColor)
+            Color baseColor,
+            out RetainedWorkBoxDrawFailure failure)
         {
+            failure = RetainedWorkBoxDrawFailure.None;
             Material material = RetainedMaterial;
             if (material == null)
             {
+                failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
                 return false;
             }
 
@@ -206,7 +219,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if ((visual.Flags & WorkCellVisualFlags.LowSkillWarning) != 0)
             {
                 DrawRetainedTexture(
-                    boxRect.ContractedBy(-2f),
+                    boxRect.ContractedBy(-LowSkillWarningOutset),
                     WidgetsWork.WorkBoxOverlay_Warning,
                     Color.white,
                     material);
@@ -235,6 +248,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     priorityColor.a *= baseColor.a;
                     if (!DrawRetainedPriorityLabel(boxRect, displayPriority, priorityColor))
                     {
+                        failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
                         return false;
                     }
                 }
@@ -328,7 +342,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             try
             {
                 GUI.color = color;
-                Widgets.Label(boxRect.ContractedBy(-3f), priority.ToStringCached());
+                Widgets.Label(
+                    boxRect.ContractedBy(-PriorityLabelOutset),
+                    priority.ToStringCached());
             }
             finally
             {
@@ -399,7 +415,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         : WorkPrioritySystem.GetPriorityColor(displayPriority);
                     color.a *= baseColor.a * visualAlpha;
                     GUI.color = color;
-                    Widgets.Label(boxRect.ContractedBy(-3f), displayPriority.ToStringCached());
+                    Widgets.Label(
+                        boxRect.ContractedBy(-PriorityLabelOutset),
+                        displayPriority.ToStringCached());
                 }
             }
             else if (displayPriority > WorkPrioritySystem.DisabledPriority)
@@ -454,7 +472,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if ((visual.Flags & WorkCellVisualFlags.LowSkillWarning) != 0)
             {
                 GUI.color = new Color(1f, 1f, 1f, visualAlpha);
-                GUI.DrawTexture(boxRect.ContractedBy(-2f), WidgetsWork.WorkBoxOverlay_Warning);
+                GUI.DrawTexture(
+                    boxRect.ContractedBy(-LowSkillWarningOutset),
+                    WidgetsWork.WorkBoxOverlay_Warning);
             }
             if (visual.Passion > 0)
             {
