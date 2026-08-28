@@ -4332,6 +4332,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         session,
                         runtimePlan,
                         targetTemplate,
+                        runtime,
                         report,
                         "preflight");
                 }
@@ -7099,6 +7100,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadSession session,
             RuntimeCommitPlan plan,
             WorkloadTemplate targetTemplate,
+            RuntimeContext runtime,
             WorkloadV2CommitReport report,
             string subject)
         {
@@ -7120,7 +7122,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     "The V2 preview is missing its captured live runtime baseline.");
             }
 
-            RuntimeContext runtime = BuildRuntimeContext(targetTemplate, report);
+            // This is the same read-only catalog snapshot used to build the
+            // runtime plan immediately above. ApplyLive deliberately builds a
+            // fresh context immediately before writing, so this reuse cannot
+            // weaken the final optimistic validation boundary.
             WorkloadScope scope = targetTemplate.Definition.Scope ?? WorkloadScope.Empty;
 
             if (plan.RequiresPriorityAuthority)
