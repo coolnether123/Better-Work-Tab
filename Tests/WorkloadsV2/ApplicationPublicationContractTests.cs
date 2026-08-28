@@ -21,6 +21,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             SpecificJobStorageUsesNeutralAuthority(application, staged);
             ManualModePublicationAvoidsDuplicateRecaches(application, staged);
             StagedRequestsAreSeparatedFromAppliedChanges(application, staged);
+            StagedPublicationUsesAppliedState(application, staged);
+            FailedRollbackReleasesApplicationAdmission(application, staged);
         }
 
         private static void ChangeCarriesPrecisePublicationData(string change)
@@ -114,26 +116,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "nonManualDimensions != WorkTabApplicationDimensions.None",
                 "combined mutations must retain their non-manual table refresh");
 
-            int dimensionsStart = staged.IndexOf(
-                "internal WorkTabApplicationDimensions Dimensions",
-                StringComparison.Ordinal);
-            int dimensionsEnd = staged.IndexOf(
-                "internal sealed class WorkTabStagedMutationReceipt",
-                dimensionsStart,
-                StringComparison.Ordinal);
-            TestAssert.True(
-                dimensionsStart >= 0 && dimensionsEnd > dimensionsStart,
-                "staged mutation dimensions must remain an explicit boundary");
-            string dimensions = staged.Substring(
-                dimensionsStart,
-                dimensionsEnd - dimensionsStart);
             TestAssert.Contains(
-                dimensions,
-                "ManualPriorityModeChanged",
+                staged,
+                "_appliedDimensions |= WorkTabApplicationDimensions.ManualPriorityMode",
                 "staged manual-mode writes must publish the manual dimension");
-            TestAssert.False(
-                dimensions.IndexOf("ManualPriorityTarget.HasValue", StringComparison.Ordinal) >= 0,
-                "an unchanged manual target must not masquerade as a parent-priority change");
             TestAssert.Contains(
                 staged,
                 "_mutation.ManualPriorityModeChanged = true",
@@ -147,15 +133,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             int requestStart = staged.IndexOf(
                 "internal bool HasRequests =>",
                 StringComparison.Ordinal);
-            int dimensionsStart = staged.IndexOf(
-                "internal WorkTabApplicationDimensions Dimensions",
+            TestAssert.True(
+                requestStart >= 0,
+                "staged mutation must expose a request boundary");
+
+            int receiptStart = staged.IndexOf(
+                "internal sealed class WorkTabStagedMutationReceipt",
                 requestStart,
                 StringComparison.Ordinal);
             TestAssert.True(
-                requestStart >= 0 && dimensionsStart > requestStart,
-                "staged mutation must expose a request boundary");
-
-            string requests = staged.Substring(requestStart, dimensionsStart - requestStart);
+                receiptStart > requestStart,
+                "staged request state must end before the applied receipt");
+            string requests = staged.Substring(requestStart, receiptStart - requestStart);
             TestAssert.Contains(
                 requests,
                 "ManualPriorityTarget.HasValue",
@@ -179,23 +168,80 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 staged,
                 "!mutation.HasRequests",
                 "direct staging must validate request presence rather than a derived change flag");
-            string dimensions = staged.Substring(
-                dimensionsStart,
-                staged.IndexOf(
-                    "internal sealed class WorkTabStagedMutationReceipt",
-                    dimensionsStart,
-                    StringComparison.Ordinal) - dimensionsStart);
-            TestAssert.Contains(
-                dimensions,
-                "if (ParentPriorities.Count > 0)",
-                "parent-priority publication must be based on an actual parent target");
             TestAssert.False(
-                dimensions.IndexOf("RequiredPriorityMaximum.HasValue", StringComparison.Ordinal) >= 0,
-                "an unrelated configuration request must not masquerade as a parent target");
+                requests.IndexOf("AffectedTargets", StringComparison.Ordinal) >= 0,
+                "request admission must not retain a request-based publication target list");
+            TestAssert.False(
+                requests.IndexOf("internal WorkTabApplicationDimensions Dimensions", StringComparison.Ordinal) >= 0,
+                "request admission must not expose request-based publication dimensions");
             TestAssert.Contains(
                 application,
                 "receipt.Dimensions",
                 "recovery publication must include only dimensions proven by staging");
+        }
+
+        private static void StagedPublicationUsesAppliedState(
+            string application,
+            string staged)
+        {
+            TestAssert.Contains(
+                staged,
+                "_appliedDimensions | _mutation.AdditionalPublicationDimensions",
+                "staged publication dimensions must come from writer-confirmed state");
+            TestAssert.Contains(
+                staged,
+                "IReadOnlyList<WorkTabApplicationTargetChange> ChangedTargets",
+                "specific-job rollback must return neutral changed targets");
+            TestAssert.Contains(
+                staged,
+                "_appliedTargetChanges",
+                "staged receipts must retain only effective target identities");
+            TestAssert.Contains(
+                staged,
+                "PublishStagedMutation(this)",
+                "publication must consume the receipt rather than request lists");
+            TestAssert.Contains(
+                application,
+                "changedCount = receipt.AppliedChangeCount",
+                "atomic results must report writer-confirmed change counts");
+            TestAssert.Contains(
+                application,
+                "WorkTabApplicationDimensions.PriorityConfiguration",
+                "priority configuration must have an explicit publication dimension");
+            TestAssert.Contains(
+                application,
+                "WorkTabApplicationDimensions.PriorityConfiguration)) != 0",
+                "priority configuration must invalidate effective priority presentation");
+        }
+
+        private static void FailedRollbackReleasesApplicationAdmission(
+            string application,
+            string staged)
+        {
+            TestAssert.Contains(
+                staged,
+                "ReleaseAfterRollbackFailure();",
+                "failed staged rollback must release the application admission lock");
+            TestAssert.Contains(
+                staged,
+                "scope?.Dispose();",
+                "failed staged rollback must dispose its active mutation scope");
+            TestAssert.Contains(
+                staged,
+                "_application.ReleaseStagedMutation();",
+                "failed staged rollback must release the owning application admission");
+            TestAssert.Contains(
+                staged,
+                "_recoveryRequired = true;\n                ReleaseAfterRollbackFailure();",
+                "recovery-required state must be recorded before admission is released");
+            TestAssert.Contains(
+                staged,
+                "if (_scope == null)\n                return !_recoveryRequired;",
+                "a released recovery receipt must remain observable without retaining the lock");
+            TestAssert.Contains(
+                application,
+                "Current.ExecuteAtomicMutationPlan(mutation, true, out _)",
+                "synchronized replay must use the same recovery-safe executor");
         }
 
         private static string Read(string root, string fileName) =>

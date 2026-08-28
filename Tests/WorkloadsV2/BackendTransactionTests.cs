@@ -219,6 +219,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the batch must publish one canonical revision for all specific-job dimensions");
             TestAssert.Contains(
                 manager,
+                "bool entryChanged;",
+                "specific-job publication must track each writer-confirmed entry");
+            TestAssert.Contains(
+                manager,
+                "changedTargets.Add(new WorkTabApplicationTargetChange(",
+                "specific-job publication must return neutral effective targets");
+            TestAssert.Contains(
+                staged,
+                "_specificRollback.ChangedDimensions",
+                "the application receipt must publish only dimensions returned by the batch writer");
+            TestAssert.Contains(
+                manager,
                 "TryRestoreSpecificJobBatch(",
                 "rollback must restore the complete specific-job batch, not individual legacy sync entries");
             TestAssert.False(
@@ -384,6 +396,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 backend,
                 "recoveryRequired: true",
                 "post-write rollback failure must preserve a recovery lease for the protocol worker");
+            TestAssert.Contains(
+                backend,
+                "if (_state == LeaseState.Confirmed)",
+                "duplicate confirmation must be recognized as an already terminal lease");
+            TestAssert.Contains(
+                backend,
+                "bool hasRetainedChanges = (live != null && live.HasChanges) ||",
+                "provisional leases must be created only for retained live or persistence changes");
         }
 
         private static void TemplateWritesUseTheSameTransactionBoundary(string backend)
