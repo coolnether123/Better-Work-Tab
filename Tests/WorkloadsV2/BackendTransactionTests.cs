@@ -154,6 +154,25 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 backend,
                 "runtimePlan.HasLiveMutations && executionContext?.ValidateOnly != true",
                 "ValidateOnly must never call ApplyLive");
+            string revalidation = Slice(
+                backend,
+                "private static void RevalidateRuntimeBaselines(",
+                "private static void RevalidateParentBaseline(");
+            TestAssert.Contains(
+                revalidation,
+                "RuntimeContext runtime,",
+                "revalidation must consume the caller-owned preflight catalog instead of rebuilding it");
+            TestAssert.False(
+                revalidation.IndexOf("BuildRuntimeContext(", StringComparison.Ordinal) >= 0,
+                "revalidation must not repeat the full pawn and definition catalog scan before a write");
+            string applyLive = Slice(
+                backend,
+                "private void ApplyLive(",
+                "private static void CompleteLiveMutation(");
+            TestAssert.Contains(
+                applyLive,
+                "BuildRuntimeContext(targetTemplate, report)",
+                "the live writer must retain its own fresh catalog capture immediately before mutation");
             TestAssert.Contains(
                 backend,
                 "WorkTabMutationAuthorization.TryCreate(",
