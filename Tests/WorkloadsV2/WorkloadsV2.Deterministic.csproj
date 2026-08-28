@@ -87,6 +87,7 @@
     <Compile Include="InspectionSemanticsTests.cs" />
     <Compile Include="PersistenceTests.cs" />
     <Compile Include="WorkloadReadCatalogPerformanceTests.cs" />
+    <Compile Include="WorkloadDraftProjectionCacheTests.cs" />
     <Compile Include="WorkloadPawnRosterRevisionContractTests.cs" />
     <Compile Include="WorkExecutionSpawnPerformanceContractTests.cs" />
     <Compile Include="WorkGridRetainedSparseAuditPerformanceContractTests.cs" />

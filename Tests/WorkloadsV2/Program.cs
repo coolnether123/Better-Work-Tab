@@ -15,6 +15,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("inspection-semantics", InspectionSemanticsTests.Run),
             new TestCase("persistence-and-migration", PersistenceTests.Run),
             new TestCase("workload-read-catalog-performance", WorkloadReadCatalogPerformanceTests.Run),
+            new TestCase("workload-draft-projection-cache", WorkloadDraftProjectionCacheTests.Run),
             new TestCase("workload-pawn-roster-revision-contracts", WorkloadPawnRosterRevisionContractTests.Run),
             new TestCase("work-execution-spawn-performance-contracts", WorkExecutionSpawnPerformanceContractTests.Run),
             new TestCase("work-grid-retained-sparse-audit-performance-contracts", WorkGridRetainedSparseAuditPerformanceContractTests.Run),
