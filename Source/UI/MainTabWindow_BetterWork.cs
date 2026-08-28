@@ -156,10 +156,9 @@ namespace Better_Work_Tab.UI
             // reopen the same cached tab window. Re-register without resolving the tab definition.
             RegisterRetainedResourceOwner();
 
-            // A new open resets only retry latches; valid bounded surfaces remain allocated.
+            // A new open resets only row/chrome retry latches; valid bounded surfaces remain allocated.
             _optimizedWorkGridRenderer.ResetRetainedRowResourceFailureLatchForReopen();
             _workTabChrome.ResetRetainedFailureLatchesForReopen();
-            HeaderDrawingCoordinator.ResetRetainedFailureLatchesForReopen();
             base.PreOpen();
             _application = WorkTabGameRoots.For(Current.Game)?.Application;
             BWTWorkloadSettingsOwnershipPolicy.BindApplication(_application);

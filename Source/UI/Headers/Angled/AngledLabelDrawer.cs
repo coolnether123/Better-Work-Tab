@@ -193,57 +193,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 in presentation);
         }
 
-        /// <summary>
-        /// Draws a root header's stable non-glyph pixels after its coordinates
-        /// have been translated into a cache-local surface. The normal path
-        /// still owns every glyph, dynamic visual, and input decision.
-        /// </summary>
-        internal static void DrawRetainedStable(
-            AngledLabelLayout layout,
-            Rect headerRect,
-            PawnColumnDef column,
-            in HeaderPresentationPacket presentation)
-        {
-            DrawCore(
-                layout,
-                isMouseOver: false,
-                isSorted: false,
-                sortDescending: false,
-                headerRect,
-                column,
-                useUnclippedPivot: false,
-                drawText: false,
-                drawUnderline: true,
-                drawDynamicVisuals: false,
-                in presentation);
-        }
-
-        /// <summary>
-        /// Draws the stable surface's glyphs at the live IMGUI boundary. Font
-        /// edges must not be composed into a transparent retained surface: the
-        /// resulting premultiplied pixels would be alpha-blended a second time
-        /// when that surface is presented.
-        /// </summary>
-        internal static void DrawRetainedText(
-            AngledLabelLayout layout,
-            Rect headerRect,
-            PawnColumnDef column,
-            in HeaderPresentationPacket presentation)
-        {
-            DrawCore(
-                layout,
-                isMouseOver: false,
-                isSorted: false,
-                sortDescending: false,
-                headerRect,
-                column,
-                useUnclippedPivot: true,
-                drawText: true,
-                drawUnderline: false,
-                drawDynamicVisuals: false,
-                in presentation);
-        }
-
         private static void DrawCore(
             AngledLabelLayout layout,
             bool isMouseOver,
@@ -309,11 +258,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             float labelAlpha = Mathf.Clamp01(layout.Alpha);
-            // Parent headers have two different ownership rules in the retained
-            // path: their glyphs stay on the live IMGUI pass, while their stable
-            // underline belongs to the retained surface. Keep the two decisions
-            // independent so the stable pass cannot silently drop the parent
-            // underline when it intentionally omits text.
+            // Parent headers use the same live IMGUI pass as their current header.
+            // Keep the text and underline decisions independent for the shared
+            // transition helper, even though the normal prepared draw enables both.
             if (drawText || drawUnderline)
             {
                 DrawParentHeaderGhost(

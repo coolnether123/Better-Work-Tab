@@ -26,12 +26,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "WorkGrid",
                 "Rendering",
                 "RetainedWorkBoxRowCache.cs");
-            string retainedHeaders = Read(
-                root,
-                "Source",
-                "UI",
-                "Headers",
-                "RetainedPriorityHeaderCache.cs");
             string footerCache = Read(
                 root,
                 "Source",
@@ -44,16 +38,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             ManualInputAndOverlaysRemainLive(chrome);
             RetainedResourcesFollowWindowLifecycle(chrome, manualCache, window);
             RetainedResourceReleaseContinuesAfterFailures();
-            SurfaceReleaseAlwaysAttemptsDestroy(manualCache, retainedRows, retainedHeaders);
-            RetainedSurfacePresentationUsesNeutralTint(manualCache, retainedRows, retainedHeaders);
+            SurfaceReleaseAlwaysAttemptsDestroy(manualCache, retainedRows);
+            RetainedSurfacePresentationUsesNeutralTint(manualCache, retainedRows);
             FooterAndCounterPathsAvoidStableAllocations(chrome, footerCache);
             SelectorAndTooltipCachesRemainBounded(header);
         }
 
         private static void RetainedSurfacePresentationUsesNeutralTint(
             string manualCache,
-            string retainedRows,
-            string retainedHeaders)
+            string retainedRows)
         {
             string manualDraw = MemberBody(
                 manualCache,
@@ -61,13 +54,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             AssertNeutralTexturePresentation(
                 manualDraw,
                 "manual chrome retained surface");
-
-            string headerDraw = MemberBody(
-                retainedHeaders,
-                "private static void PresentSurface(");
-            AssertNeutralTexturePresentation(
-                headerDraw,
-                "retained priority-header surface");
 
             string rowDraw = MemberBody(
                 retainedRows,
@@ -159,8 +145,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static void SurfaceReleaseAlwaysAttemptsDestroy(
             string manualCache,
-            string retainedRows,
-            string retainedHeaders)
+            string retainedRows)
         {
             AssertReleaseAttemptsDestroy(
                 MemberBody(manualCache, "private void ReleaseSurface(bool enabled)"),
@@ -168,9 +153,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             AssertReleaseAttemptsDestroy(
                 MemberBody(retainedRows, "private void ReleaseSurface(Entry entry)"),
                 "retained work-grid rows");
-            AssertReleaseAttemptsDestroy(
-                MemberBody(retainedHeaders, "private void ReleaseSurface(Entry entry)"),
-                "retained priority headers");
         }
 
         private static void AssertReleaseAttemptsDestroy(string release, string surfaceOwner)
