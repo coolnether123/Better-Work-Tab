@@ -5,6 +5,7 @@ using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
 using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.PawnOrganizer;
+using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using RimWorld;
@@ -467,11 +468,14 @@ namespace Better_Work_Tab.UI.Headers
             // The retained IMGUI path already composes with a top-left pixel
             // matrix. Use the same logical orientation as the proven retained
             // row/chrome paths; a platform UV flip here would invert the text.
-            GUI.DrawTextureWithTexCoords(
-                destination,
-                surface,
-                new Rect(0f, 0f, 1f, 1f),
-                true);
+            using (RetainedSurfacePresentation.EnterNeutralTextureTint())
+            {
+                GUI.DrawTextureWithTexCoords(
+                    destination,
+                    surface,
+                    new Rect(0f, 0f, 1f, 1f),
+                    true);
+            }
         }
 
         private bool HasCapacity(long requestedBytes, int entryDelta)

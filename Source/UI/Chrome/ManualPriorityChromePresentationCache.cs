@@ -1,5 +1,6 @@
 using System;
 using Better_Work_Tab.Foundation.GameState;
+using Better_Work_Tab.UI;
 using Spine.UI.WidgetExtensions;
 using UnityEngine;
 using Verse;
@@ -110,11 +111,14 @@ namespace Better_Work_Tab.UI.Chrome
                 return false;
             }
 
-            GUI.DrawTextureWithTexCoords(
-                contextRect,
-                surface,
-                new Rect(0f, 0f, 1f, 1f),
-                true);
+            using (RetainedSurfacePresentation.EnterNeutralTextureTint())
+            {
+                GUI.DrawTextureWithTexCoords(
+                    contextRect,
+                    surface,
+                    new Rect(0f, 0f, 1f, 1f),
+                    true);
+            }
             return true;
         }
 

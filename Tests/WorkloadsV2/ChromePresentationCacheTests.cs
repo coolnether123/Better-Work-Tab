@@ -45,8 +45,42 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             RetainedResourcesFollowWindowLifecycle(chrome, manualCache, window);
             RetainedResourceReleaseContinuesAfterFailures();
             SurfaceReleaseAlwaysAttemptsDestroy(manualCache, retainedRows, retainedHeaders);
+            RetainedSurfacePresentationUsesNeutralTint(manualCache, retainedHeaders);
             FooterAndCounterPathsAvoidStableAllocations(chrome, footerCache);
             SelectorAndTooltipCachesRemainBounded(header);
+        }
+
+        private static void RetainedSurfacePresentationUsesNeutralTint(
+            string manualCache,
+            string retainedHeaders)
+        {
+            string manualDraw = MemberBody(
+                manualCache,
+                "internal bool TryDrawRetained(");
+            AssertNeutralTexturePresentation(
+                manualDraw,
+                "manual chrome retained surface");
+
+            string headerDraw = MemberBody(
+                retainedHeaders,
+                "private static void PresentSurface(");
+            AssertNeutralTexturePresentation(
+                headerDraw,
+                "retained priority-header surface");
+        }
+
+        private static void AssertNeutralTexturePresentation(
+            string source,
+            string surfaceOwner)
+        {
+            const string scope = "RetainedSurfacePresentation.EnterNeutralTextureTint()";
+            int scopeIndex = source.IndexOf(scope, StringComparison.Ordinal);
+            int drawIndex = source.IndexOf(
+                "GUI.DrawTextureWithTexCoords(",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                scopeIndex >= 0 && drawIndex > scopeIndex,
+                surfaceOwner + " must neutralize GUI.color before presenting retained pixels");
         }
 
         private static void RetainedResourcesFollowWindowLifecycle(
