@@ -130,7 +130,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return true;
 
             int columnSignature = SpineTiming.Enabled
-                ? TimeSafely(
+                ? SpineTiming.Time(
                     "WorkTab.Layout.ShouldRebuild.ColumnSignature",
                     () => ComputeColumnSignature(table))
                 : ComputeColumnSignature(table);
@@ -138,7 +138,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return true;
 
             int hiddenWorktypesSignature = SpineTiming.Enabled
-                ? TimeSafely(
+                ? SpineTiming.Time(
                     "WorkTab.Layout.ShouldRebuild.HiddenWorktypesSignature",
                     ComputeHiddenWorktypesSignature)
                 : ComputeHiddenWorktypesSignature();
@@ -167,7 +167,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return true;
 
             int dividerAnimationSignature = SpineTiming.Enabled
-                ? TimeSafely(
+                ? SpineTiming.Time(
                     "WorkTab.Layout.ShouldRebuild.DividerAnimationSignature",
                     ComputeDividerAnimationSignature)
                 : ComputeDividerAnimationSignature();
@@ -175,7 +175,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 return true;
 
             int subWorkLayoutSettingsSignature = SpineTiming.Enabled
-                ? TimeSafely(
+                ? SpineTiming.Time(
                     "WorkTab.Layout.ShouldRebuild.SubWorkSettingsSignature",
                     ComputeSubWorkLayoutSettingsSignature)
                 : ComputeSubWorkLayoutSettingsSignature();
@@ -203,7 +203,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             // Check pawn display order changes (after drag-reorder)
             bool pawnDisplayOrderChanged = SpineTiming.Enabled
-                ? TimeSafely(
+                ? SpineTiming.Time(
                     "WorkTab.Layout.ShouldRebuild.PawnDisplayOrder",
                     () => HasPawnDisplayOrderChanged(snapshot))
                 : HasPawnDisplayOrderChanged(snapshot);
@@ -211,7 +211,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
             // Check divider collapse states
             bool dividerCollapseStateChanged = SpineTiming.Enabled
-                ? TimeSafely(
+                ? SpineTiming.Time(
                     "WorkTab.Layout.ShouldRebuild.DividerCollapseState",
                     () => HasDividerCollapseStateChanged(snapshot))
                 : HasDividerCollapseStateChanged(snapshot);
@@ -249,47 +249,6 @@ namespace Better_Work_Tab.PawnOrganizer
             }
 
             return false;
-        }
-
-        private static T TimeSafely<T>(string name, Func<T> action)
-        {
-            bool completed = false;
-            T result = default(T);
-            try
-            {
-                return SpineTiming.Time(
-                    name,
-                    () =>
-                    {
-                        result = action();
-                        completed = true;
-                        return result;
-                    });
-            }
-            catch (Exception) when (completed)
-            {
-                // A profiler recorder failure must not change the layout result.
-                return result;
-            }
-        }
-
-        private static void TimeSafely(string name, Action action)
-        {
-            bool completed = false;
-            try
-            {
-                SpineTiming.Time(
-                    name,
-                    () =>
-                    {
-                        action();
-                        completed = true;
-                    });
-            }
-            catch (Exception) when (completed)
-            {
-                // A profiler recorder failure must not clear a successfully built layout.
-            }
         }
 
         /// <summary>
@@ -605,11 +564,7 @@ namespace Better_Work_Tab.PawnOrganizer
             lock (_stateLock)
             {
                 // SKIP REBUILD IF NOTHING CHANGED
-                bool shouldRebuild = SpineTiming.Enabled
-                    ? TimeSafely(
-                        "WorkTab.Layout.ShouldRebuild",
-                        () => ShouldRebuild(table, snapshot, origin))
-                    : ShouldRebuild(table, snapshot, origin);
+                bool shouldRebuild = ShouldRebuild(table, snapshot, origin);
                 if (!shouldRebuild)
                 {
                     return; // All cached data is still valid
@@ -655,7 +610,7 @@ namespace Better_Work_Tab.PawnOrganizer
 
                     if (SpineTiming.Enabled)
                     {
-                        TimeSafely(
+                        SpineTiming.Time(
                             "WorkTab.Layout.RebuildBody",
                             () =>
                             {

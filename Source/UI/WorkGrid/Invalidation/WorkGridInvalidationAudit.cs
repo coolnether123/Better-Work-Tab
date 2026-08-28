@@ -1,4 +1,3 @@
-using System;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -29,7 +28,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
 
             _nextRosterAuditTick = ticks + AuditIntervalTicks;
             bool rosterMatches = SpineTiming.Enabled
-                ? TimeSafely(
+                ? SpineTiming.Time(
                     "WorkTab.InvalidationAudit.RosterSignature",
                     () => RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(table?.cachedPawns))
                 : RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(table?.cachedPawns);
@@ -52,7 +51,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
 
             _nextAuditTick = ticks + AuditIntervalTicks;
             bool directMutationsFound = SpineTiming.Enabled
-                ? TimeSafely(
+                ? SpineTiming.Time(
                     "WorkTab.InvalidationAudit.Reconcile",
                     TimePriorityService.ReconcileDirectMutationsFromAudit)
                 : TimePriorityService.ReconcileDirectMutationsFromAudit();
@@ -61,7 +60,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                 WorkTabApplication.Current?.ReportObservedScheduleChange();
             }
             int signature = SpineTiming.Enabled
-                ? TimeSafely(
+                ? SpineTiming.Time(
                     "WorkTab.InvalidationAudit.ComputeSignature",
                     () => ComputeSignature(table))
                 : ComputeSignature(table);
@@ -94,28 +93,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             _lastSignature = 0;
             _hasSignature = false;
             _lastTrackedRevisions = default;
-        }
-
-        private static T TimeSafely<T>(string name, Func<T> action)
-        {
-            bool completed = false;
-            T result = default(T);
-            try
-            {
-                return SpineTiming.Time(
-                    name,
-                    () =>
-                    {
-                        result = action();
-                        completed = true;
-                        return result;
-                    });
-            }
-            catch (Exception) when (completed)
-            {
-                // A profiler recorder failure must not change audit decisions.
-                return result;
-            }
         }
 
         private static int RosterSignature(System.Collections.Generic.IEnumerable<Pawn> pawns)

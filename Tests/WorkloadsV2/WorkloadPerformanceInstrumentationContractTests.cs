@@ -19,10 +19,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string audit = Read(
                 root,
                 "Source", "UI", "WorkGrid", "Invalidation", "WorkGridInvalidationAudit.cs");
+            string timing = Read(
+                root,
+                "Source", "Spine", "Profiling", "SpineTiming.cs");
 
             BaselineCaptureProfilesAggregateCounts(backend);
             LayoutChecksAreAttributed(layout);
             InvalidationAuditIsAggregateAndGated(audit);
+            RecorderFailuresCannotChangeMeasuredBehavior(timing);
         }
 
         private static void BaselineCaptureProfilesAggregateCounts(string backend)
@@ -56,7 +60,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(capture, "counts=pawns:", "baseline profiling must report pawn count");
             TestAssert.Contains(capture, ",workTypes:", "baseline profiling must report work-type count");
             TestAssert.Contains(capture, ",workGivers:", "baseline profiling must report work-giver count");
-            TestAssert.Contains(capture, ",entries:", "baseline profiling must report captured entry count");
+            TestAssert.Contains(capture, ",runtimePriorities:", "baseline profiling must label runtime priorities");
+            TestAssert.Contains(capture, ",livePriorities:", "baseline profiling must label live priorities");
+            TestAssert.Contains(capture, ",manualModes:", "baseline profiling must label manual modes");
+            TestAssert.Contains(capture, ",specificOverrides:", "baseline profiling must label specific overrides");
+            TestAssert.Contains(capture, ",specificOrder:", "baseline profiling must label specific order entries");
             TestAssert.Equal(
                 1,
                 Count(capture, "Log.Message("),
@@ -69,7 +77,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string shouldRebuild = MemberBody(layout, "private bool ShouldRebuild(");
             string[] sections =
             {
-                "WorkTab.Layout.ShouldRebuild",
                 "WorkTab.Layout.RebuildBody",
                 "WorkTab.Layout.ShouldRebuild.ColumnSignature",
                 "WorkTab.Layout.ShouldRebuild.HiddenWorktypesSignature",
@@ -95,10 +102,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 rebuild,
                 "WorkTab.Layout.RebuildBody",
                 "rebuild count must come from the actual build body");
-            TestAssert.Contains(
-                layout,
-                "catch (Exception) when (completed)",
-                "layout profiling must ignore recorder failures after the production work completes");
+            TestAssert.False(
+                layout.IndexOf("TimeSafely", StringComparison.Ordinal) >= 0,
+                "layout code must rely on the profiler boundary instead of duplicating recovery wrappers");
             TestAssert.Contains(
                 shouldRebuild,
                 "HasPawnDisplayOrderChanged(snapshot)",
@@ -134,16 +140,35 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 poll,
                 "SpineTiming.Enabled",
                 "invalidation audit timing must be gated");
-            TestAssert.Contains(
-                audit,
-                "catch (Exception) when (completed)",
-                "audit profiling must ignore recorder failures after the production work completes");
+            TestAssert.False(
+                audit.IndexOf("TimeSafely", StringComparison.Ordinal) >= 0,
+                "audit code must rely on the profiler boundary instead of duplicating recovery wrappers");
             TestAssert.False(
                 compute.IndexOf("SpineTiming.Time", StringComparison.Ordinal) >= 0,
                 "signature timing must not run inside the pawn/work-type loops");
             TestAssert.False(
                 rosterSignature.IndexOf("SpineTiming.Time", StringComparison.Ordinal) >= 0,
                 "roster timing must not run inside the pawn loop");
+        }
+
+        private static void RecorderFailuresCannotChangeMeasuredBehavior(string timing)
+        {
+            TestAssert.Contains(
+                timing,
+                "RecordSafely(name, Stopwatch.GetTimestamp() - start);",
+                "both timing wrappers must use the observational recorder boundary");
+            TestAssert.Equal(
+                2,
+                Count(timing, "RecordSafely(name, Stopwatch.GetTimestamp() - start);"),
+                "action and value timing must share the recorder boundary");
+            TestAssert.Contains(
+                timing,
+                "catch (Exception exception) when (!IsFatal(exception))",
+                "non-fatal recorder failures must not change measured behavior");
+            TestAssert.Contains(
+                timing,
+                "discard this profiling run",
+                "reports must disclose missing timing samples");
         }
 
         private static int Count(string source, string value)
