@@ -311,6 +311,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 readback = new Texture2D(1, 1, TextureFormat.RGBA32, false);
                 RenderTexture.active = surface;
                 GL.InvalidateState();
+                ConfigureSrgbWriteForSrgbTarget();
                 GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));
                 GUI.matrix = Matrix4x4.identity;
                 GL.PushMatrix();
@@ -394,6 +395,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 UnityEngine.Object.Destroy(retainedMaterial);
             }
+        }
+
+        // RenderTextureReadWrite.sRGB does not set GL.sRGBWrite. Derive it from
+        // project color space, never the preceding IMGUI draw.
+        internal static void ConfigureSrgbWriteForSrgbTarget()
+        {
+            GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear;
         }
 
         internal static void DrawDynamicOverlays(

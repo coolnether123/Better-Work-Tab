@@ -271,14 +271,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             string build = MemberBody(retained, "private static bool BuildSurface(");
             int target = build.IndexOf("RenderTexture.active = surface;", StringComparison.Ordinal);
+            int configureSrgb = build.IndexOf(
+                "PreparedWorkBoxRenderer.ConfigureSrgbWriteForSrgbTarget();",
+                target,
+                StringComparison.Ordinal);
             int viewport = build.IndexOf(
                 "GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));",
                 StringComparison.Ordinal);
             int restoreTarget = build.IndexOf("RenderTexture.active = previous;", StringComparison.Ordinal);
             int restoreViewport = build.IndexOf("previousViewportWidth", restoreTarget, StringComparison.Ordinal);
             TestAssert.True(
-                target >= 0 && viewport > target,
-                "retained composition must set the offscreen target viewport before emitting quads");
+                target >= 0 && configureSrgb > target && viewport > configureSrgb,
+                "retained composition must establish sRGB output and the offscreen viewport after binding its target");
             TestAssert.True(
                 restoreTarget > viewport && restoreViewport > restoreTarget,
                 "retained composition must restore the caller target viewport after emitting quads");
@@ -294,10 +298,25 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string sentinel = MemberBody(
                 preparedBox,
                 "internal static bool TryValidateRetainedComposition(");
+            int sentinelTarget = sentinel.IndexOf("RenderTexture.active = surface;", StringComparison.Ordinal);
+            int sentinelConfigureSrgb = sentinel.IndexOf(
+                "ConfigureSrgbWriteForSrgbTarget();",
+                sentinelTarget,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                sentinelTarget >= 0 && sentinelConfigureSrgb > sentinelTarget,
+                "the capability sentinel must establish the same sRGB target policy after binding its target");
             TestAssert.Contains(
                 sentinel,
                 "GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));",
                 "the capability sentinel must use the same explicit offscreen viewport as rows");
+            string srgbPolicy = MemberBody(
+                preparedBox,
+                "internal static void ConfigureSrgbWriteForSrgbTarget()");
+            TestAssert.Contains(
+                srgbPolicy,
+                "QualitySettings.activeColorSpace == ColorSpace.Linear",
+                "retained sRGB targets must derive write conversion from the project color space, not caller GL state");
             TestAssert.Contains(
                 sentinel,
                 "Texture2D.whiteTexture",
