@@ -35,20 +35,34 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(packet.IndexOf("text ?? string.Empty", StringComparison.Ordinal) >= 0,
                 "downstream packet values must not hide a broken label capture invariant");
             TestAssert.False(capture.IndexOf("TruncateForPreparedCell", StringComparison.Ordinal) >= 0,
-                "prepared labels must leave visible clipping to the native label widget");
-            TestAssert.False(capture.IndexOf("GenText.Truncate", StringComparison.Ordinal) >= 0,
-                "prepared labels must not use TaggedString truncation");
-            TestAssert.False(capture.IndexOf("Text.CalcSize", StringComparison.Ordinal) >= 0,
-                "prepared labels must not measure or synthesize an alternate clipped string");
-            TestAssert.Contains(capture, "string resolvedLabel = nativeLabel.Resolve();",
-                "the native label must be resolved once before preparation");
+                "prepared labels must not use the former unconditional truncator");
+            TestAssert.Contains(capture,
+                "string nativeLabelForMeasurement = nativeLabel;",
+                "prepared labels must use native TaggedString-to-string measurement conversion");
+            TestAssert.Contains(capture,
+                "Text.CalcSize(nativeLabelForMeasurement).x > textWidth",
+                "prepared labels must retain the native conditional width test");
+            TestAssert.Contains(capture,
+                "GenText.Truncate(nativeLabel, textWidth, null)",
+                "overflowing prepared labels must use native tagged truncation");
+            TestAssert.Contains(capture,
+                "if (!contrast)\n            {\n                // The TaggedString -> string conversion is intentional:",
+                "contrast labels must keep BWT's no-truncation override");
+            TestAssert.Contains(capture, "string resolvedLabel = preparedLabel.Resolve();",
+                "the conditionally prepared native label must be resolved once");
             TestAssert.False(capture.IndexOf("preparedBaseText.Resolve", StringComparison.Ordinal) >= 0,
                 "prepared label variants must not re-enter ColoredText resolution");
             string captureMethod = MemberBody(capture, "internal static PreparedPawnLabelPresentation Capture(");
             TestAssert.False(captureMethod.IndexOf("PreparedPawnLabelText.Truncate(", StringComparison.Ordinal) >= 0,
                 "prepared labels must not replace native clipping with an in-label ellipsis");
+            TestAssert.False(captureMethod.IndexOf("\"...\"", StringComparison.Ordinal) >= 0,
+                "prepared labels must not synthesize an unconditional ellipsis");
             TestAssert.Equal(1, CountOccurrences(captureMethod, ".Resolve()"),
-                "capture must resolve only the native source label");
+                "capture must resolve only the conditionally prepared source label");
+            TestAssert.Contains(captureMethod, "TaggedString preparedLabel = nativeLabel;",
+                "native fitting labels must stay unchanged before live rendering");
+            TestAssert.False(captureMethod.IndexOf("new Dictionary<", StringComparison.Ordinal) >= 0,
+                "snapshot capture must not introduce a process-wide native label cache");
             TestAssert.Contains(captureMethod,
                 "bool colorizePawnName = pawn.IsSlave || pawn.IsColonyMech",
                 "capture must keep the pawn, slave, and colony-mech color decision at the boundary");
@@ -64,6 +78,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(captureMethod,
                 "float textWidth = columnWidth - 3f -",
                 "prepared label width must reserve only the native left padding and optional icon");
+            TestAssert.False(captureMethod.IndexOf("Mathf.Max(0f, textWidth)", StringComparison.Ordinal) >= 0,
+                "prepared label width must remain the native rect2 width without a clamp");
             string buildPawnLabel = MemberBody(
                 packet,
                 "private static PreparedPawnLabelCell BuildPawnLabel(");
