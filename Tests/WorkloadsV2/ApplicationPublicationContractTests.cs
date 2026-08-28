@@ -246,10 +246,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static string Read(string root, string fileName) =>
             File.ReadAllText(Path.Combine(
-                root,
-                "Source",
-                "Features",
-                "Application",
-                fileName));
+                    root,
+                    "Source",
+                    "Features",
+                    "Application",
+                    fileName))
+                .Replace("\r\n", "\n")
+                .Replace("\r", "\n");
     }
 }
