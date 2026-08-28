@@ -41,6 +41,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             WriterBehaviorIsTransactional();
             PreviewLifecycleAndFirstRefreshAreGuarded(router, gateway, previewPort);
             CachedFacadeUsesPreparedSnapshot(router);
+            PreviewStageableLabelsUseNormalText(router);
             SteadySettingsDrawerPathIsTokenGated(router, Read(
                 root, "Source", "UI", "BetterWorkTabSettingsUI.cs"));
             AllGlobalWriteRoutesAdvanceTheSnapshotToken(
@@ -536,6 +537,34 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 router.Contains("WorkloadPresentationSettingsTransaction") ||
                 router.Contains("IWorkloadPresentationSettingsStore"),
                 "normal settings code must not compose workload persistence writers");
+        }
+
+        private static void PreviewStageableLabelsUseNormalText(string router)
+        {
+            string decorate = MethodBody(router, "internal static string DecorateLabel(");
+            int stableLabel = decorate.IndexOf(
+                "IsStageablePresentationSetting(definition?.Id)",
+                StringComparison.Ordinal);
+            int ownershipMarker = decorate.IndexOf(
+                "string marker =",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                stableLabel >= 0 && stableLabel < ownershipMarker,
+                "preview stageable labels must be stabilized before ownership markers are built");
+            TestAssert.Contains(
+                decorate.Substring(stableLabel),
+                "return label;",
+                "preview stageable labels must leave ownership/action text to the row control");
+
+            string draw = MethodBody(router, "private static bool DrawStageableSettingRow(");
+            TestAssert.Contains(
+                draw,
+                "const float ownershipActionWidth = 96f;",
+                "the ownership action must keep its bounded button lane");
+            TestAssert.Contains(
+                draw,
+                "actionLabel = ownership.IsWorkloadOwnedInActiveTemplate",
+                "the ownership control must retain the owned/unowned action indication");
         }
 
         private static void AllGlobalWriteRoutesAdvanceTheSnapshotToken(
