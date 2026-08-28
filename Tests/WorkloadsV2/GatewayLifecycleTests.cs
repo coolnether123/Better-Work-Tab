@@ -112,6 +112,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             LifecycleRefreshUsesApplicationPublicationReceipt(header, gateway, backend);
             RepositoryLifecycleActionsAvoidPawnTableRecache(header, backend);
             NoChangePublicationDoesNotTriggerFallbackRecache(header, backend);
+            PresentationOnlyCommitPublishesApplication(header, backend);
+            PresentationOnlyConfirmationPublishesApplication(backend);
             ProvisionalConfirmationIsIdempotent(backend);
             NarrowFooterGeometryIsBounded(header);
             SelectorSpacingIsMeasuredWithoutLeadingReserve(selector);
@@ -742,6 +744,69 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 backend,
                 "if (provisional && hasRetainedChanges)",
                 "a no-op multiplayer apply must not create a pending rollback lease");
+        }
+
+        private static void PresentationOnlyCommitPublishesApplication(
+            string header,
+            string backend)
+        {
+            string commit = MethodBody(backend, "private WorkloadV2CommitResult CommitCore(");
+            string notify = MethodBody(backend, "private bool NotifyCommitChanged(");
+
+            TestAssert.Contains(
+                commit,
+                "presentationChanged: live?.PresentationWasChanged == true",
+                "a local presentation-only commit must report its live presentation change");
+            TestAssert.Contains(
+                commit,
+                "persistenceChanged: report.TemplatePersisted",
+                "commit publication must continue to distinguish persistence changes");
+            TestAssert.Contains(
+                notify,
+                "if (!presentationChanged && !persistenceChanged)",
+                "publication must remain suppressed when a commit is a true no-op");
+            TestAssert.Contains(
+                notify,
+                "_component.NotifyV2Changed();",
+                "a presentation-only commit must notify the workload component");
+            TestAssert.Contains(
+                notify,
+                "WorkTabApplicationDimensions.Presentation",
+                "a presentation-only commit must publish through the application boundary");
+            TestAssert.Contains(
+                notify,
+                "notifyPawnTables: false",
+                "presentation-only publication must not recache every pawn table");
+            TestAssert.Contains(
+                header,
+                "applicationPublication == WorkloadApplicationPublication.None",
+                "the footer must still reserve table-recache fallback for a missing publisher");
+        }
+
+        private static void PresentationOnlyConfirmationPublishesApplication(
+            string backend)
+        {
+            string lease = MethodBody(
+                backend,
+                "private WorkloadCommitRollbackLease CreateRollbackLease(");
+            int finalize = lease.IndexOf(
+                "FinalizeLiveMutation(live, out string reason)",
+                StringComparison.Ordinal);
+            int confirmationPublication = lease.IndexOf(
+                "presentationChanged: live?.PresentationWasChanged == true",
+                finalize >= 0 ? finalize : 0,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                finalize >= 0 && confirmationPublication > finalize,
+                "provisional confirmation must publish a retained presentation change");
+            TestAssert.Contains(
+                backend,
+                "if (provisional && hasRetainedChanges)",
+                "presentation-only multiplayer commits must retain a confirmation lease");
+            TestAssert.Contains(
+                backend,
+                "? WorkloadApplicationPublication.Pending",
+                "accepted multiplayer presentation changes must remain pending until confirmation");
         }
 
         private static void ProvisionalConfirmationIsIdempotent(string backend)

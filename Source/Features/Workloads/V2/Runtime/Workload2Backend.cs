@@ -3936,7 +3936,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         persistence.WasApplied && !persistenceRestored;
                     report.LiveStateChanged = !liveRestored;
                     if (hadLiveChanges || hadPersistenceChanges)
-                        NotifyCommitChanged(live, hadPersistenceChanges);
+                        NotifyCommitChanged(
+                            live,
+                            presentationChanged: live?.PresentationWasChanged == true,
+                            persistenceChanged: hadPersistenceChanges);
                     if (persistenceRestored && liveRestored)
                     {
                         executionContext?.MutationAuthorization?.Lease.FinalizeLease();
@@ -3954,7 +3957,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         return false;
                     }
                     if (hadLiveChanges || hadPersistenceChanges)
-                        NotifyCommitChanged(live, hadPersistenceChanges);
+                        NotifyCommitChanged(
+                            live,
+                            presentationChanged: live?.PresentationWasChanged == true,
+                            persistenceChanged: hadPersistenceChanges);
                     executionContext?.MutationAuthorization?.Lease.FinalizeLease();
                     return true;
                 },
@@ -4438,6 +4444,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 {
                     applicationChangePublished = NotifyCommitChanged(
                         live,
+                        presentationChanged: live?.PresentationWasChanged == true,
                         persistenceChanged: report.TemplatePersisted);
                 }
 
@@ -8108,7 +8115,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
         private bool NotifyCommitChanged(
             LiveMutationTransaction live,
-            bool persistenceChanged = false)
+            bool presentationChanged,
+            bool persistenceChanged)
         {
             if (live?.StagedMutation != null)
             {
@@ -8118,12 +8126,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     _component.NotifyV2Changed();
                     return true;
                 }
-
-                if (!persistenceChanged)
-                    return false;
             }
 
-            if (!persistenceChanged)
+            // Presentation-only commits have no staged receipt, so publish
+            // them here instead of making the lifecycle caller recache tables.
+            if (!presentationChanged && !persistenceChanged)
                 return false;
 
             _component.NotifyV2Changed();
