@@ -624,7 +624,7 @@ namespace Better_Work_Tab.Features.Application
 
             if (!Enter())
                 return Reject("Another work-tab command is active.");
-            if (!staged.HasChanges)
+            if (!staged.HasRequests)
             {
                 Exit();
                 return Result(WorkTabApplicationOutcome.NoOp);
@@ -641,7 +641,7 @@ namespace Better_Work_Tab.Features.Application
                 {
                     WorkTabApplicationChange recoveryChange = Publish(
                         default,
-                        staged.Dimensions,
+                        receipt.Dimensions,
                         true,
                         true,
                         affectedTargetChanges: staged.AffectedTargets);
@@ -679,7 +679,7 @@ namespace Better_Work_Tab.Features.Application
                 staged.ExternalSpecificPriorities.Count +
                 staged.SpecificPriorities.Count +
                 staged.SpecificOrders.Count + staged.Schedules.Count +
-                (staged.ManualPriorityTarget.HasValue ? 1 : 0) +
+                (staged.ManualPriorityModeChanged ? 1 : 0) +
                 (staged.RequiredPriorityMaximum.HasValue ? 1 : 0);
             return Result(WorkTabApplicationOutcome.Applied, change);
         }
@@ -881,7 +881,8 @@ namespace Better_Work_Tab.Features.Application
             bool durable,
             bool broadScope,
             bool mirrorExternal,
-            IEnumerable<TimePriorityTarget> affectedTargets = null)
+            IEnumerable<TimePriorityTarget> affectedTargets = null,
+            bool? notifyPawnTables = null)
         {
             if (!IsCurrent)
             {
@@ -898,7 +899,8 @@ namespace Better_Work_Tab.Features.Application
                 broadScope,
                 durable,
                 affectedTargets: affectedTargets,
-                mirrorExternal: mirrorExternal);
+                mirrorExternal: mirrorExternal,
+                notifyPawnTables: notifyPawnTables);
             return Result(WorkTabApplicationOutcome.Applied, change);
         }
 

@@ -7483,15 +7483,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
                 WorkTabApplication application = WorkTabApplication.Current;
                 string stageReason = null;
-                bool stageSucceeded = !staged.HasChanges;
-                WorkTabStagedMutationReceipt receipt = staged.HasChanges
+                bool stageSucceeded = !staged.HasRequests;
+                WorkTabStagedMutationReceipt receipt = staged.HasRequests
                     ? application?.StageMutation(
                         staged,
                         out stageSucceeded,
                         out stageReason)
                     : null;
                 transaction.StagedMutation = receipt;
-                if (staged.HasChanges &&
+                if (staged.HasRequests &&
                     (receipt == null || !stageSucceeded))
                 {
                     Abort(
@@ -8127,7 +8127,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 WorkTabApplicationDimensions.Presentation,
                 durable: true,
                 broadScope: true,
-                mirrorExternal: true).Changed;
+                mirrorExternal: true,
+                // A persistence-only workload commit already invalidates the
+                // presentation. It does not alter pawn rows, so do not make
+                // the application publisher recache every pawn table.
+                notifyPawnTables: false).Changed;
         }
 
         private static bool RollbackPersistence(

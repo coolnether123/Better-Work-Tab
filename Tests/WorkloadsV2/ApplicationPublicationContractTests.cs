@@ -20,6 +20,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             FailureOutcomesDistinguishRecovery(application);
             SpecificJobStorageUsesNeutralAuthority(application, staged);
             ManualModePublicationAvoidsDuplicateRecaches(application, staged);
+            StagedRequestsAreSeparatedFromAppliedChanges(application, staged);
         }
 
         private static void ChangeCarriesPrecisePublicationData(string change)
@@ -137,6 +138,64 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 staged,
                 "_mutation.ManualPriorityModeChanged = true",
                 "the staged receipt must record the writer-owned notifier boundary");
+        }
+
+        private static void StagedRequestsAreSeparatedFromAppliedChanges(
+            string application,
+            string staged)
+        {
+            int requestStart = staged.IndexOf(
+                "internal bool HasRequests =>",
+                StringComparison.Ordinal);
+            int dimensionsStart = staged.IndexOf(
+                "internal WorkTabApplicationDimensions Dimensions",
+                requestStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                requestStart >= 0 && dimensionsStart > requestStart,
+                "staged mutation must expose a request boundary");
+
+            string requests = staged.Substring(requestStart, dimensionsStart - requestStart);
+            TestAssert.Contains(
+                requests,
+                "ManualPriorityTarget.HasValue",
+                "manual-mode targets must remain admissible for baseline validation");
+            TestAssert.False(
+                staged.IndexOf("internal bool HasChanges =>", StringComparison.Ordinal) >= 0,
+                "a dead staged change flag must not preserve request-only semantics");
+            TestAssert.Contains(
+                staged,
+                "internal bool HasAppliedChanges =>",
+                "the receipt must report writer-confirmed changes separately");
+            TestAssert.Contains(
+                staged,
+                "HasAppliedChanges || commit.ScheduleChanged",
+                "publication must require an applied staged change");
+            TestAssert.Contains(
+                application,
+                "if (!staged.HasRequests)",
+                "atomic execution must still admit idempotent targets for validation");
+            TestAssert.Contains(
+                staged,
+                "!mutation.HasRequests",
+                "direct staging must validate request presence rather than a derived change flag");
+            string dimensions = staged.Substring(
+                dimensionsStart,
+                staged.IndexOf(
+                    "internal sealed class WorkTabStagedMutationReceipt",
+                    dimensionsStart,
+                    StringComparison.Ordinal) - dimensionsStart);
+            TestAssert.Contains(
+                dimensions,
+                "if (ParentPriorities.Count > 0)",
+                "parent-priority publication must be based on an actual parent target");
+            TestAssert.False(
+                dimensions.IndexOf("RequiredPriorityMaximum.HasValue", StringComparison.Ordinal) >= 0,
+                "an unrelated configuration request must not masquerade as a parent target");
+            TestAssert.Contains(
+                application,
+                "receipt.Dimensions",
+                "recovery publication must include only dimensions proven by staging");
         }
 
         private static string Read(string root, string fileName) =>
