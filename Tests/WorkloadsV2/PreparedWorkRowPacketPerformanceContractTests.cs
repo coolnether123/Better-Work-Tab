@@ -32,6 +32,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             RetainedPriorityGlyphsUseTheNativeLabelPath(preparedBox);
             SparseUpdatesAdvanceOnlyDirtyRows(snapshot, provider);
             RetainedHitsUsePrecomputedBoundsAndFingerprint(retained);
+            RetainedFailuresStayRevisionScoped(retained, preparedBox);
             ResourceOwnershipIsBounded(retained, optimized, window);
             ReopenRetriesOnlyRevisionScopedRowFailures(retained, optimized, window);
             RepresentativeStableWorkIsRemoved();
@@ -146,12 +147,20 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
 
         private static void RetainedPriorityGlyphsUseTheNativeLabelPath(string preparedBox)
         {
+            TestAssert.Contains(
+                preparedBox,
+                "internal const float PriorityLabelOutset = 3f;",
+                "native priority label geometry must keep the vanilla three-pixel outset");
+            TestAssert.Contains(
+                preparedBox,
+                "internal const float LowSkillWarningOutset = 2f;",
+                "native warning geometry must keep the vanilla two-pixel outset");
             string retained = MemberBody(
                 preparedBox,
                 "private static bool DrawRetainedPriorityLabel(");
             TestAssert.Contains(
                 retained,
-                "Widgets.Label(boxRect.ContractedBy(-3f), priority.ToStringCached())",
+                "boxRect.ContractedBy(-PriorityLabelOutset)",
                 "retained priority glyphs must use the same native label call as direct cells");
             TestAssert.False(
                 retained.IndexOf("CharacterInfo", StringComparison.Ordinal) >= 0,
@@ -163,10 +172,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string direct = MemberBody(preparedBox, "private static void DrawForeground(");
             TestAssert.Contains(
                 direct,
-                "Widgets.Label(boxRect.ContractedBy(-3f), displayPriority.ToStringCached())",
+                "boxRect.ContractedBy(-PriorityLabelOutset)",
                 "direct and retained priority glyphs must share the vanilla label geometry");
 
             string stable = MemberBody(preparedBox, "internal static bool DrawRetained(");
+            TestAssert.Contains(
+                stable,
+                "out RetainedWorkBoxDrawFailure failure",
+                "retained composition must report resource readiness separately from permanent unsupported state");
+            TestAssert.Contains(
+                stable,
+                "failure = RetainedWorkBoxDrawFailure.ResourceUnavailable",
+                "retained composition must classify unavailable font/material resources");
             TestAssert.Contains(
                 stable,
                 "WidgetsWork.WorkBoxOverlay_Warning",
@@ -199,10 +216,67 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string prepared = MemberBody(retained, "internal PreparedRun(Cell[] cells)");
             TestAssert.Contains(prepared, "Bounds = GetBounds(Cells)", "run bounds must be computed once during packet preparation");
             TestAssert.Contains(prepared, "StaticFingerprint = GetStaticFingerprint(Cells)", "cell fingerprints must be computed once during packet preparation");
+            string bounds = MemberBody(retained, "private static Rect GetBounds(");
+            TestAssert.Contains(bounds, "float stableOutset", "prepared bounds must account for stable visuals that extend beyond cell boxes");
+            TestAssert.Contains(bounds, "GetStableVisualOutset", "stable bounds must derive extent from prepared visual state");
+            TestAssert.Contains(bounds, "bounds.ExpandedBy(stableOutset)", "retained surfaces must include the full stable visual extent");
+            string stableOutset = MemberBody(retained, "private static float GetStableVisualOutset(");
+            TestAssert.Contains(stableOutset, "PreparedWorkBoxRenderer.PriorityLabelOutset", "priority glyph bounds must use the native label outset");
+            TestAssert.Contains(stableOutset, "PreparedWorkBoxRenderer.LowSkillWarningOutset", "warning bounds must use the native warning outset");
+            TestAssert.Contains(stableOutset, "WorkPrioritySystem.DisabledPriority", "disabled priority glyphs must not expand retained bounds");
             string fingerprint = MemberBody(retained, "private static ulong GetFingerprint(");
             TestAssert.False(fingerprint.IndexOf("for (", StringComparison.Ordinal) >= 0, "steady retained hits must not rescan cells");
             TestAssert.Contains(fingerprint, "staticFingerprint", "steady fingerprints must mix the packet fingerprint in O(1)");
             TestAssert.False(fingerprint.IndexOf("Text.CurFontStyle", StringComparison.Ordinal) >= 0, "steady hits must not depend on ambient GUI font state");
+        }
+
+        private static void RetainedFailuresStayRevisionScoped(
+            string retained,
+            string preparedBox)
+        {
+            TestAssert.Contains(
+                preparedBox,
+                "RetainedWorkBoxDrawFailure.ResourceUnavailable",
+                "resource readiness failures must be classified explicitly");
+            TestAssert.Contains(
+                retained,
+                "RetainedWorkBoxDrawFailure.Unsupported",
+                "permanent fallback must require an explicit unsupported result");
+            TestAssert.Contains(
+                retained,
+                "private void HandleCompositionException(",
+                "retained exceptions must be classified at the cache boundary");
+            TestAssert.Contains(
+                retained,
+                "if (exception is NotSupportedException)",
+                "only a proven unsupported composition exception may disable the cache permanently");
+            TestAssert.Contains(
+                retained,
+                "LatchResourceFailure(\n                    renderResourcesRevision",
+                "transient composition failures must latch to the current resource revision");
+
+            string rebuild = MemberBody(retained, "private bool TryRebuildSurfaceIfChanged(");
+            TestAssert.Contains(
+                rebuild,
+                "failure == RetainedWorkBoxDrawFailure.Unsupported",
+                "surface rebuilds must distinguish unsupported composition from resource readiness");
+            TestAssert.Contains(
+                rebuild,
+                "LatchResourceFailure(",
+                "surface rebuild resource failures must use the revision latch");
+            string build = MemberBody(retained, "private static bool BuildSurface(");
+            TestAssert.Contains(
+                build,
+                "catch (NotSupportedException)",
+                "surface composition must only classify an explicit unsupported API as permanent");
+
+            string preparedDraw = MemberBody(
+                retained,
+                "internal bool TryDraw(\n            PreparedRun run,");
+            TestAssert.Contains(
+                preparedDraw,
+                "HandleCompositionException(renderResourcesRevision, exception)",
+                "prepared-row exceptions must not permanently disable on an unclassified transient failure");
         }
 
         private static void ResourceOwnershipIsBounded(
