@@ -155,6 +155,7 @@ namespace Better_Work_Tab.UI
             // Game teardown clears the constructor registration, while RimWorld can
             // reopen the same cached tab window. Re-register without resolving the tab definition.
             RegisterRetainedResourceOwner();
+            _workloadPreviewController.ActivateForWindow();
 
             // A new open resets only row/chrome retry latches; valid bounded surfaces remain allocated.
             _optimizedWorkGridRenderer.ResetRetainedRowResourceFailureLatchForReopen();

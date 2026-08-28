@@ -758,20 +758,19 @@ namespace Better_Work_Tab.UI.Workloads
         {
             _liveAdapter = new BwtLiveWorkTabEffectiveStateAdapter();
             _liveProvider = _liveAdapter.CreateProvider("bwt.live.workload-preview");
-            if (Current != null)
-            {
-                Workload2Backend.MultiplayerCommitStatusChanged -=
-                    Current.OnMultiplayerCommitStatusPublished;
-            }
-
-            Workload2Backend.MultiplayerCommitStatusChanged +=
-                OnMultiplayerCommitStatusPublished;
             WorkloadSurfaceCoordinator.RegisterPreviewState(
-                () => IsActive,
-                message => SetMessage(message));
+                () => Current?.IsActive == true,
+                message => Current?.SetMessage(message));
             WorkTabEffectiveStateRuntime.RegisterPreviewScopePusher(
                 () => Current?.PushEffectiveStateScope());
-            Current = this;
+
+            // RimWorld may construct a replacement Work-tab window without opening it.
+            // Construction may supply the first controller, but it must never displace a
+            // controller that still owns an active preview session.
+            if (Current?.IsActive != true)
+            {
+                ClaimCurrentOwnership();
+            }
         }
 
         private static string T(string key)
@@ -780,6 +779,36 @@ namespace Better_Work_Tab.UI.Workloads
         }
 
         internal static WorkloadPreviewController Current { get; private set; }
+
+        /// <summary>
+        /// Makes this controller the UI owner when its Work-tab window actually opens.
+        /// An already-active preview remains authoritative until that session ends.
+        /// </summary>
+        internal void ActivateForWindow()
+        {
+            if (ReferenceEquals(Current, this) || Current?.IsActive != true)
+            {
+                ClaimCurrentOwnership();
+            }
+        }
+
+        private void ClaimCurrentOwnership()
+        {
+            if (ReferenceEquals(Current, this))
+            {
+                return;
+            }
+
+            if (Current != null)
+            {
+                Workload2Backend.MultiplayerCommitStatusChanged -=
+                    Current.OnMultiplayerCommitStatusPublished;
+            }
+
+            Current = this;
+            Workload2Backend.MultiplayerCommitStatusChanged +=
+                OnMultiplayerCommitStatusPublished;
+        }
 
         internal static bool IsInspectionActiveForCurrentTab =>
             Current?.IsInspectionActive == true;
@@ -2700,6 +2729,15 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal void ResetForWindowClose()
         {
+            // Closing an inactive cached window must not cancel the preview owned by
+            // another Work-tab instance.
+            if (!ReferenceEquals(Current, this))
+            {
+                _inspectionActive = false;
+                _queuedLifecycleActions.Clear();
+                return;
+            }
+
             if (IsMultiplayerCommitInFlight)
             {
                 SetMessage(MultiplayerStatusExplanation);
@@ -3273,11 +3311,12 @@ namespace Better_Work_Tab.UI.Workloads
                 _draftHistory.Clear();
                 _canceledDraft = null;
             }
-            WorkloadSurfaceCoordinator.OpenPreview();
             ClearMultiplayerAttempt();
             _previewRecoveryBlocked = false;
             _session = session;
             _boundComponent = WorkloadWorldStates.Current;
+            ClaimCurrentOwnership();
+            WorkloadSurfaceCoordinator.OpenPreview();
 
             // RimWorld may construct an inactive Work-tab window while another
             // window still owns the active preview. Bind settings to the
