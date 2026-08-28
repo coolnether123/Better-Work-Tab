@@ -63,6 +63,7 @@
     <Compile Include="..\..\Source\UI\Workloads\Projection\LiveWorkTabEffectiveStateProvider.cs" Link="Production\LiveWorkTabEffectiveStateProvider.cs" />
     <Compile Include="..\..\Source\UI\Workloads\Projection\ProjectedWorkTabEffectiveStateProvider.cs" Link="Production\ProjectedWorkTabEffectiveStateProvider.cs" />
     <Compile Include="..\..\Source\UI\Settings\WorkTabPresentationPreviewPort.cs" Link="Production\WorkTabPresentationPreviewPort.cs" />
+    <Compile Include="..\..\Source\UI\Settings\BWTWorkloadPresentationNumericLayout.cs" Link="Production\BWTWorkloadPresentationNumericLayout.cs" />
     <Compile Include="..\..\Source\UI\RetainedResourceReleaseSequence.cs" Link="Production\RetainedResourceReleaseSequence.cs" />
     <Compile Include="..\..\Source\UI\RetainedSurfacePresentation.cs" Link="Production\RetainedSurfacePresentation.cs" />
     <!-- The synchronized transaction protocol is linked directly. Multiplayer

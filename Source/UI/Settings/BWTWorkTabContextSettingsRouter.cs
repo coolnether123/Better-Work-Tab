@@ -1521,40 +1521,98 @@ namespace Better_Work_Tab.UI.Settings
             Rect valueRect = rect;
             if (showOwnershipAction)
             {
-                const float ownershipActionWidth = 96f;
-                const float ownershipActionGap = 6f;
-                Rect ownershipRect = new Rect(
-                    rect.xMax - ownershipActionWidth,
-                    rect.y + 2f,
-                    ownershipActionWidth,
-                    Mathf.Max(0f, rect.height - 4f));
-                valueRect.width = Mathf.Max(
-                    0f,
-                    valueRect.width - ownershipActionWidth - ownershipActionGap);
-                string actionLabel = ownership.IsWorkloadOwnedInActiveTemplate
+                const float ownershipActionMinimumWidth = 96f;
+                const float ownershipActionHorizontalPadding = 16f;
+                string fullActionLabel = ownership.IsWorkloadOwnedInActiveTemplate
                     ? "Use global"
                     : "Use in workload";
-                string actionTooltip = ownership.IsWorkloadOwnedInActiveTemplate
-                    ? "Release this selected setting from the workload preview. The global setting remains unchanged."
-                    : "Acquire this allowlisted setting for the active workload preview. The global setting remains unchanged.";
-                if (SettingWidgets.DrawButton(
-                        ownershipRect,
-                        actionLabel,
-                        actionTooltip,
-                        disabled))
+                string compactActionLabel = ownership.IsWorkloadOwnedInActiveTemplate
+                    ? "Global"
+                    : "Workload";
+                float fullActionWidth = Mathf.Max(
+                    ownershipActionMinimumWidth,
+                    Text.CalcSize(fullActionLabel).x + ownershipActionHorizontalPadding);
+                float compactActionWidth = Mathf.Max(
+                    64f,
+                    Text.CalcSize(compactActionLabel).x + ownershipActionHorizontalPadding);
+                string actionLabel = fullActionLabel;
+                float actionWidth = fullActionWidth;
+                if (state.OriginalType == SettingType.NumericInt)
                 {
-                    bool changed = ownership.IsWorkloadOwnedInActiveTemplate
-                        ? TryReleasePresentationSetting(state.Definition.Id, out _)
-                        : TryAcquirePresentationSetting(
-                            state,
-                            fallback,
-                            out _);
-                    if (!changed)
+                    BWTWorkloadPresentationNumericOwnershipLayout numericLayout =
+                        BWTWorkloadPresentationNumericLayout.Create(
+                            rect.x,
+                            rect.width,
+                            fullActionWidth,
+                            compactActionWidth);
+                    if (!numericLayout.CanFit)
                     {
-                        SuppressSettingsCallbacks(state.Definition.Id);
+                        // Do not draw a clipped ownership action across the
+                        // neutral numeric row below the supported one-row
+                        // geometry.
+                        showOwnershipAction = false;
+                    }
+                    else
+                    {
+                        actionLabel = numericLayout.UseCompactActionLabel
+                            ? compactActionLabel
+                            : fullActionLabel;
+                        actionWidth = numericLayout.ActionWidth;
+                        valueRect = new Rect(
+                            rect.x,
+                            rect.y,
+                            numericLayout.NumericInputWidth,
+                            rect.height);
+                    }
+                }
+                else if (rect.width < fullActionWidth)
+                {
+                    if (rect.width < compactActionWidth)
+                    {
+                        showOwnershipAction = false;
+                    }
+                    else
+                    {
+                        actionLabel = compactActionLabel;
+                        actionWidth = compactActionWidth;
+                    }
+                }
+
+                if (showOwnershipAction)
+                {
+                    Rect ownershipRect = new Rect(
+                        rect.xMax - actionWidth,
+                        rect.y + 2f,
+                        actionWidth,
+                        Mathf.Max(0f, rect.height - 4f));
+                    if (state.OriginalType != SettingType.NumericInt)
+                    {
+                        valueRect.xMax = ownershipRect.xMin -
+                            BWTWorkloadPresentationNumericLayout.OwnershipActionGap;
                     }
 
-                    return false;
+                    string actionTooltip = ownership.IsWorkloadOwnedInActiveTemplate
+                        ? "Release this selected setting from the workload preview. The global setting remains unchanged."
+                        : "Acquire this allowlisted setting for the active workload preview. The global setting remains unchanged.";
+                    if (SettingWidgets.DrawButton(
+                            ownershipRect,
+                            actionLabel,
+                            actionTooltip,
+                            disabled))
+                    {
+                        bool changed = ownership.IsWorkloadOwnedInActiveTemplate
+                            ? TryReleasePresentationSetting(state.Definition.Id, out _)
+                            : TryAcquirePresentationSetting(
+                                state,
+                                fallback,
+                                out _);
+                        if (!changed)
+                        {
+                            SuppressSettingsCallbacks(state.Definition.Id);
+                        }
+
+                        return false;
+                    }
                 }
             }
 
@@ -2120,32 +2178,48 @@ namespace Better_Work_Tab.UI.Settings
                 return;
             }
 
-            const float bannerHeight = 34f;
+            const float bannerMinimumHeight = 34f;
             const float bannerGap = 6f;
-            Rect bannerRect = new Rect(inRect.x, inRect.y, inRect.width, bannerHeight);
+            const float bannerHorizontalPadding = 9f;
+            const float bannerVerticalPadding = 6f;
+            string bannerText = !_snapshot.ReadSucceeded
+                ? "Preview active: presentation settings are unavailable; global settings are unchanged."
+                : _snapshot.OwnsPresentationSettings
+                    ? "Preview active: supported presentation settings edit the workload; global settings stay unchanged."
+                    : "Preview active: use 'Use in workload' on a supported setting to stage it; global settings stay unchanged.";
+            float bannerHeight = bannerMinimumHeight;
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
             bool oldWordWrap = Text.WordWrap;
             try
             {
+                Text.Font = GameFont.Small;
+                Text.Anchor = TextAnchor.UpperLeft;
+                Text.WordWrap = true;
+                float textWidth = Mathf.Max(
+                    1f,
+                    inRect.width - (bannerHorizontalPadding * 2f));
+                bannerHeight = Mathf.Max(
+                    bannerMinimumHeight,
+                    Text.CalcHeight(bannerText, textWidth) +
+                        (bannerVerticalPadding * 2f));
+                Rect bannerRect = new Rect(
+                    inRect.x,
+                    inRect.y,
+                    inRect.width,
+                    bannerHeight);
                 GUI.color = new Color(0.20f, 0.34f, 0.46f, 0.95f);
                 Widgets.DrawBoxSolid(bannerRect, GUI.color);
                 GUI.color = new Color(0.45f, 0.72f, 0.92f, 0.95f);
                 Widgets.DrawBox(bannerRect, 1);
                 GUI.color = Color.white;
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.MiddleLeft;
-                Text.WordWrap = false;
-                Rect textRect = bannerRect.ContractedBy(9f);
-                string bannerText = !_snapshot.ReadSucceeded
-                    ? "Preview active: presentation settings are unavailable; global settings are unchanged."
-                    : _snapshot.OwnsPresentationSettings
-                        ? "Preview active: supported presentation settings edit the workload; global settings stay unchanged."
-                        : "Preview active: use 'Use in workload' on a supported setting to stage it; global settings stay unchanged.";
-                Widgets.Label(
-                    textRect,
-                    bannerText.Truncate(textRect.width));
+                Rect textRect = new Rect(
+                    bannerRect.x + bannerHorizontalPadding,
+                    bannerRect.y + bannerVerticalPadding,
+                    Mathf.Max(0f, bannerRect.width - (bannerHorizontalPadding * 2f)),
+                    Mathf.Max(0f, bannerRect.height - (bannerVerticalPadding * 2f)));
+                Widgets.Label(textRect, bannerText);
                 TooltipHandler.TipRegion(
                     bannerRect,
                     !_snapshot.ReadSucceeded
@@ -2258,19 +2332,70 @@ namespace Better_Work_Tab.UI.Settings
                     return false;
                 }
 
-                return IsPreviewVisibleDefinition(definition);
+                return IsPreviewVisibleDefinition(definition) &&
+                    IsVisibleThroughStageableAncestors(definition);
             };
         }
 
         private static bool IsPreviewVisibleDefinition(SettingDefinition definition)
         {
-            if (!IsPreviewActive)
+            EnsureSnapshot();
+            if (!_snapshot.IsActive)
             {
                 return true;
             }
 
+            // A failed active-preview read has no trustworthy projected value
+            // to present. Keep the page fail-closed and let its banner explain
+            // why its presentation rows are temporarily unavailable.
+            if (!_snapshot.ReadSucceeded)
+            {
+                return false;
+            }
+
             return IsStageablePresentationSetting(definition?.Id) ||
                 IsPreviewStructuralDefinition(definition);
+        }
+
+        private static bool IsVisibleThroughStageableAncestors(
+            SettingDefinition definition)
+        {
+            SettingDefinition current = definition;
+            while (current != null &&
+                   !string.IsNullOrEmpty(current.ParentId) &&
+                   PreparedDefinitionsById.TryGetValue(
+                       current.ParentId,
+                       out SettingDefinition parent))
+            {
+                if (parent.ControlsChildVisibility &&
+                    parent.Type == SettingType.Custom &&
+                    PreparedPresentationSettings.TryGetValue(
+                        parent.Id,
+                        out BWTPresentationSettingDefinitionState parentState) &&
+                    parentState.OriginalType == SettingType.Bool &&
+                    TryGetCachedGlobalScalar(parentState, out PresentationValue fallback))
+                {
+                    PresentationValue effective = fallback;
+                    if (CanStageOwnedSetting(Describe(parent)) &&
+                        !TryGetEffectivePresentationValue(
+                            parentState,
+                            fallback,
+                            out effective))
+                    {
+                        return false;
+                    }
+
+                    if (effective.Kind != PresentationValueKind.Boolean ||
+                        !effective.BooleanValue)
+                    {
+                        return false;
+                    }
+                }
+
+                current = parent;
+            }
+
+            return true;
         }
 
         private static bool IsPreviewStructuralDefinition(SettingDefinition definition)
