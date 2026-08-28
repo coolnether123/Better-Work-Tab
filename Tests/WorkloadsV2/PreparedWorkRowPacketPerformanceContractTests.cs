@@ -32,7 +32,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             RetainedPriorityGlyphsStayOnTheLivePath(preparedBox, packet, optimized);
             PreparedRowsRejectStalePawns(optimized);
             SparseUpdatesAdvanceOnlyDirtyRows(snapshot, provider);
-            RetainedHitsUsePrecomputedBoundsAndFingerprint(retained);
+            RetainedHitsUsePrecomputedBoundsAndFingerprint(retained, preparedBox);
             RetainedFailuresStayRevisionScoped(retained, preparedBox);
             ResourceOwnershipIsBounded(retained, optimized, window);
             ReopenRetriesOnlyRevisionScopedRowFailures(retained, optimized, window);
@@ -245,7 +245,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(
                 stable,
                 "failure = RetainedWorkBoxDrawFailure.ResourceUnavailable",
-                "retained composition must classify unavailable texture/material resources");
+                "retained composition must classify unavailable texture resources");
             TestAssert.Contains(
                 stable,
                 "WidgetsWork.WorkBoxOverlay_Warning",
@@ -292,7 +292,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(provider, "changedBestPawnIds", "old and new best-pawn rows must receive row-local invalidation");
         }
 
-        private static void RetainedHitsUsePrecomputedBoundsAndFingerprint(string retained)
+        private static void RetainedHitsUsePrecomputedBoundsAndFingerprint(
+            string retained,
+            string preparedBox)
         {
             string prepared = MemberBody(retained, "internal PreparedRun(Cell[] cells)");
             TestAssert.Contains(prepared, "Bounds = GetBounds(Cells)", "run bounds must be computed once during packet preparation");
@@ -317,13 +319,25 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(buildSurface.IndexOf("Widgets.Label", StringComparison.Ordinal) >= 0, "retained surface composition must remain texture-only");
             TestAssert.False(buildSurface.IndexOf("Text.Font", StringComparison.Ordinal) >= 0, "retained surface composition must not prepare unused glyph state");
             int groupEnd = buildSurface.IndexOf("GUI.EndGroup();", StringComparison.Ordinal);
-            int flush = buildSurface.IndexOf("GL.Flush();", StringComparison.Ordinal);
-            TestAssert.True(
-                groupEnd >= 0 && flush > groupEnd,
-                "texture-only retained composition must flush its queued draw stream before restoring the render target");
-            TestAssert.True(
-                flush == buildSurface.LastIndexOf("GL.Flush();", StringComparison.Ordinal),
-                "retained row composition must flush once per surface, not once per cell");
+            TestAssert.True(groupEnd >= 0, "retained surface composition must close its GUI group");
+            TestAssert.False(
+                buildSurface.IndexOf("GL.Flush();", StringComparison.Ordinal) >= 0,
+                "the IMGUI retained texture path must not depend on a manual GL flush");
+            TestAssert.False(
+                retained.IndexOf("Graphics.DrawTexture", StringComparison.Ordinal) >= 0,
+                "retained work boxes must use the proven IMGUI texture primitive");
+            string retainedTexture = MemberBody(preparedBox, "private static bool DrawRetainedTexture(");
+            TestAssert.Contains(
+                retainedTexture,
+                "GUI.DrawTexture(rect, texture);",
+                "retained work boxes must compose through GUI.DrawTexture on the active target");
+            TestAssert.False(
+                retainedTexture.IndexOf("Material", StringComparison.Ordinal) >= 0,
+                "retained work boxes must not allocate or bind a custom material");
+            TestAssert.Contains(
+                retainedTexture,
+                "if (texture == null)",
+                "missing retained textures must use the direct fallback path");
         }
 
         private static void RetainedFailuresStayRevisionScoped(

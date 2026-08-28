@@ -28,8 +28,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         internal const float LowSkillWarningOutset = 2f;
         internal const float PriorityLabelOutset = 3f;
 
-        private static Material _retainedMaterial;
-
         internal static WorkBoxVisualState Capture(
             Pawn pawn,
             WorkTypeDef workType,
@@ -163,19 +161,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             out RetainedWorkBoxDrawFailure failure)
         {
             failure = RetainedWorkBoxDrawFailure.None;
-            Material material = RetainedMaterial;
-            if (material == null)
-            {
-                failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
-                return false;
-            }
-
             bool ageDisabled = (visual.Flags & WorkCellVisualFlags.AgeDisabled) != 0;
             if ((visual.Flags & WorkCellVisualFlags.Disabled) != 0)
             {
                 if (ageDisabled)
                 {
-                    DrawRetainedTexture(boxRect, WidgetsWork.WorkBoxBGTex_AgeDisabled, baseColor, material);
+                    if (!DrawRetainedTexture(boxRect, WidgetsWork.WorkBoxBGTex_AgeDisabled, baseColor))
+                    {
+                        failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                        return false;
+                    }
                 }
                 return true;
             }
@@ -201,41 +196,58 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     break;
             }
 
-            DrawRetainedTexture(boxRect, baseTexture, cellColor, material);
+            if (!DrawRetainedTexture(boxRect, baseTexture, cellColor))
+            {
+                failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                return false;
+            }
             if (visual.SkillBlend > 0.001f)
             {
                 Color blendColor = cellColor;
                 blendColor.a *= visual.SkillBlend;
-                DrawRetainedTexture(boxRect, blendTexture, blendColor, material);
+                if (!DrawRetainedTexture(boxRect, blendTexture, blendColor))
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
             }
             if ((visual.Flags & WorkCellVisualFlags.IdeologyWarning) != 0)
             {
-                DrawRetainedTexture(
-                    boxRect,
-                    WidgetsWork.WorkBoxOverlay_PreceptWarning,
-                    Color.white,
-                    material);
+                if (!DrawRetainedTexture(
+                        boxRect,
+                        WidgetsWork.WorkBoxOverlay_PreceptWarning,
+                        Color.white))
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
             }
             if ((visual.Flags & WorkCellVisualFlags.LowSkillWarning) != 0)
             {
-                DrawRetainedTexture(
-                    boxRect.ContractedBy(-LowSkillWarningOutset),
-                    WidgetsWork.WorkBoxOverlay_Warning,
-                    Color.white,
-                    material);
+                if (!DrawRetainedTexture(
+                        boxRect.ContractedBy(-LowSkillWarningOutset),
+                        WidgetsWork.WorkBoxOverlay_Warning,
+                        Color.white))
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
             }
             if (visual.Passion > 0)
             {
                 Rect passionRect = boxRect;
                 passionRect.xMin = boxRect.center.x;
                 passionRect.yMin = boxRect.center.y;
-                DrawRetainedTexture(
-                    passionRect,
-                    visual.Passion == 1
-                        ? WidgetsWork.PassionWorkboxMinorIcon
-                        : WidgetsWork.PassionWorkboxMajorIcon,
-                    new Color(1f, 1f, 1f, 0.4f),
-                    material);
+                if (!DrawRetainedTexture(
+                        passionRect,
+                        visual.Passion == 1
+                            ? WidgetsWork.PassionWorkboxMinorIcon
+                            : WidgetsWork.PassionWorkboxMajorIcon,
+                        new Color(1f, 1f, 1f, 0.4f)))
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
             }
 
             // Manual numerals stay on the live IMGUI pass. Font antialiasing
@@ -245,7 +257,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if (!HasPriorityLabel(visual, displayPriority) &&
                 displayPriority > WorkPrioritySystem.DisabledPriority)
             {
-                DrawRetainedTexture(boxRect, WidgetsWork.WorkBoxCheckTex, baseColor, material);
+                if (!DrawRetainedTexture(boxRect, WidgetsWork.WorkBoxCheckTex, baseColor))
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
             }
 
             return true;
@@ -267,52 +283,32 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
-        private static Material RetainedMaterial
-        {
-            get
-            {
-                if (_retainedMaterial == null)
-                {
-                    Shader shader = Shader.Find("UI/Default") ?? ShaderDatabase.Transparent;
-                    if (shader == null)
-                    {
-                        return null;
-                    }
-
-                    _retainedMaterial = new Material(shader)
-                    {
-                        hideFlags = HideFlags.HideAndDontSave
-                    };
-                    _retainedMaterial.SetInt("_SrcBlend", 5);
-                    _retainedMaterial.SetInt("_DstBlend", 10);
-                    _retainedMaterial.SetInt("_Cull", 0);
-                    _retainedMaterial.SetInt("_ZWrite", 0);
-                }
-                return _retainedMaterial;
-            }
-        }
-
-        private static void DrawRetainedTexture(
+        private static bool DrawRetainedTexture(
             Rect rect,
             Texture texture,
-            Color color,
-            Material material)
+            Color color)
         {
             if (texture == null)
             {
-                return;
+                return false;
             }
 
-            Graphics.DrawTexture(
-                rect,
-                texture,
-                new Rect(0f, 0f, 1f, 1f),
-                0,
-                0,
-                0,
-                0,
-                color,
-                material);
+            Color previousColor = GUI.color;
+            try
+            {
+                // GUI.DrawTexture is the same IMGUI primitive used by the
+                // proven retained header/chrome surfaces. It binds the
+                // active RenderTexture through the normal GUI path and keeps
+                // Unity's texture tint/blend state consistent with direct
+                // work-box drawing.
+                GUI.color = color;
+                GUI.DrawTexture(rect, texture);
+                return true;
+            }
+            finally
+            {
+                GUI.color = previousColor;
+            }
         }
 
         internal static bool HasPriorityLabel(
