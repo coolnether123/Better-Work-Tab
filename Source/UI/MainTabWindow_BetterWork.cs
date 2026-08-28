@@ -246,7 +246,7 @@ namespace Better_Work_Tab.UI
                     if (SpineTiming.Enabled)
                     {
                         SpineTiming.Time(
-                            "WorkTab.WorkloadPreview.SynchronizeAfterInput",
+                            "WorkTab.WorkloadPreview.SynchronizeFailSafeAfterPass",
                             () => _workloadPreviewController.SynchronizeAfterInput());
                     }
                     else
@@ -465,7 +465,16 @@ namespace Better_Work_Tab.UI
             }
 
             _subWorkInteractionController.SuppressPriorityMouseDownIfNeeded(evt);
-            _workloadPreviewController.SynchronizeAfterInput();
+            if (SpineTiming.Enabled)
+            {
+                SpineTiming.Time(
+                    "WorkTab.WorkloadPreview.SynchronizeInputMutation",
+                    () => _workloadPreviewController.SynchronizeAfterInput());
+            }
+            else
+            {
+                _workloadPreviewController.SynchronizeAfterInput();
+            }
             _windowSizingController.StageBottomAnchoredResizeIfRequestedSizeChanged();
         }
 
