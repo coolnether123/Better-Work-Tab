@@ -116,6 +116,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             NoChangePublicationDoesNotTriggerFallbackRecache(header, backend);
             RepositoryOnlyCompletionStaysOutOfTheRenderer(header, backend, application);
             PersistencePreflightReusesWholeDocumentDiagnostics(backend);
+            UpdateAndForkReuseTheirDecisionPlan(backend);
             MultiplayerNoChangeConfirmationIsLeaseFree(backend);
             PresentationOnlyCommitPublishesApplication(header, backend);
             PresentationOnlyConfirmationPublishesApplication(backend);
@@ -821,7 +822,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "publication must remain suppressed when a commit is a true no-op");
             TestAssert.Contains(
                 notify,
-                "_component.NotifyV2Changed();",
+                "_component.NotifyV2Changed(persistenceDiagnosticsVerified);",
                 "a presentation-only commit must notify the workload component");
             TestAssert.Contains(
                 notify,
@@ -964,7 +965,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string repositoryBranch = notify.Substring(repositoryStart, noChange - repositoryStart);
             TestAssert.Contains(
                 repositoryBranch,
-                "_component.NotifyV2Changed();",
+                "_component.NotifyV2Changed(persistenceDiagnosticsVerified);",
                 "repository-only completion must publish the validated catalog and receipt");
             TestAssert.Contains(
                 repositoryBranch,
@@ -1022,6 +1023,42 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 apply,
                 "store.TryCommitRevision(",
                 "the persistence write must retain its final exact compare-and-swap");
+        }
+
+        private static void UpdateAndForkReuseTheirDecisionPlan(string backend)
+        {
+            string commit = MethodBody(backend, "private WorkloadV2CommitResult CommitCore(");
+            int updateFork = commit.IndexOf(
+                "else\n                {\n                    // Update/Fork decisions are immutable session output.",
+                StringComparison.Ordinal);
+            int sourcePresence = commit.IndexOf(
+                "FindUniqueRecord(store, sourceStableId, report);",
+                updateFork >= 0 ? updateFork : 0,
+                StringComparison.Ordinal);
+            int preflight = commit.IndexOf(
+                "EnsurePersistenceBaseline(",
+                sourcePresence >= 0 ? sourcePresence : 0,
+                StringComparison.Ordinal);
+
+            TestAssert.True(updateFork >= 0, "Update/Fork must retain their explicit immutable-plan branch");
+            TestAssert.Contains(
+                commit,
+                "targetTemplate = decision.ResultTemplate;",
+                "Update/Fork must reuse the session's immutable persistence target");
+            TestAssert.Contains(
+                commit,
+                "plan = decision.Plan;",
+                "Update/Fork must reuse the session's validation and semantic diff");
+            TestAssert.True(
+                sourcePresence > updateFork && preflight > sourcePresence,
+                "Update/Fork must retain source presence before the exact whole-document preflight CAS");
+
+            string updateForkBranch = commit.Substring(updateFork, sourcePresence - updateFork);
+            TestAssert.False(
+                updateForkBranch.IndexOf("WorkloadSemanticDiff.Between", StringComparison.Ordinal) >= 0 ||
+                updateForkBranch.IndexOf("WorkloadValidator.Validate", StringComparison.Ordinal) >= 0 ||
+                updateForkBranch.IndexOf("BuildEffectiveTemplate", StringComparison.Ordinal) >= 0,
+                "Update/Fork must not rebuild the immutable decision plan before persistence validation");
         }
 
         private static void AssertLifecyclePolicy(

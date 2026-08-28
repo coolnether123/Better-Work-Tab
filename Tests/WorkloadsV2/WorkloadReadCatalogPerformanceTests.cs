@@ -12,6 +12,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             RepeatedReadsReuseOneValidatedCatalog();
             MutationValidationRebuildsTheCatalog();
+            VerifiedMutationPublishesTheCatalogWithoutASecondScan();
             ProductionReadsDoNotRevalidatePersistence();
             DefensiveAuditStaysOutOfTheWorkTabUi();
             FooterLegacyPayloadCheckIsRevisionCached();
@@ -96,7 +97,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string list = MethodBody(backend, "internal IReadOnlyList<WorkloadDescriptor> List()");
             string current = MethodBody(backend, "internal WorkloadOperationResult<WorkloadDescriptor> Current()");
             string ensure = MethodBody(component, "internal WorkloadV2PersistenceEnvelope EnsureWorkloadV2Persistence()");
-            string notify = MethodBody(component, "internal void NotifyWorkloadV2Changed()");
+            string notify = MethodBody(component, "internal void NotifyWorkloadV2Changed(");
+            string receipt = MethodBody(
+                backend,
+                "private static WorkloadOperationResult<WorkloadPersistenceReceipt> BuildPersistenceReceipt(");
 
             TestAssert.Contains(list, "_descriptorCatalog.EnsureCurrent(store);",
                 "workload listing must use the validated read model");
@@ -110,8 +114,46 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the common store accessor must use the cached diagnostic state");
             TestAssert.False(ensure.IndexOf("RefreshDiagnostics", StringComparison.Ordinal) >= 0,
                 "the common store accessor must not force full validation");
+            TestAssert.Contains(notify, "if (diagnosticsAlreadyVerified)",
+                "only a controlled writer may publish an already-verified catalog");
             TestAssert.Contains(notify, "WorkloadsV2?.RefreshDiagnostics();",
-                "workload mutation notification must validate the new persistence state");
+                "unverified, external, and recovery notifications must still validate the document");
+            TestAssert.Contains(notify, "WorkloadsV2?.MarkVerifiedMutationDiagnosticsCurrent();",
+                "the final local or confirmed publication must publish the verified catalog revision");
+            TestAssert.Contains(receipt, "if (mutation?.WasApplied == true)",
+                "only an applied controlled persistence write may mark diagnostics verified");
+            TestAssert.Contains(receipt, "mutation.DiagnosticsVerified = true;",
+                "the post-write receipt must attest that final publication can skip diagnostics");
+            TestAssert.True(
+                receipt.IndexOf("store.ComputeContentFingerprint();", StringComparison.Ordinal) >= 0 &&
+                receipt.IndexOf("mutation.DiagnosticsVerified = true;", StringComparison.Ordinal) >
+                    receipt.IndexOf("store.ComputeContentFingerprint();", StringComparison.Ordinal),
+                "the verified-publication attestation must follow receipt fingerprint verification");
+        }
+
+        private static void VerifiedMutationPublishesTheCatalogWithoutASecondScan()
+        {
+            WorkloadV2PersistenceEnvelope store = CreateStore();
+            var catalog = new WorkloadV2DescriptorCatalog();
+            catalog.EnsureCurrent(store);
+            IReadOnlyList<WorkloadDescriptor> before = catalog.Descriptors;
+            long diagnosticsRevision = store.DiagnosticsRevision;
+
+            // This simulates the state after the controlled writer's exact
+            // CAS and receipt verification. The production entry point that
+            // makes this call is source-locked below.
+            store.Records[0].Label = "Verified Late Shift";
+            store.MarkVerifiedMutationDiagnosticsCurrent();
+            catalog.EnsureCurrent(store);
+
+            TestAssert.True(
+                store.DiagnosticsRevision > diagnosticsRevision,
+                "a verified mutation must advance the catalog revision");
+            TestAssert.False(
+                ReferenceEquals(before, catalog.Descriptors),
+                "the descriptor catalog must rebuild from a verified mutation revision");
+            TestAssert.Equal("Verified Late Shift", catalog.Current.Value.Label,
+                "the verified mutation catalog must expose the post-write record");
         }
 
         private static void DefensiveAuditStaysOutOfTheWorkTabUi()
