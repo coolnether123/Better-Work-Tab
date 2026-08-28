@@ -168,6 +168,18 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
     }
 
     /// <summary>
+    /// Describes whether a commit's live application publication has already
+    /// been handled. The footer uses this receipt to avoid repeating a global
+    /// pawn-table refresh after the application publisher has done its work.
+    /// </summary>
+    internal enum WorkloadApplicationPublication
+    {
+        None,
+        Applied,
+        Pending
+    }
+
+    /// <summary>
     /// Result of a V2 commit. The report is present for both success and
     /// failure, so callers can distinguish nonfatal skips from a fail-closed
     /// authority, conflict, or persistence failure.
@@ -204,6 +216,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         public bool PreviewCleared { get; internal set; }
         internal WorkloadPersistenceReceipt PersistenceReceipt { get; set; }
         internal WorkloadSession RebasedSession { get; set; }
+        internal WorkloadApplicationPublication ApplicationPublication { get; set; }
         public bool IsSemanticNoOp => Report?.IsSemanticNoOp == true;
         public bool LiveStateChanged => Report?.LiveStateChanged == true;
         public bool TemplatePersisted => Report?.TemplatePersisted == true;
@@ -3966,6 +3979,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             PersistenceMutation persistence = null;
             LiveMutationTransaction live = null;
             WorkloadBackendDimensionBaseline backendBaseline = null;
+            bool applicationChangePublished = false;
 
             try
             {
@@ -4409,7 +4423,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
                 else if (report.LiveStateChanged || report.TemplatePersisted)
                 {
-                    NotifyCommitChanged(live);
+                    applicationChangePublished = NotifyCommitChanged(live);
                 }
 
                 report.IsSemanticNoOp = plan.Diff.IsEmpty;
@@ -4421,6 +4435,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     targetTemplate,
                     targetStableId);
                 successResult.PersistenceReceipt = executionContext?.PersistenceReceipt;
+                successResult.ApplicationPublication = provisional
+                    ? WorkloadApplicationPublication.Pending
+                    : applicationChangePublished
+                        ? WorkloadApplicationPublication.Applied
+                        : WorkloadApplicationPublication.None;
                 return successResult;
             }
             catch (CommitAbortException exception)
@@ -8095,17 +8114,20 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return -1;
         }
 
-        private void NotifyCommitChanged(LiveMutationTransaction live)
+        private bool NotifyCommitChanged(LiveMutationTransaction live)
         {
             _component.NotifyV2Changed();
-            if (live?.StagedMutation == null)
+            if (live?.StagedMutation != null)
             {
-                WorkTabApplication.Current?.PublishAtomicMutation(
-                    WorkTabApplicationDimensions.Presentation,
-                    durable: true,
-                    broadScope: true,
-                    mirrorExternal: true);
+                return !live.StagedChange.IsEmpty;
             }
+
+            WorkTabApplication application = WorkTabApplication.Current;
+            return application != null && application.PublishAtomicMutation(
+                WorkTabApplicationDimensions.Presentation,
+                durable: true,
+                broadScope: true,
+                mirrorExternal: true).Changed;
         }
 
         private static bool RollbackPersistence(
