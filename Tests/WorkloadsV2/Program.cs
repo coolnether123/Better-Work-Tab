@@ -14,6 +14,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("persistence-receipt-recovery", PersistenceReceiptRecoveryTests.Run),
             new TestCase("inspection-semantics", InspectionSemanticsTests.Run),
             new TestCase("persistence-and-migration", PersistenceTests.Run),
+            new TestCase("persistence-fingerprint-parity", PersistenceFingerprintParityTests.Run),
             new TestCase("workload-read-catalog-performance", WorkloadReadCatalogPerformanceTests.Run),
             new TestCase("workload-draft-projection-cache", WorkloadDraftProjectionCacheTests.Run),
             new TestCase("workload-pawn-roster-revision-contracts", WorkloadPawnRosterRevisionContractTests.Run),

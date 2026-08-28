@@ -86,6 +86,7 @@
     <Compile Include="PersistenceReceiptRecoveryTests.cs" />
     <Compile Include="InspectionSemanticsTests.cs" />
     <Compile Include="PersistenceTests.cs" />
+    <Compile Include="PersistenceFingerprintParityTests.cs" />
     <Compile Include="WorkloadReadCatalogPerformanceTests.cs" />
     <Compile Include="WorkloadDraftProjectionCacheTests.cs" />
     <Compile Include="WorkloadPawnRosterRevisionContractTests.cs" />
