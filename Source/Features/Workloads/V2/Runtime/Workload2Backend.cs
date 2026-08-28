@@ -4013,7 +4013,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         NotifyCommitChanged(
                             live,
                             presentationChanged: live?.PresentationWasChanged == true,
-                            persistenceChanged: hadPersistenceChanges);
+                            persistenceChanged: hadPersistenceChanges,
+                            // Rollback has its own recovery/verification path.
+                            // Never suppress its full diagnostic scan.
+                            persistenceDiagnosticsVerified: false);
                     if (persistenceRestored && liveRestored)
                     {
                         executionContext?.MutationAuthorization?.Lease.FinalizeLease();
@@ -4034,7 +4037,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         NotifyCommitChanged(
                             live,
                             presentationChanged: live?.PresentationWasChanged == true,
-                            persistenceChanged: hadPersistenceChanges);
+                            persistenceChanged: hadPersistenceChanges,
+                            persistenceDiagnosticsVerified:
+                                persistence?.DiagnosticsVerified == true);
                     executionContext?.MutationAuthorization?.Lease.FinalizeLease();
                     return true;
                 },
@@ -4141,34 +4146,43 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             validationCode: issue?.Code));
                 }
 
-                targetTemplate = decisionKind == WorkloadDecisionKind.Apply
-                    ? session.BuildApplyTemplate()
-                    : decision.ResultTemplate;
-                targetTemplate = Workload2Backend.BuildEffectiveTemplate(
-                    targetTemplate,
-                    targetTemplate?.ProjectedState,
-                    session.TemplateBaselineState);
+                if (decisionKind == WorkloadDecisionKind.Apply)
+                {
+                    targetTemplate = Workload2Backend.BuildEffectiveTemplate(
+                        session.BuildApplyTemplate(),
+                        session.ProjectedState,
+                        session.TemplateBaselineState);
+                    WorkloadOwnershipDimensions effectiveOwnership =
+                        WorkloadV2OwnershipResolver.Effective(
+                            targetTemplate,
+                            decision.Plan.AfterState,
+                            session.TemplateBaselineState);
+                    plan = new WorkloadPreviewPlan(
+                        decisionKind,
+                        session.SourceTemplate,
+                        decision.Plan.BeforeState,
+                        decision.Plan.AfterState,
+                        WorkloadSemanticDiff.Between(
+                            decision.Plan.BeforeState,
+                            decision.Plan.AfterState,
+                            effectiveOwnership),
+                        WorkloadValidator.Validate(targetTemplate));
+                }
+                else
+                {
+                    // Update/Fork decisions are immutable session output. Their
+                    // target, validation, and semantic diff were built from the
+                    // same persistence state this transaction writes, so
+                    // rebuilding them only repeated whole-workload scans.
+                    targetTemplate = decision.ResultTemplate;
+                    plan = decision.Plan;
+                }
                 if (WorkloadV2OwnershipResolver.HasUnsupportedLegacyPayload(targetTemplate))
                 {
                     Abort(
                         WorkloadDiagnosticCode.UnsupportedLegacyState,
                         "The V2 commit contains legacy schedule or presentation state without a typed transaction intent.");
                 }
-                WorkloadOwnershipDimensions effectiveOwnership =
-                    WorkloadV2OwnershipResolver.Effective(
-                        targetTemplate,
-                        decision.Plan.AfterState,
-                        session.TemplateBaselineState);
-                plan = new WorkloadPreviewPlan(
-                    decisionKind,
-                    session.SourceTemplate,
-                    decision.Plan.BeforeState,
-                    decision.Plan.AfterState,
-                    WorkloadSemanticDiff.Between(
-                        decision.Plan.BeforeState,
-                        decision.Plan.AfterState,
-                        effectiveOwnership),
-                    WorkloadValidator.Validate(targetTemplate));
                 if (!plan.CanProceed)
                 {
                     Abort(
@@ -4209,23 +4223,34 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             : store.Diagnostic);
                 }
 
-                WorkloadV2PersistenceRecord currentRecord = FindUniqueRecord(
-                    store,
-                    sourceStableId,
-                    report);
-                WorkloadOperationResult<WorkloadTemplate> currentTemplateResult =
-                    WorkloadV2RecordConverter.TryToTemplate(currentRecord);
-                if (!currentTemplateResult.Succeeded)
+                if (decisionKind == WorkloadDecisionKind.Apply)
                 {
-                    Abort(currentTemplateResult.Code, currentTemplateResult.Code.ToString());
-                }
+                    WorkloadV2PersistenceRecord currentRecord = FindUniqueRecord(
+                        store,
+                        sourceStableId,
+                        report);
+                    WorkloadOperationResult<WorkloadTemplate> currentTemplateResult =
+                        WorkloadV2RecordConverter.TryToTemplate(currentRecord);
 
-                WorkloadTemplate currentTemplate = currentTemplateResult.Value;
-                if (!TemplatesMatchPreviewSource(currentTemplate, session.SourceTemplate))
+                    if (!currentTemplateResult.Succeeded)
+                    {
+                        Abort(currentTemplateResult.Code, currentTemplateResult.Code.ToString());
+                    }
+
+                    if (!TemplatesMatchPreviewSource(currentTemplateResult.Value, session.SourceTemplate))
+                    {
+                        Abort(
+                            WorkloadDiagnosticCode.InvalidState,
+                            "The stored V2 template or fingerprint changed while the preview was open.");
+                    }
+                }
+                else
                 {
-                    Abort(
-                        WorkloadDiagnosticCode.InvalidState,
-                        "The stored V2 template or fingerprint changed while the preview was open.");
+                    // Update/Fork retain the source-record identity check. The
+                    // following whole-document CAS then proves the captured
+                    // source contents without another template round trip and
+                    // semantic fingerprint calculation.
+                    FindUniqueRecord(store, sourceStableId, report);
                 }
 
                 if (!TryGetBackendBaseline(
@@ -4520,7 +4545,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     applicationPublication = NotifyCommitChanged(
                         live,
                         presentationChanged: live?.PresentationWasChanged == true,
-                        persistenceChanged: report.TemplatePersisted);
+                        persistenceChanged: report.TemplatePersisted,
+                        persistenceDiagnosticsVerified:
+                            persistence?.DiagnosticsVerified == true);
                 }
 
                 report.IsSemanticNoOp = plan.Diff.IsEmpty;
@@ -4748,6 +4775,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 return WorkloadOperationResult<WorkloadPersistenceReceipt>.Fail(
                     WorkloadDiagnosticCode.InvalidState);
+            }
+
+            if (mutation?.WasApplied == true)
+            {
+                // The controlled writer has now passed its exact pre-write
+                // CAS, post-write metadata fingerprint, and this receipt's
+                // rehydration/fingerprint verification. The final local or
+                // multiplayer-confirmed publication may now skip diagnostics.
+                mutation.DiagnosticsVerified = true;
             }
 
             return WorkloadOperationResult<WorkloadPersistenceReceipt>.Ok(
@@ -8160,14 +8196,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         private WorkloadApplicationPublication NotifyCommitChanged(
             LiveMutationTransaction live,
             bool presentationChanged,
-            bool persistenceChanged)
+            bool persistenceChanged,
+            bool persistenceDiagnosticsVerified = false)
         {
             if (live?.StagedMutation != null)
             {
                 bool changed = !live.StagedChange.IsEmpty;
                 if (changed)
                 {
-                    _component.NotifyV2Changed();
+                    _component.NotifyV2Changed(persistenceDiagnosticsVerified);
                     return WorkloadApplicationPublication.Applied;
                 }
             }
@@ -8176,7 +8213,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             // them here instead of making the lifecycle caller recache tables.
             if (presentationChanged)
             {
-                _component.NotifyV2Changed();
+                _component.NotifyV2Changed(persistenceDiagnosticsVerified);
                 WorkTabApplication application = WorkTabApplication.Current;
                 return application != null && application.PublishAtomicMutation(
                     WorkTabApplicationDimensions.Presentation,
@@ -8193,7 +8230,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 // Update/Fork changed only the workload repository. Publish
                 // its validated catalog and receipt without pretending that
                 // the active Work tab needs a presentation rebuild.
-                _component.NotifyV2Changed();
+                _component.NotifyV2Changed(persistenceDiagnosticsVerified);
                 return WorkloadApplicationPublication.RepositoryOnly;
             }
 
@@ -8885,6 +8922,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             internal string PreviousCurrentWorkloadId { get; set; }
             internal bool CurrentWorkloadIdChanged { get; set; }
             internal bool RevisionAdvanced { get; set; }
+            internal bool DiagnosticsVerified { get; set; }
         }
     }
 

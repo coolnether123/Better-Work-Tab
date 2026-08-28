@@ -238,6 +238,22 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
         }
 
+        /// <summary>
+        /// Publishes a diagnostic revision after a controlled transactional
+        /// mutation has already passed the post-write receipt verification.
+        /// This is intentionally narrower than <see cref="RefreshDiagnostics"/>:
+        /// load, external, direct, and rollback paths still revalidate the full
+        /// document before they publish it.
+        /// </summary>
+        internal void MarkVerifiedMutationDiagnosticsCurrent()
+        {
+            _diagnosticsCurrent = true;
+            unchecked
+            {
+                _diagnosticsRevision++;
+            }
+        }
+
         private void RefreshDiagnosticsCore()
         {
             IsReadOnlyDiagnostic = false;
