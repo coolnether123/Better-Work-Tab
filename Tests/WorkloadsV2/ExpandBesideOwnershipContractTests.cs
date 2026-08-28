@@ -110,6 +110,17 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 layout,
                 "BwtExpandBesideColumns.TryGetWorkGiver(childColumns[slot])",
                 "layout must retain the BWT-native child work-giver identity");
+            string publishGeometry = MemberBody(
+                layout,
+                "private void PublishGeometrySnapshot()");
+            TestAssert.Contains(
+                publishGeometry,
+                "lastColumn.OffsetX + lastColumn.Width",
+                "published row geometry must cover the complete expand-beside column span");
+            TestAssert.Contains(
+                publishGeometry,
+                "publishedRowWidth",
+                "expanded row geometry must not remain limited to PawnTable's ordinary cached width");
             TestAssert.Contains(
                 header,
                 "BwtExpandBesideColumns.GetHeaderLaneRect(",
