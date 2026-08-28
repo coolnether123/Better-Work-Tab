@@ -13,6 +13,7 @@ using Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Workloads.Projection;
@@ -1884,6 +1885,7 @@ namespace Better_Work_Tab.UI.Workloads
             // and session synchronization. Tell it about this boundary-owned
             // draft mutation without retaining a second parent index there.
             _projectedProvider.InvalidateDraft();
+            WorkTabInvalidationHub.InvalidatePriority(pawn.thingIDNumber, workType.shortHash);
             return true;
         }
 

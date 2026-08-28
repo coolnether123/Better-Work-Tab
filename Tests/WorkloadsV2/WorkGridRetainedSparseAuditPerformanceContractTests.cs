@@ -40,6 +40,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string gameCacheReset = Read(
                 root,
                 "Source", "Features", "Patches", "Patch_Building_Bed_Cache.cs");
+            string workloadGateway = Read(
+                root,
+                "Source", "UI", "Workloads", "WorkloadGateway.cs");
 
             ParentRowsDoNotRecomposeDuringColumnAnimation(renderer);
             SnapshotOwnedEmptyBackgroundsDoNotFallBack(renderer, body);
@@ -51,7 +54,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 window,
                 gameCacheReset);
             MapWorldClearIsAnAuthoritativeTeardownHook(gameCacheReset);
-            SparseParentChangesKeepSubWorkUpdatesLocal(snapshots);
+            SparseParentChangesKeepSubWorkUpdatesLocal(snapshots, workloadGateway);
             CompatibilityAuditUsesLinearSkillAndPriorityPasses(audit);
             RepresentativeOperationCountsAreReduced();
         }
@@ -205,7 +208,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "stable parent rows must use direct clipped drawing while columns animate");
         }
 
-        private static void SparseParentChangesKeepSubWorkUpdatesLocal(string snapshots)
+        private static void SparseParentChangesKeepSubWorkUpdatesLocal(
+            string snapshots,
+            string workloadGateway)
         {
             string eligibility = MemberBody(
                 snapshots,
@@ -214,12 +219,22 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 eligibility.IndexOf("ContainsSubWorkColumns", StringComparison.Ordinal) >= 0,
                 "visible sub-work columns must not disable every sparse parent-priority update");
 
-            TestAssert.Contains(
+            string sparseReplacement = MemberBody(
                 snapshots,
-                "if (!dirtyCell && !bestPawnChanged)\n                {\n                    continue;",
-                "unrelated cells must remain immutable while old/new best-pawn rows are revised");
+                "private bool TryBuildSparseReplacements(");
             TestAssert.Contains(
-                snapshots,
+                sparseReplacement,
+                "foreach (WorkGridPriorityKey dirtyKey in dirty)",
+                "sparse replacement must start from the exact invalidated parent target");
+            TestAssert.Contains(
+                sparseReplacement,
+                "WorkGridPreparedRowSpan span = previous.PreparedRows[rowIndex]",
+                "a parent edit must inspect only its prepared row span");
+            TestAssert.False(
+                sparseReplacement.IndexOf("for (int i = 0; i < previous.Cells.Count; i++)", StringComparison.Ordinal) >= 0,
+                "one parent edit must not walk every snapshot cell");
+            TestAssert.Contains(
+                sparseReplacement,
                 "TryResolveSubWorkColumn(",
                 "sparse replacement must resolve live definitions from the authoritative layout rather than the snapshot");
             TestAssert.False(
@@ -229,18 +244,68 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 snapshots,
                 "!snapshotColumn.IsExpandBesideChild",
                 "focus columns must retain their parent visual while expand-beside children stay child-only");
-            TestAssert.Contains(
+            string bestPawn = MemberBody(
                 snapshots,
-                "FindBestPawnId(table, workType, worker)",
-                "a parent edit must refresh comparison-dependent best-pawn identity once per affected work type");
+                "private static bool IsBetterPawn(");
             TestAssert.Contains(
+                bestPawn,
+                "return worker.Compare(candidate, bestPawn) > 0;",
+                "best-pawn selection must remain RimWorld's worker-defined skill and eligibility comparison");
+            TestAssert.False(
+                bestPawn.IndexOf("ParentPriorityRead", StringComparison.Ordinal) >= 0,
+                "best-pawn selection must not use the displayed parent priority");
+            TestAssert.False(
+                bestPawn.IndexOf("IsPreviewActive", StringComparison.Ordinal) >= 0,
+                "preview mode must not change best-pawn selection");
+
+            string transition = MemberBody(
                 snapshots,
-                "cell.PawnId == bestPawnChange.PreviousPawnId",
-                "the old best-pawn row must be revised when its marker moves");
+                "private static bool IsSparseParentPriorityRevisionTransition(");
             TestAssert.Contains(
-                snapshots,
-                "cell.PawnId == bestPawnChange.CurrentPawnId",
-                "the new best-pawn row must be revised when its marker moves");
+                transition,
+                "before.SessionRevision != after.SessionRevision",
+                "preview sparse replacement requires a new draft revision");
+            TestAssert.Contains(
+                transition,
+                "before.SourceRevision == after.SourceRevision",
+                "live-source changes must remain full-rebuild candidates");
+            TestAssert.Contains(
+                transition,
+                "before.PersistenceRevision == after.PersistenceRevision",
+                "persistence changes must remain full-rebuild candidates");
+            TestAssert.Contains(
+                transition,
+                "before.ScheduleRevision == after.ScheduleRevision",
+                "schedule edits must remain full-rebuild candidates");
+            TestAssert.Contains(
+                transition,
+                "before.SpecificRevision == after.SpecificRevision",
+                "specific-job edits must remain full-rebuild candidates");
+            TestAssert.Contains(
+                transition,
+                "before.SettingsRevision == after.SettingsRevision",
+                "presentation-setting edits must remain full-rebuild candidates");
+            TestAssert.Contains(
+                eligibility,
+                "EqualNonPriorityConsumedRevisions(_revisions, current)",
+                "roster and skill invalidation must remain outside the sparse priority path");
+
+            TestAssert.Contains(
+                transition,
+                "before.MembershipRevision == after.MembershipRevision",
+                "membership changes must remain full-rebuild candidates");
+            TestAssert.Contains(
+                transition,
+                "before.AuthorityRevision == after.AuthorityRevision",
+                "authority changes must remain full-rebuild candidates");
+
+            string previewMutation = MemberBody(
+                workloadGateway,
+                "internal bool TrySetPreviewParentPriority(");
+            TestAssert.Contains(
+                previewMutation,
+                "_projectedProvider.InvalidateDraft();\n            WorkTabInvalidationHub.InvalidatePriority(pawn.thingIDNumber, workType.shortHash);",
+                "a successful preview parent-priority edit must publish one exact sparse invalidation after its draft revision");
         }
 
         private static void CompatibilityAuditUsesLinearSkillAndPriorityPasses(string audit)
