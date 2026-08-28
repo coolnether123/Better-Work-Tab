@@ -111,6 +111,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PreviewActionsUseVisibleHitRects(header);
             LifecycleRefreshUsesApplicationPublicationReceipt(header, gateway, backend);
             RepositoryLifecycleActionsAvoidPawnTableRecache(header, backend);
+            NoChangePublicationDoesNotTriggerFallbackRecache(header, backend);
+            ProvisionalConfirmationIsIdempotent(backend);
             NarrowFooterGeometryIsBounded(header);
             SelectorSpacingIsMeasuredWithoutLeadingReserve(selector);
             SelectorUsesLegacyMinimumAndMeasuredGrowth(header);
@@ -711,8 +713,53 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "commit results must report whether application publication is applied or pending");
             TestAssert.Contains(
                 backend,
-                "private bool NotifyCommitChanged(LiveMutationTransaction live)",
+                "private bool NotifyCommitChanged(",
                 "the backend must return publication ownership to its lifecycle caller");
+        }
+
+        private static void NoChangePublicationDoesNotTriggerFallbackRecache(
+            string header,
+            string backend)
+        {
+            TestAssert.Contains(
+                backend,
+                "NoChange",
+                "a successful no-op workload commit must have an explicit publication state");
+            TestAssert.Contains(
+                backend,
+                "report.HasNetStateChange\n                            ? WorkloadApplicationPublication.None\n                            : WorkloadApplicationPublication.NoChange",
+                "publisher absence must remain distinct from a proven no-op");
+            TestAssert.Contains(
+                header,
+                "applicationPublication == WorkloadApplicationPublication.None",
+                "the footer must retain fallback recache behavior for a missing publisher");
+            TestAssert.False(
+                header.IndexOf(
+                    "applicationPublication == WorkloadApplicationPublication.NoChange",
+                    StringComparison.Ordinal) >= 0,
+                "a proven no-op must not trigger the missing-publisher table recache");
+            TestAssert.Contains(
+                backend,
+                "if (provisional && hasRetainedChanges)",
+                "a no-op multiplayer apply must not create a pending rollback lease");
+        }
+
+        private static void ProvisionalConfirmationIsIdempotent(string backend)
+        {
+            string confirm = MethodBody(backend, "internal bool Confirm()");
+            int confirmed = confirm.IndexOf(
+                "_state == LeaseState.Confirmed",
+                StringComparison.Ordinal);
+            int terminal = confirm.IndexOf(
+                "_state == LeaseState.RollbackFailed",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                confirmed >= 0 && terminal > confirmed,
+                "duplicate confirmation must return before terminal-failure handling");
+            TestAssert.Contains(
+                confirm,
+                "return true;",
+                "replayed confirmation of an already confirmed lease must be idempotent");
         }
 
         private static void RepositoryLifecycleActionsAvoidPawnTableRecache(
@@ -736,7 +783,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "deleting a repository record must not recache every pawn table");
 
             int notifyStart = backend.IndexOf(
-                "private bool NotifyCommitChanged(LiveMutationTransaction live)",
+                "private bool NotifyCommitChanged(",
                 StringComparison.Ordinal);
             int notifyEnd = backend.IndexOf(
                 "private static bool RollbackPersistence(",

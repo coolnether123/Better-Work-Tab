@@ -522,6 +522,9 @@ namespace Better_Work_Tab.UI.Workloads
                         return;
                     }
 
+                    // None means the application publisher was unavailable;
+                    // NoChange means the operation proved that no live or
+                    // persisted state changed and needs no table refresh.
                     if (tableRefreshPolicy == LifecycleTableRefreshPolicy.Always ||
                         applicationPublication == WorkloadApplicationPublication.None)
                     {

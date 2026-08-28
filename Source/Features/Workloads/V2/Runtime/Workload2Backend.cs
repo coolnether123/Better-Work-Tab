@@ -175,6 +175,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
     internal enum WorkloadApplicationPublication
     {
         None,
+        NoChange,
         Applied,
         Pending
     }
@@ -3921,6 +3922,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             WorkloadV2CommitReport report,
             bool recoveryRequired = false)
         {
+            bool hadLiveChanges = live?.HasChanges == true;
+            bool hadPersistenceChanges = HasPersistenceChange(persistence);
             return new WorkloadCommitRollbackLease(
                 () =>
                 {
@@ -3932,7 +3935,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     report.TemplatePersisted = persistence != null &&
                         persistence.WasApplied && !persistenceRestored;
                     report.LiveStateChanged = !liveRestored;
-                    NotifyCommitChanged(live);
+                    if (hadLiveChanges || hadPersistenceChanges)
+                        NotifyCommitChanged(live, hadPersistenceChanges);
                     if (persistenceRestored && liveRestored)
                     {
                         executionContext?.MutationAuthorization?.Lease.FinalizeLease();
@@ -3949,11 +3953,18 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             "live-state");
                         return false;
                     }
-                    NotifyCommitChanged(live);
+                    if (hadLiveChanges || hadPersistenceChanges)
+                        NotifyCommitChanged(live, hadPersistenceChanges);
                     executionContext?.MutationAuthorization?.Lease.FinalizeLease();
                     return true;
                 },
                 recoveryRequired);
+        }
+
+        private static bool HasPersistenceChange(PersistenceMutation persistence)
+        {
+            return persistence != null &&
+                (persistence.WasApplied || persistence.RevisionAdvanced);
         }
 
         private WorkloadV2CommitResult CommitCore(
@@ -4411,7 +4422,9 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 bool provisional =
                     executionContext?.RetainRollbackUntilConfirmation == true;
                 CompleteLiveMutation(live, provisional);
-                if (provisional)
+                bool hasRetainedChanges = (live != null && live.HasChanges) ||
+                    HasPersistenceChange(persistence);
+                if (provisional && hasRetainedChanges)
                 {
                     executionContext.RollbackLease = CreateRollbackLease(
                         executionContext,
@@ -4421,9 +4434,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         plan,
                         report);
                 }
-                else if (report.LiveStateChanged || report.TemplatePersisted)
+                else if (!provisional && report.HasNetStateChange)
                 {
-                    applicationChangePublished = NotifyCommitChanged(live);
+                    applicationChangePublished = NotifyCommitChanged(
+                        live,
+                        persistenceChanged: report.TemplatePersisted);
                 }
 
                 report.IsSemanticNoOp = plan.Diff.IsEmpty;
@@ -4436,10 +4451,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     targetStableId);
                 successResult.PersistenceReceipt = executionContext?.PersistenceReceipt;
                 successResult.ApplicationPublication = provisional
-                    ? WorkloadApplicationPublication.Pending
+                    ? hasRetainedChanges
+                        ? WorkloadApplicationPublication.Pending
+                        : WorkloadApplicationPublication.NoChange
                     : applicationChangePublished
                         ? WorkloadApplicationPublication.Applied
-                        : WorkloadApplicationPublication.None;
+                        : report.HasNetStateChange
+                            ? WorkloadApplicationPublication.None
+                            : WorkloadApplicationPublication.NoChange;
                 return successResult;
             }
             catch (CommitAbortException exception)
@@ -7466,9 +7485,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         workType,
                         previous,
                         mutation.DesiredPriority));
-                    staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
-                        TimePriorityTarget.ForWorkType(pawn, workType),
-                        WorkTabApplicationDimensions.ParentPriority));
 
                     report.Add(
                         WorkloadV2CommitEntryKind.Changed,
@@ -7649,7 +7665,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             var priorities = new List<WorkTabStagedSpecificPriority>();
             var orders = new List<WorkTabStagedSpecificOrder>();
-            var affectedTargets = new List<TimePriorityTarget>();
 
             for (int i = 0; i < plan.SpecificJobOverrides.Count; i++)
             {
@@ -7677,8 +7692,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                                 ? WorkTabSpecificPriorityState.LocalSet
                                 : WorkTabSpecificPriorityState.LocalInherit,
                             previousPriority)));
-                affectedTargets.Add(TimePriorityTarget.ForWorkGiver(
-                    mutation.Pawn, mutation.WorkGiver));
             }
 
             for (int i = 0; i < plan.SpecificJobOrder.Count; i++)
@@ -7699,8 +7712,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                             : WorkTabSpecificOrderState.LocalStored,
                         mutation.DesiredOrder,
                         mutation.PreviousSnapshot));
-                affectedTargets.Add(TimePriorityTarget.ForWorkType(
-                    mutation.Pawn, mutation.WorkType));
             }
 
             for (int i = 0;
@@ -7725,9 +7736,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                                 : WorkTabSpecificPriorityState.LocalInherit,
                         mutation.DesiredPriority,
                         previous.State));
-                affectedTargets.Add(TimePriorityTarget.ForWorkGiver(
-                    previous.IsGlobal ? null : previous.Pawn,
-                    previous.WorkGiver));
             }
 
             for (int i = 0;
@@ -7754,24 +7762,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                                 : WorkTabSpecificOrderState.LocalStored,
                         mutation.DesiredOrder,
                         previous.State));
-                affectedTargets.Add(TimePriorityTarget.ForWorkType(
-                    previous.IsGlobal ? null : previous.Pawn,
-                    previous.WorkType));
             }
 
             if (staged == null) return false;
             staged.SpecificPriorities.AddRange(priorities);
             staged.SpecificOrders.AddRange(orders);
-            for (int i = 0; i < affectedTargets.Count; i++)
-            {
-                TimePriorityTarget target = affectedTargets[i];
-                staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
-                    target,
-                    target.Kind == TimePriorityTargetKind.WorkType
-                        ? WorkTabApplicationDimensions.SpecificOrder |
-                          WorkTabApplicationDimensions.ExecutionOrder
-                        : WorkTabApplicationDimensions.SpecificPriority));
-            }
 
             for (int i = 0; i < priorities.Count; i++)
             {
@@ -7837,9 +7832,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 staged.Schedules.Add(new WorkTabStagedSchedule(
                     mutation.PreviousSnapshot,
                     desired));
-                staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
-                    mutation.PreviousSnapshot.Target,
-                    WorkTabApplicationDimensions.Schedule));
                 report.Add(
                     mutation.Intent.IsClear || !expectedHasSchedule
                         ? WorkloadV2CommitEntryKind.Cleared
@@ -8114,13 +8106,27 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return -1;
         }
 
-        private bool NotifyCommitChanged(LiveMutationTransaction live)
+        private bool NotifyCommitChanged(
+            LiveMutationTransaction live,
+            bool persistenceChanged = false)
         {
-            _component.NotifyV2Changed();
             if (live?.StagedMutation != null)
             {
-                return !live.StagedChange.IsEmpty;
+                bool changed = !live.StagedChange.IsEmpty;
+                if (changed)
+                {
+                    _component.NotifyV2Changed();
+                    return true;
+                }
+
+                if (!persistenceChanged)
+                    return false;
             }
+
+            if (!persistenceChanged)
+                return false;
+
+            _component.NotifyV2Changed();
 
             WorkTabApplication application = WorkTabApplication.Current;
             return application != null && application.PublishAtomicMutation(
@@ -8750,6 +8756,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
             internal bool Confirm()
             {
+                if (_state == LeaseState.Confirmed)
+                {
+                    return true;
+                }
+
                 if (_state == LeaseState.RollbackFailed ||
                     _state == LeaseState.RolledBack)
                 {
