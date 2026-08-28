@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Better_Work_Tab.PawnOrganizer;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -20,13 +19,16 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             new Dictionary<string, PawnColumnDef>(StringComparer.Ordinal);
         private static readonly Dictionary<PawnColumnDef, WorkGiverDef> WorkGivers =
             new Dictionary<PawnColumnDef, WorkGiverDef>();
+        // Header passes classify every visible column, so keep native ownership as a
+        // direct identity lookup instead of scanning the two definition dictionaries.
+        private static readonly HashSet<PawnColumnDef> NativeColumns =
+            new HashSet<PawnColumnDef>();
 
         internal static bool CanBuild => !_columnsDisabled;
 
         internal static bool IsNativeColumn(PawnColumnDef column)
         {
-            return column != null &&
-                (WorkTypeColumns.ContainsValue(column) || WorkGiverColumns.ContainsValue(column));
+            return column != null && NativeColumns.Contains(column);
         }
 
         internal static bool IsNativeChildColumn(PawnColumnDef column)
@@ -66,56 +68,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             }
 
             return workGiverColumns.Count > 0;
-        }
-
-        internal static bool TryBuildPreviewColumns(
-            PawnColumnDef sourceWorkColumn,
-            WorkTypeDef workType,
-            float startX,
-            float parentWidth,
-            float childWidth,
-            out List<WorkTabLayoutColumn> columns)
-        {
-            columns = null;
-            if (!TryBuildColumnSpecs(
-                    sourceWorkColumn,
-                    workType,
-                    out PawnColumnDef parentColumn,
-                    out List<PawnColumnDef> childColumns))
-            {
-                return false;
-            }
-
-            columns = new List<WorkTabLayoutColumn>();
-            float x = startX;
-            columns.Add(new WorkTabLayoutColumn(
-                parentColumn,
-                new Rect(x, 0f, parentWidth, 1f),
-                x,
-                parentWidth));
-            x += parentWidth;
-
-            for (int i = 0; i < childColumns.Count; i++)
-            {
-                WorkGiverDef workGiver = TryGetWorkGiver(childColumns[i]);
-                if (workGiver == null)
-                {
-                    continue;
-                }
-
-                columns.Add(new WorkTabLayoutColumn(
-                    childColumns[i],
-                    new Rect(x, 0f, childWidth, 1f),
-                    x,
-                    childWidth,
-                    workType,
-                    workGiver,
-                    i,
-                    isExpandBesideChild: true));
-                x += childWidth;
-            }
-
-            return columns.Count > 1;
         }
 
         internal static WorkGiverDef TryGetWorkGiver(PawnColumnDef column)
@@ -193,6 +145,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 };
                 column.PostLoad();
                 WorkTypeColumns[key] = column;
+                NativeColumns.Add(column);
                 return column;
             }
             catch (Exception ex)
@@ -225,9 +178,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     workType = WorkGiverReassignmentManager.GetTargetWorkType(workGiver) ?? workGiver.workType,
                     sortable = true
                 };
-                WorkGivers[column] = workGiver;
                 column.PostLoad();
+                WorkGivers[column] = workGiver;
                 WorkGiverColumns[key] = column;
+                NativeColumns.Add(column);
                 return column;
             }
             catch (Exception ex)
