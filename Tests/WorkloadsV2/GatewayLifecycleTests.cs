@@ -101,6 +101,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "Rendering",
                 "WorkGridInspectionSemantics.cs");
             string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
+            string application = Read(root, "Source", "Features", "Application", "WorkTabApplication.cs");
             string session = Read(root, "Source", "Features", "Workloads", "V2", "WorkloadSession.cs");
             string english = Read(root, "Languages", "English", "Keyed", "English.xml");
             string settings = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
@@ -113,6 +114,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             RepositoryLifecycleActionsAvoidPawnTableRecache(header, backend);
             SelectingTheCurrentWorkloadIsRepositoryNoOp(backend);
             NoChangePublicationDoesNotTriggerFallbackRecache(header, backend);
+            RepositoryOnlyCompletionStaysOutOfTheRenderer(header, backend, application);
+            PersistencePreflightReusesWholeDocumentDiagnostics(backend);
             MultiplayerNoChangeConfirmationIsLeaseFree(backend);
             PresentationOnlyCommitPublishesApplication(header, backend);
             PresentationOnlyConfirmationPublishesApplication(backend);
@@ -717,7 +720,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "commit results must report whether application publication is applied or pending");
             TestAssert.Contains(
                 backend,
-                "private bool NotifyCommitChanged(",
+                "private WorkloadApplicationPublication NotifyCommitChanged(",
                 "the backend must return publication ownership to its lifecycle caller");
         }
 
@@ -800,7 +803,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string backend)
         {
             string commit = MethodBody(backend, "private WorkloadV2CommitResult CommitCore(");
-            string notify = MethodBody(backend, "private bool NotifyCommitChanged(");
+            string notify = MethodBody(
+                backend,
+                "private WorkloadApplicationPublication NotifyCommitChanged(");
 
             TestAssert.Contains(
                 commit,
@@ -812,7 +817,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "commit publication must continue to distinguish persistence changes");
             TestAssert.Contains(
                 notify,
-                "if (!presentationChanged && !persistenceChanged)",
+                "return WorkloadApplicationPublication.NoChange;",
                 "publication must remain suppressed when a commit is a true no-op");
             TestAssert.Contains(
                 notify,
@@ -921,7 +926,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "deleting a repository record must not recache every pawn table");
 
             int notifyStart = backend.IndexOf(
-                "private bool NotifyCommitChanged(",
+                "private WorkloadApplicationPublication NotifyCommitChanged(",
                 StringComparison.Ordinal);
             int notifyEnd = backend.IndexOf(
                 "private static bool RollbackPersistence(",
@@ -935,6 +940,88 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 notifyPath,
                 "notifyPawnTables: false",
                 "persistence-only workload commits must not recache pawn tables");
+        }
+
+        private static void RepositoryOnlyCompletionStaysOutOfTheRenderer(
+            string header,
+            string backend,
+            string application)
+        {
+            string commit = MethodBody(backend, "private WorkloadV2CommitResult CommitCore(");
+            string notify = MethodBody(
+                backend,
+                "private WorkloadApplicationPublication NotifyCommitChanged(");
+            int repositoryStart = notify.IndexOf(
+                "if (persistenceChanged)",
+                StringComparison.Ordinal);
+            int noChange = notify.IndexOf(
+                "return WorkloadApplicationPublication.NoChange;",
+                repositoryStart >= 0 ? repositoryStart : 0,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                repositoryStart >= 0 && noChange > repositoryStart,
+                "repository-only completion must have an isolated publication branch");
+            string repositoryBranch = notify.Substring(repositoryStart, noChange - repositoryStart);
+            TestAssert.Contains(
+                repositoryBranch,
+                "_component.NotifyV2Changed();",
+                "repository-only completion must publish the validated catalog and receipt");
+            TestAssert.Contains(
+                repositoryBranch,
+                "WorkloadApplicationPublication.RepositoryOnly",
+                "repository-only completion must retain its explicit lifecycle receipt");
+            TestAssert.False(
+                repositoryBranch.IndexOf("PublishAtomicMutation", StringComparison.Ordinal) >= 0 ||
+                repositoryBranch.IndexOf("WorkTabApplicationDimensions.Presentation", StringComparison.Ordinal) >= 0 ||
+                repositoryBranch.IndexOf("notifyPawnTables", StringComparison.Ordinal) >= 0,
+                "persistence-only Update/Fork completion must not invalidate presentation, retained resources, or pawn tables");
+            TestAssert.Contains(
+                commit,
+                "applicationPublication != WorkloadApplicationPublication.NoChange",
+                "local repository-only completion must reach the footer instead of becoming a fake no-op");
+            TestAssert.Contains(
+                header,
+                "applicationPublication == WorkloadApplicationPublication.None",
+                "the footer fallback must stay reserved for a missing application publication");
+            string effects = MethodBody(
+                application,
+                "private static WorkTabApplicationEffects EffectsFor(");
+            int presentation = effects.IndexOf(
+                "if ((dimensions & WorkTabApplicationDimensions.Presentation) != 0)",
+                StringComparison.Ordinal);
+            int renderResources = effects.IndexOf(
+                "WorkTabApplicationEffects.RenderResourceInvalidation",
+                presentation >= 0 ? presentation : 0,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                presentation >= 0 && renderResources > presentation,
+                "presentation publication must remain the explicit path that invalidates retained render resources");
+        }
+
+        private static void PersistencePreflightReusesWholeDocumentDiagnostics(
+            string backend)
+        {
+            string commit = MethodBody(backend, "private WorkloadV2CommitResult CommitCore(");
+            string preflight = MethodBody(
+                backend,
+                "private static void EnsurePersistenceBaseline(");
+            string apply = MethodBody(backend, "private void ApplyPersistence(");
+            int diagnostics = commit.IndexOf("store.RefreshDiagnostics();", StringComparison.Ordinal);
+            int baseline = commit.IndexOf("EnsurePersistenceBaseline(", StringComparison.Ordinal);
+            TestAssert.True(
+                diagnostics >= 0 && baseline > diagnostics,
+                "Update/Fork must finish whole-document diagnostics before reusing that result for persistence preflight");
+            TestAssert.False(
+                preflight.IndexOf("RefreshDiagnostics", StringComparison.Ordinal) >= 0,
+                "persistence preflight must not repeat synchronous whole-document diagnostics");
+            TestAssert.Contains(
+                preflight,
+                "TryValidateCompareAndSwap",
+                "the retained preflight must keep exact optimistic conflict validation");
+            TestAssert.Contains(
+                apply,
+                "store.TryCommitRevision(",
+                "the persistence write must retain its final exact compare-and-swap");
         }
 
         private static void AssertLifecyclePolicy(

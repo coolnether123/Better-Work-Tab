@@ -240,6 +240,29 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(cas.TryValidateCompareAndSwap(expectedRevision - 1, expectedFingerprint, out casError),
                 "persistence CAS must reject a stale revision");
 
+            cas.Records[0].Label = "changed after baseline";
+            TestAssert.False(
+                cas.TryValidateCompareAndSwap(
+                    expectedRevision,
+                    expectedFingerprint,
+                    out casError),
+                "the final CAS must reject a document changed after whole-document diagnostics");
+
+            var corrupted = WorkloadV2PersistenceEnvelope.CreateEmpty();
+            corrupted.Records = new List<WorkloadV2PersistenceRecord>
+            {
+                recordResult.Value,
+                recordResult.Value
+            };
+            corrupted.RefreshDiagnostics();
+            TestAssert.True(
+                corrupted.IsReadOnlyDiagnostic,
+                "whole-document diagnostics must fail closed before a duplicate persistence document can be rewritten");
+            TestAssert.Equal(
+                WorkloadDiagnosticCode.AmbiguousStableId,
+                corrupted.DiagnosticCode,
+                "duplicate workload identities must retain their structured corruption diagnostic");
+
             var direct = WorkloadV2PersistenceEnvelope.CreateEmpty();
             direct.Records = new List<WorkloadV2PersistenceRecord> { recordResult.Value };
             direct.RefreshPersistenceMetadata(true);
