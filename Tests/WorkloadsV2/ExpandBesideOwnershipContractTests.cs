@@ -35,6 +35,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string layout = Read(root, "Source", "PawnOrganizer", "Layout", "WorkTabLayoutController.cs");
             string header = Read(root, "Source", "UI", "Headers", "WorkTabHeaderRenderer.cs");
             string input = Read(root, "Source", "UI", "WorkGiverReassignments", "SubWorkInteractionController.cs");
+            string chooser = Read(root, "Source", "UI", "WorkGiverReassignments", "SubWorkStyleChooserPresenter.cs");
             string registry = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
             string gateway = Read(
                 root,
@@ -48,7 +49,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PersistedExpandBesideRemainsTheEffectiveStyle(state);
             LayoutAndHeadersUseTheNativeColumnOwner(layout, header);
             ExpandBesideSupportsTheSameMouseExitGesture(input);
-            SettingsAndGatewayDoNotRetainTheNativeColumnGate(registry, gateway);
+            DisabledNativeColumnsCancelTheTransientChooser(chooser);
+            SettingsAndGatewayDoNotRetainTheNativeColumnGate(registry, gateway, header);
         }
 
         private static void NativeColumnsAreIndependentOfExternalFluffy(
@@ -143,7 +145,25 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the mouse exit gesture must not exclude an active expand-beside presentation");
         }
 
-        private static void SettingsAndGatewayDoNotRetainTheNativeColumnGate(string registry, string gateway)
+        private static void DisabledNativeColumnsCancelTheTransientChooser(string chooser)
+        {
+            string draw = MemberBody(
+                chooser,
+                "internal void Draw(");
+            TestAssert.Contains(
+                draw,
+                "!BwtExpandBesideColumns.CanBuild",
+                "a native column failure must terminate the unavailable chooser");
+            TestAssert.Contains(
+                draw,
+                "ResetForWindowClose();",
+                "a failed native expand capability must clear chooser and preview state");
+        }
+
+        private static void SettingsAndGatewayDoNotRetainTheNativeColumnGate(
+            string registry,
+            string gateway,
+            string header)
         {
             TestAssert.Contains(
                 registry,
@@ -159,6 +179,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 gateway,
                 "PrepareExternalFluffyDraw(",
                 "external Fluffy drawing must remain an explicitly named compatibility path");
+            TestAssert.False(
+                gateway.IndexOf("WasExternalFluffyWorkTypeCollapsed", StringComparison.Ordinal) >= 0,
+                "BWT must not rewrite an external Fluffy work-type worker's collapse state");
+            TestAssert.False(
+                header.IndexOf("ApplyHostedHeaderCollapse", StringComparison.Ordinal) >= 0,
+                "BWT headers must not reinterpret or undo an external Fluffy collapse");
         }
 
         private static string Read(string root, params string[] segments)

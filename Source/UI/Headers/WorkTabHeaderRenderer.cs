@@ -219,7 +219,6 @@ namespace Better_Work_Tab.UI.Headers
 
             DrawStandardHeaderPreOverlays(in pass, in state);
             DrawOwnedOrNativeHeader(in pass, in state);
-            ApplyHostedHeaderCollapse(in state);
             DrawStandardHeaderPostOverlays(in pass, in state);
         }
 
@@ -333,19 +332,6 @@ namespace Better_Work_Tab.UI.Headers
             {
                 SubWorkDrilldownState.ClearDrawingColumn();
             }
-        }
-
-        private static void ApplyHostedHeaderCollapse(
-            in StandardHeaderColumnState state)
-        {
-            if (!FluffyWorkTabGateway.WasExternalFluffyWorkTypeCollapsed(state.Column.Column))
-            {
-                return;
-            }
-
-            SubWorkDrilldownState.CollapseAllExpandBeside();
-            WorkTabInvalidationHub.Invalidate(
-                WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
         }
 
         private static void DrawStandardHeaderPostOverlays(

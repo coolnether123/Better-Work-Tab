@@ -62,7 +62,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
         private static Type _fluffyPriorityManagerType;
         private static Type _fluffyPriorityTrackerType;
         private static FieldInfo _fluffyWorkGiverField;
-        private static FieldInfo _fluffyWorkTypeExpandedField;
         private static FieldInfo _fluffyMainTabTableField;
         private static PropertyInfo _fluffyPriorityManagerGetProperty;
         private static PropertyInfo _fluffyPriorityManagerIndexer;
@@ -888,38 +887,6 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             }
         }
 
-        internal static bool WasExternalFluffyWorkTypeCollapsed(PawnColumnDef column)
-        {
-            if (!IsFluffyColumn(column) || IsFluffyWorkGiverColumn(column))
-            {
-                return false;
-            }
-
-            object worker = column.Worker;
-            if (worker == null ||
-                _fluffyWorkTypeWorkerType == null ||
-                worker.GetType() != _fluffyWorkTypeWorkerType ||
-                _fluffyWorkTypeExpandedField == null)
-            {
-                return false;
-            }
-
-            try
-            {
-                if (_fluffyWorkTypeExpandedField.GetValue(worker) is bool expanded && !expanded)
-                {
-                    _fluffyWorkTypeExpandedField.SetValue(worker, true);
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                DisableExternalFluffyColumns("checking hosted work-type collapse state", ex);
-            }
-
-            return false;
-        }
-
         internal static bool IsFluffyColumn(PawnColumnDef column)
         {
             if (column == null)
@@ -1169,8 +1136,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 return _fluffyWorkTypeWorkerType != null &&
                        _fluffyWorkGiverWorkerType != null &&
                        _fluffyWorkGiverColumnDefType != null &&
-                       _fluffyWorkGiverField != null &&
-                       _fluffyWorkTypeExpandedField != null;
+                       _fluffyWorkGiverField != null;
             }
 
             _fluffyColumnTypesResolved = true;
@@ -1180,15 +1146,10 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
             _fluffyWorkGiverField = _fluffyWorkGiverColumnDefType?.GetField(
                 "workgiver",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            _fluffyWorkTypeExpandedField = _fluffyWorkTypeWorkerType?.GetField(
-                "_expanded",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
             bool resolved = _fluffyWorkTypeWorkerType != null &&
                 _fluffyWorkGiverWorkerType != null &&
                 _fluffyWorkGiverColumnDefType != null &&
-                _fluffyWorkGiverField != null &&
-                _fluffyWorkTypeExpandedField != null;
+                _fluffyWorkGiverField != null;
             if (!resolved)
             {
                 _externalFluffyColumnsUnavailable = true;
