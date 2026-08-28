@@ -309,7 +309,12 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             float labelAlpha = Mathf.Clamp01(layout.Alpha);
-            if (drawText)
+            // Parent headers have two different ownership rules in the retained
+            // path: their glyphs stay on the live IMGUI pass, while their stable
+            // underline belongs to the retained surface. Keep the two decisions
+            // independent so the stable pass cannot silently drop the parent
+            // underline when it intentionally omits text.
+            if (drawText || drawUnderline)
             {
                 DrawParentHeaderGhost(
                     layout,
@@ -319,7 +324,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                     horizontalOffset,
                     originalMatrix,
                     parentAlpha * labelAlpha,
+                    drawText,
                     drawUnderline,
+                    useUnclippedPivot,
                     in presentation);
             }
 
@@ -419,7 +426,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float horizontalOffset,
             Matrix4x4 originalMatrix,
             float alpha,
+            bool drawText,
             bool drawUnderline,
+            bool useUnclippedPivot,
             in HeaderPresentationPacket presentation)
         {
             if (alpha <= 0.001f ||
@@ -473,14 +482,16 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
 
                 GUI.matrix = Matrix4x4.identity;
-                Vector2 pivotPoint = GUIClipUtility.Unclip(drawRect.center);
+                Vector2 pivotPoint = useUnclippedPivot
+                    ? GUIClipUtility.Unclip(drawRect.center)
+                    : drawRect.center;
                 GUI.matrix = GetTransformMatrix(originalMatrix, pivotPoint, rotation, Vector2.one);
 
                 Text.Anchor = isCJKVertical ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
                 GUI.color = presentation.AngledColor;
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * alpha);
 
-                if (isCJKVertical)
+                if (drawText && isCJKVertical)
                 {
                     float curY = drawRect.y;
                     float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
@@ -491,7 +502,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                         curY += charH;
                     }
                 }
-                else
+                else if (drawText)
                 {
                     Widgets.Label(drawRect, parentText);
                 }

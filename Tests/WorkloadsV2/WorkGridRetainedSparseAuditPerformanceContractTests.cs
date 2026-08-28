@@ -221,6 +221,34 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 retainedAngledText,
                 "drawUnderline: false",
                 "the live angled glyph pass must not duplicate cached underlines");
+            string angledCore = MemberBody(angledLabels, "private static void DrawCore(");
+            TestAssert.Contains(
+                angledCore,
+                "if (drawText || drawUnderline)",
+                "the parent ghost must enter whichever retained drawing phase owns its pixels");
+            TestAssert.Contains(
+                angledCore,
+                "drawText,\n                    drawUnderline,\n                    useUnclippedPivot,",
+                "the parent ghost must receive independent text, underline, and coordinate-phase ownership");
+            string parentGhost = MemberBody(
+                angledLabels,
+                "private static void DrawParentHeaderGhost(");
+            TestAssert.Contains(
+                parentGhost,
+                "if (drawText && isCJKVertical)",
+                "parent ghost glyphs must remain on the live text phase");
+            TestAssert.Contains(
+                parentGhost,
+                "else if (drawText)",
+                "non-CJK parent ghost glyphs must remain on the live text phase");
+            TestAssert.Contains(
+                parentGhost,
+                "if (drawUnderline &&\n                    !presentation.RemoveUnderline",
+                "parent ghost underlines must be emitted only by the stable underline phase");
+            TestAssert.Contains(
+                parentGhost,
+                "useUnclippedPivot\n                    ? GUIClipUtility.Unclip(drawRect.center)\n                    : drawRect.center",
+                "the parent underline must use cache-local coordinates during retained composition");
 
             string retainedVanilla = MemberBody(
                 vanillaHeaders,
