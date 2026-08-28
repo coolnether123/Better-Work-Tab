@@ -1,3 +1,4 @@
+using System;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Patches;
@@ -268,6 +269,131 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Proves once per render-resource generation that the immediate
+        /// texture path can write a known pixel to a render texture. The row
+        /// cache owns the generation latch; this renderer owns the material and
+        /// the target state used by the probe.
+        /// </summary>
+        internal static bool TryValidateRetainedComposition(
+            out RetainedWorkBoxDrawFailure failure)
+        {
+            failure = RetainedWorkBoxDrawFailure.None;
+            RenderTexture previous = RenderTexture.active;
+            int previousViewportWidth = previous == null ? Screen.width : previous.width;
+            int previousViewportHeight = previous == null ? Screen.height : previous.height;
+            Matrix4x4 previousMatrix = GUI.matrix;
+            Color previousColor = GUI.color;
+            bool previousSrgbWrite = GL.sRGBWrite;
+            RenderTexture surface = null;
+            Texture2D readback = null;
+            bool matrixPushed = false;
+            try
+            {
+                surface = new RenderTexture(
+                    1,
+                    1,
+                    0,
+                    RenderTextureFormat.ARGB32,
+                    RenderTextureReadWrite.sRGB)
+                {
+                    name = "BWT retained work capability sentinel",
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                if (!surface.Create())
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
+
+                readback = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+                RenderTexture.active = surface;
+                GL.InvalidateState();
+                GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));
+                GUI.matrix = Matrix4x4.identity;
+                GL.PushMatrix();
+                matrixPushed = true;
+                GL.LoadPixelMatrix(0f, 1f, 1f, 0f);
+                GL.Clear(true, true, Color.clear);
+                if (!DrawRetainedTexture(
+                        new Rect(0f, 0f, 1f, 1f),
+                        Texture2D.whiteTexture,
+                        Color.red))
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
+
+                GL.PopMatrix();
+                matrixPushed = false;
+                readback.ReadPixels(new Rect(0f, 0f, 1f, 1f), 0, 0, false);
+                readback.Apply(false, false);
+                Color pixel = readback.GetPixel(0, 0);
+                if (pixel.r < 0.5f || pixel.a < 0.5f ||
+                    pixel.g > 0.5f || pixel.b > 0.5f)
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
+
+                return true;
+            }
+            catch (NotSupportedException)
+            {
+                failure = RetainedWorkBoxDrawFailure.Unsupported;
+                return false;
+            }
+            catch (Exception)
+            {
+                failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                return false;
+            }
+            finally
+            {
+                if (matrixPushed)
+                {
+                    GL.PopMatrix();
+                }
+
+                RenderTexture.active = previous;
+                if (previousViewportWidth > 0 && previousViewportHeight > 0)
+                {
+                    GL.Viewport(new Rect(
+                        0f,
+                        0f,
+                        previousViewportWidth,
+                        previousViewportHeight));
+                }
+                GL.sRGBWrite = previousSrgbWrite;
+                GUI.matrix = previousMatrix;
+                GUI.color = previousColor;
+                GL.InvalidateState();
+
+                if (readback != null)
+                {
+                    UnityEngine.Object.Destroy(readback);
+                }
+                if (surface != null)
+                {
+                    if (surface.IsCreated())
+                    {
+                        surface.Release();
+                    }
+                    UnityEngine.Object.Destroy(surface);
+                }
+            }
+        }
+
+        internal static void ReleaseRetainedResources()
+        {
+            Material retainedMaterial = _retainedMaterial;
+            _retainedMaterial = null;
+            if (retainedMaterial != null)
+            {
+                UnityEngine.Object.Destroy(retainedMaterial);
+            }
         }
 
         internal static void DrawDynamicOverlays(

@@ -33,6 +33,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PreparedRowsRejectStalePawns(optimized);
             SparseUpdatesAdvanceOnlyDirtyRows(snapshot, provider);
             RetainedHitsUsePrecomputedBoundsAndFingerprint(retained, preparedBox);
+            RetainedCompositionRestoresRenderState(retained, preparedBox);
+            RetainedPresentationKeepsOwnerClipForAllVerticalPositions(retained, optimized);
             RetainedFailuresStayRevisionScoped(retained, preparedBox);
             ResourceOwnershipIsBounded(retained, optimized, window);
             ReopenRetriesOnlyRevisionScopedRowFailures(retained, optimized, window);
@@ -261,6 +263,110 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 dynamic.IndexOf("WorkBoxOverlay_Warning", StringComparison.Ordinal) >= 0 ||
                 dynamic.IndexOf("WorkBoxOverlay_PreceptWarning", StringComparison.Ordinal) >= 0,
                 "dynamic overlays must not draw a second warning texture over retained cells");
+        }
+
+        private static void RetainedCompositionRestoresRenderState(
+            string retained,
+            string preparedBox)
+        {
+            string build = MemberBody(retained, "private static bool BuildSurface(");
+            int target = build.IndexOf("RenderTexture.active = surface;", StringComparison.Ordinal);
+            int viewport = build.IndexOf(
+                "GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));",
+                StringComparison.Ordinal);
+            int restoreTarget = build.IndexOf("RenderTexture.active = previous;", StringComparison.Ordinal);
+            int restoreViewport = build.IndexOf("previousViewportWidth", restoreTarget, StringComparison.Ordinal);
+            TestAssert.True(
+                target >= 0 && viewport > target,
+                "retained composition must set the offscreen target viewport before emitting quads");
+            TestAssert.True(
+                restoreTarget > viewport && restoreViewport > restoreTarget,
+                "retained composition must restore the caller target viewport after emitting quads");
+            TestAssert.Contains(
+                build,
+                "GL.sRGBWrite",
+                "retained composition must preserve the caller's sRGB write state");
+            TestAssert.Contains(
+                build,
+                "GL.InvalidateState();",
+                "retained composition must invalidate Unity's cached GL state after direct emission");
+
+            string sentinel = MemberBody(
+                preparedBox,
+                "internal static bool TryValidateRetainedComposition(");
+            TestAssert.Contains(
+                sentinel,
+                "GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));",
+                "the capability sentinel must use the same explicit offscreen viewport as rows");
+            TestAssert.Contains(
+                sentinel,
+                "Texture2D.whiteTexture",
+                "the capability sentinel must exercise the immediate textured-quad path");
+            int readback = sentinel.IndexOf("ReadPixels(", StringComparison.Ordinal);
+            TestAssert.True(readback >= 0, "the capability sentinel must verify a written pixel");
+            TestAssert.False(
+                sentinel.IndexOf("ReadPixels(", readback + 1, StringComparison.Ordinal) >= 0,
+                "the capability sentinel must perform at most one synchronous readback");
+            string capability = MemberBody(
+                retained,
+                "private bool TryEnsureCompositionCapability(");
+            TestAssert.Contains(
+                capability,
+                "if (_compositionCapabilityRevision == renderResourcesRevision)",
+                "retained composition capability must be checked at most once per resource revision");
+            TestAssert.Contains(
+                capability,
+                "PreparedWorkBoxRenderer.TryValidateRetainedComposition(",
+                "the row cache must own the once-per-revision capability latch");
+            TestAssert.False(
+                build.IndexOf("ReadPixels(", StringComparison.Ordinal) >= 0,
+                "row rebuilds must not perform synchronous readbacks");
+
+            string release = MemberBody(
+                preparedBox,
+                "internal static void ReleaseRetainedResources()");
+            TestAssert.Contains(
+                release,
+                "_retainedMaterial = null;",
+                "full retained-resource teardown must detach the shared material before destruction");
+            TestAssert.Contains(
+                release,
+                "UnityEngine.Object.Destroy(retainedMaterial)",
+                "full retained-resource teardown must destroy the shared material");
+            TestAssert.Contains(
+                retained,
+                "PreparedWorkBoxRenderer.ReleaseRetainedResources();",
+                "row-cache disposal must own the shared material teardown boundary");
+        }
+
+        private static void RetainedPresentationKeepsOwnerClipForAllVerticalPositions(
+            string retained,
+            string optimized)
+        {
+            TestAssert.Contains(
+                retained,
+                "above, within,\n    /// or below the viewport",
+                "retained rows must document owner clipping for top, middle, and bottom positions");
+            string preparedDraw = MemberBody(
+                retained,
+                "internal bool TryDraw(\n            PreparedRun run,");
+            TestAssert.Contains(
+                preparedDraw,
+                "destination.y += rowOffsetY;",
+                "retained presentation must preserve the live row offset for every clipped position");
+            string present = MemberBody(retained, "private static void PresentSurface(");
+            TestAssert.Contains(
+                present,
+                "GUI.DrawTextureWithTexCoords(",
+                "the owning IMGUI clip must receive the complete retained destination");
+            TestAssert.False(
+                present.IndexOf("Mathf.Clamp", StringComparison.Ordinal) >= 0 ||
+                present.IndexOf("GUI.BeginGroup", StringComparison.Ordinal) >= 0,
+                "retained presentation must not replace the owner's top/middle/bottom clip");
+            TestAssert.Contains(
+                optimized,
+                "DrawPreparedRunDirect(packet, run, rowOffsetY, baseColor);",
+                "every retained clip position must retain the direct fallback path");
         }
 
         private static void PreparedRowsRejectStalePawns(string optimized)
