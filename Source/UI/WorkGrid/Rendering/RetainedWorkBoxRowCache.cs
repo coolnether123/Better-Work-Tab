@@ -299,6 +299,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     {
                         GUI.EndGroup();
                     }
+
+                    // Graphics.DrawTexture queues its immediate draw against
+                    // Unity's graphics stream. Widgets.Label used to follow the
+                    // texture calls and happened to commit that stream before
+                    // this temporary render target was restored. Texture-only
+                    // rows have no such incidental commit, so flush once after
+                    // the whole row instead of paying a flush per cell.
+                    GL.Flush();
                 }
                 finally
                 {

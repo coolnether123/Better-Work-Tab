@@ -316,6 +316,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string buildSurface = MemberBody(retained, "private static bool BuildSurface(");
             TestAssert.False(buildSurface.IndexOf("Widgets.Label", StringComparison.Ordinal) >= 0, "retained surface composition must remain texture-only");
             TestAssert.False(buildSurface.IndexOf("Text.Font", StringComparison.Ordinal) >= 0, "retained surface composition must not prepare unused glyph state");
+            int groupEnd = buildSurface.IndexOf("GUI.EndGroup();", StringComparison.Ordinal);
+            int flush = buildSurface.IndexOf("GL.Flush();", StringComparison.Ordinal);
+            TestAssert.True(
+                groupEnd >= 0 && flush > groupEnd,
+                "texture-only retained composition must flush its queued draw stream before restoring the render target");
+            TestAssert.True(
+                flush == buildSurface.LastIndexOf("GL.Flush();", StringComparison.Ordinal),
+                "retained row composition must flush once per surface, not once per cell");
         }
 
         private static void RetainedFailuresStayRevisionScoped(
