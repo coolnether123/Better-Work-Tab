@@ -170,6 +170,11 @@ namespace Better_Work_Tab.Features.Application
             new List<WorkTabApplicationTargetChange>();
 
         internal bool? ManualPriorityTarget;
+        // Set only when the staged writer actually attempts a mode transition.
+        // ManualPriorityTarget is retained separately for baseline validation
+        // and rollback ownership, so an unchanged target does not publish a
+        // parent-priority mutation by accident.
+        internal bool ManualPriorityModeChanged;
         internal bool ExpectedManualPriorityMode;
         internal long AuthorityRevision;
         internal int SpecificJobRevision;
@@ -191,9 +196,10 @@ namespace Better_Work_Tab.Features.Application
             get
             {
                 WorkTabApplicationDimensions dimensions = WorkTabApplicationDimensions.None;
-                if (RequiredPriorityMaximum.HasValue || ManualPriorityTarget.HasValue ||
-                    ParentPriorities.Count > 0)
+                if (RequiredPriorityMaximum.HasValue || ParentPriorities.Count > 0)
                     dimensions |= WorkTabApplicationDimensions.ParentPriority;
+                if (ManualPriorityModeChanged)
+                    dimensions |= WorkTabApplicationDimensions.ManualPriorityMode;
                 if (SpecificPriorities.Count > 0 || ExternalSpecificPriorities.Count > 0)
                     dimensions |= WorkTabApplicationDimensions.SpecificPriority;
                 if (SpecificOrders.Count > 0)
@@ -313,6 +319,10 @@ namespace Better_Work_Tab.Features.Application
                 if (current != _mutation.ManualPriorityTarget.Value)
                 {
                     _manualChanged = true;
+                    // The writer owns the vanilla-equivalent pawn notification
+                    // loop. Record this before calling it so a partial writer
+                    // failure still carries the correct recovery dimensions.
+                    _mutation.ManualPriorityModeChanged = true;
                     if (!_scope.TrySetManualPriorityMode(
                             _mutation.ManualPriorityTarget.Value,
                             out bool observed) ||
@@ -484,9 +494,13 @@ namespace Better_Work_Tab.Features.Application
                 return false;
             }
 
-            change = _application.PublishStagedMutation(
-                _mutation,
-                _configurationChanged);
+            if (HasChanges || _mutation.AdditionalPublicationDimensions !=
+                WorkTabApplicationDimensions.None)
+            {
+                change = _application.PublishStagedMutation(
+                    _mutation,
+                    _configurationChanged);
+            }
             _provisional = false;
             return true;
         }

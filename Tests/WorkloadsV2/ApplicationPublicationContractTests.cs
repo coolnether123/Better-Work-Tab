@@ -19,6 +19,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PublisherOwnsDownstreamEffects(application, publisher);
             FailureOutcomesDistinguishRecovery(application);
             SpecificJobStorageUsesNeutralAuthority(application, staged);
+            ManualModePublicationAvoidsDuplicateRecaches(application, staged);
         }
 
         private static void ChangeCarriesPrecisePublicationData(string change)
@@ -89,6 +90,53 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 application.IndexOf("SleekWorkTabGateway", StringComparison.Ordinal) >= 0 ||
                 staged.IndexOf("SleekWorkTabGateway", StringComparison.Ordinal) >= 0,
                 "the application boundary must not name an optional specific-job provider");
+        }
+
+        private static void ManualModePublicationAvoidsDuplicateRecaches(
+            string application,
+            string staged)
+        {
+            TestAssert.Contains(
+                application,
+                "ManualPriorityMode = 128",
+                "manual-mode changes need a distinct application dimension");
+            TestAssert.Contains(
+                application,
+                "Publish(default, WorkTabApplicationDimensions.ManualPriorityMode",
+                "the direct manual-mode command must publish its own dimension");
+            TestAssert.Contains(
+                application,
+                "nonManualDimensions = dimensions &",
+                "downstream effects must distinguish manual-only from combined changes");
+            TestAssert.Contains(
+                application,
+                "nonManualDimensions != WorkTabApplicationDimensions.None",
+                "combined mutations must retain their non-manual table refresh");
+
+            int dimensionsStart = staged.IndexOf(
+                "internal WorkTabApplicationDimensions Dimensions",
+                StringComparison.Ordinal);
+            int dimensionsEnd = staged.IndexOf(
+                "internal sealed class WorkTabStagedMutationReceipt",
+                dimensionsStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                dimensionsStart >= 0 && dimensionsEnd > dimensionsStart,
+                "staged mutation dimensions must remain an explicit boundary");
+            string dimensions = staged.Substring(
+                dimensionsStart,
+                dimensionsEnd - dimensionsStart);
+            TestAssert.Contains(
+                dimensions,
+                "ManualPriorityModeChanged",
+                "staged manual-mode writes must publish the manual dimension");
+            TestAssert.False(
+                dimensions.IndexOf("ManualPriorityTarget.HasValue", StringComparison.Ordinal) >= 0,
+                "an unchanged manual target must not masquerade as a parent-priority change");
+            TestAssert.Contains(
+                staged,
+                "_mutation.ManualPriorityModeChanged = true",
+                "the staged receipt must record the writer-owned notifier boundary");
         }
 
         private static string Read(string root, string fileName) =>

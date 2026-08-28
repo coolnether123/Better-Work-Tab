@@ -36,7 +36,12 @@ namespace Better_Work_Tab.Features.Application
         ExecutionOrder = 8,
         SpecificOrder = 16,
         Presentation = 32,
-        ColumnPresentation = 64
+        ColumnPresentation = 64,
+        // WorkPrioritySystem already notifies every player pawn when this
+        // global switch changes. Keeping it distinct from ParentPriority
+        // lets publication retain the broad visual invalidation without
+        // scheduling a second execution-wide notification pass.
+        ManualPriorityMode = 128
     }
 
     internal readonly struct WorkTabApplicationRevision
@@ -1836,7 +1841,7 @@ namespace Better_Work_Tab.Features.Application
                 {
                     return false;
                 }
-                Publish(default, WorkTabApplicationDimensions.ParentPriority, true, true);
+                Publish(default, WorkTabApplicationDimensions.ManualPriorityMode, true, true);
                 return true;
             }
             finally { Exit(); }
@@ -1967,7 +1972,8 @@ namespace Better_Work_Tab.Features.Application
                 effects |= WorkTabApplicationEffects.Persistence;
             if ((dimensions & (WorkTabApplicationDimensions.Schedule |
                                WorkTabApplicationDimensions.ParentPriority |
-                               WorkTabApplicationDimensions.SpecificPriority)) != 0)
+                               WorkTabApplicationDimensions.SpecificPriority |
+                               WorkTabApplicationDimensions.ManualPriorityMode)) != 0)
                 effects |= WorkTabApplicationEffects.PriorityInvalidation |
                     WorkTabApplicationEffects.PresentationInvalidation;
             if ((dimensions & WorkTabApplicationDimensions.Schedule) != 0)
@@ -1990,13 +1996,23 @@ namespace Better_Work_Tab.Features.Application
             if ((dimensions & WorkTabApplicationDimensions.ColumnPresentation) != 0)
                 effects |= WorkTabApplicationEffects.ColumnLayoutInvalidation |
                     WorkTabApplicationEffects.HeaderGeometryInvalidation;
-            if ((dimensions & (WorkTabApplicationDimensions.Schedule |
-                               WorkTabApplicationDimensions.ParentPriority |
-                               WorkTabApplicationDimensions.SpecificPriority |
-                               WorkTabApplicationDimensions.SpecificOrder |
-                               WorkTabApplicationDimensions.ExecutionOrder)) != 0)
+            bool manualPriorityModeChanged =
+                (dimensions & WorkTabApplicationDimensions.ManualPriorityMode) != 0;
+            WorkTabApplicationDimensions nonManualDimensions = dimensions &
+                ~WorkTabApplicationDimensions.ManualPriorityMode;
+            if ((nonManualDimensions & (WorkTabApplicationDimensions.Schedule |
+                                        WorkTabApplicationDimensions.ParentPriority |
+                                        WorkTabApplicationDimensions.SpecificPriority |
+                                        WorkTabApplicationDimensions.SpecificOrder |
+                                        WorkTabApplicationDimensions.ExecutionOrder)) != 0)
                 effects |= WorkTabApplicationEffects.ExecutionRecache;
-            if (notifyPawnTables)
+            // SetManualPriorities performs the vanilla-equivalent pawn
+            // notification loop. A manual-only publication therefore must
+            // not enqueue the separate global table refresh; combined changes
+            // retain it for their non-manual dimensions.
+            if (notifyPawnTables &&
+                (!manualPriorityModeChanged ||
+                 nonManualDimensions != WorkTabApplicationDimensions.None))
                 effects |= WorkTabApplicationEffects.PawnTableRecache;
             if (mirrorExternal &&
                 (forceExternalMirror ||
