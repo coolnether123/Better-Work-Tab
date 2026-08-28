@@ -1021,16 +1021,15 @@ namespace Better_Work_Tab.UI.Settings
 
                 definition.Suppressions.Add(new SettingSuppression
                 {
-                    When = _ => Describe(definition).IsBlocked,
+                    // Keep structural rows visible without activating a
+                    // suppression that would block their editable children.
+                    When = _ => !IsPreviewStructuralDefinition(definition) &&
+                        Describe(definition).IsBlocked,
                     Reason = _ => IsPreviewStructuralDefinition(definition)
                         ? string.Empty
                         : Describe(definition).BlockReason,
                     SuppressorSettingId = PreviewSuppressorId,
-                    LinkLabel = "Workload preview",
-                    // A structural row stays visible so the hierarchy can
-                    // reach stageable descendants. Its suppression must not
-                    // make those descendants read-only.
-                    BlocksDescendants = false
+                    LinkLabel = "Workload preview"
                 });
             }
 

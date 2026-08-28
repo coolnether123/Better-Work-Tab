@@ -126,6 +126,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 interactionRouter,
                 footerContextController,
                 settings);
+            PreviewStructuralSuppressionStaysCompatible(contextRouter);
             DeletedFeedbackCopyIsAbsent(english, settings);
             WorkloadPresentationOwnsTutorialAndSelectionLifecycle(
                 gateway,
@@ -770,6 +771,31 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 action,
                 "LifecycleTableRefreshPolicy." + expectedPolicy,
                 message);
+        }
+
+        private static void PreviewStructuralSuppressionStaysCompatible(
+            string contextRouter)
+        {
+            TestAssert.False(
+                contextRouter.IndexOf("BlocksDescendants", StringComparison.Ordinal) >= 0,
+                "preview routing must not depend on an unsupported Spine suppression field");
+            int suppressionStart = contextRouter.IndexOf(
+                "definition.Suppressions.Add(new SettingSuppression",
+                StringComparison.Ordinal);
+            int structuralBranch = contextRouter.IndexOf(
+                "if (string.Equals(definition.ParentId",
+                suppressionStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                suppressionStart >= 0 && structuralBranch > suppressionStart,
+                "preview suppression registration must remain discoverable");
+            string suppression = contextRouter.Substring(
+                suppressionStart,
+                structuralBranch - suppressionStart);
+            TestAssert.Contains(
+                suppression,
+                "!IsPreviewStructuralDefinition(definition)",
+                "structural preview rows must not activate ancestor suppression");
         }
 
         private static void WorkloadSelectorUsesOnlyTheWorkloadName(string header)
