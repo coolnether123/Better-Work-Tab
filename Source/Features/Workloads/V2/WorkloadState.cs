@@ -1710,6 +1710,8 @@ namespace Better_Work_Tab.Features.Workloads.V2
             new Dictionary<WorkloadWorkTypeOrderKey, WorkloadIntent<WorkloadWorkTypeOrderPayload>>();
         private readonly Dictionary<string, WorkloadIntent<WorkloadSettingValue>> _presentationSettingIntentOverlay =
             new Dictionary<string, WorkloadIntent<WorkloadSettingValue>>(StringComparer.Ordinal);
+        private WorkloadProjectedState _cachedProjectedState;
+        private bool _hasCachedProjectedState;
 
         public WorkloadDraft(WorkloadProjectedState baseState)
         {
@@ -1747,7 +1749,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
         }
 
         public WorkloadProjectedState BaseState => _baseState;
-        public WorkloadProjectedState ProjectedState => BuildProjectedState();
+        public WorkloadProjectedState ProjectedState => GetProjectedState();
         public bool HasSemanticChanges => !WorkloadSemanticDiff.Between(_baseState, ProjectedState).IsEmpty;
 
         public WorkloadDraft SetParentPriority(PawnKey pawn, WorkTypeKey workType, int priority)
@@ -1762,6 +1764,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             _parentPriorityOverlay[safeKey] = priority;
             _parentPriorityIntentOverlay[safeKey] = WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(
                 new WorkloadSpecificPriorityPayload(priority));
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1776,6 +1779,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             _parentPriorityOverlay.Remove(safeKey);
             _removedParentPriorities.Add(safeKey);
             _parentPriorityIntentOverlay[safeKey] = WorkloadIntent<WorkloadSpecificPriorityPayload>.Clear;
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1802,6 +1806,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 _removedParentPriorities.Remove(safeKey);
             }
 
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1809,6 +1814,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             WorkloadParentPriorityKey safeKey = key ?? new WorkloadParentPriorityKey(null, null);
             _parentPriorityIntentOverlay.Remove(safeKey);
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1823,6 +1829,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             _removedManualModes.Remove(safeKey);
             _manualModeOverlay[safeKey] = manual;
             _manualModeIntentOverlay[safeKey] = WorkloadIntent<bool>.CreateSet(manual);
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1837,6 +1844,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             _manualModeOverlay.Remove(safeKey);
             _removedManualModes.Add(safeKey);
             _manualModeIntentOverlay[safeKey] = WorkloadIntent<bool>.Clear;
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1863,6 +1871,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 _removedManualModes.Remove(safeKey);
             }
 
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1870,6 +1879,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             WorkloadParentPriorityKey safeKey = key ?? new WorkloadParentPriorityKey(null, null);
             _manualModeIntentOverlay.Remove(safeKey);
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1878,6 +1888,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             PawnKey safePawn = pawn ?? new PawnKey(null);
             _removedSchedules.Remove(safePawn);
             _scheduleOverlay[safePawn] = schedule ?? new ScheduleKey(-1);
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1886,6 +1897,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             PawnKey safePawn = pawn ?? new PawnKey(null);
             _scheduleOverlay.Remove(safePawn);
             _removedSchedules.Add(safePawn);
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1899,6 +1911,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 WorkloadScheduleTargetKind.ParentWorkType,
                 null);
             _scheduleIntentOverlay[safeKey] = WorkloadIntent<WorkloadSchedulePayload>.CreateSet(payload);
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1912,6 +1925,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 WorkloadScheduleTargetKind.ParentWorkType,
                 null);
             _scheduleIntentOverlay[safeKey] = intent;
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1928,6 +1942,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 WorkloadScheduleTargetKind.ParentWorkType,
                 null);
             _scheduleIntentOverlay.Remove(safeKey);
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1941,6 +1956,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             _specificPriorityIntentOverlay[safeKey.ToTargetKey()] =
                 WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(
                     new WorkloadSpecificPriorityPayload(value.IntegerValue));
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1960,6 +1976,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             _removedSpecificJobOverrides.Add(safeKey);
             _specificPriorityIntentOverlay[safeKey.ToTargetKey()] =
                 WorkloadIntent<WorkloadSpecificPriorityPayload>.Clear;
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1983,6 +2000,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 null,
                 null);
             _specificPriorityIntentOverlay[safeKey] = intent;
+            InvalidateProjectedState();
             return this;
         }
 
@@ -1999,6 +2017,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 null,
                 null);
             _specificPriorityIntentOverlay.Remove(safeKey);
+            InvalidateProjectedState();
             return this;
         }
 
@@ -2007,6 +2026,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadSpecificJobKey safeKey = key ?? new WorkloadSpecificJobKey(null, null, null);
             _removedSpecificJobOrder.Remove(safeKey);
             _specificJobOrderOverlay[safeKey] = order;
+            InvalidateProjectedState();
             return this;
         }
 
@@ -2024,6 +2044,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadSpecificJobKey safeKey = key ?? new WorkloadSpecificJobKey(null, null, null);
             _specificJobOrderOverlay.Remove(safeKey);
             _removedSpecificJobOrder.Add(safeKey);
+            InvalidateProjectedState();
             return this;
         }
 
@@ -2045,6 +2066,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 null,
                 null);
             _workTypeOrderIntentOverlay[safeKey] = intent;
+            InvalidateProjectedState();
             return this;
         }
 
@@ -2060,6 +2082,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 null,
                 null);
             _workTypeOrderIntentOverlay.Remove(safeKey);
+            InvalidateProjectedState();
             return this;
         }
 
@@ -2078,6 +2101,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
             _removedPresentationSettings.Add(safeKey);
             _presentationSettingIntentOverlay[safeKey] =
                 WorkloadIntent<WorkloadSettingValue>.Clear;
+            InvalidateProjectedState();
             return this;
         }
 
@@ -2107,6 +2131,7 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 _removedPresentationSettings.Add(safeKey);
             }
 
+            InvalidateProjectedState();
             return this;
         }
 
@@ -2131,7 +2156,26 @@ namespace Better_Work_Tab.Features.Workloads.V2
             _presentationSettingOverlay.Remove(safeKey);
             _removedPresentationSettings.Add(safeKey);
             _presentationSettingIntentOverlay.Remove(safeKey);
+            InvalidateProjectedState();
             return this;
+        }
+
+        private WorkloadProjectedState GetProjectedState()
+        {
+            if (_hasCachedProjectedState)
+            {
+                return _cachedProjectedState;
+            }
+
+            _cachedProjectedState = BuildProjectedState();
+            _hasCachedProjectedState = true;
+            return _cachedProjectedState;
+        }
+
+        private void InvalidateProjectedState()
+        {
+            _cachedProjectedState = null;
+            _hasCachedProjectedState = false;
         }
 
         private WorkloadProjectedState BuildProjectedState()
