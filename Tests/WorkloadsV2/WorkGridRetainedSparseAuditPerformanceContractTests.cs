@@ -129,6 +129,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 headerCoordinator,
                 "Header pixels are drawn live",
                 "the retained-resource teardown seam must document that headers own no GPU surface");
+            string settingsChanged = MemberBody(
+                headerCoordinator,
+                "public static void NotifyAngledHeadersChanged()");
+            TestAssert.Contains(
+                settingsChanged,
+                "table.SetDirty();",
+                "header presentation changes must invalidate only the active Work table");
+            TestAssert.False(
+                settingsChanged.IndexOf(
+                    "NotifyAllPawnTables_PawnsChanged",
+                    StringComparison.Ordinal) >= 0,
+                "header presentation changes must not refresh every pawn table");
             string preOpen = MemberBody(window, "public override void PreOpen()");
             TestAssert.False(
                 preOpen.IndexOf("HeaderDrawingCoordinator.ResetRetainedFailureLatchesForReopen();", StringComparison.Ordinal) >= 0,
