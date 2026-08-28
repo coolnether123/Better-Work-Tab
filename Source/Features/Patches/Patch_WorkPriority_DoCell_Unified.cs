@@ -117,8 +117,6 @@ namespace Better_Work_Tab.Patches
         private static readonly Dictionary<int, Pawn> _bestPawnCache = new Dictionary<int, Pawn>(64);
         private static readonly Dictionary<int, int> _bestPawnCacheTimestamps = new Dictionary<int, int>(64);
         private static readonly Dictionary<int, Color> _colorCache = new Dictionary<int, Color>(21);
-        private static WorkTabEffectiveStateRevision _bestPawnEffectiveStateRevision;
-        private static bool _hasBestPawnEffectiveStateRevision;
 
         // Layout and cache settings
         private const int SkillCacheFrameValidity = 60;
@@ -276,6 +274,7 @@ namespace Better_Work_Tab.Patches
             if (priorityInput != null &&
                 (priorityInput.type == EventType.MouseDown ||
                  priorityInput.type == EventType.ScrollWheel) &&
+                !(priorityInput.type == EventType.ScrollWheel && priorityInput.shift) &&
                 Mouse.IsOver(rect) &&
                 !WorkPriorityCommandGateway.CanHandleParentPriorityInput(pawn, workType))
             {
@@ -660,17 +659,6 @@ namespace Better_Work_Tab.Patches
 
             int key = (table.GetHashCode() << 16) | workType.shortHash;
             int currentFrame = Time.frameCount;
-            WorkTabEffectiveStateRevision effectiveStateRevision =
-                WorkTabEffectiveStateRuntime.CurrentRevision;
-            if (!_hasBestPawnEffectiveStateRevision ||
-                _bestPawnEffectiveStateRevision != effectiveStateRevision)
-            {
-                _bestPawnCache.Clear();
-                _bestPawnCacheTimestamps.Clear();
-                _bestPawnEffectiveStateRevision = effectiveStateRevision;
-                _hasBestPawnEffectiveStateRevision = true;
-            }
-
             if (_bestPawnCacheTimestamps.TryGetValue(key, out int timestamp))
             {
                 if (currentFrame - timestamp < BestPawnCacheFrameValidity)
@@ -695,7 +683,7 @@ namespace Better_Work_Tab.Patches
                 {
                     bestPawn = p;
                 }
-                else if (IsBetterPawn(p, bestPawn, workType, worker))
+                else if (worker.Compare(p, bestPawn) > 0)
                 {
                     bestPawn = p;
                 }
@@ -704,27 +692,6 @@ namespace Better_Work_Tab.Patches
             _bestPawnCache[key] = bestPawn;
             _bestPawnCacheTimestamps[key] = currentFrame;
             return bestPawn;
-        }
-
-        private static bool IsBetterPawn(
-            Pawn candidate,
-            Pawn bestPawn,
-            WorkTypeDef workType,
-            PawnColumnWorker_WorkPriority worker)
-        {
-            if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
-            {
-                return worker.Compare(candidate, bestPawn) > 0;
-            }
-
-            int candidatePriority = ParentPriorityRead.GetObserved(candidate, workType);
-            int bestPriority = ParentPriorityRead.GetObserved(bestPawn, workType);
-            if (candidatePriority != bestPriority)
-            {
-                return candidatePriority < bestPriority;
-            }
-
-            return worker.Compare(candidate, bestPawn) > 0;
         }
 
         private static Color ColorForSkillLevel(int level)

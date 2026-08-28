@@ -73,6 +73,13 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 scroll,
                 "evt.type != EventType.ScrollWheel",
                 "ordinary unmodified priority-wheel input must remain supported");
+
+            string prefix = MemberBody(parentPriority, "private static bool PrefixProfiled(");
+            int blockedShiftWheel = prefix.IndexOf("priorityInput.shift", StringComparison.Ordinal);
+            int blockedInputConsume = prefix.IndexOf("priorityInput.Use();", StringComparison.Ordinal);
+            TestAssert.True(
+                blockedShiftWheel >= 0 && blockedShiftWheel < blockedInputConsume,
+                "a read-only parent cell must leave Shift-wheel unconsumed for the PawnTable viewport");
         }
 
         private static void SpecificJobPriorityInputLeavesShiftWheelForTheViewport(string specificPriority)
