@@ -50,12 +50,19 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "Headers",
                 "Angled",
                 "AngledHeaderInteraction.cs");
+            string shiftHelper = Read(
+                root,
+                "Source",
+                "Features",
+                "Patches",
+                "ShiftHelper.cs");
 
             RootPriorityInputLeavesShiftWheelForTheViewport(priorityInput, body);
             ParentPriorityFallbackLeavesShiftWheelForTheViewport(parentPriority);
             SpecificJobPriorityInputLeavesShiftWheelForTheViewport(specificPriority);
             ViewportOwnsOnlyBodyShiftWheel(body, viewport);
             AngledHeadersKeepTheirShiftWheelGesture(angledHeaders);
+            RepaintDoesNotRetainAReleasedShiftKey(shiftHelper);
         }
 
         private static void RootPriorityInputLeavesShiftWheelForTheViewport(
@@ -162,6 +169,31 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the header gesture must ignore the horizontal-only platform Shift-wheel encoding");
             TestAssert.Contains(gesture, "HandleShiftClick(worker, table, evt.delta.y < 0f ? 0 : 1, application);",
                 "angled headers must retain their intentional vertical Shift-wheel priority gesture");
+        }
+
+        private static void RepaintDoesNotRetainAReleasedShiftKey(string shiftHelper)
+        {
+            string held = MemberBody(shiftHelper, "public static bool IsHeld");
+            TestAssert.Contains(
+                held,
+                "current.type != EventType.Layout",
+                "layout must use live Unity key state instead of a stale IMGUI modifier");
+            TestAssert.Contains(
+                held,
+                "current.type != EventType.Repaint",
+                "repaint must use live Unity key state instead of retaining Shift from the previous input event");
+            TestAssert.Contains(
+                held,
+                "current.type != EventType.Used",
+                "a consumed input event must not keep Shift active for later drawing in the same pass");
+            TestAssert.Contains(
+                held,
+                "Input.GetKey(KeyCode.LeftShift)",
+                "left Shift must remain live during rendering");
+            TestAssert.Contains(
+                held,
+                "Input.GetKey(KeyCode.RightShift)",
+                "right Shift must remain live during rendering");
         }
 
         private static string Read(string root, params string[] parts)
