@@ -240,6 +240,33 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(cas.TryValidateCompareAndSwap(expectedRevision - 1, expectedFingerprint, out casError),
                 "persistence CAS must reject a stale revision");
 
+            var direct = WorkloadV2PersistenceEnvelope.CreateEmpty();
+            direct.Records = new List<WorkloadV2PersistenceRecord> { recordResult.Value };
+            direct.RefreshPersistenceMetadata(true);
+            int directRevision = direct.PersistenceRevision;
+            direct.CurrentWorkloadId = "direct-current";
+            TestAssert.True(
+                direct.TryAdvanceDirectMutationRevision(out string directError),
+                "a direct repository mutation must advance its persistence metadata");
+            TestAssert.Equal(
+                directRevision + 1,
+                direct.PersistenceRevision,
+                "a direct repository mutation must advance revision exactly once");
+            TestAssert.True(
+                direct.TryValidateCompareAndSwap(
+                    direct.PersistenceRevision,
+                    direct.PersistenceFingerprint,
+                    out directError),
+                "a direct repository mutation must publish its authoritative fingerprint");
+            direct.PersistenceRevision = int.MaxValue;
+            TestAssert.False(
+                direct.TryAdvanceDirectMutationRevision(out directError),
+                "direct repository metadata must fail closed at revision exhaustion");
+            TestAssert.Equal(
+                int.MaxValue,
+                direct.PersistenceRevision,
+                "revision exhaustion must not wrap direct repository metadata");
+
             string beforeCurrentIdFingerprint = cas.ComputeContentFingerprint();
             cas.CurrentWorkloadId = "night-shift";
             TestAssert.False(
