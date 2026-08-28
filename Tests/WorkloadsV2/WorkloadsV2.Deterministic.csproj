@@ -103,6 +103,7 @@
     <Compile Include="GatewayMultiplayerTests.cs" />
     <Compile Include="GatewayLifecycleTests.cs" />
     <Compile Include="BackendTransactionTests.cs" />
+    <Compile Include="WorkloadPerformanceInstrumentationContractTests.cs" />
     <Compile Include="CapturePolicyTests.cs" />
     <Compile Include="PresentationSettingsConsolidationTests.cs" />
     <Compile Include="ChromePresentationCacheTests.cs" />
