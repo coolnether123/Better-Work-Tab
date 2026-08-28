@@ -274,31 +274,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 {
                     GL.LoadPixelMatrix(0f, bounds.width, bounds.height, 0f);
                     GL.Clear(true, true, Color.clear);
-                    GUI.BeginGroup(new Rect(0f, 0f, bounds.width, bounds.height));
-                    try
+                    for (int index = 0; index < cells.Count; index++)
                     {
-                        for (int index = 0; index < cells.Count; index++)
+                        Cell cell = cells[index];
+                        Rect localRect = cell.BoxRect;
+                        localRect.x -= bounds.x;
+                        localRect.y -= bounds.y;
+                        bool drawn = PreparedWorkBoxRenderer.DrawRetained(
+                            localRect,
+                            cell.Visual,
+                            cell.DisplayPriority,
+                            baseColor,
+                            out RetainedWorkBoxDrawFailure cellFailure);
+                        if (!drawn)
                         {
-                            Cell cell = cells[index];
-                            Rect localRect = cell.BoxRect;
-                            localRect.x -= bounds.x;
-                            localRect.y -= bounds.y;
-                            bool drawn = PreparedWorkBoxRenderer.DrawRetained(
-                                localRect,
-                                cell.Visual,
-                                cell.DisplayPriority,
-                                baseColor,
-                                out RetainedWorkBoxDrawFailure cellFailure);
-                            if (!drawn)
-                            {
-                                failure = cellFailure;
-                                return false;
-                            }
+                            failure = cellFailure;
+                            return false;
                         }
-                    }
-                    finally
-                    {
-                        GUI.EndGroup();
                     }
 
                 }
