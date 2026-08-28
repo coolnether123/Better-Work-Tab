@@ -136,38 +136,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             float textWidth = columnWidth - 3f -
                 (worker.def.showIcon ? contentHeight : 0f);
 
-            // PawnColumnWorker_Label performs this exact conditional before
-            // Widgets.Label. Keep it at snapshot time so the live draw still
-            // owns glyph rasterization, while avoiding the old unconditional
-            // custom ellipsis path. Contrast mode intentionally follows BWT's
-            // native override, which strips markup and lets Widgets.Label clip.
-            TaggedString preparedLabel = nativeLabel;
-            if (!contrast)
-            {
-                // The TaggedString -> string conversion is intentional: native
-                // DoCell uses it, and RimWorld's operator strips markup before
-                // measuring. RawText would measure tags that native ignores.
-                // Native DoCell inherits the pawn-table row's small font for
-                // this measurement, then explicitly selects the same font for
-                // drawing. Snapshot capture runs outside that state boundary,
-                // so it must establish and restore the inherited font itself.
-                GameFont previousFont = Text.Font;
-                try
-                {
-                    Text.Font = GameFont.Small;
-                    string nativeLabelForMeasurement = nativeLabel;
-                    if (Text.CalcSize(nativeLabelForMeasurement).x > textWidth)
-                    {
-                        preparedLabel = GenText.Truncate(nativeLabel, textWidth, null);
-                    }
-                }
-                finally
-                {
-                    Text.Font = previousFont;
-                }
-            }
-
-            string resolvedLabel = preparedLabel.Resolve();
+            // Native PawnColumnWorker_Label caches the original TaggedString
+            // after its first width check. Stable repaints therefore draw the
+            // full label and let Widgets.Label clip it to rect3. Preparing an
+            // uncached truncated value here would make the transient ellipsis
+            // permanent and diverge from the visible native result.
+            string resolvedLabel = nativeLabel.Resolve();
             Color baseTextColor = Color.white;
             string richText;
             if (contrast)
@@ -202,11 +176,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return previous;
             }
 
-            // Keep the full resolved label. Widgets.Label owns clipping in the
-            // same destination rectangle as the direct/native path; replacing
-            // text with an ellipsis during capture changes the visible output.
-            // Contrast markup stripping and pawn-name colorization above remain
-            // capture-time presentation transforms.
             string preparedText = richText;
             return new PreparedPawnLabelPresentation(
                 richText,
