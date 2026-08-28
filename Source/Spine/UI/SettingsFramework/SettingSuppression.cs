@@ -37,6 +37,13 @@ namespace Spine.UI.SettingsFramework
         public string ExternalActionTooltip;
 
         /// <summary>
+        /// When true, this suppression also makes descendant settings read-only.
+        /// A consumer can clear this for a disabled grouping row whose children
+        /// remain independently editable.
+        /// </summary>
+        public bool BlocksDescendants = true;
+
+        /// <summary>
         /// Evaluates the condition. A broken consumer predicate is treated as
         /// inactive so it cannot permanently disable a setting.
         /// </summary>

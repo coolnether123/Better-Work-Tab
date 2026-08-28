@@ -1494,7 +1494,7 @@ namespace Spine.UI.SettingsFramework
             foreach (SettingDefinition ancestor in _hierarchy.GetAncestors(setting))
             {
                 SettingSuppression suppression = ancestor.GetActiveSuppression(settingsObject);
-                if (suppression != null)
+                if (suppression != null && suppression.BlocksDescendants)
                 {
                     return suppression;
                 }
