@@ -238,22 +238,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     material);
             }
 
-            if ((visual.Flags & WorkCellVisualFlags.ManualPriorityMode) != 0)
-            {
-                if (displayPriority > WorkPrioritySystem.DisabledPriority)
-                {
-                    Color priorityColor = displayPriority == visual.Priority
-                        ? UnpackColor(visual.PriorityColor)
-                        : WorkPrioritySystem.GetPriorityColor(displayPriority);
-                    priorityColor.a *= baseColor.a;
-                    if (!DrawRetainedPriorityLabel(boxRect, displayPriority, priorityColor))
-                    {
-                        failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
-                        return false;
-                    }
-                }
-            }
-            else if (displayPriority > WorkPrioritySystem.DisabledPriority)
+            // Manual numerals stay on the live IMGUI pass. Font antialiasing
+            // composed into this transparent surface would be alpha-blended a
+            // second time when the surface is presented. The retained surface
+            // still owns the checkbox texture for non-manual cells.
+            if (!HasPriorityLabel(visual, displayPriority) &&
+                displayPriority > WorkPrioritySystem.DisabledPriority)
             {
                 DrawRetainedTexture(boxRect, WidgetsWork.WorkBoxCheckTex, baseColor, material);
             }
@@ -325,32 +315,47 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 material);
         }
 
-        private static bool DrawRetainedPriorityLabel(Rect boxRect, int priority, Color color)
+        internal static bool HasPriorityLabel(
+            WorkBoxVisualState visual,
+            int displayPriority)
         {
-            // Keep the existing direct fallback if the active RimWorld font
-            // resource is unavailable. Under normal conditions the call below
-            // is the exact same native label path used by DrawForeground.
-            if (Text.CurFontStyle?.font == null)
+            return (visual.Flags & WorkCellVisualFlags.Disabled) == 0 &&
+                   (visual.Flags & WorkCellVisualFlags.ManualPriorityMode) != 0 &&
+                   displayPriority > WorkPrioritySystem.DisabledPriority;
+        }
+
+        /// <summary>
+        /// Draws one manual priority numeral on the live screen pass. The caller
+        /// owns the surrounding GUI-state scope when drawing a prepared run;
+        /// keeping this method state-light avoids a capture/restore per cell.
+        /// </summary>
+        internal static void DrawLivePriorityLabel(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            int displayPriority,
+            Color baseColor,
+            float visualAlpha,
+            bool compactText)
+        {
+            if (!HasPriorityLabel(visual, displayPriority))
             {
-                return false;
+                return;
             }
 
-            // Use the same IMGUI label path as the direct renderer. The
-            // retained surface still owns this stable glyph, but its font,
-            // sizing, alignment, and baseline must remain vanilla-identical.
-            Color previousColor = GUI.color;
-            try
+            GameFont font = compactText ? GameFont.Tiny : GameFont.Medium;
+            if (Text.Font != font)
             {
-                GUI.color = color;
-                Widgets.Label(
-                    boxRect.ContractedBy(-PriorityLabelOutset),
-                    priority.ToStringCached());
+                Text.Font = font;
             }
-            finally
-            {
-                GUI.color = previousColor;
-            }
-            return true;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.WordWrap = false;
+            DrawPriorityLabel(
+                boxRect,
+                visual,
+                displayPriority,
+                baseColor,
+                visualAlpha,
+                prepareTextStyle: false);
         }
 
         private static bool DrawCore(
@@ -401,23 +406,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             if ((visual.Flags & WorkCellVisualFlags.ManualPriorityMode) != 0)
             {
-                if (displayPriority > WorkPrioritySystem.DisabledPriority)
+                if (HasPriorityLabel(visual, displayPriority))
                 {
-                    if (prepareTextStyle)
-                    {
-                        Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
-                            ? GameFont.Tiny
-                            : GameFont.Medium;
-                        Text.Anchor = TextAnchor.MiddleCenter;
-                    }
-                    Color color = displayPriority == visual.Priority
-                        ? UnpackColor(visual.PriorityColor)
-                        : WorkPrioritySystem.GetPriorityColor(displayPriority);
-                    color.a *= baseColor.a * visualAlpha;
-                    GUI.color = color;
-                    Widgets.Label(
-                        boxRect.ContractedBy(-PriorityLabelOutset),
-                        displayPriority.ToStringCached());
+                    DrawPriorityLabel(
+                        boxRect,
+                        visual,
+                        displayPriority,
+                        baseColor,
+                        visualAlpha,
+                        prepareTextStyle);
                 }
             }
             else if (displayPriority > WorkPrioritySystem.DisabledPriority)
@@ -430,6 +427,38 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 DrawStaticFeatureOverlays(boxRect, visual.Flags, baseColor.a * visualAlpha);
             }
+        }
+
+        private static void DrawPriorityLabel(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            int displayPriority,
+            Color baseColor,
+            float visualAlpha,
+            bool prepareTextStyle)
+        {
+            if (!HasPriorityLabel(visual, displayPriority))
+            {
+                return;
+            }
+
+            if (prepareTextStyle)
+            {
+                Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
+                    ? GameFont.Tiny
+                    : GameFont.Medium;
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Text.WordWrap = false;
+            }
+
+            Color color = displayPriority == visual.Priority
+                ? UnpackColor(visual.PriorityColor)
+                : WorkPrioritySystem.GetPriorityColor(displayPriority);
+            color.a *= baseColor.a * visualAlpha;
+            GUI.color = color;
+            Widgets.Label(
+                boxRect.ContractedBy(-PriorityLabelOutset),
+                displayPriority.ToStringCached());
         }
 
         private static void DrawBackground(
