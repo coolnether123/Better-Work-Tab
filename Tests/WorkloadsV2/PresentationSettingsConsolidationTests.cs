@@ -645,6 +645,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 TestAssert.Contains(settingWidgets, fragment,
                     "ownership geometry must remain synchronized with neutral numeric widgets through " + fragment);
             }
+            TestAssert.True(
+                Math.Abs(BWTWorkloadPresentationNumericLayout.NumericControlFraction -
+                    0.48f) < 0.001f,
+                "the ownership layout must reserve the same right-hand fraction used by DrawNumericInt");
 
             string banner = MethodBody(router, "internal static void DrawPreviewBannerIfNeeded(");
             int wrap = banner.IndexOf("Text.WordWrap = true;", StringComparison.Ordinal);
@@ -751,12 +755,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 compactMinimum.CanFit &&
                 compactMinimum.NumericInputWidth > 0f,
                 "the compact-label boundary must preserve shared numeric interaction");
-            TestAssert.Equal(
-                BWTWorkloadPresentationNumericLayout.NumericControlWidth,
-                compactMinimum.NumericControlEnd -
-                    (10f + (compactMinimum.NumericInputWidth *
-                        BWTWorkloadPresentationNumericLayout.NumericControlStartFraction)),
-                "the non-overlap calculation must reserve the neutral widget's complete fixed control footprint");
+            float compactControlLaneWidth = compactMinimum.NumericInputWidth *
+                BWTWorkloadPresentationNumericLayout.NumericControlFraction;
+            TestAssert.True(
+                compactControlLaneWidth >=
+                    BWTWorkloadPresentationNumericLayout.NumericControlWidth -
+                    0.001f,
+                "the minimum numeric row must fit DrawNumericInt's full fixed control footprint");
+            TestAssert.True(
+                compactMinimum.NumericControlEnd <= compactMinimum.ActionX -
+                    BWTWorkloadPresentationNumericLayout.OwnershipActionGap +
+                    0.001f,
+                "the shared numeric control lane must end before the workload ownership action");
 
             var roomyCompact = BWTWorkloadPresentationNumericLayout.Create(
                 10f,

@@ -9,9 +9,9 @@ namespace Better_Work_Tab.UI.Settings
     internal static class BWTWorkloadPresentationNumericLayout
     {
         internal const float OwnershipActionGap = 6f;
-        internal const float NumericControlStartFraction = 0.52f;
+        // SettingWidgets.DrawNumericInt owns this 48% right-hand lane.
+        internal const float NumericControlFraction = 0.48f;
         internal const float NumericControlWidth = 98f;
-        internal const float PreferredNumericInputWidth = 48f;
         private const float LayoutPrecisionTolerance = 0.001f;
 
         internal static BWTWorkloadPresentationNumericOwnershipLayout Create(
@@ -32,19 +32,20 @@ namespace Better_Work_Tab.UI.Settings
             float availableNumericInputWidth = Math.Max(
                 0f,
                 actionX - OwnershipActionGap - rowX);
-            float controlLimitedNumericInputWidth = Math.Max(
-                0f,
-                (safeRowWidth - actionWidth - OwnershipActionGap -
-                    NumericControlWidth) / NumericControlStartFraction);
-            float numericInputWidth = Math.Min(
-                availableNumericInputWidth,
-                controlLimitedNumericInputWidth);
-            bool canFit = numericInputWidth >=
-                PreferredNumericInputWidth - LayoutPrecisionTolerance;
+            float numericInputWidth = availableNumericInputWidth;
 
-            float numericControlEnd = rowX +
-                (numericInputWidth * NumericControlStartFraction) +
-                NumericControlWidth;
+            // DrawNumericInt places its controls in rect.RightPart(0.48f),
+            // but the minus, plus, and numeric field have a fixed 98px
+            // footprint.  Reserving only the old 48px input minimum let that
+            // live widget paint through the ownership action on narrow rows.
+            float minimumNumericInputWidth = NumericControlWidth /
+                NumericControlFraction;
+            bool canFit = numericInputWidth >=
+                minimumNumericInputWidth - LayoutPrecisionTolerance;
+
+            // RightPart consumes the remainder of the passed row, so its
+            // actual control lane ends at the numeric row's xMax.
+            float numericControlEnd = rowX + numericInputWidth;
             return new BWTWorkloadPresentationNumericOwnershipLayout(
                 actionX,
                 actionWidth,
@@ -57,8 +58,7 @@ namespace Better_Work_Tab.UI.Settings
         internal static float GetMinimumRowWidth(float actionWidth)
         {
             return Math.Max(0f, actionWidth) + OwnershipActionGap +
-                NumericControlWidth +
-                (PreferredNumericInputWidth * NumericControlStartFraction);
+                (NumericControlWidth / NumericControlFraction);
         }
     }
 
