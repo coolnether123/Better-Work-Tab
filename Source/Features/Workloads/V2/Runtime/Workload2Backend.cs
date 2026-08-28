@@ -723,6 +723,30 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return WorkloadOperationResult<WorkloadSession>.Ok(_previewSession);
         }
 
+        // Parent-priority cells are captured for every editable pawn/work type
+        // when the preview opens. Updating one of those existing values needs
+        // no new baseline, topology, or ownership work, so keep it out of the
+        // generic whole-draft synchronization path.
+        internal WorkloadOperationResult<WorkloadSession> EditPreviewCapturedParentPriority(
+            WorkloadParentPriorityKey key,
+            int priority)
+        {
+            if (_previewSession == null)
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.NotFound);
+            }
+
+            if (!_previewSession.TryEditCapturedParentPriority(key, priority, out WorkloadSession edited))
+            {
+                return WorkloadOperationResult<WorkloadSession>.Fail(
+                    WorkloadDiagnosticCode.InvalidState);
+            }
+
+            _previewSession = edited;
+            return WorkloadOperationResult<WorkloadSession>.Ok(_previewSession);
+        }
+
         internal WorkloadOperationResult<WorkloadSession> ExtendPreviewBaseline(
             WorkloadSession candidate,
             PawnKey pawn)
