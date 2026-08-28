@@ -110,6 +110,7 @@
     <Compile Include="RetainedSurfacePresentationTests.cs" />
     <Compile Include="LayoutHistoryTransactionTests.cs" />
     <Compile Include="PresentationBoundaryTests.cs" />
+    <Compile Include="ExpandBesideOwnershipContractTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -181,7 +181,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            if (!FluffyWorkTabGateway.TryBuildHostedColumnSpecs(
+            if (!BwtExpandBesideColumns.TryBuildColumnSpecs(
                     sourceColumn.Value.Column,
                     workType,
                     out _,
