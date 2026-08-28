@@ -122,7 +122,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Log.Message(
                     "[BWT] Optimized Work-grid renderer '" + failedRendererId + "' stopped during " + context.EventPhase +
                     " at frame " + context.FrameNumber + " for scope " + context.Scope +
-                    ". It was quarantined for the session; vanilla rendering resumes at the next Layout event. " +
+                    ". It was quarantined for the session; vanilla completed the failed event and renderer selection resumes at the next Layout event. " +
                     "Cause: " + exception.Message);
 
                 if (_diagnostics.Enabled)
