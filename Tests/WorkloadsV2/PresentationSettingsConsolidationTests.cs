@@ -26,6 +26,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string registry = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
             string settingIds = Read(root, "Source", "UI", "Settings", "SettingIDs.cs");
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
+            string mainWindow = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
             string previewPort = Read(root, "Source", "UI", "Settings", "WorkTabPresentationPreviewPort.cs");
             string settingWidgets = Read(root, "Source", "Spine", "UI", "SettingsFramework", "SettingWidgets.cs");
             string workloadState = Read(root, "Source", "Features", "Workloads", "V2", "WorkloadState.cs");
@@ -41,7 +42,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             FirstRefreshAndPerFieldFallbackAreBehavioral();
             SetClearAndReleaseAreBehavioral();
             WriterBehaviorIsTransactional();
-            PreviewLifecycleAndFirstRefreshAreGuarded(router, gateway, previewPort);
+            PreviewLifecycleAndFirstRefreshAreGuarded(router, gateway, mainWindow, previewPort);
             CachedFacadeUsesPreparedSnapshot(router);
             PreviewStageableLabelsUseNormalText(router, settingWidgets);
             OwnershipActionGeometryIsBehavioral();
@@ -418,6 +419,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         private static void PreviewLifecycleAndFirstRefreshAreGuarded(
             string router,
             string gateway,
+            string mainWindow,
             string previewPort)
         {
             string refresh = MethodBody(router, "internal static void Refresh()");
@@ -461,6 +463,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string controllerConstructor = MethodBody(
                 gateway,
                 "internal WorkloadPreviewController()");
+            string claimCurrent = MethodBody(
+                gateway,
+                "private void ClaimCurrentOwnership()");
+            string activateWindow = MethodBody(
+                gateway,
+                "internal void ActivateForWindow()");
+            string resetWindow = MethodBody(
+                gateway,
+                "internal void ResetForWindowClose()");
             string synchronize = MethodBody(gateway, "internal bool SynchronizeAfterInput()");
             string acceptDraft = MethodBody(gateway, "private void AcceptDraftReplacement(");
             string rebuild = MethodBody(gateway, "private void RebuildProjection(");
@@ -469,10 +480,26 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "preview start must cross the observed projection boundary");
             TestAssert.False(controllerConstructor.Contains("RegisterPresentationPreviewPort("),
                 "constructing an inactive Work-tab window must not replace the active settings preview port");
+            TestAssert.Contains(controllerConstructor, "Current?.IsActive != true",
+                "constructing an inactive Work-tab window must preserve an active controller owner");
+            TestAssert.False(controllerConstructor.Contains("Current = this"),
+                "constructor code must not unconditionally replace the active controller owner");
+            TestAssert.Contains(claimCurrent, "Current = this",
+                "one explicit ownership boundary must update the shared controller");
+            TestAssert.Contains(activateWindow, "Current?.IsActive != true",
+                "opening a cached window may claim only an unowned or inactive controller slot");
+            TestAssert.Contains(
+                MethodBody(mainWindow, "public override void PreOpen()"),
+                "_workloadPreviewController.ActivateForWindow()",
+                "the real Work-tab open lifecycle must claim an inactive controller slot");
+            TestAssert.Contains(resetWindow, "!ReferenceEquals(Current, this)",
+                "an inactive cached window must not cancel another controller's active preview");
             TestAssert.Contains(open, "RegisterPresentationPreviewPort(this)",
                 "the controller that opens the preview must own the settings preview port");
             TestAssert.True(
                 open.IndexOf("_session = session", StringComparison.Ordinal) <
+                open.IndexOf("ClaimCurrentOwnership()", StringComparison.Ordinal) &&
+                open.IndexOf("ClaimCurrentOwnership()", StringComparison.Ordinal) <
                 open.IndexOf("RegisterPresentationPreviewPort(this)", StringComparison.Ordinal) &&
                 open.IndexOf("RegisterPresentationPreviewPort(this)", StringComparison.Ordinal) <
                 open.IndexOf("RebuildProjection(_session.ProjectedState)", StringComparison.Ordinal),
