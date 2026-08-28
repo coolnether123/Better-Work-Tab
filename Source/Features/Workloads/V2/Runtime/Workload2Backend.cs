@@ -414,28 +414,16 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     WorkloadDiagnosticCode.InvalidState);
             }
 
+            if (template == null)
+            {
+                return WorkloadOperationResult<WorkloadDescriptor>.Fail(
+                    WorkloadDiagnosticCode.InvalidState);
+            }
+
             WorkloadOperationResult ready = RequireMutableStore();
             if (!ready.Succeeded)
             {
                 return WorkloadOperationResult<WorkloadDescriptor>.Fail(ready.Code, ready.Context);
-            }
-
-            WorkloadValidationResult validation = WorkloadValidator.Validate(template);
-            if (validation.HasErrors || validation.IsNewerSchema)
-            {
-                WorkloadValidationIssue issue = validation.Issues.Count > 0
-                    ? validation.Issues[0]
-                    : null;
-                return WorkloadOperationResult<WorkloadDescriptor>.Fail(
-                    validation.IsNewerSchema
-                        ? WorkloadDiagnosticCode.NewerSchema
-                        : WorkloadDiagnosticCode.InvalidState,
-                    new WorkloadDiagnosticContext(
-                        stableId: template?.StableId,
-                        path: issue?.Path,
-                        validationCode: issue?.Code,
-                        expectedVersion: WorkloadSchema.CurrentVersion,
-                        actualVersion: template?.SchemaVersion));
             }
 
             if (WorkloadV2OwnershipResolver.HasUnsupportedLegacyPayload(template))
@@ -3347,7 +3335,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             {
                 store.RefreshDiagnostics();
                 baseline.PersistenceRevision = store.PersistenceRevision;
-                baseline.PersistenceFingerprint = store.ComputeContentFingerprint();
+                // The store publishes this fingerprint whenever its content
+                // changes. Treat that published value as the preview's
+                // optimistic baseline; the commit boundary still recomputes
+                // the document and rejects stale or out-of-band mutations.
+                baseline.PersistenceFingerprint =
+                    string.IsNullOrWhiteSpace(store.PersistenceFingerprint)
+                        ? store.ComputeContentFingerprint()
+                        : store.PersistenceFingerprint;
                 baseline.HasPersistenceBaseline = !store.IsReadOnlyDiagnostic;
             }
 
@@ -4175,7 +4170,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                         WorkloadDiagnosticCode.InvalidState,
                         "The projected V2 workload did not pass effective-state validation.");
                 }
-                RequireValidTemplate(targetTemplate, report);
 
                 if (decisionKind != WorkloadDecisionKind.Apply &&
                     session.SessionExcludedPawnIds.Count > 0)
@@ -4653,35 +4647,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 default:
                     return null;
             }
-        }
-
-        private static void RequireValidTemplate(
-            WorkloadTemplate template,
-            WorkloadV2CommitReport report)
-        {
-            WorkloadValidationResult validation = WorkloadValidator.Validate(template);
-            if (!validation.HasErrors && !validation.IsNewerSchema)
-            {
-                return;
-            }
-
-            if (validation.Issues != null)
-            {
-                for (int i = 0; i < validation.Issues.Count; i++)
-                {
-                    WorkloadValidationIssue issue = validation.Issues[i];
-                    report.Add(
-                        WorkloadV2CommitEntryKind.Fatal,
-                        issue.Code.ToString(),
-                        issue.Path);
-                }
-            }
-
-            Abort(
-                validation.IsNewerSchema
-                    ? WorkloadDiagnosticCode.NewerSchema
-                    : WorkloadDiagnosticCode.InvalidState,
-                "The projected V2 workload failed validation.");
         }
 
         private static WorkloadV2PersistenceRecord FindUniqueRecord(
@@ -5261,7 +5226,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             WorkloadProjectedState state = targetTemplate.ProjectedState ?? WorkloadProjectedState.Empty;
-            WorkloadOwnershipDimensions ownership = targetTemplate.Definition.OwnershipDimensions;
             bool hasSchedules = HasPersistedDimension(state, WorkloadStateDimension.Schedules);
             bool hasSpecificJobs =
                 HasPersistedDimension(state, WorkloadStateDimension.SpecificJobOverrides) ||
@@ -5310,14 +5274,6 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     "Priority mutation authority changed while the workload preview was open; the projected workload was not persisted.");
             }
 
-            // Keep the ownership value referenced here so this persistence
-            // boundary remains explicit when a dimension has no current entry.
-            // ValidateTypedStateForCommit has already checked the live
-            // stageable-settings registry before this runtime pass.
-            if (ownership.Owns(WorkloadStateDimension.PresentationSettings))
-            {
-                ValidateTypedStateForCommit(targetTemplate, baseline, false, report);
-            }
         }
 
         private static bool HasPersistedDimension(
@@ -8098,7 +8054,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             mutation.PreviousRevision = store.PersistenceRevision;
-            mutation.PreviousFingerprint = store.ComputeContentFingerprint();
+            mutation.PreviousFingerprint = mutation.ExpectedFingerprint;
             mutation.PreviousCurrentWorkloadId = store.CurrentWorkloadId;
             if (!store.TryCommitRevision(
                     mutation.ExpectedRevision,
