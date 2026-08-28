@@ -111,6 +111,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PreviewActionsUseVisibleHitRects(header);
             LifecycleRefreshUsesApplicationPublicationReceipt(header, gateway, backend);
             RepositoryLifecycleActionsAvoidPawnTableRecache(header, backend);
+            SelectingTheCurrentWorkloadIsRepositoryNoOp(backend);
             NoChangePublicationDoesNotTriggerFallbackRecache(header, backend);
             MultiplayerNoChangeConfirmationIsLeaseFree(backend);
             PresentationOnlyCommitPublishesApplication(header, backend);
@@ -829,6 +830,30 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 header,
                 "applicationPublication == WorkloadApplicationPublication.None",
                 "the footer must still reserve table-recache fallback for a missing publisher");
+        }
+
+        private static void SelectingTheCurrentWorkloadIsRepositoryNoOp(
+            string backend)
+        {
+            string select = MethodBody(
+                backend,
+                "internal WorkloadOperationResult Select(string workloadId)");
+            int identityCheck = select.IndexOf(
+                "store.CurrentWorkloadId",
+                StringComparison.Ordinal);
+            int assignment = select.IndexOf(
+                "store.CurrentWorkloadId = found.Value.StableId;",
+                StringComparison.Ordinal);
+            int publication = select.IndexOf(
+                "NotifyChanged();",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                identityCheck >= 0 && assignment > identityCheck && publication > assignment,
+                "selecting the already-current workload must return before repository metadata publication");
+            TestAssert.Contains(
+                select,
+                "return WorkloadOperationResult.Ok();",
+                "same-ID selection must remain a successful no-op so preview opening can continue");
         }
 
         private static void PresentationOnlyConfirmationPublishesApplication(

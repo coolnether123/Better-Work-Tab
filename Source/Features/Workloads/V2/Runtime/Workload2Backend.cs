@@ -371,7 +371,15 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 return WorkloadOperationResult.Fail(template.Code, template.Context);
             }
 
-            Store.CurrentWorkloadId = found.Value.StableId;
+            WorkloadV2PersistenceEnvelope store = Store;
+            if (StringComparer.Ordinal.Equals(
+                    store.CurrentWorkloadId,
+                    found.Value.StableId))
+            {
+                return WorkloadOperationResult.Ok();
+            }
+
+            store.CurrentWorkloadId = found.Value.StableId;
             NotifyChanged();
             return WorkloadOperationResult.Ok();
         }
