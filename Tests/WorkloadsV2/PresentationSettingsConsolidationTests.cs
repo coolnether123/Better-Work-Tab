@@ -29,6 +29,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string mainWindow = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
             string previewPort = Read(root, "Source", "UI", "Settings", "WorkTabPresentationPreviewPort.cs");
             string settingWidgets = Read(root, "Source", "Spine", "UI", "SettingsFramework", "SettingWidgets.cs");
+            string settingsTranslations = Read(root, "Languages", "English", "Keyed", "BWT_Settings.xml");
             string workloadState = Read(root, "Source", "Features", "Workloads", "V2", "WorkloadState.cs");
             string chronos = Read(root, "Source", "Mod Support", "Mods", "Chronos Pointer", "ChronosPointerSupport.cs");
             string fluffy = Read(root, "Source", "Mod Support", "Mods", "Fluffy WorkTab", "FluffyWorkTabGateway.cs");
@@ -45,6 +46,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PreviewLifecycleAndFirstRefreshAreGuarded(router, gateway, mainWindow, previewPort);
             CachedFacadeUsesPreparedSnapshot(router);
             PreviewStageableLabelsUseNormalText(router, settingWidgets);
+            PreviewCopyUsesShortVisibleStates(router, registry, settingsTranslations);
             OwnershipActionGeometryIsBehavioral();
             SteadySettingsDrawerPathIsTokenGated(router, Read(
                 root, "Source", "UI", "BetterWorkTabSettingsUI.cs"));
@@ -586,21 +588,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string router,
             string settingWidgets)
         {
-            string decorate = MethodBody(router, "internal static string DecorateLabel(");
-            int stableLabel = decorate.IndexOf(
-                "IsStageablePresentationSetting(definition?.Id)",
-                StringComparison.Ordinal);
-            int ownershipMarker = decorate.IndexOf(
-                "string marker =",
-                StringComparison.Ordinal);
-            TestAssert.True(
-                stableLabel >= 0 && stableLabel < ownershipMarker,
-                "preview stageable labels must be stabilized before ownership markers are built");
-            TestAssert.Contains(
-                decorate.Substring(stableLabel),
-                "return label;",
-                "preview stageable labels must leave ownership/action text to the row control");
-
             string draw = MethodBody(router, "private static bool DrawStageableSettingRow(");
             TestAssert.Contains(
                 draw,
@@ -624,8 +611,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "compact ownership actions must remain clear about their target");
             TestAssert.Contains(
                 draw,
-                "Acquire this allowlisted setting for the active workload preview. The global setting remains unchanged.",
-                "compact ownership labels must retain the complete action tooltip");
+                "Add this setting to the workload preview. Global settings won't change.",
+                "the ownership action tooltip must say where the setting changes");
             TestAssert.Contains(
                 draw,
                 "SettingWidgets.DrawNumericInt(",
@@ -690,6 +677,62 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 TestAssert.Contains(hierarchyVisibility, fragment,
                     "custom presentation parents must preserve child visibility through " + fragment);
             }
+        }
+
+        private static void PreviewCopyUsesShortVisibleStates(
+            string router,
+            string registry,
+            string settingsTranslations)
+        {
+            // These are visible settings-page states. Keep this contract at
+            // the page boundary rather than coupling it to drawer helpers.
+            foreach (string required in new[]
+            {
+                "Select 'Use in workload' to edit a supported display setting.",
+                "Changes to supported display settings apply to this workload. Global settings won't change.",
+                "This workload preview can't be read. Display settings are unavailable.",
+                "Other display settings are hidden.",
+                "Use the global setting in this preview.",
+                "Add this setting to the workload preview. Global settings won't change.",
+                "This setting is unavailable in workload previews."
+            })
+            {
+                TestAssert.Contains(router, required,
+                    "workload presentation settings must retain concise visible copy: " + required);
+            }
+
+            foreach (string removed in new[]
+            {
+                "Preview safety block",
+                "Preview read-only",
+                "Preview changed",
+                "Workload-owned",
+                "global after preview",
+                "BWT-local workload presentation editing allowlist"
+            })
+            {
+                TestAssert.False(router.Contains(removed),
+                    "workload presentation settings must not append obsolete state copy: " + removed);
+            }
+
+            TestAssert.Contains(router,
+                "return IsStageablePresentationSetting(definition?.Id) ||\n                IsPreviewStructuralDefinition(definition);",
+                "unavailable presentation controls must stay hidden instead of receiving a read-only label");
+            TestAssert.Contains(registry,
+                "\"Animate preview controls\"",
+                "the preview control fallback label must stay concise");
+            TestAssert.Contains(registry,
+                "\"Highlight workload changes\"",
+                "the workload inspection fallback label must name the visible result");
+            TestAssert.Contains(settingsTranslations,
+                "<BWT_Settings_WorkloadMode_PreviewBlocked>Close the preview before changing workload mode.</BWT_Settings_WorkloadMode_PreviewBlocked>",
+                "the existing workload-mode localization key must keep concise preview copy");
+            TestAssert.Contains(settingsTranslations,
+                "<BWT_Settings_workloads.previewRevealAnimation>Animate preview controls</BWT_Settings_workloads.previewRevealAnimation>",
+                "the translated preview-control label must match the registry fallback");
+            TestAssert.Contains(settingsTranslations,
+                "<BWT_Settings_workloads.inspectionHighlights>Highlight workload changes</BWT_Settings_workloads.inspectionHighlights>",
+                "the translated inspection label must match the registry fallback");
         }
 
         private static void OwnershipActionGeometryIsBehavioral()
