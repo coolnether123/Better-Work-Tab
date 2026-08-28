@@ -260,6 +260,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             failure = RetainedWorkBoxDrawFailure.None;
             RenderTexture previous = RenderTexture.active;
             Matrix4x4 previousMatrix = GUI.matrix;
+            Color previousColor = GUI.color;
             try
             {
                 RenderTexture.active = surface;
@@ -300,11 +301,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         GUI.EndGroup();
                     }
 
-                    // Graphics.DrawTexture queues commands for the active target.
-                    // Flush once after composing the row so those commands finish
-                    // before restoring the previous target. This rebuild-only cost
-                    // avoids a flush per cell or stable repaint.
-                    GL.Flush();
                 }
                 finally
                 {
@@ -320,6 +316,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             finally
             {
                 GUI.matrix = previousMatrix;
+                GUI.color = previousColor;
                 RenderTexture.active = previous;
             }
         }
