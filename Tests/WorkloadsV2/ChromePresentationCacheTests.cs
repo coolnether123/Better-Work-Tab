@@ -45,13 +45,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             RetainedResourcesFollowWindowLifecycle(chrome, manualCache, window);
             RetainedResourceReleaseContinuesAfterFailures();
             SurfaceReleaseAlwaysAttemptsDestroy(manualCache, retainedRows, retainedHeaders);
-            RetainedSurfacePresentationUsesNeutralTint(manualCache, retainedHeaders);
+            RetainedSurfacePresentationUsesNeutralTint(manualCache, retainedRows, retainedHeaders);
             FooterAndCounterPathsAvoidStableAllocations(chrome, footerCache);
             SelectorAndTooltipCachesRemainBounded(header);
         }
 
         private static void RetainedSurfacePresentationUsesNeutralTint(
             string manualCache,
+            string retainedRows,
             string retainedHeaders)
         {
             string manualDraw = MemberBody(
@@ -67,6 +68,13 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             AssertNeutralTexturePresentation(
                 headerDraw,
                 "retained priority-header surface");
+
+            string rowDraw = MemberBody(
+                retainedRows,
+                "private static void PresentSurface(");
+            AssertNeutralTexturePresentation(
+                rowDraw,
+                "retained work-grid row surface");
         }
 
         private static void AssertNeutralTexturePresentation(

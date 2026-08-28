@@ -16,6 +16,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string surface = Read(root, "Source", "UI", "WorkGrid", "Rendering", "WorkGridDrawingSurface.cs");
             string compatibility = Read(root, "Source", "UI", "WorkGrid", "Compatibility", "WorkGridVanillaCompatibilityPolicy.cs");
             string retained = Read(root, "Source", "UI", "WorkGrid", "Rendering", "RetainedWorkBoxRowCache.cs");
+            string preparedBox = Read(root, "Source", "UI", "WorkGrid", "Rendering", "PreparedWorkBoxRenderer.cs");
             string subWork = Read(root, "Source", "UI", "WorkGiverReassignments", "WorkGiverPriorityBoxRenderer.cs");
             string snapshot = Read(root, "Source", "UI", "WorkGrid", "Snapshots", "WorkGridSnapshot.cs");
             string provider = Read(root, "Source", "UI", "WorkGrid", "Snapshots", "WorkGridSnapshotProvider.cs");
@@ -28,6 +29,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 optimized,
                 compatibility);
             PacketBuilderConsumesPreparedStateOnly(packet);
+            RetainedPriorityGlyphsUseTheNativeLabelPath(preparedBox);
             SparseUpdatesAdvanceOnlyDirtyRows(snapshot, provider);
             RetainedHitsUsePrecomputedBoundsAndFingerprint(retained);
             ResourceOwnershipIsBounded(retained, optimized, window);
@@ -140,6 +142,46 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(packet.IndexOf("SubWorkDrilldownState", StringComparison.Ordinal) >= 0, "packet construction must not query live transition state");
             TestAssert.False(packet.IndexOf("Text.CalcSize", StringComparison.Ordinal) >= 0, "packet construction must not measure labels from ambient GUI state");
             TestAssert.False(packet.IndexOf("Workload", StringComparison.Ordinal) >= 0, "packet construction must not read workload domains");
+        }
+
+        private static void RetainedPriorityGlyphsUseTheNativeLabelPath(string preparedBox)
+        {
+            string retained = MemberBody(
+                preparedBox,
+                "private static bool DrawRetainedPriorityLabel(");
+            TestAssert.Contains(
+                retained,
+                "Widgets.Label(boxRect.ContractedBy(-3f), priority.ToStringCached())",
+                "retained priority glyphs must use the same native label call as direct cells");
+            TestAssert.False(
+                retained.IndexOf("CharacterInfo", StringComparison.Ordinal) >= 0,
+                "retained priority glyphs must not manually reconstruct font metrics");
+            TestAssert.False(
+                retained.IndexOf("GL.QUADS", StringComparison.Ordinal) >= 0,
+                "retained priority glyphs must not use a second custom rasterizer");
+
+            string direct = MemberBody(preparedBox, "private static void DrawForeground(");
+            TestAssert.Contains(
+                direct,
+                "Widgets.Label(boxRect.ContractedBy(-3f), displayPriority.ToStringCached())",
+                "direct and retained priority glyphs must share the vanilla label geometry");
+
+            string stable = MemberBody(preparedBox, "internal static bool DrawRetained(");
+            TestAssert.Contains(
+                stable,
+                "WidgetsWork.WorkBoxOverlay_Warning",
+                "retained cells must keep the authoritative low-skill warning pixel");
+            TestAssert.Contains(
+                stable,
+                "WidgetsWork.WorkBoxOverlay_PreceptWarning",
+                "retained cells must keep the authoritative ideology warning pixel");
+            string dynamic = MemberBody(
+                preparedBox,
+                "internal static void DrawDynamicOverlays(");
+            TestAssert.False(
+                dynamic.IndexOf("WorkBoxOverlay_Warning", StringComparison.Ordinal) >= 0 ||
+                dynamic.IndexOf("WorkBoxOverlay_PreceptWarning", StringComparison.Ordinal) >= 0,
+                "dynamic overlays must not draw a second warning texture over retained cells");
         }
 
         private static void SparseUpdatesAdvanceOnlyDirtyRows(string snapshot, string provider)
