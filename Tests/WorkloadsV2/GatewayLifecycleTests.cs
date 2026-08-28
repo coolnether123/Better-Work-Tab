@@ -110,6 +110,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             WorkloadSelectorUsesOnlyTheWorkloadName(header);
             PreviewActionsUseVisibleHitRects(header);
             LifecycleRefreshUsesApplicationPublicationReceipt(header, gateway, backend);
+            RepositoryLifecycleActionsAvoidPawnTableRecache(header, backend);
             NarrowFooterGeometryIsBounded(header);
             SelectorSpacingIsMeasuredWithoutLeadingReserve(selector);
             SelectorUsesLegacyMinimumAndMeasuredGrowth(header);
@@ -711,6 +712,64 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 backend,
                 "private bool NotifyCommitChanged(LiveMutationTransaction live)",
                 "the backend must return publication ownership to its lifecycle caller");
+        }
+
+        private static void RepositoryLifecycleActionsAvoidPawnTableRecache(
+            string header,
+            string backend)
+        {
+            AssertLifecyclePolicy(
+                header,
+                "preview.CreateWorkload(label, out unusedDescriptor)",
+                "None",
+                "creating a repository record must not recache every pawn table");
+            AssertLifecyclePolicy(
+                header,
+                "preview.RenameWorkload(stableId, label)",
+                "None",
+                "renaming a repository record must not recache every pawn table");
+            AssertLifecyclePolicy(
+                header,
+                "preview.DeleteWorkload(stableId)",
+                "None",
+                "deleting a repository record must not recache every pawn table");
+
+            int notifyStart = backend.IndexOf(
+                "private bool NotifyCommitChanged(LiveMutationTransaction live)",
+                StringComparison.Ordinal);
+            int notifyEnd = backend.IndexOf(
+                "private static bool RollbackPersistence(",
+                notifyStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                notifyStart >= 0 && notifyEnd > notifyStart,
+                "workload commit publication must remain an isolated lifecycle helper");
+            string notifyPath = backend.Substring(notifyStart, notifyEnd - notifyStart);
+            TestAssert.Contains(
+                notifyPath,
+                "notifyPawnTables: false",
+                "persistence-only workload commits must not recache pawn tables");
+        }
+
+        private static void AssertLifecyclePolicy(
+            string source,
+            string actionMarker,
+            string expectedPolicy,
+            string message)
+        {
+            int actionStart = source.IndexOf(actionMarker, StringComparison.Ordinal);
+            int actionEnd = source.IndexOf(
+                ");",
+                actionStart + actionMarker.Length,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                actionStart >= 0 && actionEnd > actionStart,
+                "the expected workload lifecycle action must remain present");
+            string action = source.Substring(actionStart, actionEnd - actionStart);
+            TestAssert.Contains(
+                action,
+                "LifecycleTableRefreshPolicy." + expectedPolicy,
+                message);
         }
 
         private static void WorkloadSelectorUsesOnlyTheWorkloadName(string header)

@@ -1379,14 +1379,18 @@ namespace Better_Work_Tab.UI.Workloads
                             WorkloadDescriptor unusedDescriptor;
                             return preview.CreateWorkload(label, out unusedDescriptor);
                         },
-                        LifecycleTableRefreshPolicy.Always);
+                        // Creating a repository record changes the picker and
+                        // footer label, not the live pawn table.
+                        LifecycleTableRefreshPolicy.None);
                 }
                 else
                 {
                     QueuePreviewLifecycleAction(
                         preview,
                         () => preview.RenameWorkload(stableId, label),
-                        LifecycleTableRefreshPolicy.Always);
+                        // Renaming is repository-only; the preview controller
+                        // owns its close/reopen presentation refresh.
+                        LifecycleTableRefreshPolicy.None);
                 }
 
                 return;
@@ -1431,7 +1435,8 @@ namespace Better_Work_Tab.UI.Workloads
                 QueuePreviewLifecycleAction(
                     preview,
                     () => preview.DeleteWorkload(stableId),
-                    LifecycleTableRefreshPolicy.Always);
+                    // Deleting a saved record does not change live rows.
+                    LifecycleTableRefreshPolicy.None);
                 return;
             }
 
