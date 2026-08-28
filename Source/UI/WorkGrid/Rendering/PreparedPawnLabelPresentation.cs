@@ -112,6 +112,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             AccessTools.Method(typeof(PawnColumnWorker_Label), "GetLabel", new[] { typeof(Pawn) });
         private static readonly Func<PawnColumnWorker_Label, Pawn, TaggedString> GetLabel =
             AccessTools.MethodDelegate<Func<PawnColumnWorker_Label, Pawn, TaggedString>>(GetLabelMethod);
+        private static readonly Func<string, float> MeasureVisibleTextDelegate =
+            MeasureVisibleText;
 
         internal static PreparedPawnLabelPresentation Capture(
             PawnColumnWorker_Label worker,
@@ -123,12 +125,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             bool contrast = PawnColorDatabase.TryGetColor(pawn, out Color background) &&
                 background.a > 0f;
-            TaggedString label = GetLabel(worker, pawn);
+            TaggedString nativeLabel = GetLabel(worker, pawn);
+            string resolvedLabel = nativeLabel.Resolve();
+            bool colorizePawnName = pawn.IsSlave || pawn.IsColonyMech;
+            Color pawnNameColor = !contrast && colorizePawnName
+                ? PawnNameColorUtility.PawnNameColorOf(pawn)
+                : Color.white;
             Color baseTextColor = Color.white;
             string richText;
             if (contrast)
             {
-                richText = label.Resolve().StripTags();
+                richText = PreparedPawnLabelText.StripMarkup(resolvedLabel);
                 baseTextColor = TextColorHelper.GetContrastingTextColor(
                     background,
                     Color.black,
@@ -136,11 +143,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             else
             {
-                if (pawn.IsSlave || pawn.IsColonyMech)
+                if (colorizePawnName)
                 {
-                    label = label.Colorize(PawnNameColorUtility.PawnNameColorOf(pawn));
+                    richText = resolvedLabel.Colorize(pawnNameColor);
                 }
-                richText = label.Resolve();
+                else
+                {
+                    richText = resolvedLabel;
+                }
             }
 
             float maximumHeight = worker.def.groupable
@@ -162,7 +172,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return previous;
             }
 
-            string preparedText = TruncateForPreparedCell(richText, textWidth);
+            // Resolve the native label once, then truncate its visible text
+            // while preserving balanced rich-text tags. Applying the pawn-name
+            // color after truncation avoids resolving a generated TaggedString
+            // and keeps ColoredText's global cache scoped to the native source.
+            string preparedBaseText = TruncateForPreparedCell(
+                resolvedLabel,
+                textWidth);
+            string preparedText = contrast
+                ? PreparedPawnLabelText.StripMarkup(preparedBaseText)
+                : colorizePawnName
+                    ? preparedBaseText.Colorize(pawnNameColor)
+                    : preparedBaseText;
             return new PreparedPawnLabelPresentation(
                 richText,
                 preparedText,
@@ -174,7 +195,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 metricKey);
         }
 
-        private static string TruncateForPreparedCell(string text, float width)
+        private static string TruncateForPreparedCell(string resolvedLabel, float width)
         {
             GameFont previousFont = Text.Font;
             bool previousWrap = Text.WordWrap;
@@ -182,13 +203,21 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 Text.Font = GameFont.Small;
                 Text.WordWrap = false;
-                return Text.CalcSize(text).x > width ? text.Truncate(width) : text;
+                return PreparedPawnLabelText.Truncate(
+                    resolvedLabel,
+                    width,
+                    MeasureVisibleTextDelegate);
             }
             finally
             {
                 Text.Font = previousFont;
                 Text.WordWrap = previousWrap;
             }
+        }
+
+        private static float MeasureVisibleText(string visibleText)
+        {
+            return Text.CalcSize(visibleText).x;
         }
 
         internal static int ComputeSourceSignature(
