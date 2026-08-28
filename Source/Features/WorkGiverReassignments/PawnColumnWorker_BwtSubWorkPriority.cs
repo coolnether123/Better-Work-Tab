@@ -1,16 +1,13 @@
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Features.TimePriority;
-using Better_Work_Tab.Features.WorkGiverReassignments;
 using RimWorld;
 using UnityEngine;
 using Verse;
 
-namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
+namespace Better_Work_Tab.Features.WorkGiverReassignments
 {
     /// <summary>
-    /// BWT-owned work-priority column used by the Fluffy-style expand-beside layout when
-    /// Fluffy Work Tab is not installed. Rendering and input remain in BWT's existing
-    /// sub-work pipeline; this worker supplies vanilla sizing and stable pawn sorting.
+    /// BWT-owned work-priority column for native expand-beside specific-job columns.
     /// </summary>
     public sealed class PawnColumnWorker_BwtSubWorkPriority : PawnColumnWorker_WorkPriority
     {
@@ -31,7 +28,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
 
         public override int Compare(Pawn a, Pawn b)
         {
-            WorkGiverDef workGiver = FluffyWorkTabGateway.TryGetHostedWorkGiver(def);
+            WorkGiverDef workGiver = BwtExpandBesideColumns.TryGetWorkGiver(def);
             if (workGiver == null)
             {
                 return base.Compare(a, b);

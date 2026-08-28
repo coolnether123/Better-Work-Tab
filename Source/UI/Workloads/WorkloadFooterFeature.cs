@@ -33,6 +33,13 @@ namespace Better_Work_Tab.UI.Workloads
             ApplyConfirmation
         }
 
+        private enum LifecycleTableRefreshPolicy
+        {
+            None,
+            Always,
+            WhenApplicationPublicationIsMissing
+        }
+
         private FooterPopoverKind _workloadFooterPopover;
         private string _workloadFooterEditBuffer = string.Empty;
         private string _workloadFooterEditStableId = string.Empty;
@@ -498,13 +505,28 @@ namespace Better_Work_Tab.UI.Workloads
         private void QueuePreviewLifecycleAction(
             WorkloadPreviewController preview,
             Func<bool> action,
-            bool notifyPawnTables)
+            LifecycleTableRefreshPolicy tableRefreshPolicy)
         {
             preview?.QueueLifecycleAction(
-                action,
+                () =>
+                {
+                    preview.ResetLifecycleApplicationPublication();
+                    return action();
+                },
                 succeeded =>
                 {
-                    if (succeeded && notifyPawnTables)
+                    WorkloadApplicationPublication applicationPublication =
+                        preview.ConsumeLifecycleApplicationPublication();
+                    if (!succeeded || tableRefreshPolicy == LifecycleTableRefreshPolicy.None)
+                    {
+                        return;
+                    }
+
+                    // None means the application publisher was unavailable;
+                    // NoChange means the operation proved that no live or
+                    // persisted state changed and needs no table refresh.
+                    if (tableRefreshPolicy == LifecycleTableRefreshPolicy.Always ||
+                        applicationPublication == WorkloadApplicationPublication.None)
                     {
                         MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
                     }
@@ -656,7 +678,7 @@ namespace Better_Work_Tab.UI.Workloads
                             QueuePreviewLifecycleAction(
                                 preview,
                                 BeginWorkloadPreviewSaveAsEditor,
-                                notifyPawnTables: false);
+                                LifecycleTableRefreshPolicy.None);
                         }
                         else if (hoveredAction == PreviewAction.Update &&
                                  preview.CanUpdatePreview)
@@ -664,7 +686,7 @@ namespace Better_Work_Tab.UI.Workloads
                             QueuePreviewLifecycleAction(
                                 preview,
                                 () => preview.UpdatePreview(),
-                                notifyPawnTables: true);
+                                LifecycleTableRefreshPolicy.WhenApplicationPublicationIsMissing);
                         }
                         else if (hoveredAction == PreviewAction.Cancel &&
                                  preview.CanCancelPreview)
@@ -672,7 +694,7 @@ namespace Better_Work_Tab.UI.Workloads
                             QueuePreviewLifecycleAction(
                                 preview,
                                 () => preview.CancelPreview(),
-                                notifyPawnTables: false);
+                                LifecycleTableRefreshPolicy.None);
                         }
                         else if (hoveredAction == PreviewAction.Apply &&
                                  preview.CanApplyPreview)
@@ -680,7 +702,7 @@ namespace Better_Work_Tab.UI.Workloads
                             QueuePreviewLifecycleAction(
                                 preview,
                                 () => preview.ApplyPreview(),
-                                notifyPawnTables: true);
+                                LifecycleTableRefreshPolicy.WhenApplicationPublicationIsMissing);
                         }
                     }
 
@@ -963,7 +985,7 @@ namespace Better_Work_Tab.UI.Workloads
             QueuePreviewLifecycleAction(
                 preview,
                 () => preview.BeginCurrentPreview(),
-                notifyPawnTables: false);
+                LifecycleTableRefreshPolicy.None);
         }
 
         private List<FloatMenuOption> BuildWorkloadPickerOptions()
@@ -1342,7 +1364,7 @@ namespace Better_Work_Tab.UI.Workloads
                 QueuePreviewLifecycleAction(
                     preview,
                     () => preview.ForkPreview(label),
-                    notifyPawnTables: true);
+                    LifecycleTableRefreshPolicy.WhenApplicationPublicationIsMissing);
                 return;
             }
 
@@ -1360,14 +1382,18 @@ namespace Better_Work_Tab.UI.Workloads
                             WorkloadDescriptor unusedDescriptor;
                             return preview.CreateWorkload(label, out unusedDescriptor);
                         },
-                        notifyPawnTables: true);
+                        // Creating a repository record changes the picker and
+                        // footer label, not the live pawn table.
+                        LifecycleTableRefreshPolicy.None);
                 }
                 else
                 {
                     QueuePreviewLifecycleAction(
                         preview,
                         () => preview.RenameWorkload(stableId, label),
-                        notifyPawnTables: true);
+                        // Renaming is repository-only; the preview controller
+                        // owns its close/reopen presentation refresh.
+                        LifecycleTableRefreshPolicy.None);
                 }
 
                 return;
@@ -1412,7 +1438,8 @@ namespace Better_Work_Tab.UI.Workloads
                 QueuePreviewLifecycleAction(
                     preview,
                     () => preview.DeleteWorkload(stableId),
-                    notifyPawnTables: true);
+                    // Deleting a saved record does not change live rows.
+                    LifecycleTableRefreshPolicy.None);
                 return;
             }
 

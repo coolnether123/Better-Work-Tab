@@ -6,7 +6,7 @@ using Verse;
 using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Better_Work_Tab.PawnOrganizer;
-using Better_Work_Tab.UI.Headers;
+using Better_Work_Tab.UI;
 
 namespace Better_Work_Tab.Patches
 {
@@ -82,9 +82,6 @@ namespace Better_Work_Tab.Patches
         }
     }
 
-    /// <summary>
-    /// Clear cache on game load to avoid stale data.
-    /// </summary>
     [HarmonyPatch(typeof(Game), nameof(Game.LoadGame))]
     public static class Patch_Game_LoadGame
     {
@@ -94,15 +91,74 @@ namespace Better_Work_Tab.Patches
         }
     }
 
-    /// <summary>
-    /// Clear cache when game unloads to free memory.
-    /// </summary>
     [HarmonyPatch(typeof(Game), nameof(Game.InitNewGame))]
     public static class Patch_Game_InitNewGame
     {
+        // InitNewGame can replace game data after the old window graph exists.
+        // Surface release must precede that replacement; cache invalidation waits
+        // for the successful initialization postfix below.
+        public static void Prefix()
+        {
+            RetainedWorkTabSurfaceTeardown.Release("new game initialization");
+        }
+
         public static void Postfix()
         {
             GameCacheResetUtility.Reset("new game initialized");
+        }
+    }
+
+    [HarmonyPatch(typeof(Game), nameof(Game.Dispose))]
+    public static class Patch_Game_Dispose
+    {
+        // Dispose is reached before native map/world clearing for loads and the
+        // main-menu route, including failures that never reach LoadGame's postfix.
+        public static void Prefix()
+        {
+            RetainedWorkTabSurfaceTeardown.Release("game disposal");
+        }
+    }
+
+    [HarmonyPatch(typeof(GenScene), nameof(GenScene.GoToMainMenu))]
+    public static class Patch_GenScene_GoToMainMenu
+    {
+        public static void Prefix()
+        {
+            RetainedWorkTabSurfaceTeardown.Release("main menu");
+            GameCacheResetUtility.Reset("main menu");
+        }
+    }
+
+    [HarmonyPatch(
+        typeof(Verse.Profile.MemoryUtility),
+        nameof(Verse.Profile.MemoryUtility.ClearAllMapsAndWorld))]
+    public static class Patch_MemoryUtility_ClearAllMapsAndWorld
+    {
+        // Save & Quit has a direct MainMenuDrawer callback that saves and then
+        // clears the world without entering Game.Dispose or GenScene's normal
+        // transition method. This is the common resource boundary for that
+        // route and the load preamble; both operations are idempotent.
+        public static void Prefix()
+        {
+            RetainedWorkTabSurfaceTeardown.Release("map/world clear");
+            GameCacheResetUtility.Reset("map/world clear");
+        }
+    }
+
+    internal static class RetainedWorkTabSurfaceTeardown
+    {
+        internal static void Release(string reason)
+        {
+            try
+            {
+                MainTabWindow_BetterWork.ReleaseRetainedResourcesForTeardown();
+            }
+            catch (Exception exception)
+            {
+                Log.Warning(
+                    $"[BWT] Skipped retained Work tab surface release before {reason}: " +
+                    $"{exception.GetType().Name}: {exception.Message}");
+            }
         }
     }
 
@@ -113,7 +169,6 @@ namespace Better_Work_Tab.Patches
             BedCachePatchUtility.SafeClear(reason);
             SafeReset(reason, "work-grid snapshot", WorkGridSnapshotProvider.ClearActive);
             SafeReset(reason, "layout geometry", () => PawnOrganizerSystem.Instance?.Layout?.ClearGeometrySnapshot());
-            SafeReset(reason, "retained priority headers", HeaderDrawingCoordinator.ReleaseRetainedResources);
             SafeReset(reason, "invalidation audit", WorkGridInvalidationAudit.Reset);
             SafeReset(reason, "invalidation hub", WorkTabInvalidationHub.ResetForGameTeardown);
         }

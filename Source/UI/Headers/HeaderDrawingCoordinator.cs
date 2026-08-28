@@ -1,4 +1,3 @@
-using System.Reflection;
 using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.PawnOrganizer;
@@ -111,9 +110,6 @@ namespace Better_Work_Tab.UI.Headers
         private static HeaderPresentationPacket _presentationPacket;
         private static long _presentationPacketSettingsRevision = long.MinValue;
         private static int _presentationPacketVersion = int.MinValue;
-        private static readonly RetainedPriorityHeaderCache _retainedPriorityHeaders =
-            new RetainedPriorityHeaderCache();
-
         static HeaderDrawingCoordinator()
         {
             _vanillaSolver = new VanillaHeaderLayoutSolver();
@@ -219,19 +215,6 @@ namespace Better_Work_Tab.UI.Headers
         {
             if (renderer is IHeaderPresentationRenderer preparedRenderer)
             {
-                if (_retainedPriorityHeaders.TryDraw(
-                        preparedRenderer,
-                        layout,
-                        isMouseOver,
-                        isSorted,
-                        headerRect,
-                        column,
-                        showMarker,
-                        in presentation))
-                {
-                    return;
-                }
-
                 preparedRenderer.DrawHeader(
                     layout,
                     isMouseOver,
@@ -339,7 +322,6 @@ namespace Better_Work_Tab.UI.Headers
         /// </summary>
         internal static void PrepareFrame(WorkTabInvalidationVersion current)
         {
-            _retainedPriorityHeaders.PrepareFrame(current);
             bool headerTextChanged = current.HeaderText != _lastInvalidationVersions.HeaderText ||
                                      current.RenderResources != _lastInvalidationVersions.RenderResources;
             bool headerGeometryChanged = current.HeaderGeometry != _lastInvalidationVersions.HeaderGeometry ||
@@ -378,11 +360,9 @@ namespace Better_Work_Tab.UI.Headers
             AngledHeaderCache.ClearGeometryCache();
 
             // Animation is a shared invalidation category: divider row animations also
-            // advance it even though header pixels do not change. Header animations that
-            // can change the pixels (column reorder and sub-work transitions) already use
-            // the direct path while active, and the retained key validates their settled
-            // geometry before reuse. Keep dormant surfaces instead of rebuilding every
-            // header on every unrelated animation frame.
+            // advance it even though header pixels do not change. Header animation and
+            // interaction stay on the normal prepared draw path, so there is no offscreen
+            // header surface to invalidate or rebuild here.
         }
 
         /// <summary>
@@ -400,16 +380,14 @@ namespace Better_Work_Tab.UI.Headers
             _presentationPacketSettingsRevision = long.MinValue;
             _presentationPacketVersion = int.MinValue;
             AngledHeaderCache.ClearCache();
-            _retainedPriorityHeaders.Dispose();
         }
 
         /// <summary>
-        /// Releases GPU-backed header presentation when the Work window closes.
-        /// The next open rebuilds lazily through the same direct-render fallback.
+        /// Compatibility seam for the shared retained-resource teardown sequence.
+        /// Header pixels are drawn live and no longer own GPU-backed surfaces.
         /// </summary>
         internal static void ReleaseRetainedResources()
         {
-            _retainedPriorityHeaders.Dispose();
         }
 
         /// <summary>
@@ -438,19 +416,9 @@ namespace Better_Work_Tab.UI.Headers
                 PawnTable table = WorkTabWindowSessionState.ReadPawnTable(workTab);
                 if (table != null)
                 {
-                    // Mark the table as dirty to force a full recache of heights and widths.
-                    MethodInfo setDirtyMethod = typeof(PawnTable).GetMethod(
-                        "SetDirty",
-                        BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (setDirtyMethod != null)
-                    {
-                        setDirtyMethod.Invoke(table, null);
-                    }
-                    else
-                    {
-                        // Fallback if SetDirty is not found (unlikely in vanilla but safe).
-                        MainTabWindowUtility.NotifyAllPawnTables_PawnsChanged();
-                    }
+                    // Only the active Work table owns this geometry. Mark it
+                    // dirty directly instead of refreshing every pawn table.
+                    table.SetDirty();
                 }
             }
         }

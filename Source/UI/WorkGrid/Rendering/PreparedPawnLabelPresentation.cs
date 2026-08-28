@@ -123,25 +123,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             bool contrast = PawnColorDatabase.TryGetColor(pawn, out Color background) &&
                 background.a > 0f;
-            TaggedString label = GetLabel(worker, pawn);
-            Color baseTextColor = Color.white;
-            string richText;
-            if (contrast)
-            {
-                richText = label.Resolve().StripTags();
-                baseTextColor = TextColorHelper.GetContrastingTextColor(
-                    background,
-                    Color.black,
-                    Color.white);
-            }
-            else
-            {
-                if (pawn.IsSlave || pawn.IsColonyMech)
-                {
-                    label = label.Colorize(PawnNameColorUtility.PawnNameColorOf(pawn));
-                }
-                richText = label.Resolve();
-            }
+            TaggedString nativeLabel = GetLabel(worker, pawn);
+            bool colorizePawnName = pawn.IsSlave || pawn.IsColonyMech;
+            Color pawnNameColor = !contrast && colorizePawnName
+                ? PawnNameColorUtility.PawnNameColorOf(pawn)
+                : Color.white;
 
             float maximumHeight = worker.def.groupable
                 ? float.MaxValue
@@ -149,7 +135,35 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             float contentHeight = Mathf.Min(rowHeight, maximumHeight);
             float textWidth = columnWidth - 3f -
                 (worker.def.showIcon ? contentHeight : 0f);
-            textWidth = Mathf.Max(0f, textWidth);
+
+            // Native PawnColumnWorker_Label caches the original TaggedString
+            // after its first width check. Stable repaints therefore draw the
+            // full label and let Widgets.Label clip it to rect3. Preparing an
+            // uncached truncated value here would make the transient ellipsis
+            // permanent and diverge from the visible native result.
+            string resolvedLabel = nativeLabel.Resolve();
+            Color baseTextColor = Color.white;
+            string richText;
+            if (contrast)
+            {
+                richText = PreparedPawnLabelText.StripMarkup(resolvedLabel);
+                baseTextColor = TextColorHelper.GetContrastingTextColor(
+                    background,
+                    Color.black,
+                    Color.white);
+            }
+            else
+            {
+                if (colorizePawnName)
+                {
+                    richText = resolvedLabel.Colorize(pawnNameColor);
+                }
+                else
+                {
+                    richText = resolvedLabel;
+                }
+            }
+
             if (previous.MatchesSource(
                     richText,
                     baseTextColor,
@@ -162,7 +176,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return previous;
             }
 
-            string preparedText = TruncateForPreparedCell(richText, textWidth);
+            string preparedText = richText;
             return new PreparedPawnLabelPresentation(
                 richText,
                 preparedText,
@@ -172,23 +186,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 contrast,
                 textWidth,
                 metricKey);
-        }
-
-        private static string TruncateForPreparedCell(string text, float width)
-        {
-            GameFont previousFont = Text.Font;
-            bool previousWrap = Text.WordWrap;
-            try
-            {
-                Text.Font = GameFont.Small;
-                Text.WordWrap = false;
-                return Text.CalcSize(text).x > width ? text.Truncate(width) : text;
-            }
-            finally
-            {
-                Text.Font = previousFont;
-                Text.WordWrap = previousWrap;
-            }
         }
 
         internal static int ComputeSourceSignature(

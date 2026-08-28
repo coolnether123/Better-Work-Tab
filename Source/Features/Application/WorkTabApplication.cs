@@ -36,7 +36,16 @@ namespace Better_Work_Tab.Features.Application
         ExecutionOrder = 8,
         SpecificOrder = 16,
         Presentation = 32,
-        ColumnPresentation = 64
+        ColumnPresentation = 64,
+        // WorkPrioritySystem already notifies every player pawn when this
+        // global switch changes. Keeping it distinct from ParentPriority
+        // lets publication retain the broad visual invalidation without
+        // scheduling a second execution-wide notification pass.
+        ManualPriorityMode = 128,
+        // A raised priority maximum changes effective priority calculations,
+        // but it is not a parent-priority target and must not trigger an
+        // external target mirror by itself.
+        PriorityConfiguration = 256
     }
 
     internal readonly struct WorkTabApplicationRevision
@@ -619,7 +628,7 @@ namespace Better_Work_Tab.Features.Application
 
             if (!Enter())
                 return Reject("Another work-tab command is active.");
-            if (!staged.HasChanges)
+            if (!staged.HasRequests)
             {
                 Exit();
                 return Result(WorkTabApplicationOutcome.NoOp);
@@ -636,10 +645,10 @@ namespace Better_Work_Tab.Features.Application
                 {
                     WorkTabApplicationChange recoveryChange = Publish(
                         default,
-                        staged.Dimensions,
+                        receipt.Dimensions,
                         true,
                         true,
-                        affectedTargetChanges: staged.AffectedTargets);
+                        affectedTargetChanges: receipt.AffectedTargets);
                     changedCount = -1;
                     return Result(
                         WorkTabApplicationOutcome.RecoveryRequired,
@@ -670,12 +679,7 @@ namespace Better_Work_Tab.Features.Application
             if (change.IsEmpty)
                 return Result(WorkTabApplicationOutcome.NoOp);
 
-            changedCount = staged.ParentPriorities.Count +
-                staged.ExternalSpecificPriorities.Count +
-                staged.SpecificPriorities.Count +
-                staged.SpecificOrders.Count + staged.Schedules.Count +
-                (staged.ManualPriorityTarget.HasValue ? 1 : 0) +
-                (staged.RequiredPriorityMaximum.HasValue ? 1 : 0);
+            changedCount = receipt.AppliedChangeCount;
             return Result(WorkTabApplicationOutcome.Applied, change);
         }
 
@@ -714,9 +718,6 @@ namespace Better_Work_Tab.Features.Application
                     entry.WorkType,
                     entry.Expected,
                     WorkPrioritySystem.ClampPriority(entry.Desired)));
-                staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
-                    TimePriorityTarget.ForWorkType(entry.Pawn, entry.WorkType),
-                    WorkTabApplicationDimensions.ParentPriority));
             }
 
             IReadOnlyList<WorkTabRuleSpecificPriority> specifics = mutation.SpecificPriorities;
@@ -749,9 +750,6 @@ namespace Better_Work_Tab.Features.Application
                                     ? WorkTabSpecificPriorityState.LocalSet
                                     : WorkTabSpecificPriorityState.LocalInherit,
                                 entry.Initial)));
-                staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
-                    TimePriorityTarget.ForWorkGiver(entry.Pawn, entry.WorkGiver),
-                    WorkTabApplicationDimensions.SpecificPriority));
             }
 
             IReadOnlyList<WorkTabRuleSpecificOrder> orders = mutation.SpecificOrders;
@@ -769,10 +767,6 @@ namespace Better_Work_Tab.Features.Application
                                 ? WorkTabSpecificOrderState.LocalStored
                                 : WorkTabSpecificOrderState.LocalInherit,
                             entry.Expected?.OrderedWorkGiverNames)));
-                staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
-                    TimePriorityTarget.ForWorkType(entry.Pawn, entry.WorkType),
-                    WorkTabApplicationDimensions.SpecificOrder |
-                    WorkTabApplicationDimensions.ExecutionOrder));
             }
 
             IReadOnlyList<WorkTabRuleSchedule> schedules = mutation.Schedules;
@@ -782,9 +776,6 @@ namespace Better_Work_Tab.Features.Application
                 staged.Schedules.Add(new WorkTabStagedSchedule(
                     entry.Expected,
                     entry.Desired));
-                staged.AffectedTargets.Add(new WorkTabApplicationTargetChange(
-                    entry.Target,
-                    WorkTabApplicationDimensions.Schedule));
             }
             return staged;
         }
@@ -876,7 +867,8 @@ namespace Better_Work_Tab.Features.Application
             bool durable,
             bool broadScope,
             bool mirrorExternal,
-            IEnumerable<TimePriorityTarget> affectedTargets = null)
+            IEnumerable<TimePriorityTarget> affectedTargets = null,
+            bool? notifyPawnTables = null)
         {
             if (!IsCurrent)
             {
@@ -893,7 +885,8 @@ namespace Better_Work_Tab.Features.Application
                 broadScope,
                 durable,
                 affectedTargets: affectedTargets,
-                mirrorExternal: mirrorExternal);
+                mirrorExternal: mirrorExternal,
+                notifyPawnTables: notifyPawnTables);
             return Result(WorkTabApplicationOutcome.Applied, change);
         }
 
@@ -1836,7 +1829,7 @@ namespace Better_Work_Tab.Features.Application
                 {
                     return false;
                 }
-                Publish(default, WorkTabApplicationDimensions.ParentPriority, true, true);
+                Publish(default, WorkTabApplicationDimensions.ManualPriorityMode, true, true);
                 return true;
             }
             finally { Exit(); }
@@ -1967,7 +1960,9 @@ namespace Better_Work_Tab.Features.Application
                 effects |= WorkTabApplicationEffects.Persistence;
             if ((dimensions & (WorkTabApplicationDimensions.Schedule |
                                WorkTabApplicationDimensions.ParentPriority |
-                               WorkTabApplicationDimensions.SpecificPriority)) != 0)
+                               WorkTabApplicationDimensions.SpecificPriority |
+                               WorkTabApplicationDimensions.ManualPriorityMode |
+                               WorkTabApplicationDimensions.PriorityConfiguration)) != 0)
                 effects |= WorkTabApplicationEffects.PriorityInvalidation |
                     WorkTabApplicationEffects.PresentationInvalidation;
             if ((dimensions & WorkTabApplicationDimensions.Schedule) != 0)
@@ -1990,13 +1985,24 @@ namespace Better_Work_Tab.Features.Application
             if ((dimensions & WorkTabApplicationDimensions.ColumnPresentation) != 0)
                 effects |= WorkTabApplicationEffects.ColumnLayoutInvalidation |
                     WorkTabApplicationEffects.HeaderGeometryInvalidation;
-            if ((dimensions & (WorkTabApplicationDimensions.Schedule |
-                               WorkTabApplicationDimensions.ParentPriority |
-                               WorkTabApplicationDimensions.SpecificPriority |
-                               WorkTabApplicationDimensions.SpecificOrder |
-                               WorkTabApplicationDimensions.ExecutionOrder)) != 0)
+            bool manualPriorityModeChanged =
+                (dimensions & WorkTabApplicationDimensions.ManualPriorityMode) != 0;
+            WorkTabApplicationDimensions nonManualDimensions = dimensions &
+                ~WorkTabApplicationDimensions.ManualPriorityMode;
+            if ((nonManualDimensions & (WorkTabApplicationDimensions.Schedule |
+                                        WorkTabApplicationDimensions.ParentPriority |
+                                        WorkTabApplicationDimensions.SpecificPriority |
+                                        WorkTabApplicationDimensions.SpecificOrder |
+                                        WorkTabApplicationDimensions.ExecutionOrder |
+                                        WorkTabApplicationDimensions.PriorityConfiguration)) != 0)
                 effects |= WorkTabApplicationEffects.ExecutionRecache;
-            if (notifyPawnTables)
+            // SetManualPriorities performs the vanilla-equivalent pawn
+            // notification loop. A manual-only publication therefore must
+            // not enqueue the separate global table refresh; combined changes
+            // retain it for their non-manual dimensions.
+            if (notifyPawnTables &&
+                (!manualPriorityModeChanged ||
+                 nonManualDimensions != WorkTabApplicationDimensions.None))
                 effects |= WorkTabApplicationEffects.PawnTableRecache;
             if (mirrorExternal &&
                 (forceExternalMirror ||

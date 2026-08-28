@@ -36,6 +36,7 @@
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadDefinition.cs" Link="Production\WorkloadDefinition.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadScope.cs" Link="Production\WorkloadScope.cs" />
     <Compile Include="..\..\Source\UI\WorkGrid\Rendering\WorkGridInspectionSemantics.cs" Link="Production\WorkGridInspectionSemantics.cs" />
+    <Compile Include="..\..\Source\UI\WorkGrid\Rendering\PreparedPawnLabelText.cs" Link="Production\PreparedPawnLabelText.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadMembership.cs" Link="Production\WorkloadMembership.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\Runtime\WorkloadPersistenceReceiptRecovery.cs" Link="Production\WorkloadPersistenceReceiptRecovery.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadState.cs" Link="Production\WorkloadState.cs" />
@@ -62,6 +63,9 @@
     <Compile Include="..\..\Source\UI\Workloads\Projection\LiveWorkTabEffectiveStateProvider.cs" Link="Production\LiveWorkTabEffectiveStateProvider.cs" />
     <Compile Include="..\..\Source\UI\Workloads\Projection\ProjectedWorkTabEffectiveStateProvider.cs" Link="Production\ProjectedWorkTabEffectiveStateProvider.cs" />
     <Compile Include="..\..\Source\UI\Settings\WorkTabPresentationPreviewPort.cs" Link="Production\WorkTabPresentationPreviewPort.cs" />
+    <Compile Include="..\..\Source\UI\Settings\BWTWorkloadPresentationNumericLayout.cs" Link="Production\BWTWorkloadPresentationNumericLayout.cs" />
+    <Compile Include="..\..\Source\UI\RetainedResourceReleaseSequence.cs" Link="Production\RetainedResourceReleaseSequence.cs" />
+    <Compile Include="..\..\Source\UI\RetainedSurfacePresentation.cs" Link="Production\RetainedSurfacePresentation.cs" />
     <!-- The synchronized transaction protocol is linked directly. Multiplayer
          API types are supplied only by the test stub below. -->
     <Compile Include="..\..\Source\Mod Support\Multiplayer\MultiplayerBridge.cs" Link="Production\MultiplayerBridge.cs" />
@@ -69,6 +73,7 @@
   <ItemGroup>
     <Compile Include="Stubs\VerseScribeStubs.cs" />
     <Compile Include="Stubs\MultiplayerApiStubs.cs" />
+    <Compile Include="Stubs\UnityGuiStubs.cs" />
     <Compile Include="TestAssert.cs" />
     <Compile Include="TestSupport.cs" />
     <Compile Include="RuntimeContractStubs.cs" />
@@ -81,6 +86,7 @@
     <Compile Include="PersistenceReceiptRecoveryTests.cs" />
     <Compile Include="InspectionSemanticsTests.cs" />
     <Compile Include="PersistenceTests.cs" />
+    <Compile Include="PersistenceFingerprintParityTests.cs" />
     <Compile Include="WorkloadReadCatalogPerformanceTests.cs" />
     <Compile Include="WorkloadDraftProjectionCacheTests.cs" />
     <Compile Include="WorkloadPawnRosterRevisionContractTests.cs" />
@@ -89,6 +95,8 @@
     <Compile Include="PreparedWorkRowPacketPerformanceContractTests.cs" />
     <Compile Include="WorkGridSnapshotIsolationContractTests.cs" />
     <Compile Include="PreparedPawnLabelPerformanceContractTests.cs" />
+    <Compile Include="PreparedPawnLabelTextTests.cs" />
+    <Compile Include="ShiftWheelViewportInputTests.cs" />
     <Compile Include="DependencyDirectionContractTests.cs" />
     <Compile Include="WorkloadFeatureIsolationContractTests.cs" />
     <Compile Include="LegacyWorldComponentDependencyContractTests.cs" />
@@ -98,11 +106,14 @@
     <Compile Include="GatewayMultiplayerTests.cs" />
     <Compile Include="GatewayLifecycleTests.cs" />
     <Compile Include="BackendTransactionTests.cs" />
+    <Compile Include="WorkloadPerformanceInstrumentationContractTests.cs" />
     <Compile Include="CapturePolicyTests.cs" />
     <Compile Include="PresentationSettingsConsolidationTests.cs" />
     <Compile Include="ChromePresentationCacheTests.cs" />
+    <Compile Include="RetainedSurfacePresentationTests.cs" />
     <Compile Include="LayoutHistoryTransactionTests.cs" />
     <Compile Include="PresentationBoundaryTests.cs" />
+    <Compile Include="ExpandBesideOwnershipContractTests.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
   <ItemGroup>

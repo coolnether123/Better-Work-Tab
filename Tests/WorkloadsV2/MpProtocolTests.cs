@@ -16,6 +16,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             PendingIdempotentReplayRetainsCanonicalTransaction();
             TerminalFailureReplaysUseTheIdempotencyContract();
             ConfirmationBarrierWaitsForEveryPeer();
+            MultiPeerNoChangeCompletesWithoutRollback();
+            MixedNoChangeAndMutationFailsClosed();
             FinalDeliveryRetriesWithoutRollbackAfterCommitDecision();
             DuplicateFinalConfirmationIsAcknowledgedIdempotently();
             TimeoutAndRosterChangeAbortCoherently();
@@ -391,6 +393,183 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the last final delivery report completes the transaction");
         }
 
+        private static void MultiPeerNoChangeCompletesWithoutRollback()
+        {
+            var request = Request(
+                "multi-peer-no-change", "multi-peer-no-change-idempotency", "host",
+                "host", "peer-a", "peer-b");
+            var protocol = BeginHost(request, "host");
+            Prepare(protocol, request, "host", 2L);
+            Prepare(protocol, request, "peer-a", 3L);
+            Prepare(protocol, request, "peer-b", 4L);
+
+            Execute(protocol, request, "host", 5L, true, false, true);
+            Execute(protocol, request, "peer-a", 6L, true, false, true);
+            var executePeerB = Execute(protocol, request, "peer-b", 7L, true, false, true);
+
+            TestAssert.Equal(
+                WorkloadTransactionTransitionAction.SendConfirm,
+                executePeerB.Action,
+                "all no-change execute reports must still cross the synchronized confirmation barrier");
+            TestAssert.True(
+                executePeerB.State.IsNoChange,
+                "the host must retain the all-peer no-change mode for lease-free confirmation");
+            TestAssert.False(
+                executePeerB.State.MutationStarted,
+                "a provisional no-op must never enter the mutation-started rollback path");
+            TestAssert.Equal(
+                0,
+                executePeerB.State.RollbackParticipants.Count,
+                "a provisional no-op must not enroll rollback participants");
+
+            var confirmation = Confirm(protocol, request, "peer-a", 8L, true, false, true);
+            TestAssert.Equal(
+                WorkloadTransactionTransitionAction.None,
+                confirmation.Action,
+                "the first no-change confirmation acknowledgement must remain pending");
+            confirmation = Confirm(protocol, request, "peer-b", 9L, true, false, true);
+            TestAssert.Equal(
+                WorkloadTransactionTransitionAction.SendFinalConfirmation,
+                confirmation.Action,
+                "the final no-change readiness acknowledgement must dispatch final delivery");
+            TestAssert.False(
+                confirmation.State.MutationStarted,
+                "no-change confirmation must not mark the host mutation as started");
+            TestAssert.Equal(
+                0,
+                confirmation.State.RollbackParticipants.Count,
+                "no-change confirmation must remain outside rollback/recovery");
+
+            var duplicateConfirmation = Confirm(protocol, request, "peer-a", 10L, true, false, true);
+            TestAssert.Equal(
+                WorkloadTransactionTransitionDisposition.Ignored,
+                duplicateConfirmation.Disposition,
+                "a replayed no-change confirmation acknowledgement must remain idempotent");
+            TestAssert.Equal(
+                WorkloadTransactionTerminalState.Pending,
+                duplicateConfirmation.State.TerminalState,
+                "a replayed no-change confirmation must not advance the barrier");
+
+            var firstDelivery = FinalDelivery(protocol, request, "peer-a", 11L);
+            TestAssert.Equal(
+                WorkloadTransactionTerminalState.Pending,
+                firstDelivery.State.TerminalState,
+                "one no-change final acknowledgement must not complete early");
+            var duplicateDelivery = FinalDelivery(protocol, request, "peer-a", 12L);
+            TestAssert.Equal(
+                WorkloadTransactionTransitionDisposition.Ignored,
+                duplicateDelivery.Disposition,
+                "a replayed no-change final acknowledgement must remain idempotent");
+            TestAssert.Equal(
+                WorkloadTransactionTerminalState.Pending,
+                duplicateDelivery.State.TerminalState,
+                "a replayed no-change final acknowledgement must not complete early");
+            var delivered = FinalDelivery(protocol, request, "peer-b", 13L);
+            TestAssert.Equal(
+                WorkloadTransactionTerminalState.Succeeded,
+                delivered.State.TerminalState,
+                "all peers must reach terminal success for a synchronized no-op");
+            TestAssert.True(
+                protocol.LastResult != null && protocol.LastResult.Accepted,
+                "a synchronized no-op must publish an accepted terminal result");
+            TestAssert.False(
+                protocol.LastResult.RequiresRollback,
+                "a synchronized no-op terminal result must not require rollback");
+
+            var peerProtocol = new WorkloadTransactionProtocol();
+            peerProtocol.AcceptIncoming(
+                request, 0L, true, WorkloadTransactionAdmissionCode.Accepted, null, "host");
+            peerProtocol.RecordExecuteControl(
+                request.RequestId, request.RequestFingerprint, true, "execute", string.Empty, 2L, true);
+            var peerConfirmation = peerProtocol.RecordConfirmationControl(
+                request.RequestId,
+                request.RequestFingerprint,
+                true,
+                WorkloadTransactionCodes.NoChange,
+                "confirm-no-change",
+                string.Empty,
+                3L,
+                true);
+            TestAssert.True(
+                peerConfirmation.State.IsNoChange,
+                "the peer must retain the host's no-change confirmation mode");
+            TestAssert.False(
+                peerConfirmation.State.MutationStarted,
+                "the peer no-change mode must not imply a mutation or rollback lease");
+            var duplicatePeerConfirmation = peerProtocol.RecordConfirmationControl(
+                request.RequestId,
+                request.RequestFingerprint,
+                true,
+                WorkloadTransactionCodes.NoChange,
+                "confirm-no-change-replay",
+                string.Empty,
+                4L,
+                true);
+            TestAssert.Equal(
+                WorkloadTransactionTransitionDisposition.Ignored,
+                duplicatePeerConfirmation.Disposition,
+                "a replayed no-change confirmation control must remain idempotent");
+
+            var peerFinal = peerProtocol.RecordFinalConfirmation(
+                request.RequestId,
+                request.RequestFingerprint,
+                true,
+                WorkloadTransactionCodes.NoChange,
+                "confirmed-no-change",
+                4L,
+                true);
+            TestAssert.Equal(
+                WorkloadTransactionTerminalState.Succeeded,
+                peerFinal.State.TerminalState,
+                "a peer must accept the lease-free final no-change decision");
+            var duplicatePeerFinal = peerProtocol.RecordFinalConfirmation(
+                request.RequestId,
+                request.RequestFingerprint,
+                true,
+                WorkloadTransactionCodes.NoChange,
+                "confirmed-no-change-replay",
+                5L,
+                true);
+            TestAssert.Equal(
+                WorkloadTransactionTransitionAction.SendFinalConfirmationAcknowledgement,
+                duplicatePeerFinal.Action,
+                "a replayed no-change final control must be acknowledged idempotently");
+        }
+
+        private static void MixedNoChangeAndMutationFailsClosed()
+        {
+            var request = Request(
+                "mixed-no-change", "mixed-no-change-idempotency", "host",
+                "host", "peer-a", "peer-b");
+            var protocol = BeginHost(request, "host");
+            Prepare(protocol, request, "host", 2L);
+            Prepare(protocol, request, "peer-a", 3L);
+            Prepare(protocol, request, "peer-b", 4L);
+
+            Execute(protocol, request, "host", 5L, true, false, true);
+            Execute(protocol, request, "peer-a", 6L, true, false);
+            var mixed = Execute(protocol, request, "peer-b", 7L, true, false, true);
+
+            TestAssert.Equal(
+                WorkloadTransactionTransitionAction.SendAbort,
+                mixed.Action,
+                "mixed no-change and mutation reports must abort before confirmation");
+            TestAssert.Equal(
+                WorkloadTransactionTerminalState.RollbackRequired,
+                mixed.State.TerminalState,
+                "a mixed report must fail closed through rollback/recovery");
+            TestAssert.True(
+                mixed.State.MutationStarted,
+                "a mixed report containing a real mutation must retain mutation ownership");
+            TestAssert.Equal(
+                "execute-mode-mismatch",
+                mixed.Code,
+                "mixed mode must expose a stable fail-closed diagnostic");
+            TestAssert.True(
+                mixed.State.RollbackParticipants.Count > 0,
+                "a mixed report must retain rollback participants for the real provisional write");
+        }
+
         private static void FinalDeliveryRetriesWithoutRollbackAfterCommitDecision()
         {
             var request = Request(
@@ -719,14 +898,19 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string participant,
             long sequence,
             bool accepted,
-            bool requiresRollback)
+            bool requiresRollback,
+            bool noChange = false)
         {
             return protocol.RecordExecuteResult(
                 request.RequestId,
                 request.RequestFingerprint,
                 participant,
                 accepted,
-                accepted ? "executed" : "execution-failed",
+                accepted
+                    ? noChange
+                        ? WorkloadTransactionCodes.NoChange
+                        : "executed"
+                    : "execution-failed",
                 accepted ? string.Empty : "Execution failed after retaining a rollback lease.",
                 "execute-report",
                 sequence,
@@ -740,14 +924,19 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string participant,
             long sequence,
             bool accepted,
-            bool requiresRollback)
+            bool requiresRollback,
+            bool noChange = false)
         {
             return protocol.RecordConfirmationAcknowledgement(
                 request.RequestId,
                 request.RequestFingerprint,
                 participant,
                 accepted,
-                accepted ? "confirmation-ready" : "confirmation-rejected",
+                accepted
+                    ? noChange
+                        ? WorkloadTransactionCodes.NoChange
+                        : "confirmation-ready"
+                    : "confirmation-rejected",
                 string.Empty,
                 "confirmation-report",
                 sequence,

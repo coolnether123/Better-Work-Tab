@@ -253,7 +253,7 @@ namespace Better_Work_Tab.UI.Settings
                             out string transitionReason))
                     {
                         report = string.IsNullOrEmpty(transitionReason)
-                            ? "The workload mode could not be changed."
+                            ? "Couldn't change workload mode."
                             : transitionReason;
                         return false;
                     }

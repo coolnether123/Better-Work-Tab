@@ -12,6 +12,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             ParentPriorityReadPolicyKeepsTruthAndIdentity();
             LiveFallbackCaptureKeepsResolvedValuesStable();
+            CapturedParentPriorityAdvanceKeepsGenericReconciliation();
             var pawn = TestSupport.Pawn("p1");
             var workType = TestSupport.WorkType("PlantWork");
             var workGiver = TestSupport.WorkGiver("PlantCut");
@@ -242,6 +243,59 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "a captured live fallback must not follow a later live callback change for the same target");
             TestAssert.Equal(revision, ((IWorkTabEffectiveStateProvider)captured).RevisionToken,
                 "the captured live fallback must retain the view revision token");
+        }
+
+        private static void CapturedParentPriorityAdvanceKeepsGenericReconciliation()
+        {
+            PawnKey pawn = TestSupport.Pawn("p1");
+            WorkTypeKey workType = TestSupport.WorkType("Crafting");
+            var parent = new WorkloadParentPriorityKey(pawn, workType);
+            var initial = new WorkloadProjectedState(
+                parentPriorities: new[] { new WorkloadParentPriorityEntry(parent, 3) });
+            var draft = new WorkloadDraft(initial);
+            var projection = new ProjectedWorkTabEffectiveStateProvider(
+                draft,
+                ownedDimensions: WorkloadOwnershipDimensions.All,
+                scope: WorkloadScope.Explicit(new[] { "p1" }),
+                editablePawnIds: new[] { pawn });
+
+            long revision = projection.ProjectionRevision;
+            bool captured = initial.TrySetCapturedParentPriority(
+                parent,
+                4,
+                out WorkloadProjectedState capturedParentState,
+                out _);
+            TestAssert.True(captured,
+                "the test must create an authoritative captured parent state outside the generic draft materializer");
+
+            draft.SetParentPriority(parent, 4);
+            WorkloadProjectedState materializedDraftState = draft.ProjectedState;
+            TestAssert.False(ReferenceEquals(capturedParentState, materializedDraftState),
+                "the generic draft materializer must produce a distinct state from the authoritative captured parent update");
+            projection.InvalidateDraft();
+            TestAssert.False(
+                projection.TryPublishCapturedParentPriority(
+                    capturedParentState,
+                    projection.ProjectionRevision + 1L),
+                "a captured parent publish must reject a mismatched provider revision");
+            TestAssert.True(
+                projection.TryPublishCapturedParentPriority(
+                    capturedParentState,
+                    projection.ProjectionRevision),
+                "a captured parent publish must accept the exact invalidated draft revision");
+
+            TestAssert.Equal(revision + 1L, projection.ProjectionRevision,
+                "a captured parent edit must publish exactly one projected provider revision");
+            TestAssert.True(ReferenceEquals(capturedParentState, projection.ProjectedState),
+                "the next provider read must use the captured parent state without materializing the generic draft");
+
+            draft.SetPresentationSetting("ui.angled", WorkloadScalarValue.FromBoolean(true));
+            projection.InvalidateDraft();
+            WorkloadProjectedState reconciled = projection.ProjectedState;
+            TestAssert.Equal(4, reconciled.ParentPriorities[0].Priority,
+                "a later generic preview edit must retain the captured parent edit");
+            TestAssert.True(reconciled.PresentationSettings[0].Value.BooleanValue,
+                "a later generic preview edit must still trigger normal full reconciliation");
         }
 
         private static void ParentPriorityReadPolicyKeepsTruthAndIdentity()

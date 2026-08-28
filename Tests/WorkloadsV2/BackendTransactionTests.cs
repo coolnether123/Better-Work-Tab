@@ -154,6 +154,25 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 backend,
                 "runtimePlan.HasLiveMutations && executionContext?.ValidateOnly != true",
                 "ValidateOnly must never call ApplyLive");
+            string revalidation = Slice(
+                backend,
+                "private static void RevalidateRuntimeBaselines(",
+                "private static void RevalidateParentBaseline(");
+            TestAssert.Contains(
+                revalidation,
+                "RuntimeContext runtime,",
+                "revalidation must consume the caller-owned preflight catalog instead of rebuilding it");
+            TestAssert.False(
+                revalidation.IndexOf("BuildRuntimeContext(", StringComparison.Ordinal) >= 0,
+                "revalidation must not repeat the full pawn and definition catalog scan before a write");
+            string applyLive = Slice(
+                backend,
+                "private void ApplyLive(",
+                "private static void CompleteLiveMutation(");
+            TestAssert.Contains(
+                applyLive,
+                "BuildRuntimeContext(targetTemplate, report)",
+                "the live writer must retain its own fresh catalog capture immediately before mutation");
             TestAssert.Contains(
                 backend,
                 "WorkTabMutationAuthorization.TryCreate(",
@@ -217,6 +236,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 manager,
                 "data.SyncVersion = unchecked(previousRevision + 1);",
                 "the batch must publish one canonical revision for all specific-job dimensions");
+            TestAssert.Contains(
+                manager,
+                "bool entryChanged;",
+                "specific-job publication must track each writer-confirmed entry");
+            TestAssert.Contains(
+                manager,
+                "changedTargets.Add(new WorkTabApplicationTargetChange(",
+                "specific-job publication must return neutral effective targets");
+            TestAssert.Contains(
+                staged,
+                "_specificRollback.ChangedDimensions",
+                "the application receipt must publish only dimensions returned by the batch writer");
             TestAssert.Contains(
                 manager,
                 "TryRestoreSpecificJobBatch(",
@@ -384,6 +415,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 backend,
                 "recoveryRequired: true",
                 "post-write rollback failure must preserve a recovery lease for the protocol worker");
+            TestAssert.Contains(
+                backend,
+                "if (_state == LeaseState.Confirmed)",
+                "duplicate confirmation must be recognized as an already terminal lease");
+            TestAssert.Contains(
+                backend,
+                "bool hasRetainedChanges = (live != null && live.HasChanges) ||",
+                "provisional leases must be created only for retained live or persistence changes");
         }
 
         private static void TemplateWritesUseTheSameTransactionBoundary(string backend)

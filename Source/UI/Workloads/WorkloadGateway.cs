@@ -13,6 +13,7 @@ using Better_Work_Tab.Mod_Support.Multiplayer.Features.Workloads;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Layout;
 using Better_Work_Tab.UI.WorkGrid.Projection;
 using Better_Work_Tab.UI.Workloads.Projection;
@@ -375,6 +376,17 @@ namespace Better_Work_Tab.UI.Workloads
                 () => V2Unavailable<WorkloadSession>());
         }
 
+        internal static WorkloadOperationResult<WorkloadSession>
+            EditV2PreviewCapturedParentPriority(
+                WorkloadParentPriorityKey key,
+                int priority)
+        {
+            return DispatchV2(
+                modern => modern.EditPreviewCapturedParentPriority(key, priority),
+                NoCurrentGame<WorkloadSession>,
+                () => V2Unavailable<WorkloadSession>());
+        }
+
         internal static WorkloadOperationResult<WorkloadSession> SetV2PreviewState(
             WorkloadProjectedState projectedState)
         {
@@ -689,6 +701,8 @@ namespace Better_Work_Tab.UI.Workloads
 
         private bool _inspectionActive;
         private string _lastMessage = string.Empty;
+        private WorkloadApplicationPublication _lifecycleApplicationPublication =
+            WorkloadApplicationPublication.None;
 
         private enum WorkloadInspectionContext
         {
@@ -756,21 +770,19 @@ namespace Better_Work_Tab.UI.Workloads
         {
             _liveAdapter = new BwtLiveWorkTabEffectiveStateAdapter();
             _liveProvider = _liveAdapter.CreateProvider("bwt.live.workload-preview");
-            if (Current != null)
-            {
-                Workload2Backend.MultiplayerCommitStatusChanged -=
-                    Current.OnMultiplayerCommitStatusPublished;
-            }
-
-            Workload2Backend.MultiplayerCommitStatusChanged +=
-                OnMultiplayerCommitStatusPublished;
             WorkloadSurfaceCoordinator.RegisterPreviewState(
-                () => IsActive,
-                message => SetMessage(message));
-            BWTWorkloadSettingsOwnershipPolicy.RegisterPresentationPreviewPort(this);
+                () => Current?.IsActive == true,
+                message => Current?.SetMessage(message));
             WorkTabEffectiveStateRuntime.RegisterPreviewScopePusher(
                 () => Current?.PushEffectiveStateScope());
-            Current = this;
+
+            // RimWorld may construct a replacement Work-tab window without opening it.
+            // Construction may supply the first controller, but it must never displace a
+            // controller that still owns an active preview session.
+            if (Current?.IsActive != true)
+            {
+                ClaimCurrentOwnership();
+            }
         }
 
         private static string T(string key)
@@ -779,6 +791,36 @@ namespace Better_Work_Tab.UI.Workloads
         }
 
         internal static WorkloadPreviewController Current { get; private set; }
+
+        /// <summary>
+        /// Makes this controller the UI owner when its Work-tab window actually opens.
+        /// An already-active preview remains authoritative until that session ends.
+        /// </summary>
+        internal void ActivateForWindow()
+        {
+            if (ReferenceEquals(Current, this) || Current?.IsActive != true)
+            {
+                ClaimCurrentOwnership();
+            }
+        }
+
+        private void ClaimCurrentOwnership()
+        {
+            if (ReferenceEquals(Current, this))
+            {
+                return;
+            }
+
+            if (Current != null)
+            {
+                Workload2Backend.MultiplayerCommitStatusChanged -=
+                    Current.OnMultiplayerCommitStatusPublished;
+            }
+
+            Current = this;
+            Workload2Backend.MultiplayerCommitStatusChanged +=
+                OnMultiplayerCommitStatusPublished;
+        }
 
         internal static bool IsInspectionActiveForCurrentTab =>
             Current?.IsInspectionActive == true;
@@ -1839,8 +1881,27 @@ namespace Better_Work_Tab.UI.Workloads
             int priority)
         {
             string reason = null;
-            if (!IsActive || _parentPriorityProjection == null ||
-                !_parentPriorityProjection.TrySet(pawn, workType, priority, out reason))
+            if (!IsActive || _parentPriorityProjection == null)
+            {
+                return false;
+            }
+
+            // An input owner can stage another projected change immediately
+            // before this parent edit. Bring the session forward first so the
+            // narrow parent replacement never overwrites that newer state.
+            if (_projectedProvider.ProjectionRevision !=
+                    _synchronizedProjectedProviderRevision &&
+                !SynchronizeAfterInput())
+            {
+                return false;
+            }
+
+            if (!_parentPriorityProjection.TrySet(
+                    pawn,
+                    workType,
+                    priority,
+                    out WorkloadParentPriorityKey key,
+                    out reason))
             {
                 if (!string.IsNullOrEmpty(reason))
                 {
@@ -1850,11 +1911,61 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
-            // The generic provider still owns the remaining draft dimensions
-            // and session synchronization. Tell it about this boundary-owned
-            // draft mutation without retaining a second parent index there.
+            WorkloadSession previous = _session;
+            WorkloadOperationResult<WorkloadSession> result =
+                WorkloadGateway.EditV2PreviewCapturedParentPriority(key, priority);
             _projectedProvider.InvalidateDraft();
+            long providerRevision = _projectedProvider.ProjectionRevision;
+            if (result.Succeeded && result.Value != null &&
+                _projectedProvider.TryPublishCapturedParentPriority(
+                    result.Value.ProjectedState,
+                    providerRevision))
+            {
+                AcceptCapturedParentPriorityReplacement(
+                    result.Value,
+                    previous,
+                    providerRevision);
+            }
+            else
+            {
+                // The generic provider owns all non-parent edits and unusual
+                // legacy targets. It also recovers if the typed publish could
+                // not prove it observed this exact draft revision.
+                if (!SynchronizeAfterInput())
+                {
+                    return false;
+                }
+            }
+
+            WorkTabInvalidationHub.InvalidatePriority(pawn.thingIDNumber, workType.shortHash);
             return true;
+        }
+
+        /// <summary>
+        /// The captured-parent route is valid only when the target was present
+        /// in the preview's captured state. It advances the authoritative
+        /// session without making the renderer materialize unrelated draft
+        /// dimensions. Other targets keep the generic compatibility path.
+        /// </summary>
+        private void AcceptCapturedParentPriorityReplacement(
+            WorkloadSession accepted,
+            WorkloadSession previous,
+            long providerRevision)
+        {
+            if (!ReferenceEquals(previous, accepted))
+            {
+                _draftHistory.Record(new DraftTransition(
+                    previous.ProjectedState,
+                    accepted.ProjectedState));
+                _session = accepted;
+                BWTWorkloadSettingsOwnershipPolicy.ObservePreviewIdentity(
+                    _session.PreviewStamp);
+                ResetCompletedMultiplayerAttemptIfPayloadChanged();
+            }
+
+            _parentPriorityProjection.ConfirmDraftRevision(providerRevision);
+            _synchronizedProjectedProviderRevision = providerRevision;
+            ClearInspectionIndex();
         }
 
         internal void QueueLifecycleAction(
@@ -1867,6 +1978,25 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             _queuedLifecycleActions.Add(new QueuedLifecycleAction(action, completed));
+        }
+
+        internal void ResetLifecycleApplicationPublication()
+        {
+            _lifecycleApplicationPublication = WorkloadApplicationPublication.None;
+        }
+
+        internal void RecordLifecycleApplicationPublication(
+            WorkloadApplicationPublication publication)
+        {
+            _lifecycleApplicationPublication = publication;
+        }
+
+        internal WorkloadApplicationPublication ConsumeLifecycleApplicationPublication()
+        {
+            WorkloadApplicationPublication publication =
+                _lifecycleApplicationPublication;
+            _lifecycleApplicationPublication = WorkloadApplicationPublication.None;
+            return publication;
         }
 
         internal void FlushQueuedLifecycleActions()
@@ -2396,6 +2526,14 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 SetMessage(MultiplayerStatusExplanation);
             }
+            else
+            {
+                // The protocol owns the eventual application publication. Do
+                // not let the footer emit a speculative table refresh while
+                // the request is pending confirmation.
+                RecordLifecycleApplicationPublication(
+                    WorkloadApplicationPublication.Pending);
+            }
 
             return accepted;
         }
@@ -2475,6 +2613,7 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal bool ApplyPreview()
         {
+            ResetLifecycleApplicationPublication();
             if (!IsActive)
             {
                 SetMessage(T("BWT_Workload_NoActivePreview"));
@@ -2514,6 +2653,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
+            RecordLifecycleApplicationPublication(result.ApplicationPublication);
             ClearLocalSession();
             SetMessage(WorkloadPresentationResolver.Resolve(result));
             return true;
@@ -2552,6 +2692,7 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal bool UpdatePreview()
         {
+            ResetLifecycleApplicationPublication();
             if (!IsActive)
             {
                 SetMessage(T("BWT_Workload_NoActivePreview"));
@@ -2600,10 +2741,11 @@ namespace Better_Work_Tab.UI.Workloads
             WorkloadV2CommitResult result = WorkloadGateway.CommitV2Update();
             if (!result.Succeeded)
             {
-            SetMessage(WorkloadPresentationResolver.Resolve(result));
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
+            RecordLifecycleApplicationPublication(result.ApplicationPublication);
             if (!AdoptRebasedPreview(result))
             {
                 return false;
@@ -2615,6 +2757,7 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal bool ForkPreview(string label)
         {
+            ResetLifecycleApplicationPublication();
             if (!IsActive)
             {
                 SetMessage(T("BWT_Workload_NoActivePreviewForSaveAs"));
@@ -2655,6 +2798,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
+            RecordLifecycleApplicationPublication(result.ApplicationPublication);
             if (!AdoptRebasedPreview(result))
             {
                 return false;
@@ -2666,6 +2810,15 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal void ResetForWindowClose()
         {
+            // Closing an inactive cached window must not cancel the preview owned by
+            // another Work-tab instance.
+            if (!ReferenceEquals(Current, this))
+            {
+                _inspectionActive = false;
+                _queuedLifecycleActions.Clear();
+                return;
+            }
+
             if (IsMultiplayerCommitInFlight)
             {
                 SetMessage(MultiplayerStatusExplanation);
@@ -3239,11 +3392,18 @@ namespace Better_Work_Tab.UI.Workloads
                 _draftHistory.Clear();
                 _canceledDraft = null;
             }
-            WorkloadSurfaceCoordinator.OpenPreview();
             ClearMultiplayerAttempt();
             _previewRecoveryBlocked = false;
             _session = session;
             _boundComponent = WorkloadWorldStates.Current;
+            ClaimCurrentOwnership();
+            WorkloadSurfaceCoordinator.OpenPreview();
+
+            // RimWorld may construct an inactive Work-tab window while another
+            // window still owns the active preview. Bind settings to the
+            // controller that actually opened the session, not to whichever
+            // controller happened to be constructed most recently.
+            BWTWorkloadSettingsOwnershipPolicy.RegisterPresentationPreviewPort(this);
             RebuildProjection(_session.ProjectedState);
             ColumnSelectionManager.Clear();
             BWTWorkTabTutorial.NotifyWorkloadPresentationOpened();

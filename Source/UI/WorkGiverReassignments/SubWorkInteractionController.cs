@@ -241,11 +241,6 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return true;
             }
 
-            if (!SubWorkDrilldownState.IsActive)
-            {
-                return false;
-            }
-
             if (layout == null)
             {
                 return false;

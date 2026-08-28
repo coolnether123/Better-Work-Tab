@@ -516,13 +516,18 @@ namespace Better_Work_Tab.Features.Workloads.V2
             WorkloadRuntimeBaseline runtimeBaseline,
             string previewSessionId = null,
             long sessionRevision = 1L,
-            long membershipRevision = 1L)
+            long membershipRevision = 1L,
+            ProjectedStatePresenceIndex knownProjectedPresence = null,
+            bool projectedStateIsNormalized = false)
         {
             SourceTemplate = sourceTemplate ?? WorkloadTemplate.Empty;
             TemplateBaselineState = templateBaselineState ?? WorkloadProjectedState.Empty;
             LiveBaselineState = liveBaselineState ?? TemplateBaselineState;
-            ProjectedState = NormalizeState(SourceTemplate, projectedState ?? WorkloadProjectedState.Empty);
-            _projectedPresence = new ProjectedStatePresenceIndex(ProjectedState);
+            ProjectedState = projectedStateIsNormalized
+                ? projectedState ?? WorkloadProjectedState.Empty
+                : NormalizeState(SourceTemplate, projectedState ?? WorkloadProjectedState.Empty);
+            _projectedPresence = knownProjectedPresence ??
+                new ProjectedStatePresenceIndex(ProjectedState);
             Status = status;
             _validationContext = validationContext ?? WorkloadValidationContext.Default;
             SourceIdentity = sourceIdentity ?? string.Empty;
@@ -774,6 +779,50 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             if (IsTerminal) return this;
             return NewSession(projectedState ?? WorkloadProjectedState.Empty, WorkloadSessionStatus.Editing);
+        }
+
+        /// <summary>
+        /// Advances an open preview after one parent-priority edit. The target
+        /// must already exist in the captured parent values, so it cannot add
+        /// scope or membership. Value-only records add their matching typed
+        /// intent locally; all other dimensions remain untouched.
+        /// </summary>
+        internal bool TryEditCapturedParentPriority(
+            WorkloadParentPriorityKey key,
+            int priority,
+            out WorkloadSession edited)
+        {
+            edited = this;
+            if (IsTerminal || !ProjectedState.TrySetCapturedParentPriority(
+                    key,
+                    priority,
+                    out WorkloadProjectedState nextState,
+                    out bool preservesPresence))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(nextState, ProjectedState))
+            {
+                return true;
+            }
+
+            edited = new WorkloadSession(
+                SourceTemplate,
+                TemplateBaselineState,
+                LiveBaselineState,
+                nextState,
+                WorkloadSessionStatus.Editing,
+                _validationContext,
+                SourceIdentity,
+                HasCapturedLiveBaseline,
+                RuntimeBaseline,
+                PreviewSessionId,
+                NextRevision(SessionRevision, true),
+                MembershipRevision,
+                preservesPresence ? _projectedPresence : null,
+                projectedStateIsNormalized: true);
+            return true;
         }
 
         public WorkloadSession ExcludePawn(PawnKey pawn)

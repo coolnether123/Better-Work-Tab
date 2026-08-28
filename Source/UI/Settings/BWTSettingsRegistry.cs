@@ -4,6 +4,7 @@ using System.Linq;
 using Better_Work_Tab;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.Foundation.GameState;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.ComplexJobs;
@@ -511,8 +512,8 @@ namespace Better_Work_Tab.UI.Settings
                 .Toggle(
                     WorkloadsPreviewRevealAnimation,
                     settings => settings.enableWorkloadPreviewRevealAnimation,
-                    "Animate workload preview reveal",
-                    tooltip: "Animate the workload preview controls as they appear and disappear.")
+                    "Animate preview controls",
+                    tooltip: "Animate preview controls when they appear or disappear.")
                 .DefaultTo(DefaultSettings.enableWorkloadPreviewRevealAnimation)
                 .Ordered(2);
 
@@ -520,8 +521,8 @@ namespace Better_Work_Tab.UI.Settings
                 .Int(
                     WorkloadsPreviewRevealSpeed,
                     settings => settings.workloadPreviewRevealSpeed,
-                    "Workload preview reveal speed",
-                    tooltip: "Controls how quickly the workload preview controls slide into view.")
+                    "Preview control speed",
+                    tooltip: "Set how quickly preview controls appear.")
                 .DefaultTo(DefaultSettings.workloadPreviewRevealSpeed)
                 .Ordered(3)
                 .ShownWhen(s => ((BetterWorkTabSettings)s).enableWorkloadPreviewRevealAnimation)
@@ -533,8 +534,8 @@ namespace Better_Work_Tab.UI.Settings
                 .Toggle(
                     WorkloadsInspectionHighlights,
                     settings => settings.enableWorkloadInspectionHighlights,
-                    "Workload inspection highlights",
-                    tooltip: "Highlight changed workload rows and cells while inspecting a workload preview.")
+                    "Highlight workload changes",
+                    tooltip: "Highlight changed rows and cells while inspecting a workload.")
                 .DefaultTo(DefaultSettings.enableWorkloadInspectionHighlights)
                 .ControlsChildren()
                 .Ordered(4);
@@ -543,8 +544,8 @@ namespace Better_Work_Tab.UI.Settings
                 .Int(
                     WorkloadsInspectionOpacity,
                     settings => settings.workloadInspectionOpacity,
-                    "Workload inspection highlight opacity",
-                    tooltip: "Controls the opacity of workload inspection highlights.")
+                    "Workload highlight opacity",
+                    tooltip: "Set the opacity of workload highlights.")
                 .DefaultTo(DefaultSettings.workloadInspectionOpacity)
                 .Ordered(5)
                 .ShownWhen(s => ((BetterWorkTabSettings)s).enableWorkloadInspectionHighlights)
@@ -689,7 +690,7 @@ namespace Better_Work_Tab.UI.Settings
                                                                                                                      _ => "Compact window width keeps focused columns at their natural widths.",
                                                                                                                  SuppressorSettingId = LayoutWorkTabMinimumWidth, LinkLabel = "Keep vanilla minimum width" },
                                                                                         new SettingSuppression { When =
-                                                                                                                     _ => FluffyWorkTabGateway.CanHostFluffySubWorkColumns && UsesExpandBesideDrilldown(),
+                                                                                                                     _ => BwtExpandBesideColumns.CanBuild && UsesExpandBesideDrilldown(),
                                                                                                                  Reason =
                                                                                                                      _ => "Expand beside uses BWT's dedicated child columns.",
                                                                                                                  SuppressorSettingId = SubWorkDrilldownStyle, LinkLabel = "Specific-job view" },

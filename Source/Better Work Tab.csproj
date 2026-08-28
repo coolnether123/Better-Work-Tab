@@ -176,6 +176,8 @@
     <Compile Include="Features\WorkGiverReassignments\CustomLabelStore.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownInput.cs" />
     <Compile Include="Features\WorkGiverReassignments\SubWorkDrilldownState.cs" />
+    <Compile Include="Features\WorkGiverReassignments\BwtExpandBesideColumns.cs" />
+    <Compile Include="Features\WorkGiverReassignments\PawnColumnWorker_BwtSubWorkPriority.cs" />
     <Compile Include="Features\Workloads\GameComponent_BWTWorldSettings.cs" />
     <Compile Include="Features\Workloads\WorkloadWorldState.cs" />
     <Compile Include="Features\Workloads\V2\WorkloadCanonical.cs" />
@@ -293,7 +295,6 @@
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabSaveDetector.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabPromptPolicy.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigrationPrompt.cs" />
-    <Compile Include="Mod Support\Mods\Fluffy WorkTab\PawnColumnWorker_BwtSubWorkPriority.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabExternalStore.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabMigration.cs" />
     <Compile Include="Mod Support\Mods\Fluffy WorkTab\FluffyWorkTabPriorityProvider.cs" />
@@ -411,6 +412,7 @@
     <Compile Include="UI\WorkGrid\Layout\WorkGridInteractionGeometry.cs" />
     <Compile Include="UI\Chrome\WorkTabChrome.cs" />
     <Compile Include="UI\Chrome\ManualPriorityChromePresentationCache.cs" />
+    <Compile Include="UI\RetainedSurfacePresentation.cs" />
     <Compile Include="UI\Chrome\FooterInstructionTextCache.cs" />
     <Compile Include="UI\Chrome\WorkTabChromeGeometry.cs" />
     <Compile Include="UI\WorkGrid\Layout\WorkTabViewportController.cs" />
@@ -428,6 +430,7 @@
     <Compile Include="UI\WorkGrid\Rendering\OptimizedWorkGridRenderer.cs" />
     <Compile Include="UI\WorkGrid\Rendering\PreparedWorkRowPacket.cs" />
     <Compile Include="UI\WorkGrid\Rendering\PreparedPawnLabelPresentation.cs" />
+    <Compile Include="UI\WorkGrid\Rendering\PreparedPawnLabelText.cs" />
     <Compile Include="UI\WorkGrid\Rendering\PreparedWorkBoxRenderer.cs" />
     <Compile Include="UI\WorkGrid\Rendering\RetainedWorkBoxRowCache.cs" />
     <Compile Include="UI\WorkGrid\Rendering\WorkTabBodyRenderer.cs" />
@@ -442,6 +445,7 @@
     <Compile Include="UI\Columns\WorkColumnCustomizationService.cs" />
     <Compile Include="UI\WindowSession\WorkTabWindowSizingController.cs" />
     <Compile Include="UI\WindowSession\WorkTabWindowSessionState.cs" />
+    <Compile Include="UI\RetainedResourceReleaseSequence.cs" />
     <Compile Include="UI\MainTabWindow_BetterWork.cs" />
     <Compile Include="UI\PawnTitleUtility.cs" />
     <Compile Include="UI\WorkPriorityCellGeometry.cs" />
@@ -463,6 +467,7 @@
     <Compile Include="UI\Settings\BWTSettingsLabelAlignment.cs" />
     <Compile Include="UI\Settings\BWTSettingsContextFocus.cs" />
     <Compile Include="UI\Settings\BWTSettingsFocusRequest.cs" />
+    <Compile Include="UI\Settings\BWTWorkloadPresentationNumericLayout.cs" />
     <Compile Include="UI\Settings\BWTWorkTabContextSettingsRouter.cs" />
     <Compile Include="UI\Settings\WorkTabPresentationPreviewPort.cs" />
     <Compile Include="UI\Settings\BWTSettingsImportExportActions.cs" />
@@ -485,8 +490,6 @@
     <Compile Include="UI\Headers\Angled\GUIClipUtility.cs" />
     <Compile Include="UI\Headers\IHeaderRenderer.cs" />
     <Compile Include="UI\Headers\HeaderDrawingCoordinator.cs" />
-    <Compile Include="UI\Headers\RetainedPriorityHeaderCache.cs" />
-    <Compile Include="UI\Headers\RetainedPriorityHeaderVisualKey.cs" />
     <Compile Include="UI\Headers\WorkTabHeaderRenderer.cs" />
     <Compile Include="UI\Headers\RuleBuilder2WorkTabOverlay.cs" />
     <Compile Include="UI\Headers\SubWorkTransitionOverlay.cs" />

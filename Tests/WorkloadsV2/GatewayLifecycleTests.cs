@@ -101,6 +101,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "Rendering",
                 "WorkGridInspectionSemantics.cs");
             string backend = Read(root, "Source", "Features", "Workloads", "V2", "Runtime", "Workload2Backend.cs");
+            string application = Read(root, "Source", "Features", "Application", "WorkTabApplication.cs");
             string session = Read(root, "Source", "Features", "Workloads", "V2", "WorkloadSession.cs");
             string english = Read(root, "Languages", "English", "Keyed", "English.xml");
             string settings = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
@@ -109,6 +110,17 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             WorkloadMenuUsesStableIds(header);
             WorkloadSelectorUsesOnlyTheWorkloadName(header);
             PreviewActionsUseVisibleHitRects(header);
+            LifecycleRefreshUsesApplicationPublicationReceipt(header, gateway, backend);
+            RepositoryLifecycleActionsAvoidPawnTableRecache(header, backend);
+            SelectingTheCurrentWorkloadIsRepositoryNoOp(backend);
+            NoChangePublicationDoesNotTriggerFallbackRecache(header, backend);
+            RepositoryOnlyCompletionStaysOutOfTheRenderer(header, backend, application);
+            PersistencePreflightReusesWholeDocumentDiagnostics(backend);
+            UpdateAndForkReuseTheirDecisionPlan(backend);
+            MultiplayerNoChangeConfirmationIsLeaseFree(backend);
+            PresentationOnlyCommitPublishesApplication(header, backend);
+            PresentationOnlyConfirmationPublishesApplication(backend);
+            ProvisionalConfirmationIsIdempotent(backend);
             NarrowFooterGeometryIsBounded(header);
             SelectorSpacingIsMeasuredWithoutLeadingReserve(selector);
             SelectorUsesLegacyMinimumAndMeasuredGrowth(header);
@@ -124,6 +136,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 interactionRouter,
                 footerContextController,
                 settings);
+            PreviewStructuralSuppressionStaysCompatible(contextRouter);
             DeletedFeedbackCopyIsAbsent(english, settings);
             WorkloadPresentationOwnsTutorialAndSelectionLifecycle(
                 gateway,
@@ -676,6 +689,422 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 drawPath.IndexOf("GUI.BeginGroup(", StringComparison.Ordinal) >= 0,
                 "atomic preview actions must not carry a stale clipping group");
+        }
+
+        private static void LifecycleRefreshUsesApplicationPublicationReceipt(
+            string header,
+            string gateway,
+            string backend)
+        {
+            TestAssert.Contains(
+                header,
+                "WhenApplicationPublicationIsMissing",
+                "live preview commits must use a change-aware table refresh policy");
+            TestAssert.Contains(
+                header,
+                "ConsumeLifecycleApplicationPublication()",
+                "footer completion must consume the application publication receipt");
+            TestAssert.False(
+                header.IndexOf("notifyPawnTables:", StringComparison.Ordinal) >= 0,
+                "lifecycle refresh policy must not remain an untyped boolean option");
+            TestAssert.Contains(
+                gateway,
+                "RecordLifecycleApplicationPublication(result.ApplicationPublication)",
+                "preview commits must forward the backend publication receipt");
+            TestAssert.Contains(
+                gateway,
+                "WorkloadApplicationPublication.Pending",
+                "accepted multiplayer commits must defer table refresh until confirmation");
+            TestAssert.Contains(
+                backend,
+                "ApplicationPublication = provisional",
+                "commit results must report whether application publication is applied or pending");
+            TestAssert.Contains(
+                backend,
+                "private WorkloadApplicationPublication NotifyCommitChanged(",
+                "the backend must return publication ownership to its lifecycle caller");
+        }
+
+        private static void NoChangePublicationDoesNotTriggerFallbackRecache(
+            string header,
+            string backend)
+        {
+            TestAssert.Contains(
+                backend,
+                "NoChange",
+                "a successful no-op workload commit must have an explicit publication state");
+            TestAssert.Contains(
+                backend,
+                "report.HasNetStateChange\n                            ? WorkloadApplicationPublication.None\n                            : WorkloadApplicationPublication.NoChange",
+                "publisher absence must remain distinct from a proven no-op");
+            TestAssert.Contains(
+                header,
+                "applicationPublication == WorkloadApplicationPublication.None",
+                "the footer must retain fallback recache behavior for a missing publisher");
+            TestAssert.False(
+                header.IndexOf(
+                    "applicationPublication == WorkloadApplicationPublication.NoChange",
+                    StringComparison.Ordinal) >= 0,
+                "a proven no-op must not trigger the missing-publisher table recache");
+            TestAssert.Contains(
+                backend,
+                "if (provisional && hasRetainedChanges)",
+                "a no-op multiplayer apply must not create a pending rollback lease");
+        }
+
+        private static void MultiplayerNoChangeConfirmationIsLeaseFree(string backend)
+        {
+            string execute = MethodBody(
+                backend,
+                "public void OnExecuteRequested(");
+            TestAssert.Contains(
+                execute,
+                "pending?.Result?.ApplicationPublication",
+                "the multiplayer execute report must classify a backend-proven no-op");
+            TestAssert.Contains(
+                execute,
+                "WorkloadTransactionCodes.NoChange",
+                "the no-op classification must cross the synchronized execute boundary");
+            TestAssert.Contains(
+                execute,
+                "result.Code",
+                "the host's local execute report must retain the no-op classification");
+
+            string confirmation = MethodBody(
+                backend,
+                "public void OnConfirmationControlReceived(");
+            TestAssert.Contains(
+                confirmation,
+                "pending.Lease == null",
+                "a proven no-op must be acknowledged without minting a rollback lease");
+            TestAssert.Contains(
+                confirmation,
+                "pending.Lease != null",
+                "a real provisional mutation must continue to require its rollback lease");
+            TestAssert.Contains(
+                confirmation,
+                "pending.Result?.ApplicationPublication ==\n                                      WorkloadApplicationPublication.NoChange",
+                "the lease-free branch must be gated by the backend's explicit no-change publication");
+
+            string finalConfirmation = MethodBody(
+                backend,
+                "public void OnFinalConfirmationRequested(");
+            TestAssert.Contains(
+                finalConfirmation,
+                "state?.IsNoChange == true",
+                "the final control must preserve the synchronized no-change mode");
+            TestAssert.Contains(
+                backend,
+                "return _applyService.ConfirmPrepared(lease);",
+                "terminal completion must still use the shared lease confirmation boundary");
+        }
+
+        private static void PresentationOnlyCommitPublishesApplication(
+            string header,
+            string backend)
+        {
+            string commit = MethodBody(backend, "private WorkloadV2CommitResult CommitCore(");
+            string notify = MethodBody(
+                backend,
+                "private WorkloadApplicationPublication NotifyCommitChanged(");
+
+            TestAssert.Contains(
+                commit,
+                "presentationChanged: live?.PresentationWasChanged == true",
+                "a local presentation-only commit must report its live presentation change");
+            TestAssert.Contains(
+                commit,
+                "persistenceChanged: report.TemplatePersisted",
+                "commit publication must continue to distinguish persistence changes");
+            TestAssert.Contains(
+                notify,
+                "return WorkloadApplicationPublication.NoChange;",
+                "publication must remain suppressed when a commit is a true no-op");
+            TestAssert.Contains(
+                notify,
+                "_component.NotifyV2Changed(persistenceDiagnosticsVerified);",
+                "a presentation-only commit must notify the workload component");
+            TestAssert.Contains(
+                notify,
+                "WorkTabApplicationDimensions.Presentation",
+                "a presentation-only commit must publish through the application boundary");
+            TestAssert.Contains(
+                notify,
+                "notifyPawnTables: false",
+                "presentation-only publication must not recache every pawn table");
+            TestAssert.Contains(
+                header,
+                "applicationPublication == WorkloadApplicationPublication.None",
+                "the footer must still reserve table-recache fallback for a missing publisher");
+        }
+
+        private static void SelectingTheCurrentWorkloadIsRepositoryNoOp(
+            string backend)
+        {
+            string select = MethodBody(
+                backend,
+                "internal WorkloadOperationResult Select(string workloadId)");
+            int identityCheck = select.IndexOf(
+                "store.CurrentWorkloadId",
+                StringComparison.Ordinal);
+            int assignment = select.IndexOf(
+                "store.CurrentWorkloadId = found.Value.StableId;",
+                StringComparison.Ordinal);
+            int publication = select.IndexOf(
+                "NotifyChanged();",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                identityCheck >= 0 && assignment > identityCheck && publication > assignment,
+                "selecting the already-current workload must return before repository metadata publication");
+            TestAssert.Contains(
+                select,
+                "return WorkloadOperationResult.Ok();",
+                "same-ID selection must remain a successful no-op so preview opening can continue");
+        }
+
+        private static void PresentationOnlyConfirmationPublishesApplication(
+            string backend)
+        {
+            string lease = MethodBody(
+                backend,
+                "private WorkloadCommitRollbackLease CreateRollbackLease(");
+            int finalize = lease.IndexOf(
+                "FinalizeLiveMutation(live, out string reason)",
+                StringComparison.Ordinal);
+            int confirmationPublication = lease.IndexOf(
+                "presentationChanged: live?.PresentationWasChanged == true",
+                finalize >= 0 ? finalize : 0,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                finalize >= 0 && confirmationPublication > finalize,
+                "provisional confirmation must publish a retained presentation change");
+            TestAssert.Contains(
+                backend,
+                "if (provisional && hasRetainedChanges)",
+                "presentation-only multiplayer commits must retain a confirmation lease");
+            TestAssert.Contains(
+                backend,
+                "? WorkloadApplicationPublication.Pending",
+                "accepted multiplayer presentation changes must remain pending until confirmation");
+        }
+
+        private static void ProvisionalConfirmationIsIdempotent(string backend)
+        {
+            string confirm = MethodBody(backend, "internal bool Confirm()");
+            int confirmed = confirm.IndexOf(
+                "_state == LeaseState.Confirmed",
+                StringComparison.Ordinal);
+            int terminal = confirm.IndexOf(
+                "_state == LeaseState.RollbackFailed",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                confirmed >= 0 && terminal > confirmed,
+                "duplicate confirmation must return before terminal-failure handling");
+            TestAssert.Contains(
+                confirm,
+                "return true;",
+                "replayed confirmation of an already confirmed lease must be idempotent");
+        }
+
+        private static void RepositoryLifecycleActionsAvoidPawnTableRecache(
+            string header,
+            string backend)
+        {
+            AssertLifecyclePolicy(
+                header,
+                "preview.CreateWorkload(label, out unusedDescriptor)",
+                "None",
+                "creating a repository record must not recache every pawn table");
+            AssertLifecyclePolicy(
+                header,
+                "preview.RenameWorkload(stableId, label)",
+                "None",
+                "renaming a repository record must not recache every pawn table");
+            AssertLifecyclePolicy(
+                header,
+                "preview.DeleteWorkload(stableId)",
+                "None",
+                "deleting a repository record must not recache every pawn table");
+
+            int notifyStart = backend.IndexOf(
+                "private WorkloadApplicationPublication NotifyCommitChanged(",
+                StringComparison.Ordinal);
+            int notifyEnd = backend.IndexOf(
+                "private static bool RollbackPersistence(",
+                notifyStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                notifyStart >= 0 && notifyEnd > notifyStart,
+                "workload commit publication must remain an isolated lifecycle helper");
+            string notifyPath = backend.Substring(notifyStart, notifyEnd - notifyStart);
+            TestAssert.Contains(
+                notifyPath,
+                "notifyPawnTables: false",
+                "persistence-only workload commits must not recache pawn tables");
+        }
+
+        private static void RepositoryOnlyCompletionStaysOutOfTheRenderer(
+            string header,
+            string backend,
+            string application)
+        {
+            string commit = MethodBody(backend, "private WorkloadV2CommitResult CommitCore(");
+            string notify = MethodBody(
+                backend,
+                "private WorkloadApplicationPublication NotifyCommitChanged(");
+            int repositoryStart = notify.IndexOf(
+                "if (persistenceChanged)",
+                StringComparison.Ordinal);
+            int noChange = notify.IndexOf(
+                "return WorkloadApplicationPublication.NoChange;",
+                repositoryStart >= 0 ? repositoryStart : 0,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                repositoryStart >= 0 && noChange > repositoryStart,
+                "repository-only completion must have an isolated publication branch");
+            string repositoryBranch = notify.Substring(repositoryStart, noChange - repositoryStart);
+            TestAssert.Contains(
+                repositoryBranch,
+                "_component.NotifyV2Changed(persistenceDiagnosticsVerified);",
+                "repository-only completion must publish the validated catalog and receipt");
+            TestAssert.Contains(
+                repositoryBranch,
+                "WorkloadApplicationPublication.RepositoryOnly",
+                "repository-only completion must retain its explicit lifecycle receipt");
+            TestAssert.False(
+                repositoryBranch.IndexOf("PublishAtomicMutation", StringComparison.Ordinal) >= 0 ||
+                repositoryBranch.IndexOf("WorkTabApplicationDimensions.Presentation", StringComparison.Ordinal) >= 0 ||
+                repositoryBranch.IndexOf("notifyPawnTables", StringComparison.Ordinal) >= 0,
+                "persistence-only Update/Fork completion must not invalidate presentation, retained resources, or pawn tables");
+            TestAssert.Contains(
+                commit,
+                "applicationPublication != WorkloadApplicationPublication.NoChange",
+                "local repository-only completion must reach the footer instead of becoming a fake no-op");
+            TestAssert.Contains(
+                header,
+                "applicationPublication == WorkloadApplicationPublication.None",
+                "the footer fallback must stay reserved for a missing application publication");
+            string effects = MethodBody(
+                application,
+                "private static WorkTabApplicationEffects EffectsFor(");
+            int presentation = effects.IndexOf(
+                "if ((dimensions & WorkTabApplicationDimensions.Presentation) != 0)",
+                StringComparison.Ordinal);
+            int renderResources = effects.IndexOf(
+                "WorkTabApplicationEffects.RenderResourceInvalidation",
+                presentation >= 0 ? presentation : 0,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                presentation >= 0 && renderResources > presentation,
+                "presentation publication must remain the explicit path that invalidates retained render resources");
+        }
+
+        private static void PersistencePreflightReusesWholeDocumentDiagnostics(
+            string backend)
+        {
+            string commit = MethodBody(backend, "private WorkloadV2CommitResult CommitCore(");
+            string preflight = MethodBody(
+                backend,
+                "private static void EnsurePersistenceBaseline(");
+            string apply = MethodBody(backend, "private void ApplyPersistence(");
+            int diagnostics = commit.IndexOf("store.RefreshDiagnostics();", StringComparison.Ordinal);
+            int baseline = commit.IndexOf("EnsurePersistenceBaseline(", StringComparison.Ordinal);
+            TestAssert.True(
+                diagnostics >= 0 && baseline > diagnostics,
+                "Update/Fork must finish whole-document diagnostics before reusing that result for persistence preflight");
+            TestAssert.False(
+                preflight.IndexOf("RefreshDiagnostics", StringComparison.Ordinal) >= 0,
+                "persistence preflight must not repeat synchronous whole-document diagnostics");
+            TestAssert.Contains(
+                preflight,
+                "TryValidateCompareAndSwap",
+                "the retained preflight must keep exact optimistic conflict validation");
+            TestAssert.Contains(
+                apply,
+                "store.TryCommitRevision(",
+                "the persistence write must retain its final exact compare-and-swap");
+        }
+
+        private static void UpdateAndForkReuseTheirDecisionPlan(string backend)
+        {
+            string commit = MethodBody(backend, "private WorkloadV2CommitResult CommitCore(");
+            int updateFork = commit.IndexOf(
+                "else\n                {\n                    // Update/Fork decisions are immutable session output.",
+                StringComparison.Ordinal);
+            int sourcePresence = commit.IndexOf(
+                "FindUniqueRecord(store, sourceStableId, report);",
+                updateFork >= 0 ? updateFork : 0,
+                StringComparison.Ordinal);
+            int preflight = commit.IndexOf(
+                "EnsurePersistenceBaseline(",
+                sourcePresence >= 0 ? sourcePresence : 0,
+                StringComparison.Ordinal);
+
+            TestAssert.True(updateFork >= 0, "Update/Fork must retain their explicit immutable-plan branch");
+            TestAssert.Contains(
+                commit,
+                "targetTemplate = decision.ResultTemplate;",
+                "Update/Fork must reuse the session's immutable persistence target");
+            TestAssert.Contains(
+                commit,
+                "plan = decision.Plan;",
+                "Update/Fork must reuse the session's validation and semantic diff");
+            TestAssert.True(
+                sourcePresence > updateFork && preflight > sourcePresence,
+                "Update/Fork must retain source presence before the exact whole-document preflight CAS");
+
+            string updateForkBranch = commit.Substring(updateFork, sourcePresence - updateFork);
+            TestAssert.False(
+                updateForkBranch.IndexOf("WorkloadSemanticDiff.Between", StringComparison.Ordinal) >= 0 ||
+                updateForkBranch.IndexOf("WorkloadValidator.Validate", StringComparison.Ordinal) >= 0 ||
+                updateForkBranch.IndexOf("BuildEffectiveTemplate", StringComparison.Ordinal) >= 0,
+                "Update/Fork must not rebuild the immutable decision plan before persistence validation");
+        }
+
+        private static void AssertLifecyclePolicy(
+            string source,
+            string actionMarker,
+            string expectedPolicy,
+            string message)
+        {
+            int actionStart = source.IndexOf(actionMarker, StringComparison.Ordinal);
+            int actionEnd = source.IndexOf(
+                ");",
+                actionStart + actionMarker.Length,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                actionStart >= 0 && actionEnd > actionStart,
+                "the expected workload lifecycle action must remain present");
+            string action = source.Substring(actionStart, actionEnd - actionStart);
+            TestAssert.Contains(
+                action,
+                "LifecycleTableRefreshPolicy." + expectedPolicy,
+                message);
+        }
+
+        private static void PreviewStructuralSuppressionStaysCompatible(
+            string contextRouter)
+        {
+            TestAssert.False(
+                contextRouter.IndexOf("BlocksDescendants", StringComparison.Ordinal) >= 0,
+                "preview routing must not depend on an unsupported Spine suppression field");
+            int suppressionStart = contextRouter.IndexOf(
+                "definition.Suppressions.Add(new SettingSuppression",
+                StringComparison.Ordinal);
+            int structuralBranch = contextRouter.IndexOf(
+                "if (string.Equals(definition.ParentId",
+                suppressionStart,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                suppressionStart >= 0 && structuralBranch > suppressionStart,
+                "preview suppression registration must remain discoverable");
+            string suppression = contextRouter.Substring(
+                suppressionStart,
+                structuralBranch - suppressionStart);
+            TestAssert.Contains(
+                suppression,
+                "!IsPreviewStructuralDefinition(definition)",
+                "structural preview rows must not activate ancestor suppression");
         }
 
         private static void WorkloadSelectorUsesOnlyTheWorkloadName(string header)
