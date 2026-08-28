@@ -863,6 +863,17 @@ namespace Better_Work_Tab.UI.Settings
         private static readonly HashSet<SettingDefinition> PreparedDefinitions =
             new HashSet<SettingDefinition>();
 
+        // Keep an index of the complete schema, not only presentation rows.
+        // Preview visibility must retain the hierarchy path to an editable
+        // child while removing unrelated locked rows.
+        private static readonly Dictionary<string, SettingDefinition>
+            PreparedDefinitionsById =
+                new Dictionary<string, SettingDefinition>(StringComparer.Ordinal);
+
+        private static readonly HashSet<string> PreviewStructuralDefinitionIds =
+            new HashSet<string>(StringComparer.Ordinal);
+        private static bool _previewStructureDirty;
+
         private static readonly Dictionary<SettingDefinition, FieldInfo> PreparedFields =
             new Dictionary<SettingDefinition, FieldInfo>();
 
@@ -931,9 +942,20 @@ namespace Better_Work_Tab.UI.Settings
 
         internal static void PrepareDefinition(SettingDefinition definition)
         {
-            if (definition == null ||
-                !Metadata.Contains(definition.Id) ||
-                !PreparedDefinitions.Add(definition))
+            if (definition == null || !PreparedDefinitions.Add(definition))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(definition.Id))
+            {
+                PreparedDefinitionsById[definition.Id] = definition;
+                _previewStructureDirty = true;
+            }
+
+            InstallPreviewVisibility(definition);
+
+            if (!Metadata.Contains(definition.Id))
             {
                 return;
             }
@@ -1000,9 +1022,15 @@ namespace Better_Work_Tab.UI.Settings
                 definition.Suppressions.Add(new SettingSuppression
                 {
                     When = _ => Describe(definition).IsBlocked,
-                    Reason = _ => Describe(definition).BlockReason,
+                    Reason = _ => IsPreviewStructuralDefinition(definition)
+                        ? string.Empty
+                        : Describe(definition).BlockReason,
                     SuppressorSettingId = PreviewSuppressorId,
-                    LinkLabel = "Workload preview"
+                    LinkLabel = "Workload preview",
+                    // A structural row stays visible so the hierarchy can
+                    // reach stageable descendants. Its suppression must not
+                    // make those descendants read-only.
+                    BlocksDescendants = false
                 });
             }
 
@@ -2001,6 +2029,11 @@ namespace Better_Work_Tab.UI.Settings
             string translatedLabel)
         {
             string label = translatedLabel ?? definition?.Label ?? definition?.Id ?? string.Empty;
+            if (IsPreviewStructuralDefinition(definition))
+            {
+                return label;
+            }
+
             BWTPresentationSettingOwnershipState state = Describe(definition);
             if (!state.IsWorkloadOwnedInActiveTemplate &&
                 !state.IsBlocked &&
@@ -2031,6 +2064,11 @@ namespace Better_Work_Tab.UI.Settings
             SettingDefinition definition,
             string translatedTooltip)
         {
+            if (IsPreviewStructuralDefinition(definition))
+            {
+                return translatedTooltip;
+            }
+
             BWTPresentationSettingOwnershipState state = Describe(definition);
             if (!state.IsWorkloadOwnedInActiveTemplate &&
                 !state.IsBlocked &&
@@ -2080,6 +2118,7 @@ namespace Better_Work_Tab.UI.Settings
             Color oldColor = GUI.color;
             TextAnchor oldAnchor = Text.Anchor;
             GameFont oldFont = Text.Font;
+            bool oldWordWrap = Text.WordWrap;
             try
             {
                 GUI.color = new Color(0.20f, 0.34f, 0.46f, 0.95f);
@@ -2089,15 +2128,16 @@ namespace Better_Work_Tab.UI.Settings
                 GUI.color = Color.white;
                 Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.MiddleLeft;
+                Text.WordWrap = false;
                 Rect textRect = bannerRect.ContractedBy(9f);
                 string bannerText = !_snapshot.ReadSucceeded
-                    ? "Workload preview safety block: presentation ownership could not be read."
+                    ? "Preview active: presentation settings are unavailable; global settings are unchanged."
                     : _snapshot.OwnsPresentationSettings
-                        ? "Supported presentation controls are staged into this workload preview; global settings remain unchanged."
-                        : "Global settings are protected during this workload preview. Use 'Use in workload' on an allowlisted setting to stage selected ownership.";
+                        ? "Preview active: supported presentation settings edit the workload; global settings stay unchanged."
+                        : "Preview active: use 'Use in workload' on a supported setting to stage it; global settings stay unchanged.";
                 Widgets.Label(
                     textRect,
-                    bannerText);
+                    bannerText.Truncate(textRect.width));
                 TooltipHandler.TipRegion(
                     bannerRect,
                     !_snapshot.ReadSucceeded
@@ -2108,6 +2148,7 @@ namespace Better_Work_Tab.UI.Settings
             {
                 Text.Font = oldFont;
                 Text.Anchor = oldAnchor;
+                Text.WordWrap = oldWordWrap;
                 GUI.color = oldColor;
             }
 
@@ -2193,6 +2234,81 @@ namespace Better_Work_Tab.UI.Settings
 
         private static bool IsStageablePresentationSetting(string settingId) =>
             !string.IsNullOrEmpty(settingId) && StageablePresentationSettingIds.Contains(settingId);
+
+        private static void InstallPreviewVisibility(SettingDefinition definition)
+        {
+            Func<object, bool> existingVisibility = definition.VisibleWhen;
+            definition.VisibleWhen = settingsObject =>
+            {
+                // The shared hierarchy treats a missing settings object as an
+                // optional, predicate-free context. Preserve that contract,
+                // then add the preview-only visibility rule.
+                if (settingsObject != null &&
+                    existingVisibility != null &&
+                    !existingVisibility(settingsObject))
+                {
+                    return false;
+                }
+
+                return IsPreviewVisibleDefinition(definition);
+            };
+        }
+
+        private static bool IsPreviewVisibleDefinition(SettingDefinition definition)
+        {
+            if (!IsPreviewActive)
+            {
+                return true;
+            }
+
+            return IsStageablePresentationSetting(definition?.Id) ||
+                IsPreviewStructuralDefinition(definition);
+        }
+
+        private static bool IsPreviewStructuralDefinition(SettingDefinition definition)
+        {
+            if (!IsPreviewActive || definition == null || string.IsNullOrEmpty(definition.Id))
+            {
+                return false;
+            }
+
+            EnsurePreviewStructure();
+            return PreviewStructuralDefinitionIds.Contains(definition.Id);
+        }
+
+        private static void EnsurePreviewStructure()
+        {
+            if (!_previewStructureDirty)
+            {
+                return;
+            }
+
+            PreviewStructuralDefinitionIds.Clear();
+            var visited = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string stageableId in StageablePresentationSettingIds)
+            {
+                if (!PreparedDefinitionsById.TryGetValue(
+                        stageableId,
+                        out SettingDefinition current))
+                {
+                    continue;
+                }
+
+                visited.Clear();
+                while (current != null &&
+                       !string.IsNullOrEmpty(current.ParentId) &&
+                       visited.Add(current.Id) &&
+                       PreparedDefinitionsById.TryGetValue(
+                           current.ParentId,
+                           out SettingDefinition parent))
+                {
+                    PreviewStructuralDefinitionIds.Add(parent.Id);
+                    current = parent;
+                }
+            }
+
+            _previewStructureDirty = false;
+        }
 
         private static IDictionary<string, PresentationValue> CapturePreparedPresentationValues(
             BetterWorkTabSettings settings)
