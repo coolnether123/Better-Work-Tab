@@ -308,6 +308,7 @@ namespace Better_Work_Tab.UI.Chrome
             // Retained composition is a state transaction: every Unity and
             // IMGUI value captured here is restored before direct fallback.
             RenderTexture previousTarget = RenderTexture.active;
+            Matrix4x4 previousMatrix = GUI.matrix;
             Color previousColor = GUI.color;
             GameFont previousFont = Text.Font;
             TextAnchor previousAnchor = Text.Anchor;
@@ -315,6 +316,11 @@ namespace Better_Work_Tab.UI.Chrome
             try
             {
                 RenderTexture.active = surface;
+                // Surface controls use top-left local pixels. A caller can
+                // leave a UI-scale or header transform in GUI.matrix, so a
+                // retained composition must not bake that outer transform
+                // into the cached pixels.
+                GUI.matrix = Matrix4x4.identity;
                 GL.PushMatrix();
                 try
                 {
@@ -336,6 +342,7 @@ namespace Better_Work_Tab.UI.Chrome
             }
             finally
             {
+                GUI.matrix = previousMatrix;
                 GUI.color = previousColor;
                 Text.Font = previousFont;
                 Text.Anchor = previousAnchor;
