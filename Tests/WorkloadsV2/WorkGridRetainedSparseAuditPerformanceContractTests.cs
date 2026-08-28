@@ -58,9 +58,34 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 vanillaHeaders,
                 window,
                 gameCacheReset);
+            MapWorldClearIsAnAuthoritativeTeardownHook(gameCacheReset);
             SparseParentChangesKeepSubWorkUpdatesLocal(snapshots);
             CompatibilityAuditUsesLinearSkillAndPriorityPasses(audit);
             RepresentativeOperationCountsAreReduced();
+        }
+
+        private static void MapWorldClearIsAnAuthoritativeTeardownHook(string gameCacheReset)
+        {
+            TestAssert.Contains(
+                gameCacheReset,
+                "Patch_MemoryUtility_ClearAllMapsAndWorld",
+                "Save & Quit must have a teardown hook on the direct map/world clear route");
+            TestAssert.Contains(
+                gameCacheReset,
+                "typeof(Verse.Profile.MemoryUtility)",
+                "the teardown hook must target RimWorld's authoritative map/world clear API");
+            TestAssert.Contains(
+                gameCacheReset,
+                "nameof(Verse.Profile.MemoryUtility.ClearAllMapsAndWorld)",
+                "the teardown hook must remain bound to the stable method name");
+
+            string hook = MemberBody(
+                gameCacheReset,
+                "public static void Prefix()\n        {\n            RetainedWorkTabSurfaceTeardown.Release(\"map/world clear\")");
+            TestAssert.Contains(
+                hook,
+                "GameCacheResetUtility.Reset(\"map/world clear\")",
+                "the direct map/world clear route must reset cached game-bound state");
         }
 
         private static void RetainedHeadersKeepDynamicAndForeignRenderingLive(
@@ -82,8 +107,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "retained headers need a hard estimated-byte bound");
             TestAssert.Contains(
                 retainedHeaders,
-                "if (!HasCapacity(requestedBytes, existing ? 0 : 1))",
-                "retained headers must prove bounded capacity before allocation");
+                "if (!HasCapacity(requestedBytes, 1))",
+                "retained headers must prove new-entry capacity before allocating an entry");
+            int headerCapacityCheck = retainedHeaders.IndexOf(
+                "if (!HasCapacity(requestedBytes, 1))",
+                StringComparison.Ordinal);
+            int headerEntryAllocation = retainedHeaders.IndexOf(
+                "entry = new Entry();",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                headerCapacityCheck >= 0 &&
+                headerEntryAllocation > headerCapacityCheck,
+                "retained headers must check capacity before the new-entry allocation");
             TestAssert.Contains(
                 retainedHeaders,
                 "renderer.GetType() != typeof(AngledHeaderRenderer)",
@@ -209,6 +244,21 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 retainedHeaders,
                 "_failedRenderResourcesRevision == renderResourcesRevision",
                 "a failed retained header resource must not retry every repaint");
+            TestAssert.Contains(
+                retainedHeaders,
+                "if (!HasStablePixels(renderer, in layout, in presentation))",
+                "headers with no stable underline/stem pixels must use the direct path without a GPU surface");
+            string stablePixels = MemberBody(
+                retainedHeaders,
+                "private static bool HasStablePixels(");
+            TestAssert.Contains(
+                stablePixels,
+                "!layout.IsCJKVertical",
+                "CJK vertical headers must not allocate an empty retained surface");
+            TestAssert.Contains(
+                stablePixels,
+                "presentation.RemoveUnderline",
+                "underline removal must bypass retained-surface allocation");
             TestAssert.Contains(
                 retainedHeaders,
                 "UnityEngine.Object.Destroy(surface)",

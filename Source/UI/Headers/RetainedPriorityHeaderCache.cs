@@ -82,6 +82,14 @@ namespace Better_Work_Tab.UI.Headers
                 return false;
             }
 
+            // A vertical CJK header and a header with underline removal enabled
+            // have no stable pixels in the retained pass. Returning here keeps
+            // the direct renderer authoritative and avoids an empty GPU surface.
+            if (!HasStablePixels(renderer, in layout, in presentation))
+            {
+                return false;
+            }
+
             int renderResourcesRevision = _versions.RenderResources;
             if (_failedRenderResourcesRevision == renderResourcesRevision)
             {
@@ -253,6 +261,30 @@ namespace Better_Work_Tab.UI.Headers
                    !SubWorkDrilldownState.HasAnyDrilldown &&
                    !SubWorkDrilldownState.IsTransitioning &&
                    !SubWorkDrilldownState.IsExpandBesideTransitioning;
+        }
+
+        private static bool HasStablePixels(
+            IHeaderPresentationRenderer renderer,
+            in AngledLabelDrawer.AngledLabelLayout layout,
+            in HeaderPresentationPacket presentation)
+        {
+            if (presentation.RemoveUnderline)
+            {
+                return false;
+            }
+
+            // Angled retained composition contains only the horizontal
+            // underline; the glyphs are deliberately drawn live. CJK vertical
+            // labels do not draw that underline in the stable pass.
+            if (renderer.GetType() == typeof(AngledHeaderRenderer))
+            {
+                return !layout.IsCJKVertical && layout.UnderlineWidth > 0.01f;
+            }
+
+            // Vanilla retained composition contains the stagger stem. Its
+            // renderer intentionally keeps that stem for every non-CJK layout.
+            return renderer.GetType() == typeof(VanillaHeaderRenderer) &&
+                   !layout.IsCJKVertical;
         }
 
         private static Rect ResolveStableBounds(
@@ -439,6 +471,15 @@ namespace Better_Work_Tab.UI.Headers
             bool existing = _entries.TryGetValue(column, out entry);
             if (!existing)
             {
+                // Check the bounded admission policy before allocating the
+                // otherwise short-lived entry. When the cache is full, this
+                // path is reached on every repaint for an unsupported column.
+                if (!HasCapacity(requestedBytes, 1))
+                {
+                    entry = null;
+                    return false;
+                }
+
                 entry = new Entry();
             }
             if (entry.Surface != null &&
@@ -450,7 +491,7 @@ namespace Better_Work_Tab.UI.Headers
             }
 
             ReleaseSurface(entry);
-            if (!HasCapacity(requestedBytes, existing ? 0 : 1))
+            if (existing && !HasCapacity(requestedBytes, 0))
             {
                 return false;
             }

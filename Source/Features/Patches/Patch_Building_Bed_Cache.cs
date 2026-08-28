@@ -129,6 +129,22 @@ namespace Better_Work_Tab.Patches
         }
     }
 
+    [HarmonyPatch(
+        typeof(Verse.Profile.MemoryUtility),
+        nameof(Verse.Profile.MemoryUtility.ClearAllMapsAndWorld))]
+    public static class Patch_MemoryUtility_ClearAllMapsAndWorld
+    {
+        // Save & Quit has a direct MainMenuDrawer callback that saves and then
+        // clears the world without entering Game.Dispose or GenScene's normal
+        // transition method. This is the common resource boundary for that
+        // route and the load preamble; both operations are idempotent.
+        public static void Prefix()
+        {
+            RetainedWorkTabSurfaceTeardown.Release("map/world clear");
+            GameCacheResetUtility.Reset("map/world clear");
+        }
+    }
+
     internal static class RetainedWorkTabSurfaceTeardown
     {
         internal static void Release(string reason)
