@@ -112,8 +112,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             AccessTools.Method(typeof(PawnColumnWorker_Label), "GetLabel", new[] { typeof(Pawn) });
         private static readonly Func<PawnColumnWorker_Label, Pawn, TaggedString> GetLabel =
             AccessTools.MethodDelegate<Func<PawnColumnWorker_Label, Pawn, TaggedString>>(GetLabelMethod);
-        private static readonly Func<string, float> MeasureVisibleTextDelegate =
-            MeasureVisibleText;
 
         internal static PreparedPawnLabelPresentation Capture(
             PawnColumnWorker_Label worker,
@@ -172,18 +170,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return previous;
             }
 
-            // Resolve the native label once, then truncate its visible text
-            // while preserving balanced rich-text tags. Applying the pawn-name
-            // color after truncation avoids resolving a generated TaggedString
-            // and keeps ColoredText's global cache scoped to the native source.
-            string preparedBaseText = TruncateForPreparedCell(
-                resolvedLabel,
-                textWidth);
-            string preparedText = contrast
-                ? PreparedPawnLabelText.StripMarkup(preparedBaseText)
-                : colorizePawnName
-                    ? preparedBaseText.Colorize(pawnNameColor)
-                    : preparedBaseText;
+            // Keep the full resolved label. Widgets.Label owns clipping in the
+            // same destination rectangle as the direct/native path; replacing
+            // text with an ellipsis during capture changes the visible output.
+            // Contrast markup stripping and pawn-name colorization above remain
+            // capture-time presentation transforms.
+            string preparedText = richText;
             return new PreparedPawnLabelPresentation(
                 richText,
                 preparedText,
@@ -193,31 +185,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 contrast,
                 textWidth,
                 metricKey);
-        }
-
-        private static string TruncateForPreparedCell(string resolvedLabel, float width)
-        {
-            GameFont previousFont = Text.Font;
-            bool previousWrap = Text.WordWrap;
-            try
-            {
-                Text.Font = GameFont.Small;
-                Text.WordWrap = false;
-                return PreparedPawnLabelText.Truncate(
-                    resolvedLabel,
-                    width,
-                    MeasureVisibleTextDelegate);
-            }
-            finally
-            {
-                Text.Font = previousFont;
-                Text.WordWrap = previousWrap;
-            }
-        }
-
-        private static float MeasureVisibleText(string visibleText)
-        {
-            return Text.CalcSize(visibleText).x;
         }
 
         internal static int ComputeSourceSignature(
