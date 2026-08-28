@@ -226,27 +226,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     return false;
                 }
             }
-            if (visual.Passion > 0)
-            {
-                Rect passionRect = boxRect;
-                passionRect.xMin = boxRect.center.x;
-                passionRect.yMin = boxRect.center.y;
-                if (!DrawRetainedTexture(
-                        passionRect,
-                        visual.Passion == 1
-                            ? WidgetsWork.PassionWorkboxMinorIcon
-                            : WidgetsWork.PassionWorkboxMajorIcon,
-                        new Color(1f, 1f, 1f, 0.4f)))
-                {
-                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
-                    return false;
-                }
-            }
-
-            // Manual numerals stay on the live IMGUI pass. Font antialiasing
-            // composed into this transparent surface would be alpha-blended a
+            // Semi-transparent foreground pixels stay on the live IMGUI pass.
+            // Composing them into this transparent surface would blend them a
             // second time when the surface is presented. The retained surface
-            // still owns the checkbox texture for non-manual cells.
+            // still owns opaque box textures and the checkbox texture.
             if (!HasPriorityLabel(visual, displayPriority) &&
                 displayPriority > WorkPrioritySystem.DisabledPriority)
             {
@@ -440,6 +423,21 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                    (visual.Flags & WorkCellVisualFlags.Disabled) == 0;
         }
 
+        internal static bool HasLivePassionIcon(WorkBoxVisualState visual)
+        {
+            return visual.Passion > 0 &&
+                   (visual.Flags & WorkCellVisualFlags.Disabled) == 0;
+        }
+
+        internal static bool HasLiveForeground(
+            WorkBoxVisualState visual,
+            int displayPriority)
+        {
+            return HasLiveLowSkillWarning(visual) ||
+                   HasLivePassionIcon(visual) ||
+                   HasPriorityLabel(visual, displayPriority);
+        }
+
         /// <summary>
         /// Draws the low-skill warning on the live IMGUI target. Its transparent
         /// border must be composed once against the final work-tab background.
@@ -461,6 +459,28 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 GUI.DrawTexture(
                     boxRect.ContractedBy(-LowSkillWarningOutset),
                     WidgetsWork.WorkBoxOverlay_Warning);
+            }
+            finally
+            {
+                GUI.color = previousColor;
+            }
+        }
+
+        internal static void DrawLivePassionIcon(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            float visualAlpha)
+        {
+            if (!HasLivePassionIcon(visual) || visualAlpha <= 0.001f)
+            {
+                return;
+            }
+
+            Color previousColor = GUI.color;
+            try
+            {
+                GUI.color = new Color(1f, 1f, 1f, 0.4f * visualAlpha);
+                DrawPassionIcon(boxRect, visual);
             }
             finally
             {
@@ -556,6 +576,29 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 baseColor,
                 visualAlpha,
                 prepareTextStyle: false);
+        }
+
+        /// <summary>
+        /// Replays the transparent foreground in direct-draw order after a
+        /// retained work-box surface has been presented.
+        /// </summary>
+        internal static void DrawLiveForeground(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            int displayPriority,
+            Color baseColor,
+            float visualAlpha,
+            bool compactText)
+        {
+            DrawLiveLowSkillWarning(boxRect, visual, visualAlpha);
+            DrawLivePassionIcon(boxRect, visual, visualAlpha);
+            DrawLivePriorityLabel(
+                boxRect,
+                visual,
+                displayPriority,
+                baseColor,
+                visualAlpha,
+                compactText);
         }
 
         private static bool DrawCore(
@@ -708,15 +751,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if (visual.Passion > 0)
             {
                 GUI.color = new Color(1f, 1f, 1f, 0.4f * visualAlpha);
-                Rect passionRect = boxRect;
-                passionRect.xMin = boxRect.center.x;
-                passionRect.yMin = boxRect.center.y;
-                GUI.DrawTexture(
-                    passionRect,
-                    visual.Passion == 1
-                        ? WidgetsWork.PassionWorkboxMinorIcon
-                        : WidgetsWork.PassionWorkboxMajorIcon);
+                DrawPassionIcon(boxRect, visual);
             }
+        }
+
+        private static void DrawPassionIcon(Rect boxRect, WorkBoxVisualState visual)
+        {
+            Rect passionRect = boxRect;
+            passionRect.xMin = boxRect.center.x;
+            passionRect.yMin = boxRect.center.y;
+            GUI.DrawTexture(
+                passionRect,
+                visual.Passion == 1
+                    ? WidgetsWork.PassionWorkboxMinorIcon
+                    : WidgetsWork.PassionWorkboxMajorIcon);
         }
 
         private static void DrawStaticFeatureOverlays(

@@ -371,7 +371,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Mix(ref hash, cell.BoxRect.GetHashCode());
                 Mix(ref hash, visual.SkillBand);
                 Mix(ref hash, visual.SkillBlend.GetHashCode());
-                Mix(ref hash, visual.Passion);
                 Mix(ref hash, (int)(visual.Flags &
                     ~(WorkCellVisualFlags.BestPawn |
                       WorkCellVisualFlags.OverrideRing |

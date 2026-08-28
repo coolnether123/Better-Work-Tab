@@ -29,7 +29,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 optimized,
                 compatibility);
             PacketBuilderConsumesPreparedStateOnly(packet);
-            RetainedPriorityGlyphsStayOnTheLivePath(preparedBox, packet, optimized);
+            RetainedTransparentForegroundStaysOnTheLivePath(preparedBox, packet, optimized);
             PreparedRowsRejectStalePawns(optimized);
             SparseUpdatesAdvanceOnlyDirtyRows(snapshot, provider);
             RetainedHitsUsePrecomputedBoundsAndFingerprint(retained, preparedBox);
@@ -148,7 +148,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(packet.IndexOf("Workload", StringComparison.Ordinal) >= 0, "packet construction must not read workload domains");
         }
 
-        private static void RetainedPriorityGlyphsStayOnTheLivePath(
+        private static void RetainedTransparentForegroundStaysOnTheLivePath(
             string preparedBox,
             string packet,
             string optimized)
@@ -168,6 +168,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 retained.IndexOf("DrawPriorityLabel(", StringComparison.Ordinal) >= 0,
                 "retained work boxes must leave manual priority glyphs to the live pass");
+            TestAssert.False(
+                retained.IndexOf("PassionWorkbox", StringComparison.Ordinal) >= 0,
+                "transparent passion icons must not be composed into a retained surface");
 
             string live = MemberBody(
                 preparedBox,
@@ -225,49 +228,79 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "WorkCellVisualFlags.Disabled",
                 "disabled cells must not reintroduce a low-skill warning that direct drawing omits");
 
+            string livePassion = MemberBody(
+                preparedBox,
+                "internal static void DrawLivePassionIcon(");
+            TestAssert.Contains(
+                livePassion,
+                "0.4f * visualAlpha",
+                "live passion icons must retain the direct semi-transparent tint");
+            TestAssert.Contains(
+                livePassion,
+                "DrawPassionIcon(boxRect, visual);",
+                "live passion icons must share the direct icon geometry and texture choice");
+            string hasPassion = MemberBody(
+                preparedBox,
+                "internal static bool HasLivePassionIcon(");
+            TestAssert.Contains(
+                hasPassion,
+                "WorkCellVisualFlags.Disabled",
+                "disabled cells must not reintroduce a passion icon that direct drawing omits");
+            string foreground = MemberBody(
+                preparedBox,
+                "internal static void DrawLiveForeground(");
+            int warning = foreground.IndexOf("DrawLiveLowSkillWarning(", StringComparison.Ordinal);
+            int passion = foreground.IndexOf("DrawLivePassionIcon(", StringComparison.Ordinal);
+            int priority = foreground.IndexOf("DrawLivePriorityLabel(", StringComparison.Ordinal);
+            TestAssert.True(
+                warning >= 0 && passion > warning && priority > passion,
+                "live foreground must retain the direct warning, passion, then priority ordering");
+
             TestAssert.Contains(
                 packet,
-                "LivePrioritySlotIndexes",
-                "prepared runs must publish sparse live-priority slot indexes");
+                "LiveForegroundSlotIndexes",
+                "prepared runs must publish one sparse live-foreground index set");
             string run = MemberBody(packet, "internal PreparedWorkRowRun(");
             TestAssert.Contains(
                 run,
-                "livePrioritySlotIndexes",
-                "prepared run packets must carry the live-priority index set");
+                "liveForegroundSlotIndexes",
+                "prepared run packets must carry the live-foreground index set");
             TestAssert.Contains(
                 packet,
-                "LiveLowSkillWarningSlotIndexes",
-                "prepared runs must publish sparse live-warning slot indexes");
+                "HasLiveForeground(",
+                "packet construction must select transparent foreground slots without a draw-time cell scan");
             TestAssert.Contains(
                 run,
-                "liveLowSkillWarningSlotIndexes",
-                "prepared run packets must carry the live-warning index set");
+                "liveForegroundSlotIndexes",
+                "prepared run packets must carry only the union index set");
             string preparedDraw = MemberBody(optimized, "public void DrawPreparedRun(");
             int retainedDraw = preparedDraw.IndexOf("_retainedRows.TryDraw(", StringComparison.Ordinal);
-            int warningDraw = preparedDraw.IndexOf("DrawPreparedRunLowSkillWarnings(", StringComparison.Ordinal);
-            int liveDraw = preparedDraw.IndexOf("DrawPreparedRunPriorityLabels(", StringComparison.Ordinal);
+            int liveDraw = preparedDraw.IndexOf("DrawPreparedRunLiveForeground(", StringComparison.Ordinal);
             TestAssert.True(
-                retainedDraw >= 0 && warningDraw > retainedDraw && liveDraw > warningDraw,
-                "prepared rows must draw the live warning and then live numerals after retained presentation succeeds");
+                retainedDraw >= 0 && liveDraw > retainedDraw,
+                "prepared rows must draw live transparent foreground only after retained presentation succeeds");
             TestAssert.Contains(
                 preparedDraw,
                 "if (!retained)\n            {\n                DrawPreparedRunDirect(",
                 "retained failure must use the direct path instead of a second live-label pass");
             string directFallback = MemberBody(optimized, "private void DrawPreparedRunDirect(");
             TestAssert.False(
-                directFallback.IndexOf("DrawPreparedRunPriorityLabels(", StringComparison.Ordinal) >= 0,
-                "direct prepared-row fallback must draw each manual numeral through DrawInBatch exactly once");
+                directFallback.IndexOf("DrawPreparedRunLiveForeground(", StringComparison.Ordinal) >= 0,
+                "direct prepared-row fallback must draw each transparent foreground pixel through DrawInBatch exactly once");
             TestAssert.False(
-                directFallback.IndexOf("DrawPreparedRunLowSkillWarnings(", StringComparison.Ordinal) >= 0,
-                "direct prepared-row fallback must draw each warning through DrawInBatch exactly once");
+                directFallback.IndexOf("DrawLivePassionIcon(", StringComparison.Ordinal) >= 0,
+                "direct prepared-row fallback must not add a second passion icon pass");
             string flush = MemberBody(optimized, "private void FlushRetainedCells(");
             TestAssert.Contains(
                 flush,
-                "if (retained)\n            {\n                DrawPendingLowSkillWarnings();\n                DrawPendingPriorityLabels();",
-                "batched retained cells must draw live warnings and numerals only on the retained-success path");
+                "if (retained)\n                {\n                    PreparedWorkBoxRenderer.DrawLiveForeground(",
+                "batched retained cells must draw live transparent foreground only on the retained-success path");
+            TestAssert.False(
+                flush.IndexOf("_pendingLowSkillWarnings", StringComparison.Ordinal) >= 0,
+                "batched retained cells must not allocate a second warning-only traversal");
             TestAssert.Contains(
                 flush,
-                "if (!retained)\n                {\n                    Text.Font = GameFont.Medium;",
+                "else\n                {\n                    Text.Font = GameFont.Medium;",
                 "batched retained failure must keep the existing direct cell path");
 
             string stable = MemberBody(preparedBox, "internal static bool DrawRetained(");
@@ -282,6 +315,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 stable.IndexOf("WidgetsWork.WorkBoxOverlay_Warning", StringComparison.Ordinal) >= 0,
                 "transparent low-skill warning borders must not be composed into a retained surface");
+            TestAssert.False(
+                stable.IndexOf("PassionWorkbox", StringComparison.Ordinal) >= 0,
+                "transparent passion icons must not be composed into a retained surface");
             TestAssert.Contains(
                 stable,
                 "WidgetsWork.WorkBoxOverlay_PreceptWarning",
@@ -467,6 +503,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(fingerprint.IndexOf("Text.CurFontStyle", StringComparison.Ordinal) >= 0, "steady hits must not depend on ambient GUI font state");
             string staticFingerprint = MemberBody(retained, "private static ulong GetStaticFingerprint(");
             TestAssert.False(staticFingerprint.IndexOf("visual.Priority", StringComparison.Ordinal) >= 0, "manual priority values must not rebuild texture-only retained surfaces");
+            TestAssert.False(staticFingerprint.IndexOf("visual.Passion", StringComparison.Ordinal) >= 0, "live passion icons must not rebuild texture-only retained surfaces");
             TestAssert.False(staticFingerprint.IndexOf("PriorityColor", StringComparison.Ordinal) >= 0, "manual priority colors belong to the live label pass");
             TestAssert.False(staticFingerprint.IndexOf("CompactText", StringComparison.Ordinal) >= 0, "font-size metadata must not rebuild texture-only retained surfaces");
             TestAssert.Contains(
