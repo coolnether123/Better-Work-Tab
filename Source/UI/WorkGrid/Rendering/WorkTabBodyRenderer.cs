@@ -111,6 +111,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 _viewportController.PrepareHorizontalScrollbarDrag(
                     viewport.OutRect, viewport.ViewRect, table.scrollPosition, Event.current);
 
+            // Unity exposes a physical Shift plus vertical wheel as delta.x.
+            // Route that one encoding before BeginScrollView can treat it as a
+            // horizontal scroll; ordinary wheel and scrollbar input stay native.
+            if (_viewportController.TryApplyShiftTranslatedVerticalWheel(
+                    ref table.scrollPosition,
+                    Event.current))
+            {
+                Event.current.Use();
+            }
+
             Widgets.BeginScrollView(viewport.OutRect, ref table.scrollPosition, viewport.ViewRect);
             try
             {
