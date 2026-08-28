@@ -466,6 +466,7 @@
     <Compile Include="UI\Settings\BWTSettingsLabelAlignment.cs" />
     <Compile Include="UI\Settings\BWTSettingsContextFocus.cs" />
     <Compile Include="UI\Settings\BWTSettingsFocusRequest.cs" />
+    <Compile Include="UI\Settings\BWTWorkloadPresentationNumericLayout.cs" />
     <Compile Include="UI\Settings\BWTWorkTabContextSettingsRouter.cs" />
     <Compile Include="UI\Settings\WorkTabPresentationPreviewPort.cs" />
     <Compile Include="UI\Settings\BWTSettingsImportExportActions.cs" />
