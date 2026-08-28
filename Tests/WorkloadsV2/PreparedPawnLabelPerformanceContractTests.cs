@@ -34,20 +34,19 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the capture boundary must establish its non-null label invariant once");
             TestAssert.False(packet.IndexOf("text ?? string.Empty", StringComparison.Ordinal) >= 0,
                 "downstream packet values must not hide a broken label capture invariant");
-            TestAssert.Contains(capture, "TruncateForPreparedCell", "label measurement must finish at snapshot capture");
-            TestAssert.False(capture.IndexOf("text.Truncate(width)", StringComparison.Ordinal) >= 0,
-                "prepared labels must not truncate a resolved markup string");
-            TestAssert.Contains(capture, "PreparedPawnLabelText.Truncate(",
-                "prepared labels must use the markup-balanced visible-text truncator");
-            TestAssert.Contains(capture, "MeasureVisibleTextDelegate",
-                "prepared labels must use one cached measurement delegate");
+            TestAssert.False(capture.IndexOf("TruncateForPreparedCell", StringComparison.Ordinal) >= 0,
+                "prepared labels must leave visible clipping to the native label widget");
             TestAssert.False(capture.IndexOf("GenText.Truncate", StringComparison.Ordinal) >= 0,
                 "prepared labels must not use TaggedString truncation");
+            TestAssert.False(capture.IndexOf("Text.CalcSize", StringComparison.Ordinal) >= 0,
+                "prepared labels must not measure or synthesize an alternate clipped string");
             TestAssert.Contains(capture, "string resolvedLabel = nativeLabel.Resolve();",
                 "the native label must be resolved once before preparation");
             TestAssert.False(capture.IndexOf("preparedBaseText.Resolve", StringComparison.Ordinal) >= 0,
                 "prepared label variants must not re-enter ColoredText resolution");
             string captureMethod = MemberBody(capture, "internal static PreparedPawnLabelPresentation Capture(");
+            TestAssert.False(captureMethod.IndexOf("PreparedPawnLabelText.Truncate(", StringComparison.Ordinal) >= 0,
+                "prepared labels must not replace native clipping with an in-label ellipsis");
             TestAssert.Equal(1, CountOccurrences(captureMethod, ".Resolve()"),
                 "capture must resolve only the native source label");
             TestAssert.Contains(captureMethod,
@@ -57,18 +56,21 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "richText = resolvedLabel.Colorize(pawnNameColor)",
                 "capture source identity must retain native name-color behavior");
             TestAssert.Contains(captureMethod,
-                "preparedBaseText.Colorize(pawnNameColor)",
-                "capture must apply the name color after balanced truncation");
+                "richText = PreparedPawnLabelText.StripMarkup(resolvedLabel)",
+                "contrast capture must strip role markup without changing native clipping");
             TestAssert.Contains(captureMethod,
-                "PreparedPawnLabelText.StripMarkup(preparedBaseText)",
-                "contrast capture must strip role markup at the prepared presentation boundary");
-            string truncateMethod = MemberBody(
-                capture,
-                "private static string TruncateForPreparedCell(");
-            TestAssert.False(truncateMethod.IndexOf("new Func<", StringComparison.Ordinal) >= 0,
-                "the hot label truncation path must not allocate a measurement delegate");
-            TestAssert.False(truncateMethod.IndexOf("MeasureVisibleText);", StringComparison.Ordinal) >= 0,
-                "the hot label truncation path must load the cached measurement delegate");
+                "string preparedText = richText;",
+                "prepared labels must pass the complete presentation string to the live native label widget");
+            TestAssert.Contains(captureMethod,
+                "float textWidth = columnWidth - 3f -",
+                "prepared label width must reserve only the native left padding and optional icon");
+            string buildPawnLabel = MemberBody(
+                packet,
+                "private static PreparedPawnLabelCell BuildPawnLabel(");
+            TestAssert.Contains(buildPawnLabel, "textRect.xMin += 3f;",
+                "prepared label geometry must preserve native left padding");
+            TestAssert.Contains(buildPawnLabel, "textRect.xMin += cellRect.height;",
+                "prepared label geometry must reserve only the native icon width");
             TestAssert.False(labelText.IndexOf("Dictionary<", StringComparison.Ordinal) >= 0,
                 "the truncator must not retain a process-wide cache");
             TestAssert.False(labelText.IndexOf("ColoredText.", StringComparison.Ordinal) >= 0,
@@ -79,8 +81,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "full snapshot rebuilds must reuse labels whose exact source and metric inputs are unchanged");
             TestAssert.True(
                 captureMethod.IndexOf("previous.MatchesSource(", StringComparison.Ordinal) <
-                    captureMethod.IndexOf("TruncateForPreparedCell(", StringComparison.Ordinal),
-                "exact reuse must be decided before text measurement or truncation");
+                    captureMethod.IndexOf("string preparedText = richText;", StringComparison.Ordinal),
+                "exact reuse must be decided before rebuilding the prepared presentation");
             TestAssert.Contains(provider, "_reusablePawnLabels",
                 "label reuse must follow pawn identity across row movement and roster additions");
             TestAssert.False(packet.IndexOf("Text.CalcSize", StringComparison.Ordinal) >= 0,
