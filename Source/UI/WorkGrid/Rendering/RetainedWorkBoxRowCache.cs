@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using UnityEngine;
 using Verse;
@@ -167,6 +168,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             _entries.Clear();
             _estimatedSurfaceBytes = 0L;
+            // Allocation failures are scoped to the generation whose surfaces
+            // just left this cache. The next open must be allowed to retry. Keep
+            // _disabled untouched: composition failure is an intentional,
+            // permanent direct-render fallback for this cache instance.
+            _failedRenderResourcesRevision = int.MinValue;
             if (releaseFailure != null)
             {
                 Log.Warning(
@@ -233,12 +239,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Color baseColor)
         {
             RenderTexture previous = RenderTexture.active;
+            Matrix4x4 previousMatrix = GUI.matrix;
             GameFont previousFont = Text.Font;
             TextAnchor previousAnchor = Text.Anchor;
             bool previousWordWrap = Text.WordWrap;
             try
             {
                 RenderTexture.active = surface;
+                // Widgets.Label follows GUI.matrix while composing the local
+                // surface. Match the header/chrome retained boundaries and
+                // keep the prepared logical rects in surface coordinates.
+                GUI.matrix = Matrix4x4.identity;
                 GL.PushMatrix();
                 try
                 {
@@ -246,22 +257,30 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     GL.Clear(true, true, Color.clear);
                     Text.Anchor = TextAnchor.MiddleCenter;
                     Text.WordWrap = false;
-                    for (int index = 0; index < cells.Count; index++)
+                    GUI.BeginGroup(new Rect(0f, 0f, bounds.width, bounds.height));
+                    try
                     {
-                        Cell cell = cells[index];
-                        Rect localRect = cell.BoxRect;
-                        localRect.x -= bounds.x;
-                        localRect.y -= bounds.y;
-                        Text.Font = cell.CompactText ? GameFont.Tiny : GameFont.Medium;
-                        bool drawn = PreparedWorkBoxRenderer.DrawRetained(
-                            localRect,
-                            cell.Visual,
-                            cell.DisplayPriority,
-                            baseColor);
-                        if (!drawn)
+                        for (int index = 0; index < cells.Count; index++)
                         {
-                            return false;
+                            Cell cell = cells[index];
+                            Rect localRect = cell.BoxRect;
+                            localRect.x -= bounds.x;
+                            localRect.y -= bounds.y;
+                            Text.Font = cell.CompactText ? GameFont.Tiny : GameFont.Medium;
+                            bool drawn = PreparedWorkBoxRenderer.DrawRetained(
+                                localRect,
+                                cell.Visual,
+                                cell.DisplayPriority,
+                                baseColor);
+                            if (!drawn)
+                            {
+                                return false;
+                            }
                         }
+                    }
+                    finally
+                    {
+                        GUI.EndGroup();
                     }
                 }
                 finally
@@ -272,6 +291,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             finally
             {
+                GUI.matrix = previousMatrix;
                 Text.Font = previousFont;
                 Text.Anchor = previousAnchor;
                 Text.WordWrap = previousWordWrap;
@@ -472,12 +492,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private static void PresentSurface(RenderTexture surface, Rect destination)
         {
             // The surface was composed through a top-left pixel matrix, and
-            // IMGUI presents it inside the owning scroll-view/group clip.
-            GUI.DrawTextureWithTexCoords(
-                destination,
-                surface,
-                new Rect(0f, 0f, 1f, 1f),
-                true);
+            // IMGUI presents it inside the owning scroll-view/group clip. Its
+            // pixels already contain their warning/glyph colors, so do not
+            // multiply them by the caller's stale cell tint a second time.
+            using (RetainedSurfacePresentation.EnterNeutralTextureTint())
+            {
+                GUI.DrawTextureWithTexCoords(
+                    destination,
+                    surface,
+                    new Rect(0f, 0f, 1f, 1f),
+                    true);
+            }
         }
 
         private bool IsResourceFailureLatched(int renderResourcesRevision)

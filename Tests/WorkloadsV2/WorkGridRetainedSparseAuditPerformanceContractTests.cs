@@ -279,6 +279,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 retainedRows.IndexOf("SystemInfo.graphicsUVStartsAtTop", StringComparison.Ordinal) >= 0,
                 "retained IMGUI rows must not apply a second platform UV inversion");
+            string build = MemberBody(retainedRows, "private static bool BuildSurface(");
+            TestAssert.Contains(
+                build,
+                "GUI.matrix = Matrix4x4.identity",
+                "retained row labels must compose in the surface's logical coordinate system");
             TestAssert.Contains(
                 retainedRows,
                 "new Rect(0f, 0f, 1f, 1f)",

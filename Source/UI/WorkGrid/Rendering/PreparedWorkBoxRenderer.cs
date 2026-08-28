@@ -313,64 +313,26 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         private static bool DrawRetainedPriorityLabel(Rect boxRect, int priority, Color color)
         {
-            GUIStyle style = Text.CurFontStyle;
-            Font font = style?.font;
-            if (font == null)
+            // Keep the existing direct fallback if the active RimWorld font
+            // resource is unavailable. Under normal conditions the call below
+            // is the exact same native label path used by DrawForeground.
+            if (Text.CurFontStyle?.font == null)
             {
                 return false;
             }
 
-            int fontSize = style.fontSize > 0 ? style.fontSize : font.fontSize;
-            FontStyle fontStyle = style.fontStyle;
-            string text = priority.ToStringCached();
-            font.RequestCharactersInTexture(text, fontSize, fontStyle);
-
-            float width = 0f;
-            var glyphs = new CharacterInfo[text.Length];
-            for (int index = 0; index < text.Length; index++)
-            {
-                if (!font.GetCharacterInfo(text[index], out glyphs[index], fontSize, fontStyle))
-                {
-                    return false;
-                }
-                width += glyphs[index].advance;
-            }
-
-            Material material = font.material;
-            if (material == null || !material.SetPass(0))
-            {
-                return false;
-            }
-
-            float xPosition = boxRect.center.x - (width * 0.5f);
-            GL.Begin(GL.QUADS);
+            // Use the same IMGUI label path as the direct renderer. The
+            // retained surface still owns this stable glyph, but its font,
+            // sizing, alignment, and baseline must remain vanilla-identical.
+            Color previousColor = GUI.color;
             try
             {
-                GL.Color(color);
-                for (int index = 0; index < glyphs.Length; index++)
-                {
-                    CharacterInfo glyph = glyphs[index];
-                    float verticalCenter = (glyph.maxY + glyph.minY) * 0.5f;
-                    float baseline = boxRect.center.y + verticalCenter;
-                    float xMin = xPosition + glyph.minX;
-                    float xMax = xPosition + glyph.maxX;
-                    float yMin = baseline - glyph.maxY;
-                    float yMax = baseline - glyph.minY;
-
-                    GL.TexCoord(glyph.uvTopLeft);
-                    GL.Vertex3(xMin, yMin, 0f);
-                    GL.TexCoord(glyph.uvTopRight);
-                    GL.Vertex3(xMax, yMin, 0f);
-                    GL.TexCoord(glyph.uvBottomRight);
-                    GL.Vertex3(xMax, yMax, 0f);
-                    GL.TexCoord(glyph.uvBottomLeft);
-                    GL.Vertex3(xMin, yMax, 0f);
-                    xPosition += glyph.advance;
-                }
+                GUI.color = color;
+                Widgets.Label(boxRect.ContractedBy(-3f), priority.ToStringCached());
             }
             finally
             {
-                GL.End();
+                GUI.color = previousColor;
             }
             return true;
         }
