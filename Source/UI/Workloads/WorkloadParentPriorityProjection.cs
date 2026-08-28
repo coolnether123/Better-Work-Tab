@@ -16,6 +16,11 @@ namespace Better_Work_Tab.UI.Workloads
         private readonly HashSet<int> _editablePawnIds;
         private readonly Func<long> _sourceRevision;
         private ParentPriorityProjectionSnapshot _snapshot;
+        private Dictionary<ParentPriorityTarget, ParentProjectionValue<int>> _priorities;
+        private Dictionary<ParentPriorityTarget, ParentPriorityScheduleOverlay> _schedules;
+        private Dictionary<ParentPriorityTarget, ParentProjectionValue<bool>> _manualModes;
+        private ParentProjectionValue<bool> _displayManualMode;
+        private bool _hasConflictingManualModes;
         private long _observedSourceRevision = long.MinValue, _revision;
 
         internal WorkloadParentPriorityProjection(WorkloadDraft draft, WorkloadOwnershipDimensions ownership,
@@ -34,8 +39,15 @@ namespace Better_Work_Tab.UI.Workloads
             return _snapshot ?? ParentPriorityProjectionSnapshot.Empty;
         }
 
-        internal bool TrySet(Pawn pawn, WorkTypeDef workType, int priority, out string reason)
+        internal bool TrySet(
+            Pawn pawn,
+            WorkTypeDef workType,
+            int priority,
+            out WorkloadParentPriorityKey key,
+            out string reason)
         {
+            key = null;
+            EnsureFresh();
             ParentPriorityTarget target = ParentPriorityRead.TargetFor(pawn, workType);
             if (!_ownership.Owns(WorkloadStateDimension.ParentPriorities))
                 reason = "The active workload preview does not own parent priorities.";
@@ -43,14 +55,40 @@ namespace Better_Work_Tab.UI.Workloads
                 reason = "The pawn is outside the active workload scope or is excluded for this preview.";
             else
             {
-                _draft.SetParentPriority(new WorkloadParentPriorityKey(
+                key = new WorkloadParentPriorityKey(
                     new PawnKey(target.PawnThingId.ToString(CultureInfo.InvariantCulture)),
-                    new WorkTypeKey(target.WorkTypeDefName)), priority);
+                    new WorkTypeKey(target.WorkTypeDefName));
+                _draft.SetParentPriority(key, priority);
+
+                // A previous WorkTabView can still read the old immutable
+                // snapshot during this input event. Copy only the priority map
+                // for this cell instead of rebuilding the entire workload
+                // draft, its schedules, specific jobs, and presentation state.
+                var priorities = new Dictionary<ParentPriorityTarget, ParentProjectionValue<int>>(
+                    _priorities);
+                priorities[target] = ParentProjectionValue<int>.Set(priority);
+                _priorities = priorities;
+                _snapshot = new ParentPriorityProjectionSnapshot(
+                    unchecked(++_revision),
+                    _priorities,
+                    _schedules,
+                    _manualModes,
+                    _displayManualMode,
+                    _hasConflictingManualModes);
                 _observedSourceRevision = long.MinValue;
                 reason = null;
                 return true;
             }
             return false;
+        }
+
+        // The provider revision is published after TrySet mutates its draft.
+        // Mark that exact revision as represented by the copied priority map so
+        // the next render pass does not rebuild the complete draft just to show
+        // this one cell.
+        internal void ConfirmDraftRevision(long sourceRevision)
+        {
+            _observedSourceRevision = sourceRevision;
         }
 
         private void EnsureFresh()
@@ -64,24 +102,26 @@ namespace Better_Work_Tab.UI.Workloads
         private void Rebuild()
         {
             WorkloadProjectedState state = _draft.ProjectedState ?? WorkloadProjectedState.Empty;
-            var priorities = new Dictionary<ParentPriorityTarget, ParentProjectionValue<int>>();
-            var schedules = new Dictionary<ParentPriorityTarget, ParentPriorityScheduleOverlay>();
-            var manualModes = new Dictionary<ParentPriorityTarget, ParentProjectionValue<bool>>();
-            if (_ownership.Owns(WorkloadStateDimension.ParentPriorities)) AddPriorities(state, priorities);
-            if (_ownership.Owns(WorkloadStateDimension.Schedules)) AddSchedules(state, schedules);
+            _priorities = new Dictionary<ParentPriorityTarget, ParentProjectionValue<int>>();
+            _schedules = new Dictionary<ParentPriorityTarget, ParentPriorityScheduleOverlay>();
+            _manualModes = new Dictionary<ParentPriorityTarget, ParentProjectionValue<bool>>();
+            if (_ownership.Owns(WorkloadStateDimension.ParentPriorities)) AddPriorities(state, _priorities);
+            if (_ownership.Owns(WorkloadStateDimension.Schedules)) AddSchedules(state, _schedules);
             ParentProjectionValue<bool> display = default(ParentProjectionValue<bool>);
             bool conflict = false;
             if (_ownership.Owns(WorkloadStateDimension.ManualModes))
             {
                 Dictionary<WorkloadParentPriorityKey, WorkloadIntent<bool>> effective =
                     WorkloadManualModeSemantics.GetEffectiveEntries(state);
-                AddManualModes(effective, manualModes);
+                AddManualModes(effective, _manualModes);
                 if (WorkloadManualModeSemantics.TryGetGlobalMode(
                         effective.Values, out bool mode, out _, out conflict))
                     display = ParentProjectionValue<bool>.Set(mode);
             }
-            _snapshot = new ParentPriorityProjectionSnapshot(unchecked(++_revision), priorities, schedules,
-                manualModes, display, conflict);
+            _displayManualMode = display;
+            _hasConflictingManualModes = conflict;
+            _snapshot = new ParentPriorityProjectionSnapshot(unchecked(++_revision), _priorities, _schedules,
+                _manualModes, _displayManualMode, _hasConflictingManualModes);
         }
 
         private void AddPriorities(WorkloadProjectedState state,

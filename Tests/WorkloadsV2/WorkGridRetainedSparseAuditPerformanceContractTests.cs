@@ -58,6 +58,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 gameCacheReset);
             MapWorldClearIsAnAuthoritativeTeardownHook(gameCacheReset);
             SparseParentChangesKeepSubWorkUpdatesLocal(
+                root,
                 snapshots,
                 workloadGateway,
                 priorityPatch);
@@ -215,6 +216,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         }
 
         private static void SparseParentChangesKeepSubWorkUpdatesLocal(
+            string root,
             string snapshots,
             string workloadGateway,
             string priorityPatch)
@@ -319,8 +321,39 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "internal bool TrySetPreviewParentPriority(");
             TestAssert.Contains(
                 previewMutation,
-                "_projectedProvider.InvalidateDraft();\n            WorkTabInvalidationHub.InvalidatePriority(pawn.thingIDNumber, workType.shortHash);",
-                "a successful preview parent-priority edit must publish one exact sparse invalidation after its draft revision");
+                "WorkloadGateway.EditV2PreviewCapturedParentPriority(key, priority);",
+                "a captured preview parent-priority edit must advance the authoritative session without generic draft synchronization");
+            TestAssert.Contains(
+                previewMutation,
+                "AcceptCapturedParentPriorityReplacement(",
+                "the captured parent path must retain undo/redo and preview identity ownership in the controller");
+            string capturedReplacement = MemberBody(
+                workloadGateway,
+                "private void AcceptCapturedParentPriorityReplacement(");
+            TestAssert.Contains(
+                capturedReplacement,
+                "_parentPriorityProjection.ConfirmDraftRevision(providerRevision);",
+                "the copied parent projection must acknowledge its provider revision instead of rebuilding the whole draft on repaint");
+            TestAssert.Contains(
+                previewMutation,
+                "else if (!SynchronizeAfterInput())",
+                "unusual parent records must retain the generic synchronization fallback");
+            TestAssert.Contains(
+                previewMutation,
+                "WorkTabInvalidationHub.InvalidatePriority(pawn.thingIDNumber, workType.shortHash);",
+                "a successful preview parent-priority edit must publish one exact sparse invalidation");
+
+            string parentProjection = Read(root, "Source", "UI", "Workloads",
+                "WorkloadParentPriorityProjection.cs");
+            string parentSet = MemberBody(parentProjection, "internal bool TrySet(");
+            TestAssert.False(
+                parentSet.IndexOf("_draft.ProjectedState", StringComparison.Ordinal) >= 0 ||
+                parentSet.IndexOf("Rebuild()", StringComparison.Ordinal) >= 0,
+                "one parent edit must update its prepared priority map without materializing the full workload draft");
+            TestAssert.Contains(
+                parentSet,
+                "new Dictionary<ParentPriorityTarget, ParentProjectionValue<int>>(",
+                "the parent projection must preserve an in-flight WorkTabView by copy-on-writing only its priority map");
         }
 
         private static void CompatibilityAuditUsesLinearSkillAndPriorityPasses(string audit)

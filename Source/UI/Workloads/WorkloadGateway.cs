@@ -376,6 +376,17 @@ namespace Better_Work_Tab.UI.Workloads
                 () => V2Unavailable<WorkloadSession>());
         }
 
+        internal static WorkloadOperationResult<WorkloadSession>
+            EditV2PreviewCapturedParentPriority(
+                WorkloadParentPriorityKey key,
+                int priority)
+        {
+            return DispatchV2(
+                modern => modern.EditPreviewCapturedParentPriority(key, priority),
+                NoCurrentGame<WorkloadSession>,
+                () => V2Unavailable<WorkloadSession>());
+        }
+
         internal static WorkloadOperationResult<WorkloadSession> SetV2PreviewState(
             WorkloadProjectedState projectedState)
         {
@@ -1871,7 +1882,12 @@ namespace Better_Work_Tab.UI.Workloads
         {
             string reason = null;
             if (!IsActive || _parentPriorityProjection == null ||
-                !_parentPriorityProjection.TrySet(pawn, workType, priority, out reason))
+                !_parentPriorityProjection.TrySet(
+                    pawn,
+                    workType,
+                    priority,
+                    out WorkloadParentPriorityKey key,
+                    out reason))
             {
                 if (!string.IsNullOrEmpty(reason))
                 {
@@ -1882,11 +1898,55 @@ namespace Better_Work_Tab.UI.Workloads
             }
 
             // The generic provider still owns the remaining draft dimensions
-            // and session synchronization. Tell it about this boundary-owned
-            // draft mutation without retaining a second parent index there.
+            // and future generic synchronization. Tell it about this
+            // boundary-owned draft mutation without retaining a second parent
+            // index there.
             _projectedProvider.InvalidateDraft();
+            long providerRevision = _projectedProvider.ProjectionRevision;
+            WorkloadSession previous = _session;
+            WorkloadOperationResult<WorkloadSession> result =
+                WorkloadGateway.EditV2PreviewCapturedParentPriority(key, priority);
+            if (result.Succeeded && result.Value != null)
+            {
+                AcceptCapturedParentPriorityReplacement(
+                    result.Value,
+                    previous,
+                    providerRevision);
+            }
+            else if (!SynchronizeAfterInput())
+            {
+                return false;
+            }
+
             WorkTabInvalidationHub.InvalidatePriority(pawn.thingIDNumber, workType.shortHash);
             return true;
+        }
+
+        /// <summary>
+        /// The captured-parent route is valid only when the target was present
+        /// in the preview's captured state. It advances the authoritative
+        /// session without making the renderer materialize unrelated draft
+        /// dimensions. Other targets keep the generic compatibility path.
+        /// </summary>
+        private void AcceptCapturedParentPriorityReplacement(
+            WorkloadSession accepted,
+            WorkloadSession previous,
+            long providerRevision)
+        {
+            if (!ReferenceEquals(previous, accepted))
+            {
+                _draftHistory.Record(new DraftTransition(
+                    previous.ProjectedState,
+                    accepted.ProjectedState));
+                _session = accepted;
+                BWTWorkloadSettingsOwnershipPolicy.ObservePreviewIdentity(
+                    _session.PreviewStamp);
+                ResetCompletedMultiplayerAttemptIfPayloadChanged();
+            }
+
+            _parentPriorityProjection.ConfirmDraftRevision(providerRevision);
+            _synchronizedProjectedProviderRevision = providerRevision;
+            ClearInspectionIndex();
         }
 
         internal void QueueLifecycleAction(
