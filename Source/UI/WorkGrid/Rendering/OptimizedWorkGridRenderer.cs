@@ -54,6 +54,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             new List<PendingParentCell>(32);
         private readonly List<PendingSubWorkCell> _pendingSubWorkCells =
             new List<PendingSubWorkCell>(32);
+        private readonly List<PendingLowSkillWarning> _pendingLowSkillWarnings =
+            new List<PendingLowSkillWarning>(8);
         private PreparedWorkRowPacket[] _preparedRowPackets = Array.Empty<PreparedWorkRowPacket>();
         private readonly Dictionary<WorkTypeDef, int> _parentColumnByWorkType =
             new Dictionary<WorkTypeDef, int>();
@@ -212,6 +214,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             _retainedCells.Clear();
             _pendingParentCells.Clear();
             _pendingSubWorkCells.Clear();
+            _pendingLowSkillWarnings.Clear();
         }
 
         public void EndRow()
@@ -305,6 +308,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     visual,
                     pawn,
                     workType));
+                if (PreparedWorkBoxRenderer.HasLiveLowSkillWarning(visual))
+                {
+                    _pendingLowSkillWarnings.Add(new PendingLowSkillWarning(boxRect, visual));
+                }
             }
             else if (_eventPhase == ImGuiEventPhase.Repaint)
             {
@@ -494,6 +501,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             else
             {
+                DrawPreparedRunLowSkillWarnings(packet, run, rowOffsetY);
                 DrawPreparedRunPriorityLabels(packet, run, rowOffsetY, baseColor);
             }
 
@@ -604,6 +612,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 _retainedCells.Clear();
                 _pendingParentCells.Clear();
                 _pendingSubWorkCells.Clear();
+                _pendingLowSkillWarnings.Clear();
                 _cellBatchState.Dispose();
                 _cellBatchActive = false;
             }
@@ -640,6 +649,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 _renderResourcesRevision);
             if (retained)
             {
+                DrawPendingLowSkillWarnings();
                 DrawPendingPriorityLabels();
             }
             for (int index = 0; index < _pendingParentCells.Count; index++)
@@ -780,6 +790,34 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Text.Font = previousFont;
                 Text.Anchor = previousAnchor;
                 Text.WordWrap = previousWordWrap;
+            }
+        }
+
+        private void DrawPendingLowSkillWarnings()
+        {
+            for (int index = 0; index < _pendingLowSkillWarnings.Count; index++)
+            {
+                PendingLowSkillWarning warning = _pendingLowSkillWarnings[index];
+                PreparedWorkBoxRenderer.DrawLiveLowSkillWarning(
+                    warning.BoxRect,
+                    warning.Visual,
+                    visualAlpha: 1f);
+            }
+        }
+
+        private static void DrawPreparedRunLowSkillWarnings(
+            PreparedWorkRowPacket packet,
+            PreparedWorkRowRun run,
+            float rowOffsetY)
+        {
+            for (int index = 0; index < run.LiveLowSkillWarningSlotIndexes.Length; index++)
+            {
+                PreparedWorkRowCell slot =
+                    packet.Slots[run.LiveLowSkillWarningSlotIndexes[index]];
+                PreparedWorkBoxRenderer.DrawLiveLowSkillWarning(
+                    OffsetY(slot.BoxRect, rowOffsetY),
+                    slot.Visual,
+                    visualAlpha: 1f);
             }
         }
 
@@ -1221,6 +1259,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     presentation.WorkBoxVisual,
                     presentation.HasDynamicRing,
                     displayPriority));
+                if (PreparedWorkBoxRenderer.HasLiveLowSkillWarning(
+                        presentation.WorkBoxVisual))
+                {
+                    _pendingLowSkillWarnings.Add(new PendingLowSkillWarning(
+                        priorityBoxRect,
+                        presentation.WorkBoxVisual));
+                }
                 return true;
             }
 
@@ -1348,6 +1393,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             internal WorkBoxVisualState Visual { get; }
             internal Pawn Pawn { get; }
             internal WorkTypeDef WorkType { get; }
+        }
+
+        private readonly struct PendingLowSkillWarning
+        {
+            internal PendingLowSkillWarning(Rect boxRect, WorkBoxVisualState visual)
+            {
+                BoxRect = boxRect;
+                Visual = visual;
+            }
+
+            internal Rect BoxRect { get; }
+            internal WorkBoxVisualState Visual { get; }
         }
 
         private readonly struct HoverColumnKey : IEquatable<HoverColumnKey>

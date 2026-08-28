@@ -85,7 +85,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int[] parentDynamicSlotIndexes,
             int[] subWorkRingSlotIndexes,
             int[] subWorkSlotIndexes,
-            int[] livePrioritySlotIndexes)
+            int[] livePrioritySlotIndexes,
+            int[] liveLowSkillWarningSlotIndexes)
         {
             Retained = retained;
             SlotIndexes = slotIndexes;
@@ -93,6 +94,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             SubWorkRingSlotIndexes = subWorkRingSlotIndexes;
             SubWorkSlotIndexes = subWorkSlotIndexes;
             LivePrioritySlotIndexes = livePrioritySlotIndexes;
+            LiveLowSkillWarningSlotIndexes = liveLowSkillWarningSlotIndexes;
         }
 
         internal RetainedWorkBoxRowCache.PreparedRun Retained { get; }
@@ -101,6 +103,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         internal int[] SubWorkRingSlotIndexes { get; }
         internal int[] SubWorkSlotIndexes { get; }
         internal int[] LivePrioritySlotIndexes { get; }
+        internal int[] LiveLowSkillWarningSlotIndexes { get; }
     }
 
     internal sealed class PreparedWorkRowPacket
@@ -539,6 +542,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             private readonly List<int> _subWorkRingSlotIndexes = new List<int>(4);
             private readonly List<int> _subWorkSlotIndexes = new List<int>(4);
             private readonly List<int> _livePrioritySlotIndexes = new List<int>(8);
+            private readonly List<int> _liveLowSkillWarningSlotIndexes = new List<int>(4);
             private PreparedPawnLabelCell _pawnLabel;
 
             internal RowPacketAssembly(int columnCount, int visibleColumnCount)
@@ -589,6 +593,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 {
                     _livePrioritySlotIndexes.Add(slotIndex);
                 }
+                if (PreparedWorkBoxRenderer.HasLiveLowSkillWarning(prepared.Slot.Visual))
+                {
+                    _liveLowSkillWarningSlotIndexes.Add(slotIndex);
+                }
                 if (prepared.SubWorkRingOverlay)
                 {
                     _subWorkRingSlotIndexes.Add(slotIndex);
@@ -609,7 +617,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     _parentDynamicSlotIndexes.ToArray(),
                     _subWorkRingSlotIndexes.ToArray(),
                     _subWorkSlotIndexes.ToArray(),
-                    _livePrioritySlotIndexes.ToArray()));
+                    _livePrioritySlotIndexes.ToArray(),
+                    _liveLowSkillWarningSlotIndexes.ToArray()));
                 _commands.Add(new PreparedWorkRowCommand(
                     PreparedWorkRowCommandKind.RetainedRun,
                     runIndex));
@@ -619,6 +628,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 _subWorkRingSlotIndexes.Clear();
                 _subWorkSlotIndexes.Clear();
                 _livePrioritySlotIndexes.Clear();
+                _liveLowSkillWarningSlotIndexes.Clear();
             }
 
             internal PreparedWorkRowPacket Complete(

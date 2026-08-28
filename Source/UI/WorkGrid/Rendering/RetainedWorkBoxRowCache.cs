@@ -201,7 +201,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private static Rect GetBounds(IReadOnlyList<Cell> cells)
         {
             Rect bounds = cells[0].BoxRect;
-            float stableOutset = GetStableVisualOutset(cells[0]);
             for (int index = 1; index < cells.Count; index++)
             {
                 Cell cell = cells[index];
@@ -210,25 +209,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 bounds.yMin = Mathf.Min(bounds.yMin, rect.yMin);
                 bounds.xMax = Mathf.Max(bounds.xMax, rect.xMax);
                 bounds.yMax = Mathf.Max(bounds.yMax, rect.yMax);
-                stableOutset = Mathf.Max(stableOutset, GetStableVisualOutset(cell));
             }
-            return bounds.ExpandedBy(stableOutset);
-        }
-
-        private static float GetStableVisualOutset(Cell cell)
-        {
-            WorkCellVisualFlags flags = cell.Visual.Flags;
-            // Manual numerals are intentionally drawn live after this surface is
-            // presented, so they must not enlarge the retained texture bounds.
-            // The warning texture remains part of the stable surface and extends
-            // beyond its work-box rect by the native two-pixel outset.
-            if ((flags & WorkCellVisualFlags.LowSkillWarning) != 0 &&
-                (flags & WorkCellVisualFlags.Disabled) == 0)
-            {
-                return PreparedWorkBoxRenderer.LowSkillWarningOutset;
-            }
-
-            return 0f;
+            return bounds;
         }
 
         private static RenderTexture CreateSurface(int width, int height)
@@ -391,7 +373,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Mix(ref hash, visual.SkillBlend.GetHashCode());
                 Mix(ref hash, visual.Passion);
                 Mix(ref hash, (int)(visual.Flags &
-                    ~(WorkCellVisualFlags.BestPawn | WorkCellVisualFlags.OverrideRing)));
+                    ~(WorkCellVisualFlags.BestPawn |
+                      WorkCellVisualFlags.OverrideRing |
+                      WorkCellVisualFlags.LowSkillWarning)));
                 // Manual numerals and their color are drawn after presentation;
                 // only the checkbox's on/off state changes retained pixels.
                 bool retainedCheck =
