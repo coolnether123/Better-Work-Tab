@@ -953,6 +953,20 @@ namespace Better_Work_Tab.PawnOrganizer
                     column.Width));
             }
 
+            // PawnTable's cached width describes the ordinary table. Expand-beside
+            // columns are BWT-owned layout columns, so their natural span can be wider
+            // without changing PawnTable.cachedSize. Publish the complete visual row
+            // width so row backgrounds, separators and body hit regions cover those
+            // columns; the viewport controller still owns clipping and horizontal scroll.
+            float publishedRowWidth = _rowWidth;
+            if (_columns.Count > 0)
+            {
+                WorkTabLayoutColumn lastColumn = _columns[_columns.Count - 1];
+                publishedRowWidth = Mathf.Max(
+                    publishedRowWidth,
+                    lastColumn.OffsetX + lastColumn.Width);
+            }
+
             float schedulePinnedHeight = WorkGridLayoutMetrics.SchedulePinnedHeight;
             float subWorkPinnedHeight = WorkGridLayoutMetrics.SubWorkPinnedHeight;
             float tutorialPinnedHeight = WorkGridLayoutMetrics.TutorialPinnedHeight;
@@ -965,7 +979,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 subWorkPinnedHeight,
                 tutorialPinnedHeight,
                 _contentHeight,
-                _rowWidth,
+                publishedRowWidth,
                 _geometryRows.ToSnapshot(),
                 _geometryColumns.ToSnapshot(),
                 retainedBytes);
