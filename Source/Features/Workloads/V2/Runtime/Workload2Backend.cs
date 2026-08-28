@@ -176,6 +176,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
     {
         None,
         NoChange,
+        // The repository changed and its catalog/receipt were published, but
+        // no live Work-tab state changed. This deliberately avoids a visual
+        // invalidation or pawn-table refresh after Update/Fork.
+        RepositoryOnly,
         Applied,
         Pending
     }
@@ -4066,7 +4070,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             PersistenceMutation persistence = null;
             LiveMutationTransaction live = null;
             WorkloadBackendDimensionBaseline backendBaseline = null;
-            bool applicationChangePublished = false;
+            WorkloadApplicationPublication applicationPublication =
+                WorkloadApplicationPublication.NoChange;
 
             try
             {
@@ -4512,7 +4517,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 }
                 else if (!provisional && report.HasNetStateChange)
                 {
-                    applicationChangePublished = NotifyCommitChanged(
+                    applicationPublication = NotifyCommitChanged(
                         live,
                         presentationChanged: live?.PresentationWasChanged == true,
                         persistenceChanged: report.TemplatePersisted);
@@ -4531,8 +4536,8 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     ? hasRetainedChanges
                         ? WorkloadApplicationPublication.Pending
                         : WorkloadApplicationPublication.NoChange
-                    : applicationChangePublished
-                        ? WorkloadApplicationPublication.Applied
+                    : applicationPublication != WorkloadApplicationPublication.NoChange
+                        ? applicationPublication
                         : report.HasNetStateChange
                             ? WorkloadApplicationPublication.None
                             : WorkloadApplicationPublication.NoChange;
@@ -8029,7 +8034,10 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                     "The V2 persistence baseline is unavailable for " + subject + ".");
             }
 
-            store.RefreshDiagnostics();
+            // CommitCore already completed whole-document diagnostics before
+            // entering the synchronous validation path that reaches this
+            // method. The exact CAS below and TryCommitRevision immediately
+            // before the write still protect the optimistic baseline.
             string error = string.Empty;
             if (store.IsReadOnlyDiagnostic ||
                 !store.TryValidateCompareAndSwap(
@@ -8149,7 +8157,7 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             return -1;
         }
 
-        private bool NotifyCommitChanged(
+        private WorkloadApplicationPublication NotifyCommitChanged(
             LiveMutationTransaction live,
             bool presentationChanged,
             bool persistenceChanged)
@@ -8160,27 +8168,36 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
                 if (changed)
                 {
                     _component.NotifyV2Changed();
-                    return true;
+                    return WorkloadApplicationPublication.Applied;
                 }
             }
 
             // Presentation-only commits have no staged receipt, so publish
             // them here instead of making the lifecycle caller recache tables.
-            if (!presentationChanged && !persistenceChanged)
-                return false;
+            if (presentationChanged)
+            {
+                _component.NotifyV2Changed();
+                WorkTabApplication application = WorkTabApplication.Current;
+                return application != null && application.PublishAtomicMutation(
+                    WorkTabApplicationDimensions.Presentation,
+                    durable: true,
+                    broadScope: true,
+                    mirrorExternal: true,
+                    notifyPawnTables: false).Changed
+                    ? WorkloadApplicationPublication.Applied
+                    : WorkloadApplicationPublication.None;
+            }
 
-            _component.NotifyV2Changed();
+            if (persistenceChanged)
+            {
+                // Update/Fork changed only the workload repository. Publish
+                // its validated catalog and receipt without pretending that
+                // the active Work tab needs a presentation rebuild.
+                _component.NotifyV2Changed();
+                return WorkloadApplicationPublication.RepositoryOnly;
+            }
 
-            WorkTabApplication application = WorkTabApplication.Current;
-            return application != null && application.PublishAtomicMutation(
-                WorkTabApplicationDimensions.Presentation,
-                durable: true,
-                broadScope: true,
-                mirrorExternal: true,
-                // A persistence-only workload commit already invalidates the
-                // presentation. It does not alter pawn rows, so do not make
-                // the application publisher recache every pawn table.
-                notifyPawnTables: false).Changed;
+            return WorkloadApplicationPublication.NoChange;
         }
 
         private static bool RollbackPersistence(
