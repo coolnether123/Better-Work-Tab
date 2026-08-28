@@ -479,8 +479,17 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(snapshot, "internal long TopologyRevision", "snapshots must distinguish topology from content changes");
             TestAssert.Contains(provider, "previous.PreparedRows.WithReplacements", "unaffected row spans must be retained");
             TestAssert.Contains(provider, "previous.TopologyRevision", "sparse updates must preserve cell topology");
-            TestAssert.Contains(provider, "FindBestPawnId(table, workType, worker)", "priority updates must refresh comparison-dependent best-pawn identity");
-            TestAssert.Contains(provider, "changedBestPawnIds", "old and new best-pawn rows must receive row-local invalidation");
+            string sparseReplacement = MemberBody(provider, "private bool TryBuildSparseReplacements(");
+            TestAssert.Contains(
+                sparseReplacement,
+                "previous.PreparedRows[rowIndex]",
+                "sparse updates must rebuild the exact prepared row that owns the changed priority");
+            TestAssert.False(
+                sparseReplacement.IndexOf("FindBestPawnId", StringComparison.Ordinal) >= 0,
+                "a priority edit must not rescan best-pawn skill selection");
+            TestAssert.False(
+                sparseReplacement.IndexOf("changedBestPawnIds", StringComparison.Ordinal) >= 0,
+                "a priority edit must not revise unrelated best-pawn rows");
         }
 
         private static void RetainedHitsUsePrecomputedBoundsAndFingerprint(
