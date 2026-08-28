@@ -147,10 +147,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 // The TaggedString -> string conversion is intentional: native
                 // DoCell uses it, and RimWorld's operator strips markup before
                 // measuring. RawText would measure tags that native ignores.
-                string nativeLabelForMeasurement = nativeLabel;
-                if (Text.CalcSize(nativeLabelForMeasurement).x > textWidth)
+                // Native DoCell inherits the pawn-table row's small font for
+                // this measurement, then explicitly selects the same font for
+                // drawing. Snapshot capture runs outside that state boundary,
+                // so it must establish and restore the inherited font itself.
+                GameFont previousFont = Text.Font;
+                try
                 {
-                    preparedLabel = GenText.Truncate(nativeLabel, textWidth, null);
+                    Text.Font = GameFont.Small;
+                    string nativeLabelForMeasurement = nativeLabel;
+                    if (Text.CalcSize(nativeLabelForMeasurement).x > textWidth)
+                    {
+                        preparedLabel = GenText.Truncate(nativeLabel, textWidth, null);
+                    }
+                }
+                finally
+                {
+                    Text.Font = previousFont;
                 }
             }
 

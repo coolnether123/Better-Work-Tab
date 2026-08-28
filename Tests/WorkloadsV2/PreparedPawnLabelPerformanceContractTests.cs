@@ -43,6 +43,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "Text.CalcSize(nativeLabelForMeasurement).x > textWidth",
                 "prepared labels must retain the native conditional width test");
             TestAssert.Contains(capture,
+                "GameFont previousFont = Text.Font;",
+                "snapshot measurement must preserve the caller's font state");
+            TestAssert.Contains(capture,
+                "Text.Font = GameFont.Small;",
+                "snapshot measurement must establish the pawn-table row font inherited by native DoCell");
+            TestAssert.Contains(capture,
+                "Text.Font = previousFont;",
+                "snapshot measurement must restore the caller's font state");
+            TestAssert.Contains(capture,
                 "GenText.Truncate(nativeLabel, textWidth, null)",
                 "overflowing prepared labels must use native tagged truncation");
             TestAssert.Contains(capture,
