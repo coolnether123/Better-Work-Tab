@@ -183,7 +183,10 @@ namespace Better_Work_Tab.Features.Application
         internal int? RequiredPriorityMaximum;
         internal WorkTabApplicationDimensions AdditionalPublicationDimensions;
 
-        internal bool HasChanges => RequiredPriorityMaximum.HasValue ||
+        // A target is a request until the staged writer proves that it changed
+        // live state. Keep request admission separate from applied changes so
+        // an idempotent manual-mode target cannot publish a durable revision.
+        internal bool HasRequests => RequiredPriorityMaximum.HasValue ||
             ManualPriorityTarget.HasValue ||
             ParentPriorities.Count > 0 ||
             ExternalSpecificPriorities.Count > 0 ||
@@ -196,7 +199,7 @@ namespace Better_Work_Tab.Features.Application
             get
             {
                 WorkTabApplicationDimensions dimensions = WorkTabApplicationDimensions.None;
-                if (RequiredPriorityMaximum.HasValue || ParentPriorities.Count > 0)
+                if (ParentPriorities.Count > 0)
                     dimensions |= WorkTabApplicationDimensions.ParentPriority;
                 if (ManualPriorityModeChanged)
                     dimensions |= WorkTabApplicationDimensions.ManualPriorityMode;
@@ -250,17 +253,22 @@ namespace Better_Work_Tab.Features.Application
                     mutation.Schedules[0].Expected.ServiceVersion);
         }
 
-        internal bool HasChanges => _configurationChanged || _manualChanged ||
+        internal bool HasAppliedChanges => _configurationChanged || _manualChanged ||
             _appliedParents.Count > 0 ||
             _appliedExternalSpecific.Count > 0 || _specificRollback != null ||
             _appliedSchedules.Count > 0;
         internal bool Committed => _committed;
         internal bool StageSucceeded { get; private set; }
         internal bool RecoveryRequired => _recoveryRequired;
-        internal bool HasNetChanges => HasChanges && !_rolledBack;
+        internal bool HasNetChanges => HasAppliedChanges && !_rolledBack;
         internal int SpecificJobRevision => _specificRollback?.AppliedRevision ??
             _mutation.SpecificJobRevision;
-        internal WorkTabApplicationDimensions Dimensions => _mutation.Dimensions;
+        internal WorkTabApplicationDimensions Dimensions =>
+            _mutation.Dimensions |
+            (_configurationChanged
+                ? WorkTabApplicationDimensions.ParentPriority |
+                  WorkTabApplicationDimensions.Presentation
+                : WorkTabApplicationDimensions.None);
         internal IReadOnlyList<WorkTabApplicationTargetChange> AffectedTargets =>
             _mutation.AffectedTargets;
 
@@ -462,7 +470,7 @@ namespace Better_Work_Tab.Features.Application
             _application.ReleaseStagedMutation();
             _released = true;
             if (provisional &&
-                (HasChanges || commit.ScheduleChanged || commit.SpecificJobsChanged ||
+                (HasAppliedChanges || commit.ScheduleChanged || commit.SpecificJobsChanged ||
                  _mutation.AdditionalPublicationDimensions !=
                     WorkTabApplicationDimensions.None))
             {
@@ -471,7 +479,7 @@ namespace Better_Work_Tab.Features.Application
                     _configurationChanged);
             }
             if (!provisional &&
-                (HasChanges || commit.ScheduleChanged || commit.SpecificJobsChanged ||
+                (HasAppliedChanges || commit.ScheduleChanged || commit.SpecificJobsChanged ||
                 _mutation.AdditionalPublicationDimensions !=
                     WorkTabApplicationDimensions.None))
             {
@@ -494,7 +502,7 @@ namespace Better_Work_Tab.Features.Application
                 return false;
             }
 
-            if (HasChanges || _mutation.AdditionalPublicationDimensions !=
+            if (HasAppliedChanges || _mutation.AdditionalPublicationDimensions !=
                 WorkTabApplicationDimensions.None)
             {
                 change = _application.PublishStagedMutation(
@@ -723,7 +731,7 @@ namespace Better_Work_Tab.Features.Application
         {
             staged = false;
             reason = null;
-            if (!IsCurrent || mutation == null || !mutation.HasChanges ||
+            if (!IsCurrent || mutation == null || !mutation.HasRequests ||
                 (!applicationLockHeld && !Enter()))
             {
                 reason = "The staged Work-tab mutation is not actionable.";
@@ -780,8 +788,9 @@ namespace Better_Work_Tab.Features.Application
         {
             WorkTabApplicationDimensions dimensions = mutation.Dimensions;
             if (configurationChanged)
-                dimensions |= WorkTabApplicationDimensions.Presentation;
-            bool broad = configurationChanged || mutation.ManualPriorityTarget.HasValue ||
+                dimensions |= WorkTabApplicationDimensions.ParentPriority |
+                    WorkTabApplicationDimensions.Presentation;
+            bool broad = configurationChanged || mutation.ManualPriorityModeChanged ||
                 mutation.AffectedTargets.Count == 0;
             for (int i = 0; !broad && i < mutation.AffectedTargets.Count; i++)
                 broad = mutation.AffectedTargets[i].Target.IsGlobal;
@@ -808,7 +817,8 @@ namespace Better_Work_Tab.Features.Application
         {
             WorkTabApplicationDimensions dimensions = mutation.Dimensions;
             if (configurationChanged)
-                dimensions |= WorkTabApplicationDimensions.Presentation;
+                dimensions |= WorkTabApplicationDimensions.ParentPriority |
+                    WorkTabApplicationDimensions.Presentation;
             _publisher.InvalidateTransient(EffectsFor(
                 dimensions,
                 false,
