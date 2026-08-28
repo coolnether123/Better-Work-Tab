@@ -50,37 +50,6 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 in presentation);
         }
 
-        /// <summary>
-        /// Draws the stable non-glyph pixels into a cache-local surface. Font
-        /// glyphs stay at the live IMGUI boundary so transparent-surface alpha
-        /// composition cannot thin their anti-aliased edges.
-        /// </summary>
-        internal void DrawRetainedStable(
-            AngledLabelDrawer.AngledLabelLayout layout,
-            Rect headerRect,
-            PawnColumnDef column,
-            in HeaderPresentationPacket presentation)
-        {
-            AngledLabelDrawer.DrawRetainedStable(
-                layout,
-                headerRect,
-                column,
-                in presentation);
-        }
-
-        internal void DrawRetainedText(
-            AngledLabelDrawer.AngledLabelLayout layout,
-            Rect headerRect,
-            PawnColumnDef column,
-            in HeaderPresentationPacket presentation)
-        {
-            AngledLabelDrawer.DrawRetainedText(
-                layout,
-                headerRect,
-                column,
-                in presentation);
-        }
-
         private static void DrawPreparedHeader(
             AngledLabelDrawer.AngledLabelLayout layout,
             bool isMouseOver,

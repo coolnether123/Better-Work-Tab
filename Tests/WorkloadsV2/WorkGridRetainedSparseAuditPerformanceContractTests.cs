@@ -25,12 +25,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string body = Read(
                 root,
                 "Source", "UI", "WorkGrid", "Rendering", "WorkTabBodyRenderer.cs");
-            string retainedHeaders = Read(
-                root,
-                "Source", "UI", "Headers", "RetainedPriorityHeaderCache.cs");
-            string retainedHeaderKey = Read(
-                root,
-                "Source", "UI", "Headers", "RetainedPriorityHeaderVisualKey.cs");
             string headerCoordinator = Read(
                 root,
                 "Source", "UI", "Headers", "HeaderDrawingCoordinator.cs");
@@ -50,9 +44,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             ParentRowsDoNotRecomposeDuringColumnAnimation(renderer);
             SnapshotOwnedEmptyBackgroundsDoNotFallBack(renderer, body);
             RetainedRowsKeepLogicalImGuiOrientation(retainedRows);
-            RetainedHeadersKeepDynamicAndForeignRenderingLive(
-                retainedHeaders,
-                retainedHeaderKey,
+            HeadersUseLivePreparedRendering(
                 headerCoordinator,
                 angledLabels,
                 vanillaHeaders,
@@ -88,247 +80,71 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the direct map/world clear route must reset cached game-bound state");
         }
 
-        private static void RetainedHeadersKeepDynamicAndForeignRenderingLive(
-            string retainedHeaders,
-            string retainedHeaderKey,
+        private static void HeadersUseLivePreparedRendering(
             string headerCoordinator,
             string angledLabels,
             string vanillaHeaders,
             string window,
             string gameCacheReset)
         {
-            TestAssert.Contains(
-                retainedHeaders,
-                "MaximumEntries = 64",
-                "retained headers need a hard surface-count bound");
-            TestAssert.Contains(
-                retainedHeaders,
-                "MaximumEstimatedSurfaceBytes = 32L * 1024L * 1024L",
-                "retained headers need a hard estimated-byte bound");
-            TestAssert.Contains(
-                retainedHeaders,
-                "if (!HasCapacity(requestedBytes, 1))",
-                "retained headers must prove new-entry capacity before allocating an entry");
-            int headerCapacityCheck = retainedHeaders.IndexOf(
-                "if (!HasCapacity(requestedBytes, 1))",
-                StringComparison.Ordinal);
-            int headerEntryAllocation = retainedHeaders.IndexOf(
-                "entry = new Entry();",
-                StringComparison.Ordinal);
-            TestAssert.True(
-                headerCapacityCheck >= 0 &&
-                headerEntryAllocation > headerCapacityCheck,
-                "retained headers must check capacity before the new-entry allocation");
-            TestAssert.Contains(
-                retainedHeaders,
-                "renderer.GetType() != typeof(AngledHeaderRenderer)",
-                "subclassed or foreign header renderers must retain the direct fallback");
-            TestAssert.Contains(
-                retainedHeaders,
-                "column.Worker?.GetType() != typeof(PawnColumnWorker_WorkPriority)",
-                "only the exact BWT-owned vanilla priority worker may retain pixels");
-            TestAssert.Contains(
-                retainedHeaders,
-                "FluffyWorkTabGateway.IsFluffyColumn(column)",
-                "Fluffy-owned headers must retain their direct path");
-            TestAssert.Contains(
-                retainedHeaders,
-                "SleekWorkTabGateway.BetterWorkTabHostsSleek",
-                "mixed Sleek header composition must retain its direct path");
-
-            string retainedDraw = MemberBody(retainedHeaders, "internal bool TryDraw(");
-            int surfacePresentation = retainedDraw.IndexOf(
-                "PresentSurface(",
-                StringComparison.Ordinal);
-            int liveText = retainedDraw.IndexOf(
-                "DrawRetainedText(",
-                StringComparison.Ordinal);
-            TestAssert.True(
-                surfacePresentation >= 0 && liveText > surfacePresentation,
-                "retained headers must present static pixels before drawing live glyphs");
-
-            string retainedBuild = MemberBody(
-                retainedHeaders,
-                "private static bool BuildSurface(");
-            TestAssert.False(
-                retainedBuild.IndexOf("renderer.DrawHeader(", StringComparison.Ordinal) >= 0,
-                "transparent retained header surfaces must not compose font glyphs through the full renderer");
-            TestAssert.Contains(
-                retainedBuild,
-                "DrawRetainedStable(",
-                "retained header surfaces must use the static-pixel render boundary");
-            TestAssert.Contains(
-                retainedHeaders,
-                "retained priority-header renderer has no live text boundary",
-                "every retained header renderer must expose an explicit live glyph boundary");
-
-            string eligibility = MemberBody(retainedHeaders, "private static bool CanRetain(");
-            TestAssert.Contains(eligibility, "isMouseOver", "hover pixels must stay live");
-            TestAssert.Contains(eligibility, "isSorted", "sort indicators must stay live");
-            TestAssert.Contains(
-                eligibility,
-                "ColumnSelectionManager.IsSelected(column)",
-                "selection highlights must stay live");
-            TestAssert.Contains(
-                eligibility,
-                "ColumnReorderAnimationState.IsActive",
-                "column animation must use direct header rendering");
-            TestAssert.Contains(
-                eligibility,
-                "PawnOrganizerSystem.Instance.IsDraggingColumn",
-                "column dragging must use direct header rendering");
-            TestAssert.False(
-                eligibility.IndexOf("PawnOrganizerSystem.Instance == null", StringComparison.Ordinal) >= 0,
-                "the open Work window must trust its established organizer lifecycle invariant");
-            TestAssert.False(
-                eligibility.IndexOf("layout.Text == null", StringComparison.Ordinal) >= 0,
-                "prepared headers must keep their exact non-null label invariant");
-            TestAssert.Contains(
-                eligibility,
-                "SubWorkDrilldownState.HasAnyDrilldown",
-                "sub-work header presentation must use its established direct renderer");
-
-            TestAssert.Contains(
-                retainedHeaders,
-                "new Rect(0f, 0f, 1f, 1f)",
-                "cropped retained headers must preserve the proven top-left IMGUI orientation");
-            TestAssert.False(
-                retainedHeaders.IndexOf("1f - destination.yMax / logicalHeight", StringComparison.Ordinal) >= 0,
-                "retained headers must not apply a second platform UV inversion");
-            string retainedAngled = MemberBody(
-                angledLabels,
-                "internal static void DrawRetainedStable(");
-            TestAssert.Contains(
-                retainedAngled,
-                "useUnclippedPivot: false",
-                "cache-local angled composition must not unclip back into screen space");
-            TestAssert.Contains(
-                retainedAngled,
-                "drawText: false",
-                "transparent retained angled surfaces must exclude font glyphs");
-            TestAssert.Contains(
-                retainedAngled,
-                "drawUnderline: true",
-                "retained angled surfaces must keep their static underline pixels");
-            string retainedAngledText = MemberBody(
-                angledLabels,
-                "internal static void DrawRetainedText(");
-            TestAssert.Contains(
-                retainedAngledText,
-                "useUnclippedPivot: true",
-                "live angled glyphs must return through the screen-space IMGUI boundary");
-            TestAssert.Contains(
-                retainedAngledText,
-                "drawUnderline: false",
-                "the live angled glyph pass must not duplicate cached underlines");
-            string angledCore = MemberBody(angledLabels, "private static void DrawCore(");
-            TestAssert.Contains(
-                angledCore,
-                "if (drawText || drawUnderline)",
-                "the parent ghost must enter whichever retained drawing phase owns its pixels");
-            TestAssert.Contains(
-                angledCore,
-                "drawText,\n                    drawUnderline,\n                    useUnclippedPivot,",
-                "the parent ghost must receive independent text, underline, and coordinate-phase ownership");
-            string parentGhost = MemberBody(
-                angledLabels,
-                "private static void DrawParentHeaderGhost(");
-            TestAssert.Contains(
-                parentGhost,
-                "if (drawText && isCJKVertical)",
-                "parent ghost glyphs must remain on the live text phase");
-            TestAssert.Contains(
-                parentGhost,
-                "else if (drawText)",
-                "non-CJK parent ghost glyphs must remain on the live text phase");
-            TestAssert.Contains(
-                parentGhost,
-                "if (drawUnderline &&\n                    !presentation.RemoveUnderline",
-                "parent ghost underlines must be emitted only by the stable underline phase");
-            TestAssert.Contains(
-                parentGhost,
-                "useUnclippedPivot\n                    ? GUIClipUtility.Unclip(drawRect.center)\n                    : drawRect.center",
-                "the parent underline must use cache-local coordinates during retained composition");
-
-            string retainedVanilla = MemberBody(
-                vanillaHeaders,
-                "internal void DrawRetainedStable(");
-            TestAssert.Contains(
-                retainedVanilla,
-                "drawText: false",
-                "transparent retained vanilla surfaces must exclude font glyphs");
-            TestAssert.Contains(
-                retainedVanilla,
-                "drawStems: true",
-                "retained vanilla surfaces must keep their static stem pixels");
-            string retainedVanillaText = MemberBody(
-                vanillaHeaders,
-                "internal void DrawRetainedText(");
-            TestAssert.Contains(
-                retainedVanillaText,
-                "drawStems: false",
-                "the live vanilla glyph pass must not duplicate cached stems");
-            TestAssert.Contains(
-                retainedHeaders,
-                "_failedRenderResourcesRevision == renderResourcesRevision",
-                "a failed retained header resource must not retry every repaint");
-            TestAssert.Contains(
-                retainedHeaders,
-                "if (!HasStablePixels(renderer, in layout, in presentation))",
-                "headers with no stable underline/stem pixels must use the direct path without a GPU surface");
-            string stablePixels = MemberBody(
-                retainedHeaders,
-                "private static bool HasStablePixels(");
-            TestAssert.Contains(
-                stablePixels,
-                "!layout.IsCJKVertical",
-                "CJK vertical headers must not allocate an empty retained surface");
-            TestAssert.Contains(
-                stablePixels,
-                "presentation.RemoveUnderline",
-                "underline removal must bypass retained-surface allocation");
-            TestAssert.Contains(
-                retainedHeaders,
-                "UnityEngine.Object.Destroy(surface)",
-                "released retained header surfaces must destroy their Unity resources");
-            TestAssert.Contains(
-                retainedHeaderKey,
-                "private readonly Matrix4x4 _guiMatrix;",
-                "the exact cache key must include the GUI transform used for composition");
-            TestAssert.Contains(
-                retainedHeaderKey,
-                "private readonly long _settingsThemeLanguageScaleRevision;",
-                "the exact cache key must include the font/theme/language resource generation");
-            TestAssert.False(
-                retainedHeaderKey.IndexOf("activeLanguage?", StringComparison.Ordinal) >= 0,
-                "header composition must trust RimWorld's active-language UI invariant");
-
             string draw = MemberBody(headerCoordinator, "internal static void DrawHeader(");
-            int retainedAttempt = draw.IndexOf("_retainedPriorityHeaders.TryDraw(", StringComparison.Ordinal);
             int directDraw = draw.IndexOf("preparedRenderer.DrawHeader(", StringComparison.Ordinal);
             TestAssert.True(
-                retainedAttempt >= 0 && directDraw > retainedAttempt,
-                "retained failure must flow into the existing prepared direct renderer");
-            string close = MemberBody(window, "private void ResetTransientWindowState()");
+                directDraw >= 0,
+                "prepared headers must draw through the live prepared renderer");
             TestAssert.False(
-                close.IndexOf("HeaderDrawingCoordinator.ReleaseRetainedResources();", StringComparison.Ordinal) >= 0,
-                "ordinary Work-tab close must retain valid header surfaces");
+                draw.IndexOf("_retainedPriorityHeaders", StringComparison.Ordinal) >= 0,
+                "header drawing must not route through the removed retained RenderTexture cache");
+            TestAssert.False(
+                angledLabels.IndexOf("DrawRetainedStable(", StringComparison.Ordinal) >= 0,
+                "angled headers must not expose a deferred offscreen underline phase");
+            TestAssert.False(
+                angledLabels.IndexOf("DrawRetainedText(", StringComparison.Ordinal) >= 0,
+                "angled headers must keep glyphs on the same live presentation pass as underlines");
+            string angledDraw = MemberBody(angledLabels, "internal static void Draw(");
+            TestAssert.Contains(
+                angledDraw,
+                "drawUnderline: true",
+                "angled prepared headers must draw stable underlines live");
+            TestAssert.False(
+                vanillaHeaders.IndexOf("DrawRetainedStable(", StringComparison.Ordinal) >= 0,
+                "vanilla headers must not expose a deferred offscreen stem phase");
+            TestAssert.False(
+                vanillaHeaders.IndexOf("DrawRetainedText(", StringComparison.Ordinal) >= 0,
+                "vanilla headers must keep glyphs and stems on the same live presentation pass");
+            string vanillaDraw = MemberBody(vanillaHeaders, "public void DrawHeader(");
+            TestAssert.Contains(
+                vanillaDraw,
+                "drawStems: true",
+                "vanilla prepared headers must draw stable stems live");
+            string prepare = MemberBody(headerCoordinator, "internal static void PrepareFrame(");
+            TestAssert.False(
+                prepare.IndexOf("_retainedPriorityHeaders", StringComparison.Ordinal) >= 0,
+                "header invalidation must not manage a removed offscreen cache");
+            string invalidate = MemberBody(headerCoordinator, "public static void InvalidateCaches()");
+            TestAssert.False(
+                invalidate.IndexOf("_retainedPriorityHeaders", StringComparison.Ordinal) >= 0,
+                "header cache invalidation must remain limited to live layout caches");
+            TestAssert.Contains(
+                headerCoordinator,
+                "Header pixels are drawn live",
+                "the retained-resource teardown seam must document that headers own no GPU surface");
+            string preOpen = MemberBody(window, "public override void PreOpen()");
+            TestAssert.False(
+                preOpen.IndexOf("HeaderDrawingCoordinator.ResetRetainedFailureLatchesForReopen();", StringComparison.Ordinal) >= 0,
+                "reopening the Work tab must not reset a removed header surface latch");
+            TestAssert.False(
+                window.IndexOf("HeaderDrawingCoordinator.ResetRetainedFailureLatchesForReopen", StringComparison.Ordinal) >= 0,
+                "the removed retained header cache must not leave a reset API behind");
             string resolution = MemberBody(window, "public override void Notify_ResolutionChanged()");
             TestAssert.Contains(
                 resolution,
                 "ReleaseRetainedResources();",
-                "resolution changes must release retained header surfaces");
+                "resolution changes must still release row and chrome retained resources");
             string teardown = MemberBody(gameCacheReset, "public static void Reset(string reason)");
             TestAssert.False(
                 teardown.IndexOf("HeaderDrawingCoordinator.ReleaseRetainedResources();", StringComparison.Ordinal) >= 0,
-                "game-data invalidation must not defer retained header release until a successful load");
-
-            string animatedLayout = MemberBody(
-                headerCoordinator,
-                "public static void InvalidateAnimatedLayout()");
-            TestAssert.False(
-                animatedLayout.IndexOf("_retainedPriorityHeaders.Dispose()", StringComparison.Ordinal) >= 0,
-                "shared row-animation invalidation must not destroy unchanged retained header surfaces");
+                "game-data invalidation must not invent a header GPU release path");
         }
 
         private static void SnapshotOwnedEmptyBackgroundsDoNotFallBack(

@@ -111,9 +111,6 @@ namespace Better_Work_Tab.UI.Headers
         private static HeaderPresentationPacket _presentationPacket;
         private static long _presentationPacketSettingsRevision = long.MinValue;
         private static int _presentationPacketVersion = int.MinValue;
-        private static readonly RetainedPriorityHeaderCache _retainedPriorityHeaders =
-            new RetainedPriorityHeaderCache();
-
         static HeaderDrawingCoordinator()
         {
             _vanillaSolver = new VanillaHeaderLayoutSolver();
@@ -219,19 +216,6 @@ namespace Better_Work_Tab.UI.Headers
         {
             if (renderer is IHeaderPresentationRenderer preparedRenderer)
             {
-                if (_retainedPriorityHeaders.TryDraw(
-                        preparedRenderer,
-                        layout,
-                        isMouseOver,
-                        isSorted,
-                        headerRect,
-                        column,
-                        showMarker,
-                        in presentation))
-                {
-                    return;
-                }
-
                 preparedRenderer.DrawHeader(
                     layout,
                     isMouseOver,
@@ -339,7 +323,6 @@ namespace Better_Work_Tab.UI.Headers
         /// </summary>
         internal static void PrepareFrame(WorkTabInvalidationVersion current)
         {
-            _retainedPriorityHeaders.PrepareFrame(current);
             bool headerTextChanged = current.HeaderText != _lastInvalidationVersions.HeaderText ||
                                      current.RenderResources != _lastInvalidationVersions.RenderResources;
             bool headerGeometryChanged = current.HeaderGeometry != _lastInvalidationVersions.HeaderGeometry ||
@@ -378,11 +361,9 @@ namespace Better_Work_Tab.UI.Headers
             AngledHeaderCache.ClearGeometryCache();
 
             // Animation is a shared invalidation category: divider row animations also
-            // advance it even though header pixels do not change. Header animations that
-            // can change the pixels (column reorder and sub-work transitions) already use
-            // the direct path while active, and the retained key validates their settled
-            // geometry before reuse. Keep dormant surfaces instead of rebuilding every
-            // header on every unrelated animation frame.
+            // advance it even though header pixels do not change. Header animation and
+            // interaction stay on the normal prepared draw path, so there is no offscreen
+            // header surface to invalidate or rebuild here.
         }
 
         /// <summary>
@@ -400,21 +381,14 @@ namespace Better_Work_Tab.UI.Headers
             _presentationPacketSettingsRevision = long.MinValue;
             _presentationPacketVersion = int.MinValue;
             AngledHeaderCache.ClearCache();
-            _retainedPriorityHeaders.Dispose();
         }
 
         /// <summary>
-        /// Releases GPU-backed header presentation at a render-resource boundary.
-        /// Ordinary Work-tab closes retain these bounded surfaces for the next open.
+        /// Compatibility seam for the shared retained-resource teardown sequence.
+        /// Header pixels are drawn live and no longer own GPU-backed surfaces.
         /// </summary>
         internal static void ReleaseRetainedResources()
         {
-            _retainedPriorityHeaders.Dispose();
-        }
-
-        internal static void ResetRetainedFailureLatchesForReopen()
-        {
-            _retainedPriorityHeaders.ResetFailureLatchesForReopen();
         }
 
         /// <summary>

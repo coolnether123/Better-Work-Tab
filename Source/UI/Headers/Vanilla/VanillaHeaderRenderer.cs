@@ -72,48 +72,6 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 in presentation);
         }
 
-        internal void DrawRetainedStable(
-            Angled.AngledLabelDrawer.AngledLabelLayout layout,
-            Rect headerRect,
-            PawnColumnDef column,
-            bool showMarker,
-            in HeaderPresentationPacket presentation)
-        {
-            DrawPreparedHeader(
-                layout,
-                isMouseOver: false,
-                isSorted: false,
-                sortDescending: false,
-                headerRect,
-                column,
-                showMarker,
-                drawText: false,
-                drawStems: true,
-                drawDynamicVisuals: false,
-                in presentation);
-        }
-
-        internal void DrawRetainedText(
-            Angled.AngledLabelDrawer.AngledLabelLayout layout,
-            Rect headerRect,
-            PawnColumnDef column,
-            bool showMarker,
-            in HeaderPresentationPacket presentation)
-        {
-            DrawPreparedHeader(
-                layout,
-                isMouseOver: false,
-                isSorted: false,
-                sortDescending: false,
-                headerRect,
-                column,
-                showMarker,
-                drawText: true,
-                drawStems: false,
-                drawDynamicVisuals: false,
-                in presentation);
-        }
-
         private void DrawPreparedHeader(
             Angled.AngledLabelDrawer.AngledLabelLayout layout,
             bool isMouseOver,

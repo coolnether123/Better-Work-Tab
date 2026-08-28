@@ -488,8 +488,6 @@
     <Compile Include="UI\Headers\Angled\GUIClipUtility.cs" />
     <Compile Include="UI\Headers\IHeaderRenderer.cs" />
     <Compile Include="UI\Headers\HeaderDrawingCoordinator.cs" />
-    <Compile Include="UI\Headers\RetainedPriorityHeaderCache.cs" />
-    <Compile Include="UI\Headers\RetainedPriorityHeaderVisualKey.cs" />
     <Compile Include="UI\Headers\WorkTabHeaderRenderer.cs" />
     <Compile Include="UI\Headers\RuleBuilder2WorkTabOverlay.cs" />
     <Compile Include="UI\Headers\SubWorkTransitionOverlay.cs" />
