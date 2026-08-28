@@ -689,6 +689,8 @@ namespace Better_Work_Tab.UI.Workloads
 
         private bool _inspectionActive;
         private string _lastMessage = string.Empty;
+        private WorkloadApplicationPublication _lifecycleApplicationPublication =
+            WorkloadApplicationPublication.None;
 
         private enum WorkloadInspectionContext
         {
@@ -1869,6 +1871,25 @@ namespace Better_Work_Tab.UI.Workloads
             _queuedLifecycleActions.Add(new QueuedLifecycleAction(action, completed));
         }
 
+        internal void ResetLifecycleApplicationPublication()
+        {
+            _lifecycleApplicationPublication = WorkloadApplicationPublication.None;
+        }
+
+        internal void RecordLifecycleApplicationPublication(
+            WorkloadApplicationPublication publication)
+        {
+            _lifecycleApplicationPublication = publication;
+        }
+
+        internal WorkloadApplicationPublication ConsumeLifecycleApplicationPublication()
+        {
+            WorkloadApplicationPublication publication =
+                _lifecycleApplicationPublication;
+            _lifecycleApplicationPublication = WorkloadApplicationPublication.None;
+            return publication;
+        }
+
         internal void FlushQueuedLifecycleActions()
         {
             if (_queuedLifecycleActions.Count == 0)
@@ -2396,6 +2417,14 @@ namespace Better_Work_Tab.UI.Workloads
             {
                 SetMessage(MultiplayerStatusExplanation);
             }
+            else
+            {
+                // The protocol owns the eventual application publication. Do
+                // not let the footer emit a speculative table refresh while
+                // the request is pending confirmation.
+                RecordLifecycleApplicationPublication(
+                    WorkloadApplicationPublication.Pending);
+            }
 
             return accepted;
         }
@@ -2475,6 +2504,7 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal bool ApplyPreview()
         {
+            ResetLifecycleApplicationPublication();
             if (!IsActive)
             {
                 SetMessage(T("BWT_Workload_NoActivePreview"));
@@ -2514,6 +2544,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
+            RecordLifecycleApplicationPublication(result.ApplicationPublication);
             ClearLocalSession();
             SetMessage(WorkloadPresentationResolver.Resolve(result));
             return true;
@@ -2552,6 +2583,7 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal bool UpdatePreview()
         {
+            ResetLifecycleApplicationPublication();
             if (!IsActive)
             {
                 SetMessage(T("BWT_Workload_NoActivePreview"));
@@ -2600,10 +2632,11 @@ namespace Better_Work_Tab.UI.Workloads
             WorkloadV2CommitResult result = WorkloadGateway.CommitV2Update();
             if (!result.Succeeded)
             {
-            SetMessage(WorkloadPresentationResolver.Resolve(result));
+                SetMessage(WorkloadPresentationResolver.Resolve(result));
                 return false;
             }
 
+            RecordLifecycleApplicationPublication(result.ApplicationPublication);
             if (!AdoptRebasedPreview(result))
             {
                 return false;
@@ -2615,6 +2648,7 @@ namespace Better_Work_Tab.UI.Workloads
 
         internal bool ForkPreview(string label)
         {
+            ResetLifecycleApplicationPublication();
             if (!IsActive)
             {
                 SetMessage(T("BWT_Workload_NoActivePreviewForSaveAs"));
@@ -2655,6 +2689,7 @@ namespace Better_Work_Tab.UI.Workloads
                 return false;
             }
 
+            RecordLifecycleApplicationPublication(result.ApplicationPublication);
             if (!AdoptRebasedPreview(result))
             {
                 return false;

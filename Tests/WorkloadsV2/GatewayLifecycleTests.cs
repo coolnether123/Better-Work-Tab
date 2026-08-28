@@ -109,6 +109,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             WorkloadMenuUsesStableIds(header);
             WorkloadSelectorUsesOnlyTheWorkloadName(header);
             PreviewActionsUseVisibleHitRects(header);
+            LifecycleRefreshUsesApplicationPublicationReceipt(header, gateway, backend);
             NarrowFooterGeometryIsBounded(header);
             SelectorSpacingIsMeasuredWithoutLeadingReserve(selector);
             SelectorUsesLegacyMinimumAndMeasuredGrowth(header);
@@ -676,6 +677,40 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 drawPath.IndexOf("GUI.BeginGroup(", StringComparison.Ordinal) >= 0,
                 "atomic preview actions must not carry a stale clipping group");
+        }
+
+        private static void LifecycleRefreshUsesApplicationPublicationReceipt(
+            string header,
+            string gateway,
+            string backend)
+        {
+            TestAssert.Contains(
+                header,
+                "WhenApplicationPublicationIsMissing",
+                "live preview commits must use a change-aware table refresh policy");
+            TestAssert.Contains(
+                header,
+                "ConsumeLifecycleApplicationPublication()",
+                "footer completion must consume the application publication receipt");
+            TestAssert.False(
+                header.IndexOf("notifyPawnTables:", StringComparison.Ordinal) >= 0,
+                "lifecycle refresh policy must not remain an untyped boolean option");
+            TestAssert.Contains(
+                gateway,
+                "RecordLifecycleApplicationPublication(result.ApplicationPublication)",
+                "preview commits must forward the backend publication receipt");
+            TestAssert.Contains(
+                gateway,
+                "WorkloadApplicationPublication.Pending",
+                "accepted multiplayer commits must defer table refresh until confirmation");
+            TestAssert.Contains(
+                backend,
+                "ApplicationPublication = provisional",
+                "commit results must report whether application publication is applied or pending");
+            TestAssert.Contains(
+                backend,
+                "private bool NotifyCommitChanged(LiveMutationTransaction live)",
+                "the backend must return publication ownership to its lifecycle caller");
         }
 
         private static void WorkloadSelectorUsesOnlyTheWorkloadName(string header)
