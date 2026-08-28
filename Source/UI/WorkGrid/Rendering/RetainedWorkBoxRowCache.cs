@@ -13,7 +13,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     /// composed offscreen, then presented through IMGUI while
     /// the owning scroll view's clip is active. Callers own the non-empty
     /// prepared-cell invariant; false means a runtime resource/composition failure
-    /// and activates the direct draw fallback.
+    /// and activates the direct draw fallback. A destination may be above, within,
+    /// or below the viewport; no local vertical culling is applied, so the owning
+    /// IMGUI clip remains authoritative for top, middle, and bottom rows.
     /// </summary>
     internal sealed class RetainedWorkBoxRowCache : IDisposable
     {
@@ -25,6 +27,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private long _estimatedSurfaceBytes;
         private long _accessSequence;
         private int _failedRenderResourcesRevision = int.MinValue;
+        private int _compositionCapabilityRevision = int.MinValue;
+        private bool _compositionCapabilityAvailable;
 
         internal readonly struct Cell
         {
@@ -171,6 +175,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             // must be allowed to retry. Keep _disabled untouched: only an
             // explicit unsupported composition is a permanent fallback.
             _failedRenderResourcesRevision = int.MinValue;
+            _compositionCapabilityRevision = int.MinValue;
+            _compositionCapabilityAvailable = false;
+            PreparedWorkBoxRenderer.ReleaseRetainedResources();
             if (releaseFailure != null)
             {
                 Log.Warning(
@@ -185,6 +192,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             // tab has been closed. An explicit unsupported composition remains
             // a permanent direct-render fallback.
             _failedRenderResourcesRevision = int.MinValue;
+            if (!_compositionCapabilityAvailable)
+            {
+                _compositionCapabilityRevision = int.MinValue;
+            }
         }
 
         private static Rect GetBounds(IReadOnlyList<Cell> cells)
@@ -259,17 +270,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             failure = RetainedWorkBoxDrawFailure.None;
             RenderTexture previous = RenderTexture.active;
+            int previousViewportWidth = previous == null ? Screen.width : previous.width;
+            int previousViewportHeight = previous == null ? Screen.height : previous.height;
             Matrix4x4 previousMatrix = GUI.matrix;
             Color previousColor = GUI.color;
+            bool previousSrgbWrite = GL.sRGBWrite;
+            bool matrixPushed = false;
             try
             {
                 RenderTexture.active = surface;
+                GL.InvalidateState();
+                GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));
                 // The retained surface contains textures only. Match the
                 // header/chrome retained boundaries and keep prepared logical
                 // rects in surface coordinates; live IMGUI glyphs are drawn
                 // after presentation by the row renderer.
                 GUI.matrix = Matrix4x4.identity;
                 GL.PushMatrix();
+                matrixPushed = true;
                 try
                 {
                     GL.LoadPixelMatrix(0f, bounds.width, bounds.height, 0f);
@@ -296,7 +314,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
                 finally
                 {
-                    GL.PopMatrix();
+                    if (matrixPushed)
+                    {
+                        GL.PopMatrix();
+                        matrixPushed = false;
+                    }
                 }
                 return true;
             }
@@ -307,9 +329,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
             finally
             {
+                if (matrixPushed)
+                {
+                    GL.PopMatrix();
+                }
+
+                RenderTexture.active = previous;
+                if (previousViewportWidth > 0 && previousViewportHeight > 0)
+                {
+                    GL.Viewport(new Rect(
+                        0f,
+                        0f,
+                        previousViewportWidth,
+                        previousViewportHeight));
+                }
+                GL.sRGBWrite = previousSrgbWrite;
                 GUI.matrix = previousMatrix;
                 GUI.color = previousColor;
-                RenderTexture.active = previous;
+                GL.InvalidateState();
             }
         }
 
@@ -396,6 +433,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return false;
             }
 
+            if (!TryEnsureCompositionCapability(renderResourcesRevision))
+            {
+                return false;
+            }
+
             ulong fingerprint = GetFingerprint(
                 staticFingerprint,
                 baseColor,
@@ -430,6 +472,35 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             PresentSurface(entry.Surface, destination);
             return true;
+        }
+
+        private bool TryEnsureCompositionCapability(int renderResourcesRevision)
+        {
+            if (_compositionCapabilityRevision == renderResourcesRevision)
+            {
+                return _compositionCapabilityAvailable;
+            }
+
+            bool available = PreparedWorkBoxRenderer.TryValidateRetainedComposition(
+                out RetainedWorkBoxDrawFailure failure);
+            _compositionCapabilityRevision = renderResourcesRevision;
+            _compositionCapabilityAvailable = available;
+            if (available)
+            {
+                return true;
+            }
+
+            if (failure == RetainedWorkBoxDrawFailure.Unsupported)
+            {
+                DisableAfterFailure("retained row composition unsupported");
+            }
+            else
+            {
+                LatchResourceFailure(
+                    renderResourcesRevision,
+                    "retained row composition capability unavailable");
+            }
+            return false;
         }
 
         private bool TryAcquireSurface(
