@@ -29,7 +29,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 optimized,
                 compatibility);
             PacketBuilderConsumesPreparedStateOnly(packet);
-            RetainedPriorityGlyphsUseTheNativeLabelPath(preparedBox);
+            RetainedPriorityGlyphsStayOnTheLivePath(preparedBox, packet, optimized);
+            PreparedRowsRejectStalePawns(optimized);
             SparseUpdatesAdvanceOnlyDirtyRows(snapshot, provider);
             RetainedHitsUsePrecomputedBoundsAndFingerprint(retained);
             RetainedFailuresStayRevisionScoped(retained, preparedBox);
@@ -145,7 +146,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(packet.IndexOf("Workload", StringComparison.Ordinal) >= 0, "packet construction must not read workload domains");
         }
 
-        private static void RetainedPriorityGlyphsUseTheNativeLabelPath(string preparedBox)
+        private static void RetainedPriorityGlyphsStayOnTheLivePath(
+            string preparedBox,
+            string packet,
+            string optimized)
         {
             TestAssert.Contains(
                 preparedBox,
@@ -155,25 +159,83 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 preparedBox,
                 "internal const float LowSkillWarningOutset = 2f;",
                 "native warning geometry must keep the vanilla two-pixel outset");
-            string retained = MemberBody(
-                preparedBox,
-                "private static bool DrawRetainedPriorityLabel(");
-            TestAssert.Contains(
-                retained,
-                "boxRect.ContractedBy(-PriorityLabelOutset)",
-                "retained priority glyphs must use the same native label call as direct cells");
+            string retained = MemberBody(preparedBox, "internal static bool DrawRetained(");
             TestAssert.False(
-                retained.IndexOf("CharacterInfo", StringComparison.Ordinal) >= 0,
+                retained.IndexOf("Widgets.Label", StringComparison.Ordinal) >= 0,
+                "transparent retained surfaces must not compose manual priority glyphs");
+            TestAssert.False(
+                retained.IndexOf("DrawPriorityLabel(", StringComparison.Ordinal) >= 0,
+                "retained work boxes must leave manual priority glyphs to the live pass");
+
+            string live = MemberBody(
+                preparedBox,
+                "internal static void DrawLivePriorityLabel(");
+            TestAssert.False(
+                live.IndexOf("CharacterInfo", StringComparison.Ordinal) >= 0,
                 "retained priority glyphs must not manually reconstruct font metrics");
             TestAssert.False(
-                retained.IndexOf("GL.QUADS", StringComparison.Ordinal) >= 0,
+                live.IndexOf("GL.QUADS", StringComparison.Ordinal) >= 0,
                 "retained priority glyphs must not use a second custom rasterizer");
+            TestAssert.Contains(
+                live,
+                "DrawPriorityLabel(",
+                "manual priority glyphs must use the shared direct label helper on screen");
+            TestAssert.Contains(
+                live,
+                "Text.Anchor = TextAnchor.MiddleCenter",
+                "live priority glyphs must keep vanilla centered text alignment");
+            TestAssert.Contains(
+                live,
+                "compactText",
+                "live priority glyphs must preserve the compact sub-work font decision");
+            string hasLabel = MemberBody(preparedBox, "internal static bool HasPriorityLabel(");
+            TestAssert.Contains(
+                hasLabel,
+                "WorkCellVisualFlags.Disabled",
+                "disabled cells must not reintroduce a numeral that direct drawing omits");
 
             string direct = MemberBody(preparedBox, "private static void DrawForeground(");
             TestAssert.Contains(
                 direct,
+                "DrawPriorityLabel(",
+                "direct and retained live priority glyphs must share one label helper");
+            TestAssert.Contains(
+                preparedBox,
                 "boxRect.ContractedBy(-PriorityLabelOutset)",
-                "direct and retained priority glyphs must share the vanilla label geometry");
+                "all priority glyphs must keep the vanilla three-pixel label geometry");
+
+            TestAssert.Contains(
+                packet,
+                "LivePrioritySlotIndexes",
+                "prepared runs must publish sparse live-priority slot indexes");
+            string run = MemberBody(packet, "internal PreparedWorkRowRun(");
+            TestAssert.Contains(
+                run,
+                "livePrioritySlotIndexes",
+                "prepared run packets must carry the live-priority index set");
+            string preparedDraw = MemberBody(optimized, "public void DrawPreparedRun(");
+            int retainedDraw = preparedDraw.IndexOf("_retainedRows.TryDraw(", StringComparison.Ordinal);
+            int liveDraw = preparedDraw.IndexOf("DrawPreparedRunPriorityLabels(", StringComparison.Ordinal);
+            TestAssert.True(
+                retainedDraw >= 0 && liveDraw > retainedDraw,
+                "prepared rows must draw live numerals only after retained presentation succeeds");
+            TestAssert.Contains(
+                preparedDraw,
+                "if (!retained)\n            {\n                DrawPreparedRunDirect(",
+                "retained failure must use the direct path instead of a second live-label pass");
+            string directFallback = MemberBody(optimized, "private void DrawPreparedRunDirect(");
+            TestAssert.False(
+                directFallback.IndexOf("DrawPreparedRunPriorityLabels(", StringComparison.Ordinal) >= 0,
+                "direct prepared-row fallback must draw each manual numeral through DrawInBatch exactly once");
+            string flush = MemberBody(optimized, "private void FlushRetainedCells(");
+            TestAssert.Contains(
+                flush,
+                "if (retained)\n            {\n                DrawPendingPriorityLabels();",
+                "batched retained cells must draw live numerals only on the retained-success path");
+            TestAssert.Contains(
+                flush,
+                "if (!retained)\n                {\n                    Text.Font = GameFont.Medium;",
+                "batched retained failure must keep the existing direct cell path");
 
             string stable = MemberBody(preparedBox, "internal static bool DrawRetained(");
             TestAssert.Contains(
@@ -183,7 +245,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(
                 stable,
                 "failure = RetainedWorkBoxDrawFailure.ResourceUnavailable",
-                "retained composition must classify unavailable font/material resources");
+                "retained composition must classify unavailable texture/material resources");
             TestAssert.Contains(
                 stable,
                 "WidgetsWork.WorkBoxOverlay_Warning",
@@ -199,6 +261,25 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 dynamic.IndexOf("WorkBoxOverlay_Warning", StringComparison.Ordinal) >= 0 ||
                 dynamic.IndexOf("WorkBoxOverlay_PreceptWarning", StringComparison.Ordinal) >= 0,
                 "dynamic overlays must not draw a second warning texture over retained cells");
+        }
+
+        private static void PreparedRowsRejectStalePawns(string optimized)
+        {
+            string matching = MemberBody(optimized, "private bool HasMatchingLiveRow(");
+            TestAssert.Contains(
+                matching,
+                "IsLiveRenderablePawn(live.Pawn)",
+                "prepared row topology must reject a pawn that is no longer renderable");
+            string livePawn = MemberBody(optimized, "private bool TryGetLivePawn(");
+            TestAssert.Contains(
+                livePawn,
+                "IsLiveRenderablePawn(pawn)",
+                "live interaction lookup must reject stale pawn rows before optimized drawing");
+            string eligibility = MemberBody(optimized, "private static bool IsLiveRenderablePawn(");
+            TestAssert.Contains(eligibility, "!pawn.Dead", "dead pawns must use authoritative fallback drawing");
+            TestAssert.Contains(eligibility, "!pawn.Destroyed", "destroyed pawns must use authoritative fallback drawing");
+            TestAssert.Contains(eligibility, "pawn.workSettings != null", "pawns without work settings must use fallback drawing");
+            TestAssert.Contains(eligibility, "pawn.workSettings.EverWork", "ineligible pawns must use authoritative fallback drawing");
         }
 
         private static void SparseUpdatesAdvanceOnlyDirtyRows(string snapshot, string provider)
@@ -221,13 +302,20 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(bounds, "GetStableVisualOutset", "stable bounds must derive extent from prepared visual state");
             TestAssert.Contains(bounds, "bounds.ExpandedBy(stableOutset)", "retained surfaces must include the full stable visual extent");
             string stableOutset = MemberBody(retained, "private static float GetStableVisualOutset(");
-            TestAssert.Contains(stableOutset, "PreparedWorkBoxRenderer.PriorityLabelOutset", "priority glyph bounds must use the native label outset");
+            TestAssert.False(stableOutset.IndexOf("PriorityLabelOutset", StringComparison.Ordinal) >= 0, "live priority numerals must not expand retained surface bounds");
             TestAssert.Contains(stableOutset, "PreparedWorkBoxRenderer.LowSkillWarningOutset", "warning bounds must use the native warning outset");
-            TestAssert.Contains(stableOutset, "WorkPrioritySystem.DisabledPriority", "disabled priority glyphs must not expand retained bounds");
             string fingerprint = MemberBody(retained, "private static ulong GetFingerprint(");
             TestAssert.False(fingerprint.IndexOf("for (", StringComparison.Ordinal) >= 0, "steady retained hits must not rescan cells");
             TestAssert.Contains(fingerprint, "staticFingerprint", "steady fingerprints must mix the packet fingerprint in O(1)");
             TestAssert.False(fingerprint.IndexOf("Text.CurFontStyle", StringComparison.Ordinal) >= 0, "steady hits must not depend on ambient GUI font state");
+            string staticFingerprint = MemberBody(retained, "private static ulong GetStaticFingerprint(");
+            TestAssert.False(staticFingerprint.IndexOf("visual.Priority", StringComparison.Ordinal) >= 0, "manual priority values must not rebuild texture-only retained surfaces");
+            TestAssert.False(staticFingerprint.IndexOf("PriorityColor", StringComparison.Ordinal) >= 0, "manual priority colors belong to the live label pass");
+            TestAssert.False(staticFingerprint.IndexOf("CompactText", StringComparison.Ordinal) >= 0, "font-size metadata must not rebuild texture-only retained surfaces");
+            TestAssert.Contains(staticFingerprint, "retainedCheck", "retained fingerprints must preserve checkbox visibility changes");
+            string buildSurface = MemberBody(retained, "private static bool BuildSurface(");
+            TestAssert.False(buildSurface.IndexOf("Widgets.Label", StringComparison.Ordinal) >= 0, "retained surface composition must remain texture-only");
+            TestAssert.False(buildSurface.IndexOf("Text.Font", StringComparison.Ordinal) >= 0, "retained surface composition must not prepare unused glyph state");
         }
 
         private static void RetainedFailuresStayRevisionScoped(

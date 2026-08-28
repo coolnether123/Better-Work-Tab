@@ -33,15 +33,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 int columnIndex,
                 Rect boxRect,
                 WorkBoxVisualState visual,
-                int displayPriority,
-                bool compactText)
+                int displayPriority)
             {
                 PawnId = pawnId;
                 ColumnIndex = columnIndex;
                 BoxRect = boxRect;
                 Visual = visual;
                 DisplayPriority = displayPriority;
-                CompactText = compactText;
             }
 
             internal int PawnId { get; }
@@ -49,7 +47,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             internal Rect BoxRect { get; }
             internal WorkBoxVisualState Visual { get; }
             internal int DisplayPriority { get; }
-            internal bool CompactText { get; }
         }
 
         internal sealed class PreparedRun
@@ -210,13 +207,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private static float GetStableVisualOutset(Cell cell)
         {
             WorkCellVisualFlags flags = cell.Visual.Flags;
-            if ((flags & WorkCellVisualFlags.Disabled) == 0 &&
-                (flags & WorkCellVisualFlags.ManualPriorityMode) != 0 &&
-                cell.DisplayPriority > WorkPrioritySystem.DisabledPriority)
-            {
-                return PreparedWorkBoxRenderer.PriorityLabelOutset;
-            }
-
+            // Manual numerals are intentionally drawn live after this surface is
+            // presented, so they must not enlarge the retained texture bounds.
+            // The warning texture remains part of the stable surface and extends
+            // beyond its work-box rect by the native two-pixel outset.
             if ((flags & WorkCellVisualFlags.LowSkillWarning) != 0 &&
                 (flags & WorkCellVisualFlags.Disabled) == 0)
             {
@@ -266,23 +260,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             failure = RetainedWorkBoxDrawFailure.None;
             RenderTexture previous = RenderTexture.active;
             Matrix4x4 previousMatrix = GUI.matrix;
-            GameFont previousFont = Text.Font;
-            TextAnchor previousAnchor = Text.Anchor;
-            bool previousWordWrap = Text.WordWrap;
             try
             {
                 RenderTexture.active = surface;
-                // Widgets.Label follows GUI.matrix while composing the local
-                // surface. Match the header/chrome retained boundaries and
-                // keep the prepared logical rects in surface coordinates.
+                // The retained surface contains textures only. Match the
+                // header/chrome retained boundaries and keep prepared logical
+                // rects in surface coordinates; live IMGUI glyphs are drawn
+                // after presentation by the row renderer.
                 GUI.matrix = Matrix4x4.identity;
                 GL.PushMatrix();
                 try
                 {
                     GL.LoadPixelMatrix(0f, bounds.width, bounds.height, 0f);
                     GL.Clear(true, true, Color.clear);
-                    Text.Anchor = TextAnchor.MiddleCenter;
-                    Text.WordWrap = false;
                     GUI.BeginGroup(new Rect(0f, 0f, bounds.width, bounds.height));
                     try
                     {
@@ -292,7 +282,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                             Rect localRect = cell.BoxRect;
                             localRect.x -= bounds.x;
                             localRect.y -= bounds.y;
-                            Text.Font = cell.CompactText ? GameFont.Tiny : GameFont.Medium;
                             bool drawn = PreparedWorkBoxRenderer.DrawRetained(
                                 localRect,
                                 cell.Visual,
@@ -325,9 +314,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             finally
             {
                 GUI.matrix = previousMatrix;
-                Text.Font = previousFont;
-                Text.Anchor = previousAnchor;
-                Text.WordWrap = previousWordWrap;
                 RenderTexture.active = previous;
             }
         }
@@ -368,15 +354,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Mix(ref hash, cell.PawnId);
                 Mix(ref hash, cell.ColumnIndex);
                 Mix(ref hash, cell.BoxRect.GetHashCode());
-                Mix(ref hash, visual.Priority);
                 Mix(ref hash, visual.SkillBand);
                 Mix(ref hash, visual.SkillBlend.GetHashCode());
                 Mix(ref hash, visual.Passion);
-                Mix(ref hash, unchecked((int)visual.PriorityColor));
                 Mix(ref hash, (int)(visual.Flags &
                     ~(WorkCellVisualFlags.BestPawn | WorkCellVisualFlags.OverrideRing)));
-                Mix(ref hash, cell.DisplayPriority);
-                Mix(ref hash, cell.CompactText ? 1 : 0);
+                // Manual numerals and their color are drawn after presentation;
+                // only the checkbox's on/off state changes retained pixels.
+                bool retainedCheck =
+                    (visual.Flags & (WorkCellVisualFlags.Disabled |
+                                     WorkCellVisualFlags.ManualPriorityMode)) == 0 &&
+                    cell.DisplayPriority > WorkPrioritySystem.DisabledPriority;
+                Mix(ref hash, retainedCheck ? 1 : 0);
             }
             return hash;
         }

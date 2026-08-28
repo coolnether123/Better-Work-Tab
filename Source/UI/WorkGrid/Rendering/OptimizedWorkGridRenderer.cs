@@ -297,8 +297,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     columnIndex,
                     boxRect,
                     visual,
-                    cell.Priority,
-                    compactText: false));
+                    cell.Priority));
                 _pendingParentCells.Add(new PendingParentCell(
                     cellRect,
                     boxRect,
@@ -493,6 +492,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 DrawPreparedRunDirect(packet, run, rowOffsetY, baseColor);
             }
+            else
+            {
+                DrawPreparedRunPriorityLabels(packet, run, rowOffsetY, baseColor);
+            }
 
             DrawPreparedRunDynamic(packet, runIndex, run, rowOffsetY, baseColor);
         }
@@ -635,6 +638,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 _snapshot.LayoutRevision,
                 _snapshot.RetainedVisualKey,
                 _renderResourcesRevision);
+            if (retained)
+            {
+                DrawPendingPriorityLabels();
+            }
             for (int index = 0; index < _pendingParentCells.Count; index++)
             {
                 PendingParentCell pending = _pendingParentCells[index];
@@ -682,6 +689,97 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     pending.Pawn,
                     pending.BoxRect,
                     pending.HasDynamicRing);
+            }
+        }
+
+        /// <summary>
+        /// Replays only the manual numerals omitted from the retained surface.
+        /// The packet owns these indexes and display values, so this pass does
+        /// not repeat cell filtering or resolve live domain state.
+        /// </summary>
+        private static void DrawPreparedRunPriorityLabels(
+            PreparedWorkRowPacket packet,
+            PreparedWorkRowRun run,
+            float rowOffsetY,
+            Color baseColor)
+        {
+            if (run.LivePrioritySlotIndexes.Length == 0)
+            {
+                return;
+            }
+
+            GameFont previousFont = Text.Font;
+            TextAnchor previousAnchor = Text.Anchor;
+            bool previousWordWrap = Text.WordWrap;
+            Color previousColor = GUI.color;
+            try
+            {
+                for (int index = 0; index < run.LivePrioritySlotIndexes.Length; index++)
+                {
+                    PreparedWorkRowCell slot =
+                        packet.Slots[run.LivePrioritySlotIndexes[index]];
+                    int displayPriority = slot.IsSubWork
+                        ? slot.Cell.SubWork.EffectivePriority
+                        : slot.Cell.Priority;
+                    PreparedWorkBoxRenderer.DrawLivePriorityLabel(
+                        OffsetY(slot.BoxRect, rowOffsetY),
+                        slot.Visual,
+                        displayPriority,
+                        baseColor,
+                        visualAlpha: 1f,
+                        compactText: slot.IsSubWork &&
+                            slot.BoxRect.width <=
+                                WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f);
+                }
+            }
+            finally
+            {
+                GUI.color = previousColor;
+                Text.Font = previousFont;
+                Text.Anchor = previousAnchor;
+                Text.WordWrap = previousWordWrap;
+            }
+        }
+
+        private void DrawPendingPriorityLabels()
+        {
+            GameFont previousFont = Text.Font;
+            TextAnchor previousAnchor = Text.Anchor;
+            bool previousWordWrap = Text.WordWrap;
+            Color previousColor = GUI.color;
+            try
+            {
+                for (int index = 0; index < _pendingParentCells.Count; index++)
+                {
+                    PendingParentCell pending = _pendingParentCells[index];
+                    PreparedWorkBoxRenderer.DrawLivePriorityLabel(
+                        pending.BoxRect,
+                        pending.Visual,
+                        pending.Cell.Priority,
+                        _cellBatchColor,
+                        visualAlpha: 1f,
+                        compactText: false);
+                }
+
+                for (int index = 0; index < _pendingSubWorkCells.Count; index++)
+                {
+                    PendingSubWorkCell pending = _pendingSubWorkCells[index];
+                    PreparedWorkBoxRenderer.DrawLivePriorityLabel(
+                        pending.BoxRect,
+                        pending.Visual,
+                        pending.DisplayPriority,
+                        _cellBatchColor,
+                        visualAlpha: 1f,
+                        compactText: pending.BoxRect.width <=
+                            WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f);
+                }
+            }
+            finally
+            {
+                GUI.color = previousColor;
+                Text.Font = previousFont;
+                Text.Anchor = previousAnchor;
+                Text.WordWrap = previousWordWrap;
             }
         }
 
@@ -984,7 +1082,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             WorkTabLayoutRow live = _currentLayoutRows[rowIndex];
             return prepared.Kind == WorkGridRowKind.Pawn
-                ? live.Pawn?.thingIDNumber == prepared.PawnId
+                ? IsLiveRenderablePawn(live.Pawn) &&
+                  live.Pawn.thingIDNumber == prepared.PawnId
                 : live.IsDivider;
         }
 
@@ -993,7 +1092,21 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             pawn = rowIndex >= 0 && rowIndex < _currentLayoutRows.Count
                 ? _currentLayoutRows[rowIndex].Pawn
                 : null;
-            return pawn?.thingIDNumber == expectedPawnId;
+            return IsLiveRenderablePawn(pawn) && pawn.thingIDNumber == expectedPawnId;
+        }
+
+        /// <summary>
+        /// The prepared row is safe only while the same work-capable pawn is
+        /// still alive. Death/destruction can race the table's roster recache;
+        /// failing this boundary sends the row back through native drawing.
+        /// </summary>
+        private static bool IsLiveRenderablePawn(Pawn pawn)
+        {
+            return pawn != null &&
+                   !pawn.Dead &&
+                   !pawn.Destroyed &&
+                   pawn.workSettings != null &&
+                   pawn.workSettings.EverWork;
         }
 
         /// <summary>
@@ -1100,8 +1213,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     column.ColumnIndex,
                     priorityBoxRect,
                     presentation.WorkBoxVisual,
-                    displayPriority,
-                    compactText));
+                    displayPriority));
                 _pendingSubWorkCells.Add(new PendingSubWorkCell(
                     workGiver,
                     pawn,
