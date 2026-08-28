@@ -318,25 +318,48 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string buildSurface = MemberBody(retained, "private static bool BuildSurface(");
             TestAssert.False(buildSurface.IndexOf("Widgets.Label", StringComparison.Ordinal) >= 0, "retained surface composition must remain texture-only");
             TestAssert.False(buildSurface.IndexOf("Text.Font", StringComparison.Ordinal) >= 0, "retained surface composition must not prepare unused glyph state");
-            int groupEnd = buildSurface.IndexOf("GUI.EndGroup();", StringComparison.Ordinal);
-            TestAssert.True(groupEnd >= 0, "retained surface composition must close its GUI group");
+            TestAssert.Contains(
+                buildSurface,
+                "GL.LoadPixelMatrix(0f, bounds.width, bounds.height, 0f);",
+                "retained surface composition must establish its own pixel matrix");
+            TestAssert.False(
+                buildSurface.IndexOf("GUI.BeginGroup", StringComparison.Ordinal) >= 0 ||
+                buildSurface.IndexOf("GUI.EndGroup", StringComparison.Ordinal) >= 0,
+                "retained surface composition must not enqueue IMGUI group work against the temporary target");
             TestAssert.False(
                 buildSurface.IndexOf("GL.Flush();", StringComparison.Ordinal) >= 0,
-                "the IMGUI retained texture path must not depend on a manual GL flush");
+                "the immediate retained texture path must not depend on a manual GL flush");
             TestAssert.False(
                 retained.IndexOf("Graphics.DrawTexture", StringComparison.Ordinal) >= 0,
-                "retained work boxes must use the proven IMGUI texture primitive");
+                "retained work boxes must not enqueue graphics draws against a temporary target");
             string retainedTexture = MemberBody(preparedBox, "private static bool DrawRetainedTexture(");
             TestAssert.Contains(
                 retainedTexture,
-                "GUI.DrawTexture(rect, texture);",
-                "retained work boxes must compose through GUI.DrawTexture on the active target");
-            TestAssert.False(
-                retainedTexture.IndexOf("Material", StringComparison.Ordinal) >= 0,
-                "retained work boxes must not allocate or bind a custom material");
+                "material.SetTexture(\"_MainTex\", texture);",
+                "retained work boxes must bind each source texture before immediate emission");
             TestAssert.Contains(
                 retainedTexture,
-                "if (texture == null)",
+                "material.SetColor(\"_Color\", color);",
+                "retained work boxes must preserve direct-path tint during immediate emission");
+            TestAssert.Contains(
+                retainedTexture,
+                "material.SetPass(0)",
+                "retained work boxes must bind a render pass before immediate emission");
+            TestAssert.Contains(
+                retainedTexture,
+                "GL.Begin(GL.QUADS)",
+                "retained work boxes must emit immediate textured quads");
+            TestAssert.Contains(
+                retainedTexture,
+                "GL.TexCoord2(0f, 1f)",
+                "retained work boxes must explicitly orient texture coordinates for the top-left pixel matrix");
+            TestAssert.Contains(
+                preparedBox,
+                "ShaderDatabase.Transparent",
+                "retained work boxes must use RimWorld's transparent texture shader");
+            TestAssert.Contains(
+                retainedTexture,
+                "texture == null",
                 "missing retained textures must use the direct fallback path");
         }
 

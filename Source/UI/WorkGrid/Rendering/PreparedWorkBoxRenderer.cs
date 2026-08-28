@@ -6,6 +6,7 @@ using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using RimWorld;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
@@ -27,6 +28,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     {
         internal const float LowSkillWarningOutset = 2f;
         internal const float PriorityLabelOutset = 3f;
+
+        private static Material _retainedMaterial;
 
         internal static WorkBoxVisualState Capture(
             Pawn pawn,
@@ -283,31 +286,75 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
+        private static Material RetainedMaterial
+        {
+            get
+            {
+                if (_retainedMaterial == null)
+                {
+                    Shader shader = ShaderDatabase.Transparent ?? Shader.Find("UI/Default");
+                    if (shader == null)
+                    {
+                        return null;
+                    }
+
+                    _retainedMaterial = new Material(shader)
+                    {
+                        hideFlags = HideFlags.HideAndDontSave
+                    };
+                    _retainedMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                    _retainedMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                    _retainedMaterial.SetInt("_Cull", (int)CullMode.Off);
+                    _retainedMaterial.SetInt("_ZWrite", 0);
+                }
+                return _retainedMaterial;
+            }
+        }
+
         private static bool DrawRetainedTexture(
             Rect rect,
             Texture texture,
             Color color)
         {
-            if (texture == null)
+            if (texture == null || rect.width <= 0f || rect.height <= 0f)
             {
                 return false;
             }
 
-            Color previousColor = GUI.color;
+            Material material = RetainedMaterial;
+            if (material == null)
+            {
+                return false;
+            }
+
+            // GUI.DrawTexture and Graphics.DrawTexture queue IMGUI/graphics
+            // work against the caller's target. Emit the quad directly while
+            // the row cache owns RenderTexture.active, so the target cannot be
+            // restored before the stable pixels are written. The explicit UV
+            // flip keeps this top-left pixel matrix oriented like IMGUI.
+            material.SetTexture("_MainTex", texture);
+            material.SetColor("_Color", color);
+            if (!material.SetPass(0))
+            {
+                return false;
+            }
+            GL.Begin(GL.QUADS);
             try
             {
-                // GUI.DrawTexture is the same IMGUI primitive used by the
-                // proven retained header/chrome surfaces. It binds the
-                // active RenderTexture through the normal GUI path and keeps
-                // Unity's texture tint/blend state consistent with direct
-                // work-box drawing.
-                GUI.color = color;
-                GUI.DrawTexture(rect, texture);
+                GL.Color(Color.white);
+                GL.TexCoord2(0f, 1f);
+                GL.Vertex3(rect.xMin, rect.yMin, 0f);
+                GL.TexCoord2(1f, 1f);
+                GL.Vertex3(rect.xMax, rect.yMin, 0f);
+                GL.TexCoord2(1f, 0f);
+                GL.Vertex3(rect.xMax, rect.yMax, 0f);
+                GL.TexCoord2(0f, 0f);
+                GL.Vertex3(rect.xMin, rect.yMax, 0f);
                 return true;
             }
             finally
             {
-                GUI.color = previousColor;
+                GL.End();
             }
         }
 
