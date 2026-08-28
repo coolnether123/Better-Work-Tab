@@ -3,6 +3,7 @@ using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using RimWorld;
+using Spine.Profiling;
 using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Invalidation
@@ -26,7 +27,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             }
 
             _nextRosterAuditTick = ticks + AuditIntervalTicks;
-            if (RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(table?.cachedPawns))
+            bool rosterMatches = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.InvalidationAudit.RosterSignature",
+                    () => RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(table?.cachedPawns))
+                : RosterSignature(PawnsFinder.AllMaps_FreeColonists) == RosterSignature(table?.cachedPawns);
+            if (rosterMatches)
             {
                 return;
             }
@@ -44,11 +50,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             }
 
             _nextAuditTick = ticks + AuditIntervalTicks;
-            if (TimePriorityService.ReconcileDirectMutationsFromAudit())
+            bool directMutationsFound = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.InvalidationAudit.Reconcile",
+                    TimePriorityService.ReconcileDirectMutationsFromAudit)
+                : TimePriorityService.ReconcileDirectMutationsFromAudit();
+            if (directMutationsFound)
             {
                 WorkTabApplication.Current?.ReportObservedScheduleChange();
             }
-            int signature = ComputeSignature(table);
+            int signature = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.InvalidationAudit.ComputeSignature",
+                    () => ComputeSignature(table))
+                : ComputeSignature(table);
             WorkGridRevisionSet revisions = WorkTabInvalidationHub.Current.CategoryRevisions;
             bool knownTrackedChange =
                 _lastTrackedRevisions.GameState != revisions.GameState ||

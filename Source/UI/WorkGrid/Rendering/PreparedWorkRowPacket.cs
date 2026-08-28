@@ -84,13 +84,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int[] slotIndexes,
             int[] parentDynamicSlotIndexes,
             int[] subWorkRingSlotIndexes,
-            int[] subWorkSlotIndexes)
+            int[] subWorkSlotIndexes,
+            int[] liveForegroundSlotIndexes)
         {
             Retained = retained;
             SlotIndexes = slotIndexes;
             ParentDynamicSlotIndexes = parentDynamicSlotIndexes;
             SubWorkRingSlotIndexes = subWorkRingSlotIndexes;
             SubWorkSlotIndexes = subWorkSlotIndexes;
+            LiveForegroundSlotIndexes = liveForegroundSlotIndexes;
         }
 
         internal RetainedWorkBoxRowCache.PreparedRun Retained { get; }
@@ -98,6 +100,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         internal int[] ParentDynamicSlotIndexes { get; }
         internal int[] SubWorkRingSlotIndexes { get; }
         internal int[] SubWorkSlotIndexes { get; }
+        internal int[] LiveForegroundSlotIndexes { get; }
     }
 
     internal sealed class PreparedWorkRowPacket
@@ -385,8 +388,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     columnIndex,
                     boxRect,
                     visual,
-                    cell.Priority,
-                    compactText: false),
+                    cell.Priority),
                 parentDynamicOverlay: hasDynamicOverlay,
                 subWorkRingOverlay: false,
                 subWork: false);
@@ -408,8 +410,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 ? WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect)
                 : WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
             WorkBoxVisualState visual = presentation.WorkBoxVisual;
-            bool compactText = boxRect.width <=
-                WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f;
             return PreparedColumn.Retain(
                 new PreparedWorkRowCell(
                     columnIndex,
@@ -423,8 +423,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     columnIndex,
                     boxRect,
                     visual,
-                    presentation.EffectivePriority,
-                    compactText),
+                    presentation.EffectivePriority),
                 parentDynamicOverlay: false,
                 subWorkRingOverlay: presentation.HasDynamicRing,
                 subWork: true);
@@ -539,6 +538,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             private readonly List<int> _parentDynamicSlotIndexes = new List<int>(4);
             private readonly List<int> _subWorkRingSlotIndexes = new List<int>(4);
             private readonly List<int> _subWorkSlotIndexes = new List<int>(4);
+            private readonly List<int> _liveForegroundSlotIndexes = new List<int>(8);
             private PreparedPawnLabelCell _pawnLabel;
 
             internal RowPacketAssembly(int columnCount, int visibleColumnCount)
@@ -583,6 +583,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 {
                     _subWorkSlotIndexes.Add(slotIndex);
                 }
+                if (PreparedWorkBoxRenderer.HasLiveForeground(
+                        prepared.Slot.Visual,
+                        prepared.RetainedCell.DisplayPriority))
+                {
+                    _liveForegroundSlotIndexes.Add(slotIndex);
+                }
                 if (prepared.SubWorkRingOverlay)
                 {
                     _subWorkRingSlotIndexes.Add(slotIndex);
@@ -602,7 +608,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     _runSlotIndexes.ToArray(),
                     _parentDynamicSlotIndexes.ToArray(),
                     _subWorkRingSlotIndexes.ToArray(),
-                    _subWorkSlotIndexes.ToArray()));
+                    _subWorkSlotIndexes.ToArray(),
+                    _liveForegroundSlotIndexes.ToArray()));
                 _commands.Add(new PreparedWorkRowCommand(
                     PreparedWorkRowCommandKind.RetainedRun,
                     runIndex));
@@ -611,6 +618,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 _parentDynamicSlotIndexes.Clear();
                 _subWorkRingSlotIndexes.Clear();
                 _subWorkSlotIndexes.Clear();
+                _liveForegroundSlotIndexes.Clear();
             }
 
             internal PreparedWorkRowPacket Complete(

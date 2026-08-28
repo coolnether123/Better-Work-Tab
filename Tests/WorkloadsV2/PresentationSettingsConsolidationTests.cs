@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Better_Work_Tab.Features.Workloads.V2;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
+using Better_Work_Tab.UI.Settings;
 
 namespace BetterWorkTab.WorkloadsV2.Deterministic
 {
@@ -25,7 +26,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string registry = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
             string settingIds = Read(root, "Source", "UI", "Settings", "SettingIDs.cs");
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
+            string mainWindow = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
             string previewPort = Read(root, "Source", "UI", "Settings", "WorkTabPresentationPreviewPort.cs");
+            string settingWidgets = Read(root, "Source", "Spine", "UI", "SettingsFramework", "SettingWidgets.cs");
+            string settingsTranslations = Read(root, "Languages", "English", "Keyed", "BWT_Settings.xml");
             string workloadState = Read(root, "Source", "Features", "Workloads", "V2", "WorkloadState.cs");
             string chronos = Read(root, "Source", "Mod Support", "Mods", "Chronos Pointer", "ChronosPointerSupport.cs");
             string fluffy = Read(root, "Source", "Mod Support", "Mods", "Fluffy WorkTab", "FluffyWorkTabGateway.cs");
@@ -39,8 +43,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             FirstRefreshAndPerFieldFallbackAreBehavioral();
             SetClearAndReleaseAreBehavioral();
             WriterBehaviorIsTransactional();
-            PreviewLifecycleAndFirstRefreshAreGuarded(router, gateway, previewPort);
+            PreviewLifecycleAndFirstRefreshAreGuarded(router, gateway, mainWindow, previewPort);
             CachedFacadeUsesPreparedSnapshot(router);
+            PreviewStageableLabelsUseNormalText(router, settingWidgets);
+            PreviewCopyUsesShortVisibleStates(router, registry, settingsTranslations);
+            OwnershipActionGeometryIsBehavioral();
             SteadySettingsDrawerPathIsTokenGated(router, Read(
                 root, "Source", "UI", "BetterWorkTabSettingsUI.cs"));
             AllGlobalWriteRoutesAdvanceTheSnapshotToken(
@@ -414,6 +421,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         private static void PreviewLifecycleAndFirstRefreshAreGuarded(
             string router,
             string gateway,
+            string mainWindow,
             string previewPort)
         {
             string refresh = MethodBody(router, "internal static void Refresh()");
@@ -454,12 +462,50 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "a new stamp must invalidate the cached presentation snapshot");
 
             string open = MethodBody(gateway, "private void OpenSession(");
+            string controllerConstructor = MethodBody(
+                gateway,
+                "internal WorkloadPreviewController()");
+            string claimCurrent = MethodBody(
+                gateway,
+                "private void ClaimCurrentOwnership()");
+            string activateWindow = MethodBody(
+                gateway,
+                "internal void ActivateForWindow()");
+            string resetWindow = MethodBody(
+                gateway,
+                "internal void ResetForWindowClose()");
             string synchronize = MethodBody(gateway, "internal bool SynchronizeAfterInput()");
             string acceptDraft = MethodBody(gateway, "private void AcceptDraftReplacement(");
             string rebuild = MethodBody(gateway, "private void RebuildProjection(");
             string close = MethodBody(gateway, "private void ClearLocalSession()");
             TestAssert.Contains(open, "RebuildProjection(_session.ProjectedState)",
                 "preview start must cross the observed projection boundary");
+            TestAssert.False(controllerConstructor.Contains("RegisterPresentationPreviewPort("),
+                "constructing an inactive Work-tab window must not replace the active settings preview port");
+            TestAssert.Contains(controllerConstructor, "Current?.IsActive != true",
+                "constructing an inactive Work-tab window must preserve an active controller owner");
+            TestAssert.False(controllerConstructor.Contains("Current = this"),
+                "constructor code must not unconditionally replace the active controller owner");
+            TestAssert.Contains(claimCurrent, "Current = this",
+                "one explicit ownership boundary must update the shared controller");
+            TestAssert.Contains(activateWindow, "Current?.IsActive != true",
+                "opening a cached window may claim only an unowned or inactive controller slot");
+            TestAssert.Contains(
+                MethodBody(mainWindow, "public override void PreOpen()"),
+                "_workloadPreviewController.ActivateForWindow()",
+                "the real Work-tab open lifecycle must claim an inactive controller slot");
+            TestAssert.Contains(resetWindow, "!ReferenceEquals(Current, this)",
+                "an inactive cached window must not cancel another controller's active preview");
+            TestAssert.Contains(open, "RegisterPresentationPreviewPort(this)",
+                "the controller that opens the preview must own the settings preview port");
+            TestAssert.True(
+                open.IndexOf("_session = session", StringComparison.Ordinal) <
+                open.IndexOf("ClaimCurrentOwnership()", StringComparison.Ordinal) &&
+                open.IndexOf("ClaimCurrentOwnership()", StringComparison.Ordinal) <
+                open.IndexOf("RegisterPresentationPreviewPort(this)", StringComparison.Ordinal) &&
+                open.IndexOf("RegisterPresentationPreviewPort(this)", StringComparison.Ordinal) <
+                open.IndexOf("RebuildProjection(_session.ProjectedState)", StringComparison.Ordinal),
+                "settings preview ownership must bind after session installation and before projection invalidation");
             TestAssert.Contains(synchronize, "AcceptDraftReplacement(",
                 "synchronized staged edits must cross the shared accepted-draft boundary");
             TestAssert.Contains(acceptDraft, "_session = accepted",
@@ -536,6 +582,255 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 router.Contains("WorkloadPresentationSettingsTransaction") ||
                 router.Contains("IWorkloadPresentationSettingsStore"),
                 "normal settings code must not compose workload persistence writers");
+        }
+
+        private static void PreviewStageableLabelsUseNormalText(
+            string router,
+            string settingWidgets)
+        {
+            string draw = MethodBody(router, "private static bool DrawStageableSettingRow(");
+            TestAssert.Contains(
+                draw,
+                "Text.CalcSize(fullActionLabel).x + ownershipActionHorizontalPadding",
+                "the ownership action must reserve the measured width of its label");
+            TestAssert.Contains(
+                draw,
+                "BWTWorkloadPresentationNumericLayout.Create(",
+                "numeric ownership must use the shared layout policy");
+            TestAssert.Contains(
+                draw,
+                "numericLayout.UseCompactActionLabel",
+                "narrow numeric rows must compact the ownership label before the numeric widget");
+            TestAssert.Contains(
+                draw,
+                "fullActionLabel = ownership.IsWorkloadOwnedInActiveTemplate",
+                "the ownership control must retain the owned/unowned action indication");
+            TestAssert.Contains(
+                draw,
+                "compactActionLabel = ownership.IsWorkloadOwnedInActiveTemplate",
+                "compact ownership actions must remain clear about their target");
+            TestAssert.Contains(
+                draw,
+                "Add this setting to the workload preview. Global settings won't change.",
+                "the ownership action tooltip must say where the setting changes");
+            TestAssert.Contains(
+                draw,
+                "SettingWidgets.DrawNumericInt(",
+                "numeric rows must keep the neutral widget and its label styling");
+            TestAssert.False(draw.Contains("DrawCompactNumericInt("),
+                "numeric ownership layout must not replace the neutral widget with a duplicate renderer");
+            TestAssert.Contains(settingWidgets, "TooltipHandler.TipRegion(rect, tooltip);",
+                "the shared numeric widget's tooltip must stay inside the passed numeric rect");
+            foreach (string fragment in new[]
+            {
+                "Rect controlRect = rect.RightPart(0.48f);",
+                "const float buttonSize = 22f;",
+                "const float spacing = 2f;",
+                "const float textWidth = 50f;"
+            })
+            {
+                TestAssert.Contains(settingWidgets, fragment,
+                    "ownership geometry must remain synchronized with neutral numeric widgets through " + fragment);
+            }
+            TestAssert.True(
+                Math.Abs(BWTWorkloadPresentationNumericLayout.NumericControlFraction -
+                    0.48f) < 0.001f,
+                "the ownership layout must reserve the same right-hand fraction used by DrawNumericInt");
+
+            string banner = MethodBody(router, "internal static void DrawPreviewBannerIfNeeded(");
+            int wrap = banner.IndexOf("Text.WordWrap = true;", StringComparison.Ordinal);
+            int measure = banner.IndexOf("Text.CalcHeight(bannerText, textWidth)", StringComparison.Ordinal);
+            TestAssert.True(wrap >= 0 && wrap < measure,
+                "the preview banner must enable wrapping before measuring its explanatory text");
+            TestAssert.Contains(
+                banner,
+                "bannerHeight = Mathf.Max(",
+                "the preview banner must grow for its measured explanatory text");
+            TestAssert.Contains(
+                banner,
+                "Widgets.Label(textRect, bannerText);",
+                "the preview banner must draw its complete explanatory text");
+            TestAssert.Contains(
+                banner,
+                "inRect.yMin += bannerHeight + bannerGap;",
+                "the settings list must begin below the measured preview banner");
+            TestAssert.False(banner.Contains(".Truncate("),
+                "the preview banner must not truncate its explanatory text");
+
+            string previewVisibility = MethodBody(router,
+                "private static bool IsPreviewVisibleDefinition(");
+            TestAssert.Contains(previewVisibility, "EnsureSnapshot();",
+                "preview row visibility must read the current preview snapshot");
+            TestAssert.Contains(previewVisibility, "!_snapshot.ReadSucceeded",
+                "an unreadable active preview must hide presentation rows rather than render blocked controls");
+
+            string hierarchyVisibility = MethodBody(router,
+                "private static bool IsVisibleThroughStageableAncestors(");
+            foreach (string fragment in new[]
+            {
+                "parent.ControlsChildVisibility",
+                "parent.Type == SettingType.Custom",
+                "parentState.OriginalType == SettingType.Bool",
+                "!effective.BooleanValue"
+            })
+            {
+                TestAssert.Contains(hierarchyVisibility, fragment,
+                    "custom presentation parents must preserve child visibility through " + fragment);
+            }
+        }
+
+        private static void PreviewCopyUsesShortVisibleStates(
+            string router,
+            string registry,
+            string settingsTranslations)
+        {
+            // These are visible settings-page states. Keep this contract at
+            // the page boundary rather than coupling it to drawer helpers.
+            foreach (string required in new[]
+            {
+                "Select 'Use in workload' to edit a supported display setting.",
+                "Changes to supported display settings apply to this workload. Global settings won't change.",
+                "This workload preview can't be read. Display settings are unavailable.",
+                "Other display settings are hidden.",
+                "Use the global setting in this preview.",
+                "Add this setting to the workload preview. Global settings won't change.",
+                "This setting is unavailable in workload previews."
+            })
+            {
+                TestAssert.Contains(router, required,
+                    "workload presentation settings must retain concise visible copy: " + required);
+            }
+
+            foreach (string removed in new[]
+            {
+                "Preview safety block",
+                "Preview read-only",
+                "Preview changed",
+                "Workload-owned",
+                "global after preview",
+                "BWT-local workload presentation editing allowlist"
+            })
+            {
+                TestAssert.False(router.Contains(removed),
+                    "workload presentation settings must not append obsolete state copy: " + removed);
+            }
+
+            TestAssert.Contains(router,
+                "return IsStageablePresentationSetting(definition?.Id) ||\n                IsPreviewStructuralDefinition(definition);",
+                "unavailable presentation controls must stay hidden instead of receiving a read-only label");
+            TestAssert.Contains(registry,
+                "\"Animate preview controls\"",
+                "the preview control fallback label must stay concise");
+            TestAssert.Contains(registry,
+                "\"Highlight workload changes\"",
+                "the workload inspection fallback label must name the visible result");
+            TestAssert.Contains(settingsTranslations,
+                "<BWT_Settings_WorkloadMode_PreviewBlocked>Close the preview before changing workload mode.</BWT_Settings_WorkloadMode_PreviewBlocked>",
+                "the existing workload-mode localization key must keep concise preview copy");
+            TestAssert.Contains(settingsTranslations,
+                "<BWT_Settings_workloads.previewRevealAnimation>Animate preview controls</BWT_Settings_workloads.previewRevealAnimation>",
+                "the translated preview-control label must match the registry fallback");
+            TestAssert.Contains(settingsTranslations,
+                "<BWT_Settings_workloads.inspectionHighlights>Highlight workload changes</BWT_Settings_workloads.inspectionHighlights>",
+                "the translated inspection label must match the registry fallback");
+        }
+
+        private static void OwnershipActionGeometryIsBehavioral()
+        {
+            const float fullActionWidth = 124f;
+            const float compactActionWidth = 72f;
+            float fullBoundary =
+                BWTWorkloadPresentationNumericLayout.GetMinimumRowWidth(
+                    fullActionWidth);
+            var full = BWTWorkloadPresentationNumericLayout.Create(
+                10f,
+                fullBoundary,
+                fullActionWidth,
+                compactActionWidth);
+            TestAssert.False(full.UseCompactActionLabel,
+                "the exact full-label boundary must retain the full ownership action");
+            TestAssert.True(full.CanFit && full.ActionWidth > 0f &&
+                full.NumericInputWidth > 0f,
+                "the full-label boundary must retain positive ownership and numeric lanes");
+            TestAssert.True(
+                full.NumericControlEnd +
+                    BWTWorkloadPresentationNumericLayout.OwnershipActionGap <=
+                    full.ActionX,
+                "the neutral numeric footprint must finish before the full ownership action");
+            TestAssert.True(
+                10f + full.NumericInputWidth +
+                    BWTWorkloadPresentationNumericLayout.OwnershipActionGap <=
+                    full.ActionX,
+                "the full numeric rect and its tooltip region must finish before the ownership action");
+
+            var compact = BWTWorkloadPresentationNumericLayout.Create(
+                10f,
+                fullBoundary - 0.01f,
+                fullActionWidth,
+                compactActionWidth);
+            TestAssert.True(compact.UseCompactActionLabel,
+                "the first width below the full-label boundary must select the compact action label");
+            TestAssert.Equal(compactActionWidth, compact.ActionWidth,
+                "the compact action lane must keep the measured compact label width");
+            TestAssert.True(compact.CanFit && compact.ActionWidth > 0f &&
+                compact.NumericInputWidth > 0f,
+                "the compact-label boundary must retain positive ownership and numeric lanes");
+            TestAssert.True(
+                compact.NumericControlEnd +
+                    BWTWorkloadPresentationNumericLayout.OwnershipActionGap <=
+                    compact.ActionX,
+                "the neutral numeric footprint must finish before the compact ownership action");
+            TestAssert.True(
+                10f + compact.NumericInputWidth +
+                    BWTWorkloadPresentationNumericLayout.OwnershipActionGap <=
+                    compact.ActionX,
+                "the compact numeric rect and its tooltip region must finish before the ownership action");
+
+            float compactBoundary =
+                BWTWorkloadPresentationNumericLayout.GetMinimumRowWidth(
+                    compactActionWidth);
+            var compactMinimum = BWTWorkloadPresentationNumericLayout.Create(
+                10f,
+                compactBoundary,
+                fullActionWidth,
+                compactActionWidth);
+            TestAssert.True(compactMinimum.UseCompactActionLabel &&
+                compactMinimum.CanFit &&
+                compactMinimum.NumericInputWidth > 0f,
+                "the compact-label boundary must preserve shared numeric interaction");
+            float compactControlLaneWidth = compactMinimum.NumericInputWidth *
+                BWTWorkloadPresentationNumericLayout.NumericControlFraction;
+            TestAssert.True(
+                compactControlLaneWidth >=
+                    BWTWorkloadPresentationNumericLayout.NumericControlWidth -
+                    0.001f,
+                "the minimum numeric row must fit DrawNumericInt's full fixed control footprint");
+            TestAssert.True(
+                compactMinimum.NumericControlEnd <= compactMinimum.ActionX -
+                    BWTWorkloadPresentationNumericLayout.OwnershipActionGap +
+                    0.001f,
+                "the shared numeric control lane must end before the workload ownership action");
+
+            var roomyCompact = BWTWorkloadPresentationNumericLayout.Create(
+                10f,
+                300f,
+                200f,
+                compactActionWidth);
+            TestAssert.True(roomyCompact.UseCompactActionLabel && roomyCompact.CanFit,
+                "a row that only fits the compact ownership action must retain numeric interaction");
+            TestAssert.True(
+                10f + roomyCompact.NumericInputWidth +
+                    BWTWorkloadPresentationNumericLayout.OwnershipActionGap <=
+                    roomyCompact.ActionX,
+                "the numeric rect must be clamped to the compact action lane, not only its child controls");
+
+            var tooNarrow = BWTWorkloadPresentationNumericLayout.Create(
+                10f,
+                compactBoundary - 0.01f,
+                fullActionWidth,
+                compactActionWidth);
+            TestAssert.True(tooNarrow.UseCompactActionLabel && !tooNarrow.CanFit,
+                "below the supported numeric input width, ownership must be omitted so the ordinary row remains usable");
         }
 
         private static void AllGlobalWriteRoutesAdvanceTheSnapshotToken(

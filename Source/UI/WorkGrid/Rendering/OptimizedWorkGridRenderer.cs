@@ -297,8 +297,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     columnIndex,
                     boxRect,
                     visual,
-                    cell.Priority,
-                    compactText: false));
+                    cell.Priority));
                 _pendingParentCells.Add(new PendingParentCell(
                     cellRect,
                     boxRect,
@@ -387,8 +386,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         internal void ReleaseRetainedResources()
         {
+            try
+            {
+                FinalizeTransientRenderState();
+            }
+            finally
+            {
+                _retainedRows.Dispose();
+            }
+        }
+
+        internal void FinalizeTransientRenderState()
+        {
             EndCellBatch();
-            _retainedRows.Dispose();
+        }
+
+        internal void ResetRetainedRowResourceFailureLatchForReopen()
+        {
+            _retainedRows.ResetResourceFailureLatchForReopen();
         }
 
         public bool TryGetPreparedRow(
@@ -476,6 +491,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if (!retained)
             {
                 DrawPreparedRunDirect(packet, run, rowOffsetY, baseColor);
+            }
+            else
+            {
+                DrawPreparedRunLiveForeground(packet, run, rowOffsetY, baseColor);
             }
 
             DrawPreparedRunDynamic(packet, runIndex, run, rowOffsetY, baseColor);
@@ -622,7 +641,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             for (int index = 0; index < _pendingParentCells.Count; index++)
             {
                 PendingParentCell pending = _pendingParentCells[index];
-                if (!retained)
+                if (retained)
+                {
+                    PreparedWorkBoxRenderer.DrawLiveForeground(
+                        pending.BoxRect,
+                        pending.Visual,
+                        pending.Cell.Priority,
+                        _cellBatchColor,
+                        visualAlpha: 1f,
+                        compactText: false);
+                    GUI.color = _cellBatchColor;
+                }
+                else
                 {
                     Text.Font = GameFont.Medium;
                     PreparedWorkBoxRenderer.DrawInBatch(
@@ -647,7 +677,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             for (int index = 0; index < _pendingSubWorkCells.Count; index++)
             {
                 PendingSubWorkCell pending = _pendingSubWorkCells[index];
-                if (!retained)
+                if (retained)
+                {
+                    PreparedWorkBoxRenderer.DrawLiveForeground(
+                        pending.BoxRect,
+                        pending.Visual,
+                        pending.DisplayPriority,
+                        _cellBatchColor,
+                        visualAlpha: 1f,
+                        compactText: pending.BoxRect.width <=
+                            WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f);
+                    GUI.color = _cellBatchColor;
+                }
+                else
                 {
                     Text.Font = pending.BoxRect.width <=
                         WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
@@ -666,6 +708,55 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     pending.Pawn,
                     pending.BoxRect,
                     pending.HasDynamicRing);
+            }
+        }
+
+        /// <summary>
+        /// Replays the transparent foreground omitted from the retained surface.
+        /// The packet owns these indexes and display values, so this pass does
+        /// not repeat cell filtering or resolve live domain state.
+        /// </summary>
+        private static void DrawPreparedRunLiveForeground(
+            PreparedWorkRowPacket packet,
+            PreparedWorkRowRun run,
+            float rowOffsetY,
+            Color baseColor)
+        {
+            if (run.LiveForegroundSlotIndexes.Length == 0)
+            {
+                return;
+            }
+
+            GameFont previousFont = Text.Font;
+            TextAnchor previousAnchor = Text.Anchor;
+            bool previousWordWrap = Text.WordWrap;
+            Color previousColor = GUI.color;
+            try
+            {
+                for (int index = 0; index < run.LiveForegroundSlotIndexes.Length; index++)
+                {
+                    PreparedWorkRowCell slot =
+                        packet.Slots[run.LiveForegroundSlotIndexes[index]];
+                    int displayPriority = slot.IsSubWork
+                        ? slot.Cell.SubWork.EffectivePriority
+                        : slot.Cell.Priority;
+                    PreparedWorkBoxRenderer.DrawLiveForeground(
+                        OffsetY(slot.BoxRect, rowOffsetY),
+                        slot.Visual,
+                        displayPriority,
+                        baseColor,
+                        visualAlpha: 1f,
+                        compactText: slot.IsSubWork &&
+                            slot.BoxRect.width <=
+                                WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f);
+                }
+            }
+            finally
+            {
+                GUI.color = previousColor;
+                Text.Font = previousFont;
+                Text.Anchor = previousAnchor;
+                Text.WordWrap = previousWordWrap;
             }
         }
 
@@ -968,7 +1059,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             WorkTabLayoutRow live = _currentLayoutRows[rowIndex];
             return prepared.Kind == WorkGridRowKind.Pawn
-                ? live.Pawn?.thingIDNumber == prepared.PawnId
+                ? IsLiveRenderablePawn(live.Pawn) &&
+                  live.Pawn.thingIDNumber == prepared.PawnId
                 : live.IsDivider;
         }
 
@@ -977,7 +1069,21 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             pawn = rowIndex >= 0 && rowIndex < _currentLayoutRows.Count
                 ? _currentLayoutRows[rowIndex].Pawn
                 : null;
-            return pawn?.thingIDNumber == expectedPawnId;
+            return IsLiveRenderablePawn(pawn) && pawn.thingIDNumber == expectedPawnId;
+        }
+
+        /// <summary>
+        /// The prepared row is safe only while the same work-capable pawn is
+        /// still alive. Death/destruction can race the table's roster recache;
+        /// failing this boundary sends the row back through native drawing.
+        /// </summary>
+        private static bool IsLiveRenderablePawn(Pawn pawn)
+        {
+            return pawn != null &&
+                   !pawn.Dead &&
+                   !pawn.Destroyed &&
+                   pawn.workSettings != null &&
+                   pawn.workSettings.EverWork;
         }
 
         /// <summary>
@@ -1084,8 +1190,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     column.ColumnIndex,
                     priorityBoxRect,
                     presentation.WorkBoxVisual,
-                    displayPriority,
-                    compactText));
+                    displayPriority));
                 _pendingSubWorkCells.Add(new PendingSubWorkCell(
                     workGiver,
                     pawn,

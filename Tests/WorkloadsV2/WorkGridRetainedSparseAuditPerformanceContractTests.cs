@@ -25,165 +25,148 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string body = Read(
                 root,
                 "Source", "UI", "WorkGrid", "Rendering", "WorkTabBodyRenderer.cs");
-            string retainedHeaders = Read(
-                root,
-                "Source", "UI", "Headers", "RetainedPriorityHeaderCache.cs");
-            string retainedHeaderKey = Read(
-                root,
-                "Source", "UI", "Headers", "RetainedPriorityHeaderVisualKey.cs");
             string headerCoordinator = Read(
                 root,
                 "Source", "UI", "Headers", "HeaderDrawingCoordinator.cs");
             string angledLabels = Read(
                 root,
                 "Source", "UI", "Headers", "Angled", "AngledLabelDrawer.cs");
+            string vanillaHeaders = Read(
+                root,
+                "Source", "UI", "Headers", "Vanilla", "VanillaHeaderRenderer.cs");
             string window = Read(
                 root,
                 "Source", "UI", "MainTabWindow_BetterWork.cs");
             string gameCacheReset = Read(
                 root,
                 "Source", "Features", "Patches", "Patch_Building_Bed_Cache.cs");
+            string workloadGateway = Read(
+                root,
+                "Source", "UI", "Workloads", "WorkloadGateway.cs");
+            string priorityPatch = Read(
+                root,
+                "Source", "Features", "Patches", "Patch_WorkPriority_DoCell_Unified.cs");
 
             ParentRowsDoNotRecomposeDuringColumnAnimation(renderer);
             SnapshotOwnedEmptyBackgroundsDoNotFallBack(renderer, body);
             RetainedRowsKeepLogicalImGuiOrientation(retainedRows);
-            RetainedHeadersKeepDynamicAndForeignRenderingLive(
-                retainedHeaders,
-                retainedHeaderKey,
+            HeadersUseLivePreparedRendering(
                 headerCoordinator,
                 angledLabels,
+                vanillaHeaders,
                 window,
                 gameCacheReset);
-            SparseParentChangesKeepSubWorkUpdatesLocal(snapshots);
+            MapWorldClearIsAnAuthoritativeTeardownHook(gameCacheReset);
+            SparseParentChangesKeepSubWorkUpdatesLocal(
+                root,
+                snapshots,
+                workloadGateway,
+                priorityPatch);
             CompatibilityAuditUsesLinearSkillAndPriorityPasses(audit);
             RepresentativeOperationCountsAreReduced();
         }
 
-        private static void RetainedHeadersKeepDynamicAndForeignRenderingLive(
-            string retainedHeaders,
-            string retainedHeaderKey,
+        private static void MapWorldClearIsAnAuthoritativeTeardownHook(string gameCacheReset)
+        {
+            TestAssert.Contains(
+                gameCacheReset,
+                "Patch_MemoryUtility_ClearAllMapsAndWorld",
+                "Save & Quit must have a teardown hook on the direct map/world clear route");
+            TestAssert.Contains(
+                gameCacheReset,
+                "typeof(Verse.Profile.MemoryUtility)",
+                "the teardown hook must target RimWorld's authoritative map/world clear API");
+            TestAssert.Contains(
+                gameCacheReset,
+                "nameof(Verse.Profile.MemoryUtility.ClearAllMapsAndWorld)",
+                "the teardown hook must remain bound to the stable method name");
+
+            string hook = MemberBody(
+                gameCacheReset,
+                "public static void Prefix()\n        {\n            RetainedWorkTabSurfaceTeardown.Release(\"map/world clear\")");
+            TestAssert.Contains(
+                hook,
+                "GameCacheResetUtility.Reset(\"map/world clear\")",
+                "the direct map/world clear route must reset cached game-bound state");
+        }
+
+        private static void HeadersUseLivePreparedRendering(
             string headerCoordinator,
             string angledLabels,
+            string vanillaHeaders,
             string window,
             string gameCacheReset)
         {
-            TestAssert.Contains(
-                retainedHeaders,
-                "MaximumEntries = 64",
-                "retained headers need a hard surface-count bound");
-            TestAssert.Contains(
-                retainedHeaders,
-                "MaximumEstimatedSurfaceBytes = 32L * 1024L * 1024L",
-                "retained headers need a hard estimated-byte bound");
-            TestAssert.Contains(
-                retainedHeaders,
-                "if (!HasCapacity(requestedBytes, existing ? 0 : 1))",
-                "retained headers must prove bounded capacity before allocation");
-            TestAssert.Contains(
-                retainedHeaders,
-                "renderer.GetType() != typeof(AngledHeaderRenderer)",
-                "subclassed or foreign header renderers must retain the direct fallback");
-            TestAssert.Contains(
-                retainedHeaders,
-                "column.Worker?.GetType() != typeof(PawnColumnWorker_WorkPriority)",
-                "only the exact BWT-owned vanilla priority worker may retain pixels");
-            TestAssert.Contains(
-                retainedHeaders,
-                "FluffyWorkTabGateway.IsFluffyColumn(column)",
-                "Fluffy-owned headers must retain their direct path");
-            TestAssert.Contains(
-                retainedHeaders,
-                "SleekWorkTabGateway.BetterWorkTabHostsSleek",
-                "mixed Sleek header composition must retain its direct path");
-
-            string eligibility = MemberBody(retainedHeaders, "private static bool CanRetain(");
-            TestAssert.Contains(eligibility, "isMouseOver", "hover pixels must stay live");
-            TestAssert.Contains(eligibility, "isSorted", "sort indicators must stay live");
-            TestAssert.Contains(
-                eligibility,
-                "ColumnSelectionManager.IsSelected(column)",
-                "selection highlights must stay live");
-            TestAssert.Contains(
-                eligibility,
-                "ColumnReorderAnimationState.IsActive",
-                "column animation must use direct header rendering");
-            TestAssert.Contains(
-                eligibility,
-                "PawnOrganizerSystem.Instance.IsDraggingColumn",
-                "column dragging must use direct header rendering");
-            TestAssert.False(
-                eligibility.IndexOf("PawnOrganizerSystem.Instance == null", StringComparison.Ordinal) >= 0,
-                "the open Work window must trust its established organizer lifecycle invariant");
-            TestAssert.False(
-                eligibility.IndexOf("layout.Text == null", StringComparison.Ordinal) >= 0,
-                "prepared headers must keep their exact non-null label invariant");
-            TestAssert.Contains(
-                eligibility,
-                "SubWorkDrilldownState.HasAnyDrilldown",
-                "sub-work header presentation must use its established direct renderer");
-
-            TestAssert.Contains(
-                retainedHeaders,
-                "new Rect(0f, 0f, 1f, 1f)",
-                "cropped retained headers must preserve the proven top-left IMGUI orientation");
-            TestAssert.False(
-                retainedHeaders.IndexOf("1f - destination.yMax / logicalHeight", StringComparison.Ordinal) >= 0,
-                "retained headers must not apply a second platform UV inversion");
-            string retainedAngled = MemberBody(
-                angledLabels,
-                "internal static void DrawRetainedStable(");
-            TestAssert.Contains(
-                retainedAngled,
-                "useUnclippedPivot: false",
-                "cache-local angled composition must not unclip back into screen space");
-            TestAssert.Contains(
-                retainedHeaders,
-                "_failedRenderResourcesRevision == renderResourcesRevision",
-                "a failed retained header resource must not retry every repaint");
-            TestAssert.Contains(
-                retainedHeaders,
-                "UnityEngine.Object.Destroy(surface)",
-                "released retained header surfaces must destroy their Unity resources");
-            TestAssert.Contains(
-                retainedHeaderKey,
-                "private readonly Matrix4x4 _guiMatrix;",
-                "the exact cache key must include the GUI transform used for composition");
-            TestAssert.Contains(
-                retainedHeaderKey,
-                "private readonly long _settingsThemeLanguageScaleRevision;",
-                "the exact cache key must include the font/theme/language resource generation");
-            TestAssert.False(
-                retainedHeaderKey.IndexOf("activeLanguage?", StringComparison.Ordinal) >= 0,
-                "header composition must trust RimWorld's active-language UI invariant");
-
             string draw = MemberBody(headerCoordinator, "internal static void DrawHeader(");
-            int retainedAttempt = draw.IndexOf("_retainedPriorityHeaders.TryDraw(", StringComparison.Ordinal);
             int directDraw = draw.IndexOf("preparedRenderer.DrawHeader(", StringComparison.Ordinal);
             TestAssert.True(
-                retainedAttempt >= 0 && directDraw > retainedAttempt,
-                "retained failure must flow into the existing prepared direct renderer");
-            string close = MemberBody(window, "private void ResetTransientWindowState()");
+                directDraw >= 0,
+                "prepared headers must draw through the live prepared renderer");
+            TestAssert.False(
+                draw.IndexOf("_retainedPriorityHeaders", StringComparison.Ordinal) >= 0,
+                "header drawing must not route through the removed retained RenderTexture cache");
+            TestAssert.False(
+                angledLabels.IndexOf("DrawRetainedStable(", StringComparison.Ordinal) >= 0,
+                "angled headers must not expose a deferred offscreen underline phase");
+            TestAssert.False(
+                angledLabels.IndexOf("DrawRetainedText(", StringComparison.Ordinal) >= 0,
+                "angled headers must keep glyphs on the same live presentation pass as underlines");
+            string angledDraw = MemberBody(angledLabels, "internal static void Draw(");
             TestAssert.Contains(
-                close,
-                "HeaderDrawingCoordinator.ReleaseRetainedResources();",
-                "closing the Work tab must release retained header surfaces");
+                angledDraw,
+                "drawUnderline: true",
+                "angled prepared headers must draw stable underlines live");
+            TestAssert.False(
+                vanillaHeaders.IndexOf("DrawRetainedStable(", StringComparison.Ordinal) >= 0,
+                "vanilla headers must not expose a deferred offscreen stem phase");
+            TestAssert.False(
+                vanillaHeaders.IndexOf("DrawRetainedText(", StringComparison.Ordinal) >= 0,
+                "vanilla headers must keep glyphs and stems on the same live presentation pass");
+            string vanillaDraw = MemberBody(vanillaHeaders, "public void DrawHeader(");
+            TestAssert.Contains(
+                vanillaDraw,
+                "drawStems: true",
+                "vanilla prepared headers must draw stable stems live");
+            string prepare = MemberBody(headerCoordinator, "internal static void PrepareFrame(");
+            TestAssert.False(
+                prepare.IndexOf("_retainedPriorityHeaders", StringComparison.Ordinal) >= 0,
+                "header invalidation must not manage a removed offscreen cache");
+            string invalidate = MemberBody(headerCoordinator, "public static void InvalidateCaches()");
+            TestAssert.False(
+                invalidate.IndexOf("_retainedPriorityHeaders", StringComparison.Ordinal) >= 0,
+                "header cache invalidation must remain limited to live layout caches");
+            TestAssert.Contains(
+                headerCoordinator,
+                "Header pixels are drawn live",
+                "the retained-resource teardown seam must document that headers own no GPU surface");
+            string settingsChanged = MemberBody(
+                headerCoordinator,
+                "public static void NotifyAngledHeadersChanged()");
+            TestAssert.Contains(
+                settingsChanged,
+                "table.SetDirty();",
+                "header presentation changes must invalidate only the active Work table");
+            TestAssert.False(
+                settingsChanged.IndexOf(
+                    "NotifyAllPawnTables_PawnsChanged",
+                    StringComparison.Ordinal) >= 0,
+                "header presentation changes must not refresh every pawn table");
+            string preOpen = MemberBody(window, "public override void PreOpen()");
+            TestAssert.False(
+                preOpen.IndexOf("HeaderDrawingCoordinator.ResetRetainedFailureLatchesForReopen();", StringComparison.Ordinal) >= 0,
+                "reopening the Work tab must not reset a removed header surface latch");
+            TestAssert.False(
+                window.IndexOf("HeaderDrawingCoordinator.ResetRetainedFailureLatchesForReopen", StringComparison.Ordinal) >= 0,
+                "the removed retained header cache must not leave a reset API behind");
             string resolution = MemberBody(window, "public override void Notify_ResolutionChanged()");
             TestAssert.Contains(
                 resolution,
-                "HeaderDrawingCoordinator.ReleaseRetainedResources();",
-                "resolution changes must release retained header surfaces");
+                "ReleaseRetainedResources();",
+                "resolution changes must still release row and chrome retained resources");
             string teardown = MemberBody(gameCacheReset, "public static void Reset(string reason)");
-            TestAssert.Contains(
-                teardown,
-                "SafeReset(reason, \"retained priority headers\", HeaderDrawingCoordinator.ReleaseRetainedResources);",
-                "game load and new-game teardown must release retained header surfaces immediately");
-
-            string animatedLayout = MemberBody(
-                headerCoordinator,
-                "public static void InvalidateAnimatedLayout()");
             TestAssert.False(
-                animatedLayout.IndexOf("_retainedPriorityHeaders.Dispose()", StringComparison.Ordinal) >= 0,
-                "shared row-animation invalidation must not destroy unchanged retained header surfaces");
+                teardown.IndexOf("HeaderDrawingCoordinator.ReleaseRetainedResources();", StringComparison.Ordinal) >= 0,
+                "game-data invalidation must not invent a header GPU release path");
         }
 
         private static void SnapshotOwnedEmptyBackgroundsDoNotFallBack(
@@ -212,6 +195,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 retainedRows.IndexOf("SystemInfo.graphicsUVStartsAtTop", StringComparison.Ordinal) >= 0,
                 "retained IMGUI rows must not apply a second platform UV inversion");
+            string build = MemberBody(retainedRows, "private static bool BuildSurface(");
+            TestAssert.Contains(
+                build,
+                "GUI.matrix = Matrix4x4.identity",
+                "retained row labels must compose in the surface's logical coordinate system");
             TestAssert.Contains(
                 retainedRows,
                 "new Rect(0f, 0f, 1f, 1f)",
@@ -227,7 +215,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "stable parent rows must use direct clipped drawing while columns animate");
         }
 
-        private static void SparseParentChangesKeepSubWorkUpdatesLocal(string snapshots)
+        private static void SparseParentChangesKeepSubWorkUpdatesLocal(
+            string root,
+            string snapshots,
+            string workloadGateway,
+            string priorityPatch)
         {
             string eligibility = MemberBody(
                 snapshots,
@@ -236,12 +228,22 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 eligibility.IndexOf("ContainsSubWorkColumns", StringComparison.Ordinal) >= 0,
                 "visible sub-work columns must not disable every sparse parent-priority update");
 
-            TestAssert.Contains(
+            string sparseReplacement = MemberBody(
                 snapshots,
-                "if (!dirtyCell && !bestPawnChanged)\n                {\n                    continue;",
-                "unrelated cells must remain immutable while old/new best-pawn rows are revised");
+                "private bool TryBuildSparseReplacements(");
             TestAssert.Contains(
-                snapshots,
+                sparseReplacement,
+                "foreach (WorkGridPriorityKey dirtyKey in dirty)",
+                "sparse replacement must start from the exact invalidated parent target");
+            TestAssert.Contains(
+                sparseReplacement,
+                "WorkGridPreparedRowSpan span = previous.PreparedRows[rowIndex]",
+                "a parent edit must inspect only its prepared row span");
+            TestAssert.False(
+                sparseReplacement.IndexOf("for (int i = 0; i < previous.Cells.Count; i++)", StringComparison.Ordinal) >= 0,
+                "one parent edit must not walk every snapshot cell");
+            TestAssert.Contains(
+                sparseReplacement,
                 "TryResolveSubWorkColumn(",
                 "sparse replacement must resolve live definitions from the authoritative layout rather than the snapshot");
             TestAssert.False(
@@ -253,16 +255,142 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "focus columns must retain their parent visual while expand-beside children stay child-only");
             TestAssert.Contains(
                 snapshots,
-                "FindBestPawnId(table, workType, worker)",
-                "a parent edit must refresh comparison-dependent best-pawn identity once per affected work type");
+                "worker.Compare(candidate, bestPawn) > 0",
+                "best-pawn selection must remain RimWorld's worker-defined skill and eligibility comparison");
+            TestAssert.False(
+                snapshots.IndexOf("IsBetterPawn(", StringComparison.Ordinal) >= 0,
+                "best-pawn selection must use RimWorld's comparison directly instead of a forwarding helper");
+            TestAssert.False(
+                priorityPatch.IndexOf("private static bool IsBetterPawn(", StringComparison.Ordinal) >= 0,
+                "the direct fallback must use RimWorld's best-pawn comparison directly");
+            string directBestPawn = MemberBody(
+                priorityPatch,
+                "private static Pawn GetBestPawnForWorktype(");
             TestAssert.Contains(
+                directBestPawn,
+                "worker.Compare(p, bestPawn) > 0",
+                "the direct fallback must rank best pawns by RimWorld's worker comparison");
+            TestAssert.False(
+                directBestPawn.IndexOf("WorkTabEffectiveStateRuntime", StringComparison.Ordinal) >= 0 ||
+                directBestPawn.IndexOf("ParentPriorityRead", StringComparison.Ordinal) >= 0,
+                "preview priority edits must not clear or recalculate direct fallback best-pawn selection");
+
+            string transition = MemberBody(
                 snapshots,
-                "cell.PawnId == bestPawnChange.PreviousPawnId",
-                "the old best-pawn row must be revised when its marker moves");
+                "private static bool IsSparseParentPriorityRevisionTransition(");
             TestAssert.Contains(
-                snapshots,
-                "cell.PawnId == bestPawnChange.CurrentPawnId",
-                "the new best-pawn row must be revised when its marker moves");
+                transition,
+                "before.SessionRevision != after.SessionRevision",
+                "preview sparse replacement requires a new draft revision");
+            TestAssert.Contains(
+                transition,
+                "before.SourceRevision == after.SourceRevision",
+                "live-source changes must remain full-rebuild candidates");
+            TestAssert.Contains(
+                transition,
+                "before.PersistenceRevision == after.PersistenceRevision",
+                "persistence changes must remain full-rebuild candidates");
+            TestAssert.Contains(
+                transition,
+                "before.ScheduleRevision == after.ScheduleRevision",
+                "schedule edits must remain full-rebuild candidates");
+            TestAssert.Contains(
+                transition,
+                "before.SpecificRevision == after.SpecificRevision",
+                "specific-job edits must remain full-rebuild candidates");
+            TestAssert.Contains(
+                transition,
+                "before.SettingsRevision == after.SettingsRevision",
+                "presentation-setting edits must remain full-rebuild candidates");
+            TestAssert.Contains(
+                eligibility,
+                "EqualNonPriorityConsumedRevisions(_revisions, current)",
+                "roster and skill invalidation must remain outside the sparse priority path");
+
+            TestAssert.Contains(
+                transition,
+                "before.MembershipRevision == after.MembershipRevision",
+                "membership changes must remain full-rebuild candidates");
+            TestAssert.Contains(
+                transition,
+                "before.AuthorityRevision == after.AuthorityRevision",
+                "authority changes must remain full-rebuild candidates");
+
+            string previewMutation = MemberBody(
+                workloadGateway,
+                "internal bool TrySetPreviewParentPriority(");
+            int synchronizeBeforeParent = previewMutation.IndexOf(
+                "_projectedProvider.ProjectionRevision !=",
+                StringComparison.Ordinal);
+            int parentMutation = previewMutation.IndexOf(
+                "_parentPriorityProjection.TrySet(",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                synchronizeBeforeParent >= 0 && parentMutation > synchronizeBeforeParent,
+                "a pending generic provider edit must synchronize before a captured parent edit replaces the session");
+            TestAssert.Contains(
+                previewMutation,
+                "WorkloadGateway.EditV2PreviewCapturedParentPriority(key, priority);",
+                "a captured preview parent-priority edit must advance the authoritative session without generic draft synchronization");
+            TestAssert.Contains(
+                previewMutation,
+                "AcceptCapturedParentPriorityReplacement(",
+                "the captured parent path must retain undo/redo and preview identity ownership in the controller");
+            string capturedReplacement = MemberBody(
+                workloadGateway,
+                "private void AcceptCapturedParentPriorityReplacement(");
+            TestAssert.Contains(
+                capturedReplacement,
+                "_parentPriorityProjection.ConfirmDraftRevision(providerRevision);",
+                "the copied parent projection must acknowledge its provider revision instead of rebuilding the whole draft on repaint");
+            TestAssert.Contains(
+                previewMutation,
+                "_projectedProvider.TryPublishCapturedParentPriority(",
+                "a captured parent edit must publish its known state after exactly one draft invalidation");
+            int sparsePublish = previewMutation.IndexOf(
+                "_projectedProvider.TryPublishCapturedParentPriority(",
+                StringComparison.Ordinal);
+            int draftInvalidation = previewMutation.IndexOf(
+                "_projectedProvider.InvalidateDraft();",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                draftInvalidation >= 0 && sparsePublish > draftInvalidation,
+                "the typed publish must acknowledge the exact invalidated draft revision before the next render pass");
+            TestAssert.Contains(
+                previewMutation,
+                "WorkTabInvalidationHub.InvalidatePriority(pawn.thingIDNumber, workType.shortHash);",
+                "a successful preview parent-priority edit must publish one exact sparse invalidation");
+
+            string projectedProvider = Read(root, "Source", "UI", "Workloads", "Projection",
+                "ProjectedWorkTabEffectiveStateProvider.cs");
+            string sparseProviderAdvance = MemberBody(
+                projectedProvider,
+                "internal bool TryPublishCapturedParentPriority(");
+            TestAssert.False(
+                sparseProviderAdvance.IndexOf("_draft.ProjectedState", StringComparison.Ordinal) >= 0 ||
+                sparseProviderAdvance.IndexOf("GetSemanticFingerprint", StringComparison.Ordinal) >= 0 ||
+                sparseProviderAdvance.IndexOf("RebuildIndexes", StringComparison.Ordinal) >= 0,
+                "the captured parent provider update must not materialize, fingerprint, or reindex the full draft");
+            TestAssert.Contains(
+                sparseProviderAdvance,
+                "_observedDraftRevision = publishedDraftRevision;",
+                "the captured parent provider update must acknowledge the exact draft revision before the next render pass");
+            TestAssert.Contains(
+                sparseProviderAdvance,
+                "_hasUnfingerprintedExactParentState = true;",
+                "the next generic mutation must force its normal full reconciliation even if it returns to an earlier fingerprint");
+
+            string parentProjection = Read(root, "Source", "UI", "Workloads",
+                "WorkloadParentPriorityProjection.cs");
+            string parentSet = MemberBody(parentProjection, "internal bool TrySet(");
+            TestAssert.False(
+                parentSet.IndexOf("_draft.ProjectedState", StringComparison.Ordinal) >= 0 ||
+                parentSet.IndexOf("Rebuild()", StringComparison.Ordinal) >= 0,
+                "one parent edit must update its prepared priority map without materializing the full workload draft");
+            TestAssert.Contains(
+                parentSet,
+                "new Dictionary<ParentPriorityTarget, ParentProjectionValue<int>>(",
+                "the parent projection must preserve an in-flight WorkTabView by copy-on-writing only its priority map");
         }
 
         private static void CompatibilityAuditUsesLinearSkillAndPriorityPasses(string audit)

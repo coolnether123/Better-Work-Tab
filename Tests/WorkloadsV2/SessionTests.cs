@@ -149,6 +149,70 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 priorityEdited.MembershipRevision,
                 "non-membership edits must not advance membership freshness");
 
+            TestAssert.True(
+                session.TryEditCapturedParentPriority(parent, 4, out WorkloadSession capturedPriorityEdit),
+                "an existing captured parent priority must use the narrow preview edit path");
+            TestAssert.Equal(4, capturedPriorityEdit.ProjectedState.ParentPriorities[0].Priority,
+                "the narrow parent edit must update the exact parent value");
+            TestAssert.Equal(
+                session.MembershipRevision,
+                capturedPriorityEdit.MembershipRevision,
+                "a narrow parent edit must not alter preview membership");
+            TestAssert.True(
+                object.ReferenceEquals(
+                    session.ProjectedState.ScheduleIntents,
+                    capturedPriorityEdit.ProjectedState.ScheduleIntents) &&
+                object.ReferenceEquals(
+                    session.ProjectedState.SpecificPriorityIntents,
+                    capturedPriorityEdit.ProjectedState.SpecificPriorityIntents),
+                "a narrow parent edit must retain unrelated immutable workload dimensions");
+            TestAssert.True(
+                capturedPriorityEdit.Apply().AppliedState.SemanticallyEquals(
+                    capturedPriorityEdit.ProjectedState),
+                "Apply must use the state produced by a narrow parent edit");
+            WorkloadSession genericEditBeforeParent = session.Edit(draft =>
+                draft.SetSpecificPriority(specificKey, 7));
+            TestAssert.True(
+                genericEditBeforeParent.TryEditCapturedParentPriority(
+                    parent,
+                    4,
+                    out WorkloadSession parentAfterGenericEdit),
+                "a captured parent edit must accept a session already advanced by another preview mutation");
+            TestAssert.Equal(
+                7,
+                parentAfterGenericEdit.ProjectedState.SpecificPriorityIntents[0].Intent.Value.Priority,
+                "a captured parent edit must retain a preceding generic preview mutation");
+            bool capturedMissingTarget = session.TryEditCapturedParentPriority(
+                new WorkloadParentPriorityKey(parent.Pawn, TestSupport.WorkType("Missing")),
+                4,
+                out WorkloadSession unsupportedCapturedEdit);
+            TestAssert.False(
+                capturedMissingTarget,
+                "an uncaptured parent target must fall back instead of manufacturing scope state");
+            TestAssert.True(
+                object.ReferenceEquals(session, unsupportedCapturedEdit),
+                "an unsupported narrow edit must leave the current preview session intact");
+
+            var valueOnlyState = new WorkloadProjectedState(
+                parentPriorities: new[] { new WorkloadParentPriorityEntry(parent, 3) },
+                parentPriorityIntents: new WorkloadParentPriorityIntentEntry[0]);
+            WorkloadSession valueOnlySession = WorkloadSession.Open(
+                TestSupport.Template(valueOnlyState, stableId: "value-only", label: "Value only"));
+            TestAssert.True(
+                valueOnlySession.TryEditCapturedParentPriority(
+                    parent,
+                    4,
+                    out WorkloadSession valueOnlyEdit),
+                "a captured value-only parent target must add its matching typed intent without a full draft rebuild");
+            TestAssert.Equal(
+                1,
+                valueOnlyEdit.ProjectedState.ParentPriorityIntents.Count,
+                "a value-only parent edit must retain an explicit typed Set intent for Apply and Update");
+            TestAssert.Equal(
+                4,
+                valueOnlyEdit.ProjectedState.ParentPriorityIntents[0].Intent.Value.Priority,
+                "the added typed intent must match the edited parent priority");
+
             var excluded = session.ExcludePawn(parent.Pawn);
             TestAssert.Equal(
                 session.SessionRevision,

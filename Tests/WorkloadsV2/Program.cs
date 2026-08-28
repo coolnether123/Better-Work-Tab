@@ -14,6 +14,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("persistence-receipt-recovery", PersistenceReceiptRecoveryTests.Run),
             new TestCase("inspection-semantics", InspectionSemanticsTests.Run),
             new TestCase("persistence-and-migration", PersistenceTests.Run),
+            new TestCase("persistence-fingerprint-parity", PersistenceFingerprintParityTests.Run),
             new TestCase("workload-read-catalog-performance", WorkloadReadCatalogPerformanceTests.Run),
             new TestCase("workload-draft-projection-cache", WorkloadDraftProjectionCacheTests.Run),
             new TestCase("workload-pawn-roster-revision-contracts", WorkloadPawnRosterRevisionContractTests.Run),
@@ -22,6 +23,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("prepared-work-row-packet-performance-contracts", PreparedWorkRowPacketPerformanceContractTests.Run),
             new TestCase("work-grid-snapshot-isolation-contracts", WorkGridSnapshotIsolationContractTests.Run),
             new TestCase("prepared-pawn-label-performance-contracts", PreparedPawnLabelPerformanceContractTests.Run),
+            new TestCase("prepared-pawn-label-text", PreparedPawnLabelTextTests.Run),
+            new TestCase("shift-wheel-viewport-input-contracts", ShiftWheelViewportInputTests.Run),
             new TestCase("dependency-direction-contracts", DependencyDirectionContractTests.Run),
             new TestCase("workload-feature-isolation-contracts", WorkloadFeatureIsolationContractTests.Run),
             new TestCase("legacy-world-component-dependency-contracts", LegacyWorldComponentDependencyContractTests.Run),
@@ -31,10 +34,13 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("gateway-multiplayer-contracts", GatewayMultiplayerTests.Run),
             new TestCase("gateway-lifecycle-contracts", GatewayLifecycleTests.Run),
             new TestCase("backend-transaction-contracts", BackendTransactionTests.Run),
+            new TestCase("workload-performance-instrumentation-contracts", WorkloadPerformanceInstrumentationContractTests.Run),
             new TestCase("presentation-settings-consolidation", PresentationSettingsConsolidationTests.Run),
             new TestCase("chrome-presentation-cache-contracts", ChromePresentationCacheTests.Run),
+            new TestCase("retained-surface-presentation", RetainedSurfacePresentationTests.Run),
             new TestCase("layout-history-transaction-contracts", LayoutHistoryTransactionTests.Run),
-            new TestCase("presentation-boundary-contracts", PresentationBoundaryTests.Run)
+            new TestCase("presentation-boundary-contracts", PresentationBoundaryTests.Run),
+            new TestCase("expand-beside-ownership-contracts", ExpandBesideOwnershipContractTests.Run)
         };
 
         private static int Main()

@@ -187,28 +187,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 headerRect,
                 column,
                 useUnclippedPivot: true,
-                in presentation);
-        }
-
-        /// <summary>
-        /// Draws a root header whose coordinates have already been translated
-        /// into a cache-local surface. The normal path still owns every dynamic
-        /// visual and input decision.
-        /// </summary>
-        internal static void DrawRetainedStable(
-            AngledLabelLayout layout,
-            Rect headerRect,
-            PawnColumnDef column,
-            in HeaderPresentationPacket presentation)
-        {
-            DrawCore(
-                layout,
-                isMouseOver: false,
-                isSorted: false,
-                sortDescending: false,
-                headerRect,
-                column,
-                useUnclippedPivot: false,
+                drawText: true,
+                drawUnderline: true,
+                drawDynamicVisuals: true,
                 in presentation);
         }
 
@@ -220,6 +201,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
             Rect headerRect,
             PawnColumnDef column,
             bool useUnclippedPivot,
+            bool drawText,
+            bool drawUnderline,
+            bool drawDynamicVisuals,
             in HeaderPresentationPacket presentation)
         {
             bool isCJKVertical = layout.IsCJKVertical;
@@ -274,7 +258,24 @@ namespace Better_Work_Tab.UI.Headers.Angled
             }
 
             float labelAlpha = Mathf.Clamp01(layout.Alpha);
-            DrawParentHeaderGhost(layout, headerRect, column, rotation, horizontalOffset, originalMatrix, parentAlpha * labelAlpha, in presentation);
+            // Parent headers use the same live IMGUI pass as their current header.
+            // Keep the text and underline decisions independent for the shared
+            // transition helper, even though the normal prepared draw enables both.
+            if (drawText || drawUnderline)
+            {
+                DrawParentHeaderGhost(
+                    layout,
+                    headerRect,
+                    column,
+                    rotation,
+                    horizontalOffset,
+                    originalMatrix,
+                    parentAlpha * labelAlpha,
+                    drawText,
+                    drawUnderline,
+                    useUnclippedPivot,
+                    in presentation);
+            }
 
             try
             {
@@ -296,46 +297,50 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 Text.WordWrap = false;
 
                 // Highlights
-                if (column != null && ColumnSelectionManager.IsSelected(column))
+                if (drawDynamicVisuals && column != null && ColumnSelectionManager.IsSelected(column))
                 {
                     GUI.color = HeaderUtility.Colors.SelectedHighlight;
                     GUI.DrawTexture(drawRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
 
-                if (isMouseOver)
+                if (drawDynamicVisuals && isMouseOver)
                 {
                     GUI.color = HeaderUtility.Colors.HoverHighlight;
                     GUI.DrawTexture(drawRect.ExpandedBy(2f), TexUI.HighlightTex);
                 }
 
-                // Text: Apply moved marker color only if color tint is enabled
-                GUI.color = (layout.ShowMarker && presentation.ShowMovedColorTint)
-                    ? presentation.MovedMarkerColor
-                    : presentation.AngledColor;
                 float visibleAlpha = flipAlpha * labelAlpha;
-                GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * visibleAlpha);
+                if (drawText)
+                {
+                    // Text: Apply moved marker color only if color tint is enabled
+                    GUI.color = (layout.ShowMarker && presentation.ShowMovedColorTint)
+                        ? presentation.MovedMarkerColor
+                        : presentation.AngledColor;
+                    GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * visibleAlpha);
 
-                if (isCJKVertical)
-                {
-                    // East Asian Vertical Stacking: Draw characters one by one to avoid sideways characters.
-                    // Sub-centering within the stack ensures characters are aligned regardless of glyph width variations.
-                    float curY = drawRect.y;
-                    float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning; // Use user-configurable kerning
-                    string text = layout.Text;
-                    for (int i = 0; i < text.Length; i++)
+                    if (isCJKVertical)
                     {
-                        Rect charRect = new Rect(drawRect.x, curY, drawRect.width, charH + 2f);
-                        Widgets.Label(charRect, text[i].ToString());
-                        curY += charH;
+                        // East Asian Vertical Stacking: Draw characters one by one to avoid sideways characters.
+                        // Sub-centering within the stack ensures characters are aligned regardless of glyph width variations.
+                        float curY = drawRect.y;
+                        float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning; // Use user-configurable kerning
+                        string text = layout.Text;
+                        for (int i = 0; i < text.Length; i++)
+                        {
+                            Rect charRect = new Rect(drawRect.x, curY, drawRect.width, charH + 2f);
+                            Widgets.Label(charRect, text[i].ToString());
+                            curY += charH;
+                        }
                     }
-                }
-                else
-                {
-                    Widgets.Label(drawRect, layout.Text);
+                    else
+                    {
+                        Widgets.Label(drawRect, layout.Text);
+                    }
                 }
 
                 // Underline: Traditionally vertical CJK text does not use work-tab-style underlines as they conflict with legibility.
-                if (!presentation.RemoveUnderline &&
+                if (drawUnderline &&
+                    !presentation.RemoveUnderline &&
                     !isCJKVertical)
                 {
                     float textWidth = Mathf.Min(layout.UnderlineWidth, drawRect.width);
@@ -353,7 +358,7 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 Text.WordWrap = savedWordWrap;
             }
 
-            if (isSorted && headerRect != default)
+            if (drawDynamicVisuals && isSorted && headerRect != default)
             {
                 HeaderUtility.DrawSortIndicator(headerRect, sortDescending);
             }
@@ -368,6 +373,9 @@ namespace Better_Work_Tab.UI.Headers.Angled
             float horizontalOffset,
             Matrix4x4 originalMatrix,
             float alpha,
+            bool drawText,
+            bool drawUnderline,
+            bool useUnclippedPivot,
             in HeaderPresentationPacket presentation)
         {
             if (alpha <= 0.001f ||
@@ -421,14 +429,16 @@ namespace Better_Work_Tab.UI.Headers.Angled
                 }
 
                 GUI.matrix = Matrix4x4.identity;
-                Vector2 pivotPoint = GUIClipUtility.Unclip(drawRect.center);
+                Vector2 pivotPoint = useUnclippedPivot
+                    ? GUIClipUtility.Unclip(drawRect.center)
+                    : drawRect.center;
                 GUI.matrix = GetTransformMatrix(originalMatrix, pivotPoint, rotation, Vector2.one);
 
                 Text.Anchor = isCJKVertical ? TextAnchor.UpperCenter : TextAnchor.MiddleLeft;
                 GUI.color = presentation.AngledColor;
                 GUI.color = new Color(GUI.color.r, GUI.color.g, GUI.color.b, GUI.color.a * alpha);
 
-                if (isCJKVertical)
+                if (drawText && isCJKVertical)
                 {
                     float curY = drawRect.y;
                     float charH = Text.LineHeight * BetterWorkTabMod.Settings.cjkVerticalKerning;
@@ -439,12 +449,13 @@ namespace Better_Work_Tab.UI.Headers.Angled
                         curY += charH;
                     }
                 }
-                else
+                else if (drawText)
                 {
                     Widgets.Label(drawRect, parentText);
                 }
 
-                if (!presentation.RemoveUnderline &&
+                if (drawUnderline &&
+                    !presentation.RemoveUnderline &&
                     !isCJKVertical)
                 {
                     float underlineWidth = Mathf.Min(size.x, drawRect.width);

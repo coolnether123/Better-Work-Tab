@@ -159,7 +159,7 @@ namespace Better_Work_Tab.UI.Headers
             in WorkTabHeaderFrame frame)
         {
             float totalHeight = GetVisibleHeaderHighlightHeight(layout, in frame);
-            FluffyWorkTabGateway.PrepareHostedDraw(table);
+            FluffyWorkTabGateway.PrepareExternalFluffyDraw(table);
             StandardHeaderPass pass = StandardHeaderPass.Capture(
                 layout,
                 table,
@@ -219,7 +219,6 @@ namespace Better_Work_Tab.UI.Headers
 
             DrawStandardHeaderPreOverlays(in pass, in state);
             DrawOwnedOrNativeHeader(in pass, in state);
-            ApplyHostedHeaderCollapse(in state);
             DrawStandardHeaderPostOverlays(in pass, in state);
         }
 
@@ -230,7 +229,7 @@ namespace Better_Work_Tab.UI.Headers
             Rect animatedHeaderRect)
         {
             bool isWorkColumn = WorkTabColumnHighlightUtility.IsHighlightableWorkColumn(column);
-            Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
+            Rect headerRect = BwtExpandBesideColumns.GetHeaderLaneRect(
                 column.Column,
                 pass.Table,
                 animatedHeaderRect);
@@ -335,19 +334,6 @@ namespace Better_Work_Tab.UI.Headers
             }
         }
 
-        private static void ApplyHostedHeaderCollapse(
-            in StandardHeaderColumnState state)
-        {
-            if (!FluffyWorkTabGateway.WasHostedWorkTypeCollapsed(state.Column.Column))
-            {
-                return;
-            }
-
-            SubWorkDrilldownState.CollapseAllExpandBeside();
-            WorkTabInvalidationHub.Invalidate(
-                WorkTabDirtyFlags.Columns | WorkTabDirtyFlags.HeaderGeometry);
-        }
-
         private static void DrawStandardHeaderPostOverlays(
             in StandardHeaderPass pass,
             in StandardHeaderColumnState state)
@@ -388,7 +374,7 @@ namespace Better_Work_Tab.UI.Headers
                     continue;
                 }
 
-                Rect headerRect = FluffyWorkTabGateway.GetHostedHeaderLaneRect(
+                Rect headerRect = BwtExpandBesideColumns.GetHeaderLaneRect(
                     column.Column,
                     table,
                     animatedHeaderRect);
@@ -572,7 +558,8 @@ namespace Better_Work_Tab.UI.Headers
             PawnTable table,
             in HeaderPresentationPacket presentation)
         {
-            if (!FluffyWorkTabGateway.IsFluffyColumn(column.Column))
+            if (!BwtExpandBesideColumns.IsNativeColumn(column.Column) &&
+                !FluffyWorkTabGateway.IsFluffyColumn(column.Column))
             {
                 return false;
             }
@@ -581,7 +568,10 @@ namespace Better_Work_Tab.UI.Headers
                 WorkTabEffectiveStateRuntime.IsPreviewSpecificJobOrderingBlocked;
             WorkTypeDef parentWorkType = column.SubWorkParent ?? column.Column?.workType;
             WorkGiverDef workGiver = column.SubWorkGiver ??
-                (specificJobOrderingBlocked ? null : FluffyWorkTabGateway.TryGetFluffyWorkGiver(column.Column));
+                (specificJobOrderingBlocked
+                    ? null
+                    : BwtExpandBesideColumns.TryGetWorkGiver(column.Column) ??
+                      FluffyWorkTabGateway.TryGetFluffyWorkGiver(column.Column));
             WorkGiver focusedWorkGiver = null;
             WorkTypeDef focusedParentWorkType = null;
             bool resolvedFocusedWorkGiver = !specificJobOrderingBlocked &&
@@ -610,6 +600,7 @@ namespace Better_Work_Tab.UI.Headers
             bool isChild = workGiver != null &&
                 (resolvedFocusedWorkGiver ||
                  column.IsExpandBesideChild ||
+                 BwtExpandBesideColumns.IsNativeChildColumn(column.Column) ||
                  FluffyWorkTabGateway.IsFluffyWorkGiverColumn(column.Column));
             WorkGiverHeaderLabelStyle labelStyle = presentation.AngledHeadersEnabled
                 ? WorkGiverHeaderLabelStyle.Standard
@@ -619,7 +610,7 @@ namespace Better_Work_Tab.UI.Headers
                 ? WorkGiverDisplayNameService.HeaderLabel(workGiver, labelStyle)
                 : WorkTypeDisplayNameService.HeaderLabel(parentWorkType);
 
-            if (FluffyWorkTabGateway.IsHostedFluffyColumn(column.Column) &&
+            if (BwtExpandBesideColumns.IsNativeColumn(column.Column) &&
                 ShouldSuppressHostedChildLabel(parentWorkType, workGiver, label))
             {
                 if (headerRect.Contains(HeaderInputController.MousePosition))

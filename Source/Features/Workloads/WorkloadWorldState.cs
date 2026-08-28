@@ -18,7 +18,9 @@ namespace Better_Work_Tab.Features.Workloads
         void DeleteWorklist(Worklist worklist);
         void RenameWorklist(Worklist worklist, string newLabel);
         WorkloadV2PersistenceEnvelope EnsureV2Persistence();
-        void NotifyV2Changed();
+        // Controlled Update/Fork writes can prove the post-write document
+        // before publishing. Other callers keep the full diagnostic scan.
+        void NotifyV2Changed(bool diagnosticsAlreadyVerified = false);
     }
 
     internal static class WorkloadWorldStates

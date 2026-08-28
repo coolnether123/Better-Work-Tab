@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
 using System.Xml;
 using Verse;
 
@@ -235,6 +237,22 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             if (!_diagnosticsCurrent)
             {
                 RefreshDiagnostics();
+            }
+        }
+
+        /// <summary>
+        /// Publishes a diagnostic revision after a controlled transactional
+        /// mutation has already passed the post-write receipt verification.
+        /// This is intentionally narrower than <see cref="RefreshDiagnostics"/>:
+        /// load, external, direct, and rollback paths still revalidate the full
+        /// document before they publish it.
+        /// </summary>
+        internal void MarkVerifiedMutationDiagnosticsCurrent()
+        {
+            _diagnosticsCurrent = true;
+            unchecked
+            {
+                _diagnosticsRevision++;
             }
         }
 
@@ -532,14 +550,14 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
         /// </summary>
         public string ComputeContentFingerprint()
         {
-            var builder = new System.Text.StringBuilder();
-            builder.Append(WorkloadCanonical.Integer(SchemaVersion));
-            builder.Append(WorkloadCanonical.Encode(CurrentWorkloadId));
+            var builder = new StringBuilder();
+            builder.Append(SchemaVersion.ToString(CultureInfo.InvariantCulture));
+            WorkloadV2PersistenceCanonical.AppendEncoded(builder, CurrentWorkloadId);
             var records = new List<WorkloadV2PersistenceRecord>(Records ?? new List<WorkloadV2PersistenceRecord>());
             records.Sort(CompareRecords);
             for (int i = 0; i < records.Count; i++)
             {
-                builder.Append(WorkloadV2PersistenceCanonical.ForRecord(records[i]));
+                WorkloadV2PersistenceCanonical.AppendRecord(builder, records[i]);
             }
 
             return WorkloadCanonical.Fingerprint(builder.ToString());
@@ -554,14 +572,28 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             string expectedFingerprint,
             out string error)
         {
+            return TryValidateCompareAndSwap(
+                expectedRevision,
+                expectedFingerprint,
+                out _,
+                out error);
+        }
+
+        private bool TryValidateCompareAndSwap(
+            int expectedRevision,
+            string expectedFingerprint,
+            out string actualFingerprint,
+            out string error)
+        {
             error = string.Empty;
+            actualFingerprint = string.Empty;
             if (expectedRevision < 0)
             {
                 error = "The expected workload persistence revision is invalid.";
                 return false;
             }
 
-            string actualFingerprint = ComputeContentFingerprint();
+            actualFingerprint = ComputeContentFingerprint();
             if (expectedRevision != PersistenceRevision)
             {
                 error = "The workload persistence revision changed while the preview was open.";
@@ -583,7 +615,11 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             string expectedFingerprint,
             out string error)
         {
-            if (!TryValidateCompareAndSwap(expectedRevision, expectedFingerprint, out error))
+            if (!TryValidateCompareAndSwap(
+                    expectedRevision,
+                    expectedFingerprint,
+                    out string actualFingerprint,
+                    out error))
             {
                 return false;
             }
@@ -595,6 +631,29 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
             }
 
             PersistenceRevision = expectedRevision + 1;
+            // Revision metadata is excluded from the content fingerprint, and
+            // the record mutation happens only after this CAS succeeds. Reuse
+            // the value validated above instead of hashing the same document
+            // a second time.
+            PersistenceFingerprint = actualFingerprint;
+            return true;
+        }
+
+        /// <summary>
+        /// Publishes metadata after a direct repository mutation such as Create,
+        /// Rename, Select, or Delete. Transactional Update/Fork paths continue to
+        /// use compare-and-swap through <see cref="TryCommitRevision"/>.
+        /// </summary>
+        internal bool TryAdvanceDirectMutationRevision(out string error)
+        {
+            error = string.Empty;
+            if (PersistenceRevision == int.MaxValue)
+            {
+                error = "The workload persistence revision cannot advance further.";
+                return false;
+            }
+
+            PersistenceRevision = Math.Max(0, PersistenceRevision) + 1;
             PersistenceFingerprint = ComputeContentFingerprint();
             return true;
         }
@@ -1828,158 +1887,197 @@ namespace Better_Work_Tab.Features.Workloads.V2.Runtime
 
     internal static class WorkloadV2PersistenceCanonical
     {
-        internal static string ForRecord(WorkloadV2PersistenceRecord record)
+        /// <summary>
+        /// Appends one normalized record to the envelope's canonical stream.
+        /// The stream format is a persistence/CAS contract, so field and token order
+        /// intentionally match the established fingerprint representation.
+        /// </summary>
+        internal static void AppendRecord(StringBuilder builder, WorkloadV2PersistenceRecord record)
         {
-            if (record == null) return "<null>";
+            if (record == null)
+            {
+                builder.Append("<null>");
+                return;
+            }
+
             record.NormalizeStableState();
-            var builder = new System.Text.StringBuilder();
-            builder.Append(WorkloadCanonical.Encode(record.StableId));
-            builder.Append(WorkloadCanonical.Encode(record.Label));
-            builder.Append(record.SchemaVersion).Append(':');
+            AppendEncoded(builder, record.StableId);
+            AppendEncoded(builder, record.Label);
+            builder.Append(record.SchemaVersion.ToString(CultureInfo.InvariantCulture)).Append(':');
             builder.Append(record.OwnershipDimensions).Append(':').Append(record.ScopeMode).Append(':');
             AppendStrings(builder, record.ExplicitPawnIds);
             AppendStrings(builder, record.ExcludedPawnIds);
             for (int i = 0; i < record.ParentPriorities.Count; i++)
             {
                 WorkloadV2ParentPriorityRecord value = record.ParentPriorities[i];
-                builder.Append("p|").Append(WorkloadCanonical.Encode(value?.PawnId))
-                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName)).Append(value?.Priority ?? 0).Append(';');
+                builder.Append("p|");
+                AppendEncoded(builder, value?.PawnId);
+                AppendEncoded(builder, value?.WorkTypeDefName);
+                builder.Append(value?.Priority ?? 0).Append(';');
             }
             for (int i = 0; i < record.ManualModes.Count; i++)
             {
                 WorkloadV2ManualModeRecord value = record.ManualModes[i];
-                builder.Append("m|").Append(WorkloadCanonical.Encode(value?.PawnId))
-                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
-                    .Append(value?.Manual == true ? '1' : '0').Append(';');
+                builder.Append("m|");
+                AppendEncoded(builder, value?.PawnId);
+                AppendEncoded(builder, value?.WorkTypeDefName);
+                builder.Append(value?.Manual == true ? '1' : '0').Append(';');
             }
             for (int i = 0; i < record.Schedules.Count; i++)
             {
                 WorkloadV2ScheduleRecord value = record.Schedules[i];
-                builder.Append("s|").Append(WorkloadCanonical.Encode(value?.PawnId))
-                    .Append(value?.Schedule ?? -1).Append(';');
+                builder.Append("s|");
+                AppendEncoded(builder, value?.PawnId);
+                builder.Append(value?.Schedule ?? -1).Append(';');
             }
             for (int i = 0; i < record.SpecificJobOverrides.Count; i++)
             {
                 WorkloadV2SpecificJobOverrideRecord value = record.SpecificJobOverrides[i];
-                builder.Append("o|").Append(WorkloadCanonical.Encode(value?.PawnId))
-                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
-                    .Append(WorkloadCanonical.Encode(value?.WorkGiverDefName))
-                    .Append(ScalarCanonical(value?.Value)).Append(';');
+                builder.Append("o|");
+                AppendEncoded(builder, value?.PawnId);
+                AppendEncoded(builder, value?.WorkTypeDefName);
+                AppendEncoded(builder, value?.WorkGiverDefName);
+                AppendScalar(builder, value?.Value);
+                builder.Append(';');
             }
             for (int i = 0; i < record.SpecificJobOrder.Count; i++)
             {
                 WorkloadV2SpecificJobOrderRecord value = record.SpecificJobOrder[i];
-                builder.Append("r|").Append(WorkloadCanonical.Encode(value?.PawnId))
-                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
-                    .Append(WorkloadCanonical.Encode(value?.WorkGiverDefName))
-                    .Append(value?.Order ?? -1).Append(';');
+                builder.Append("r|");
+                AppendEncoded(builder, value?.PawnId);
+                AppendEncoded(builder, value?.WorkTypeDefName);
+                AppendEncoded(builder, value?.WorkGiverDefName);
+                builder.Append(value?.Order ?? -1).Append(';');
             }
             for (int i = 0; i < record.PresentationSettings.Count; i++)
             {
                 WorkloadV2PresentationSettingRecord value = record.PresentationSettings[i];
-                builder.Append("t|").Append(WorkloadCanonical.Encode(value?.Key))
-                    .Append(ScalarCanonical(value?.Value)).Append(';');
+                builder.Append("t|");
+                AppendEncoded(builder, value?.Key);
+                AppendScalar(builder, value?.Value);
+                builder.Append(';');
             }
             for (int i = 0; i < record.ParentPriorityIntents.Count; i++)
             {
                 WorkloadV2ParentPriorityIntentRecord value = record.ParentPriorityIntents[i];
-                builder.Append("pi|").Append(WorkloadCanonical.Encode(value?.PawnId))
-                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
-                    .Append(value?.IntentState ?? 0).Append(':').Append(value?.Priority ?? 0).Append(';');
+                builder.Append("pi|");
+                AppendEncoded(builder, value?.PawnId);
+                AppendEncoded(builder, value?.WorkTypeDefName);
+                builder.Append(value?.IntentState ?? 0).Append(':').Append(value?.Priority ?? 0).Append(';');
             }
             for (int i = 0; i < record.ManualModeIntents.Count; i++)
             {
                 WorkloadV2ManualModeIntentRecord value = record.ManualModeIntents[i];
-                builder.Append("mi|").Append(WorkloadCanonical.Encode(value?.PawnId))
-                    .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
-                    .Append(value?.IntentState ?? 0).Append(':')
+                builder.Append("mi|");
+                AppendEncoded(builder, value?.PawnId);
+                AppendEncoded(builder, value?.WorkTypeDefName);
+                builder.Append(value?.IntentState ?? 0).Append(':')
                     .Append(value?.Manual == true ? '1' : '0').Append(';');
             }
             for (int i = 0; i < record.ScheduleIntents.Count; i++)
             {
                 WorkloadV2ScheduleIntentRecord value = record.ScheduleIntents[i];
-                builder.Append("si|").Append(ScheduleIntentCanonical(value)).Append(';');
+                builder.Append("si|");
+                AppendScheduleIntent(builder, value);
+                builder.Append(';');
             }
             for (int i = 0; i < record.SpecificPriorityIntents.Count; i++)
             {
                 WorkloadV2SpecificPriorityIntentRecord value = record.SpecificPriorityIntents[i];
-                builder.Append("oi|").Append(SpecificPriorityIntentCanonical(value)).Append(';');
+                builder.Append("oi|");
+                AppendSpecificPriorityIntent(builder, value);
+                builder.Append(';');
             }
             for (int i = 0; i < record.WorkTypeOrderIntents.Count; i++)
             {
                 WorkloadV2WorkTypeOrderIntentRecord value = record.WorkTypeOrderIntents[i];
-                builder.Append("ri|").Append(WorkTypeOrderIntentCanonical(value)).Append(';');
+                builder.Append("ri|");
+                AppendWorkTypeOrderIntent(builder, value);
+                builder.Append(';');
             }
             for (int i = 0; i < record.PresentationSettingIntents.Count; i++)
             {
                 WorkloadV2PresentationSettingIntentRecord value = record.PresentationSettingIntents[i];
-                builder.Append("ti|").Append(WorkloadCanonical.Encode(value?.Key))
-                    .Append(value?.IntentState ?? 0).Append(':').Append(value?.Ownership ?? 0)
-                    .Append(':').Append(ScalarCanonical(value?.Value)).Append(';');
+                builder.Append("ti|");
+                AppendEncoded(builder, value?.Key);
+                builder.Append(value?.IntentState ?? 0).Append(':').Append(value?.Ownership ?? 0).Append(':');
+                AppendScalar(builder, value?.Value);
+                builder.Append(';');
             }
-            builder.Append(record.LegacyScheduleRequiresReview ? "legacy-schedule;" : string.Empty);
-            builder.Append(record.LegacyOrderRequiresReview ? "legacy-order;" : string.Empty);
-            builder.Append(WorkloadCanonical.Encode(record.MigrationDiagnostic));
-            return builder.ToString();
+            if (record.LegacyScheduleRequiresReview) builder.Append("legacy-schedule;");
+            if (record.LegacyOrderRequiresReview) builder.Append("legacy-order;");
+            AppendEncoded(builder, record.MigrationDiagnostic);
         }
 
-        private static void AppendStrings(System.Text.StringBuilder builder, List<string> values)
+        internal static void AppendEncoded(StringBuilder builder, string value)
+        {
+            string safe = value ?? string.Empty;
+            builder.Append(safe.Length.ToString(CultureInfo.InvariantCulture)).Append(':').Append(safe);
+        }
+
+        private static void AppendStrings(StringBuilder builder, List<string> values)
         {
             if (values == null) return;
             for (int i = 0; i < values.Count; i++)
             {
-                builder.Append(WorkloadCanonical.Encode(values[i])).Append(';');
+                AppendEncoded(builder, values[i]);
+                builder.Append(';');
             }
         }
 
-        private static string ScheduleIntentCanonical(WorkloadV2ScheduleIntentRecord value)
+        private static void AppendScheduleIntent(StringBuilder builder, WorkloadV2ScheduleIntentRecord value)
         {
-            var builder = new System.Text.StringBuilder();
             builder.Append(value?.Scope ?? 0).Append(':').Append(value?.TargetKind ?? 0)
-                .Append(':').Append(WorkloadCanonical.Encode(value?.PawnId))
-                .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
-                .Append(WorkloadCanonical.Encode(value?.WorkGiverDefName))
-                .Append(':').Append(value?.IntentState ?? 0)
+                .Append(':');
+            AppendEncoded(builder, value?.PawnId);
+            AppendEncoded(builder, value?.WorkTypeDefName);
+            AppendEncoded(builder, value?.WorkGiverDefName);
+            builder.Append(':').Append(value?.IntentState ?? 0)
                 .Append(':').Append(value?.PinnedHourMask ?? 0).Append(':');
             AppendInts(builder, value?.Priorities);
-            return builder.ToString();
         }
 
-        private static string SpecificPriorityIntentCanonical(WorkloadV2SpecificPriorityIntentRecord value)
+        private static void AppendSpecificPriorityIntent(
+            StringBuilder builder,
+            WorkloadV2SpecificPriorityIntentRecord value)
         {
-            return (value?.Scope ?? 0) + ":" + WorkloadCanonical.Encode(value?.PawnId) +
-                WorkloadCanonical.Encode(value?.WorkTypeDefName) +
-                WorkloadCanonical.Encode(value?.WorkGiverDefName) + ":" +
-                (value?.IntentState ?? 0) + ":" + (value?.Priority ?? 0);
+            builder.Append(value?.Scope ?? 0).Append(':');
+            AppendEncoded(builder, value?.PawnId);
+            AppendEncoded(builder, value?.WorkTypeDefName);
+            AppendEncoded(builder, value?.WorkGiverDefName);
+            builder.Append(':').Append(value?.IntentState ?? 0).Append(':').Append(value?.Priority ?? 0);
         }
 
-        private static string WorkTypeOrderIntentCanonical(WorkloadV2WorkTypeOrderIntentRecord value)
+        private static void AppendWorkTypeOrderIntent(
+            StringBuilder builder,
+            WorkloadV2WorkTypeOrderIntentRecord value)
         {
-            var builder = new System.Text.StringBuilder();
-            builder.Append(value?.Scope ?? 0).Append(':')
-                .Append(WorkloadCanonical.Encode(value?.PawnId))
-                .Append(WorkloadCanonical.Encode(value?.WorkTypeDefName))
-                .Append(':').Append(value?.IntentState ?? 0)
+            builder.Append(value?.Scope ?? 0).Append(':');
+            AppendEncoded(builder, value?.PawnId);
+            AppendEncoded(builder, value?.WorkTypeDefName);
+            builder.Append(':').Append(value?.IntentState ?? 0)
                 .Append(':').Append(value?.IsComplete == true ? '1' : '0').Append(':');
             AppendStrings(builder, value?.OrderedWorkGiverDefNames);
-            return builder.ToString();
         }
 
-        private static void AppendInts(System.Text.StringBuilder builder, List<int> values)
+        private static void AppendInts(StringBuilder builder, List<int> values)
         {
             if (values == null) return;
             for (int i = 0; i < values.Count; i++) builder.Append(values[i]).Append(';');
         }
 
-        private static string ScalarCanonical(WorkloadV2ScalarRecord value)
+        private static void AppendScalar(StringBuilder builder, WorkloadV2ScalarRecord value)
         {
-            if (value == null) return "<null>";
-            var builder = new System.Text.StringBuilder();
+            if (value == null)
+            {
+                builder.Append("<null>");
+                return;
+            }
+
             builder.Append(value.Kind).Append(':')
                 .Append(value.BooleanValue ? '1' : '0').Append(':')
-                .Append(value.IntegerValue).Append(':')
-                .Append(WorkloadCanonical.Encode(value.StringValue));
-            return builder.ToString();
+                .Append(value.IntegerValue).Append(':');
+            AppendEncoded(builder, value.StringValue);
         }
     }
 }

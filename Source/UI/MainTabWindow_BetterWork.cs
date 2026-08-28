@@ -63,6 +63,9 @@ namespace Better_Work_Tab.UI
         private readonly WorkTabWindowSessionState _windowSession;
         private readonly WorkTabWindowSizingController _windowSizingController;
         private readonly WorkloadPreviewController _workloadPreviewController;
+        // The constructed Work window is the sole owner of its instance-bound row
+        // and chrome surfaces. Teardown clears this reference without resolving MainButtonDef.
+        private static MainTabWindow_BetterWork _retainedResourceOwner;
         private WorkTabApplication _application;
 
         public MainTabWindow_BetterWork()
@@ -119,6 +122,7 @@ namespace Better_Work_Tab.UI
                 _contextSettingsInteractionController,
                 _subWorkInteractionController,
                 _contextActionController);
+            RegisterRetainedResourceOwner();
         }
 
         // Vanilla's gap above the header lane, and nothing else.
@@ -148,6 +152,14 @@ namespace Better_Work_Tab.UI
 
         public override void PreOpen()
         {
+            // Game teardown clears the constructor registration, while RimWorld can
+            // reopen the same cached tab window. Re-register without resolving the tab definition.
+            RegisterRetainedResourceOwner();
+            _workloadPreviewController.ActivateForWindow();
+
+            // A new open resets only row/chrome retry latches; valid bounded surfaces remain allocated.
+            _optimizedWorkGridRenderer.ResetRetainedRowResourceFailureLatchForReopen();
+            _workTabChrome.ResetRetainedFailureLatchesForReopen();
             base.PreOpen();
             _application = WorkTabGameRoots.For(Current.Game)?.Application;
             BWTWorkloadSettingsOwnershipPolicy.BindApplication(_application);
@@ -798,9 +810,7 @@ namespace Better_Work_Tab.UI
             // preserved vanilla lifecycle ordering.
             _windowSession.InvalidatePawnTableCache();
             _windowSizingController.InvalidateRequestedTabSizeCache();
-            _optimizedWorkGridRenderer.ReleaseRetainedResources();
-            _workTabChrome.ReleaseRetainedResources();
-            HeaderDrawingCoordinator.ReleaseRetainedResources();
+            ReleaseRetainedResources();
             base.Notify_ResolutionChanged();
         }
 
@@ -918,11 +928,63 @@ namespace Better_Work_Tab.UI
             NativeCursorPosition.CancelPendingMove();
             _workloadPreviewController.ResetForWindowClose();
             HeaderButtons.ResetOptionalFooterState();
-            _optimizedWorkGridRenderer.ReleaseRetainedResources();
-            _workTabChrome.ReleaseRetainedResources();
-            HeaderDrawingCoordinator.ReleaseRetainedResources();
+            _optimizedWorkGridRenderer.FinalizeTransientRenderState();
             // Work-grid snapshots and audit state belong to the game session, not this window.
             // GameCacheResetUtility owns their load/new-game teardown boundary.
+        }
+
+        // The static owner must remain reachable until every instance-bound
+        // surface owner has had its teardown attempt. No MainButtonDef lookup is
+        // safe here because game teardown can clear its cached tab window first.
+        internal static void ReleaseRetainedResourcesForTeardown()
+        {
+            MainTabWindow_BetterWork owner = _retainedResourceOwner;
+            try
+            {
+                if (owner != null)
+                {
+                    owner.ReleaseRetainedResources();
+                }
+                else
+                {
+                    RetainedResourceReleaseSequence.ReleaseHeader(
+                        HeaderDrawingCoordinator.ReleaseRetainedResources,
+                        ReportRetainedResourceReleaseFailure);
+                }
+            }
+            finally
+            {
+                _retainedResourceOwner = null;
+            }
+        }
+
+        private void RegisterRetainedResourceOwner()
+        {
+            if (ReferenceEquals(_retainedResourceOwner, this))
+            {
+                return;
+            }
+
+            // Only one Work window can own instance-bound surfaces at a time.
+            _retainedResourceOwner?.ReleaseRetainedResources();
+            _retainedResourceOwner = this;
+        }
+
+        private void ReleaseRetainedResources()
+        {
+            RetainedResourceReleaseSequence.Release(
+                _optimizedWorkGridRenderer.ReleaseRetainedResources,
+                _workTabChrome.ReleaseRetainedResources,
+                HeaderDrawingCoordinator.ReleaseRetainedResources,
+                ReportRetainedResourceReleaseFailure);
+        }
+
+        private static void ReportRetainedResourceReleaseFailure(
+            string resourceGroup,
+            Exception exception)
+        {
+            Log.Warning(
+                $"[BWT] Skipped {resourceGroup} release: {exception.GetType().Name}: {exception.Message}");
         }
     }
 }

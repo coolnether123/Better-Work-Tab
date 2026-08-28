@@ -131,9 +131,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             int layoutSignature = ComputeLayoutSignature(layout);
             var timer = Stopwatch.StartNew();
             if (_pawnLabelSourceSignature == pawnLabelSourceSignature &&
-                CanApplySparsePriorityUpdate(layout, current, layoutSignature, versions.PriorityDirtyKeys) &&
+                CanApplySparsePriorityUpdate(
+                    layout,
+                    current,
+                    effectiveStateRevision,
+                    layoutSignature,
+                    versions.PriorityDirtyKeys) &&
                 TryApplySparsePriorityUpdate(
-                    table,
                     layout,
                     current,
                     effectiveStateRevision,
@@ -191,11 +195,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private bool CanApplySparsePriorityUpdate(
             IWorkTabLayoutController layout,
             WorkGridRevisionSet current,
+            WorkTabEffectiveStateRevision effectiveStateRevision,
             int layoutSignature,
             IReadOnlyList<WorkGridPriorityKey> dirtyKeys)
         {
             return _slot.Current != null &&
-                   WorkTabEffectiveStateRuntime.CurrentRevision.IsLive &&
+                   IsSparseParentPriorityRevisionTransition(
+                       _effectiveStateRevision,
+                       effectiveStateRevision) &&
                    ReferenceEquals(_layout, layout) &&
                    _hasLayoutSignature &&
                    _layoutSignature == layoutSignature &&
@@ -205,8 +212,42 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                    EqualNonPriorityConsumedRevisions(_revisions, current);
         }
 
+        /// <summary>
+        /// A parent-priority target can be replaced in place only when the effective
+        /// provider has stayed the same and the preview changed its draft
+        /// revision alone. Every other revision-vector lane can affect cells
+        /// beyond the explicitly dirtied parent-priority target.
+        /// </summary>
+        private static bool IsSparseParentPriorityRevisionTransition(
+            WorkTabEffectiveStateRevision previous,
+            WorkTabEffectiveStateRevision current)
+        {
+            if (previous.IsLive || current.IsLive)
+            {
+                return previous.IsLive && current.IsLive;
+            }
+
+            if (!previous.IsPreview ||
+                !current.IsPreview ||
+                !StringComparer.Ordinal.Equals(previous.ProviderId, current.ProviderId))
+            {
+                return false;
+            }
+
+            WorkTabEffectiveStateRevisionVector before = previous.RevisionVector;
+            WorkTabEffectiveStateRevisionVector after = current.RevisionVector;
+            return before.ProviderGeneration == after.ProviderGeneration &&
+                   before.SourceRevision == after.SourceRevision &&
+                   before.SessionRevision != after.SessionRevision &&
+                   before.PersistenceRevision == after.PersistenceRevision &&
+                   before.AuthorityRevision == after.AuthorityRevision &&
+                   before.ScheduleRevision == after.ScheduleRevision &&
+                   before.SpecificRevision == after.SpecificRevision &&
+                   before.SettingsRevision == after.SettingsRevision &&
+                   before.MembershipRevision == after.MembershipRevision;
+        }
+
         private bool TryApplySparsePriorityUpdate(
-            PawnTable table,
             IWorkTabLayoutController layout,
             WorkGridRevisionSet revisions,
             WorkTabEffectiveStateRevision effectiveStateRevision,
@@ -222,21 +263,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 return false;
             }
 
-            NormalizeSparsePriorityScope(
-                dirtyKeys,
-                out HashSet<WorkGridPriorityKey> dirty,
-                out HashSet<ushort> affectedWorkTypeIds);
+            var dirty = new HashSet<WorkGridPriorityKey>(dirtyKeys);
             IReadOnlyList<WorkTabLayoutColumn> columns = layout.Columns;
-            if (!TryResolveSparseBestPawnChanges(
-                    table,
-                    columns,
-                    affectedWorkTypeIds,
-                    out Dictionary<ushort, int> bestPawnIds,
-                    out Dictionary<ushort, BestPawnChange> changedBestPawnIds))
-            {
-                return false;
-            }
-
             Dictionary<int, int> rowIndexByPawnId = BuildSparseRowIndex(previous);
             var replacements = new Dictionary<int, WorkCellVisualState>();
             var preparedRowReplacements = new Dictionary<int, WorkGridPreparedRowSpan>();
@@ -246,8 +274,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     layout.Rows,
                     columns,
                     dirty,
-                    changedBestPawnIds,
-                    bestPawnIds,
                     rowIndexByPawnId,
                     cellRevision,
                     replacements,
@@ -258,79 +284,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             }
 
             // All validation and replacement construction completes before this
-            // phase. Publish the snapshot only after the revision and winner
-            // baselines are coherent, so readers never observe a half-update.
+            // phase, so readers never observe a half-updated snapshot.
             PublishSparsePriorityUpdate(
                 previous,
                 layout,
                 revisions,
                 effectiveStateRevision,
-                affectedWorkTypeIds,
-                bestPawnIds,
                 replacements,
                 preparedRowReplacements);
-            return true;
-        }
-
-        /// <summary>
-        /// Deduplicates dirty cells and derives the affected parent work types
-        /// in the same pass. The two sets are the existing sparse-update working
-        /// state; keeping them local prevents a failed update from mutating the
-        /// published snapshot's invalidation baseline.
-        /// </summary>
-        private static void NormalizeSparsePriorityScope(
-            IReadOnlyList<WorkGridPriorityKey> dirtyKeys,
-            out HashSet<WorkGridPriorityKey> dirty,
-            out HashSet<ushort> affectedWorkTypeIds)
-        {
-            dirty = new HashSet<WorkGridPriorityKey>();
-            affectedWorkTypeIds = new HashSet<ushort>();
-            for (int i = 0; i < dirtyKeys.Count; i++)
-            {
-                WorkGridPriorityKey key = dirtyKeys[i];
-                dirty.Add(key);
-                affectedWorkTypeIds.Add(key.WorkTypeId);
-            }
-        }
-
-        /// <summary>
-        /// Resolves the comparison-dependent winners against the current table.
-        /// A winner change is retained separately because both the old and new
-        /// rows must be rebuilt to move the best-pawn marker correctly.
-        /// </summary>
-        private bool TryResolveSparseBestPawnChanges(
-            PawnTable table,
-            IReadOnlyList<WorkTabLayoutColumn> columns,
-            HashSet<ushort> affectedWorkTypeIds,
-            out Dictionary<ushort, int> bestPawnIds,
-            out Dictionary<ushort, BestPawnChange> changedBestPawnIds)
-        {
-            bestPawnIds = new Dictionary<ushort, int>(_bestPawnIds);
-            changedBestPawnIds = new Dictionary<ushort, BestPawnChange>();
-            foreach (ushort workTypeId in affectedWorkTypeIds)
-            {
-                if (!TryResolvePriorityWorker(
-                        columns,
-                        workTypeId,
-                        out WorkTypeDef workType,
-                        out PawnColumnWorker_WorkPriority worker))
-                {
-                    return false;
-                }
-
-                int previousBestPawnId = bestPawnIds.TryGetValue(workTypeId, out int resolved)
-                    ? resolved
-                    : -1;
-                int currentBestPawnId = FindBestPawnId(table, workType, worker);
-                bestPawnIds[workTypeId] = currentBestPawnId;
-                if (previousBestPawnId != currentBestPawnId)
-                {
-                    changedBestPawnIds[workTypeId] = new BestPawnChange(
-                        previousBestPawnId,
-                        currentBestPawnId);
-                }
-            }
-
             return true;
         }
 
@@ -349,13 +310,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             return rowIndexByPawnId;
         }
 
-        private static bool TryBuildSparseReplacements(
+        private bool TryBuildSparseReplacements(
             WorkGridSnapshot previous,
             IReadOnlyList<WorkTabLayoutRow> rows,
             IReadOnlyList<WorkTabLayoutColumn> columns,
             HashSet<WorkGridPriorityKey> dirty,
-            Dictionary<ushort, BestPawnChange> changedBestPawnIds,
-            Dictionary<ushort, int> bestPawnIds,
             Dictionary<int, int> rowIndexByPawnId,
             uint cellRevision,
             Dictionary<int, WorkCellVisualState> replacements,
@@ -363,86 +322,91 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             out int updatedCellCount)
         {
             updatedCellCount = 0;
-            for (int i = 0; i < previous.Cells.Count; i++)
+            foreach (WorkGridPriorityKey dirtyKey in dirty)
             {
-                WorkCellVisualState cell = previous.Cells[i];
-                ushort workTypeId = cell.WorkTypeId;
-                bool dirtyCell = dirty.Contains(
-                    new WorkGridPriorityKey(cell.PawnId, workTypeId));
-                bool bestPawnChanged = changedBestPawnIds.TryGetValue(
-                    workTypeId,
-                    out BestPawnChange bestPawnChange) &&
-                    (cell.PawnId == bestPawnChange.PreviousPawnId ||
-                     cell.PawnId == bestPawnChange.CurrentPawnId);
-                if (!dirtyCell && !bestPawnChanged)
-                {
-                    continue;
-                }
-
-                if (cell.ColumnIndex >= columns.Count ||
-                    cell.ColumnIndex >= previous.Columns.Count)
-                {
-                    // The prepared snapshot owns this topology. A missing
-                    // column means its layout contract changed without a full
-                    // rebuild, so sparse publication is no longer safe.
-                    return false;
-                }
-
-                WorkGridColumnEntry snapshotColumn = previous.Columns[cell.ColumnIndex];
-                if (snapshotColumn.WorkerKind != WorkGridColumnWorkerKind.WorkPriority &&
-                    snapshotColumn.WorkerKind != WorkGridColumnWorkerKind.SubWorkPriority)
-                {
-                    continue;
-                }
-
-                if (!rowIndexByPawnId.TryGetValue(cell.PawnId, out int rowIndex) ||
-                    rowIndex < 0 || rowIndex >= rows.Count)
+                if (!rowIndexByPawnId.TryGetValue(dirtyKey.PawnId, out int rowIndex) ||
+                    rowIndex < 0 ||
+                    rowIndex >= rows.Count ||
+                    rowIndex >= previous.PreparedRows.Count)
                 {
                     return false;
                 }
 
-                WorkTabLayoutColumn column = columns[cell.ColumnIndex];
                 Pawn pawn = rows[rowIndex].Pawn;
-                if (pawn?.thingIDNumber != cell.PawnId)
+                if (pawn?.thingIDNumber != dirtyKey.PawnId)
                 {
                     return false;
                 }
 
-                TryResolveSubWorkColumn(
-                    column,
-                    out WorkGiver subWorkGiver,
-                    out WorkTypeDef subWorkParent);
-                WorkTypeDef workType = subWorkParent ?? column.Column?.workType;
-                if (workType?.shortHash != cell.WorkTypeId ||
-                    (subWorkGiver?.def?.shortHash ?? 0) != snapshotColumn.WorkGiverId)
+                WorkGridPreparedRowSpan span = previous.PreparedRows[rowIndex];
+                if (span.FirstCellIndex < 0 ||
+                    span.CellCount < 0 ||
+                    span.FirstCellIndex > previous.Cells.Count - span.CellCount)
                 {
                     return false;
                 }
+                int lastCellIndex = span.FirstCellIndex + span.CellCount;
 
-                WorkTypeDef parentVisualWorkType = subWorkGiver == null ||
-                    !snapshotColumn.IsExpandBesideChild
-                        ? column.Column?.workType
-                        : null;
-                int bestPawnId = parentVisualWorkType != null &&
-                    bestPawnIds.TryGetValue(
-                        parentVisualWorkType.shortHash,
-                        out int resolvedBestPawnId)
-                        ? resolvedBestPawnId
-                        : -1;
+                bool rowChanged = false;
+                for (int cellIndex = span.FirstCellIndex; cellIndex < lastCellIndex; cellIndex++)
+                {
+                    WorkCellVisualState cell = previous.Cells[cellIndex];
+                    if (cell.WorkTypeId != dirtyKey.WorkTypeId)
+                    {
+                        continue;
+                    }
 
-                replacements[i] = BuildCell(
-                    pawn,
-                    workType,
-                    parentVisualWorkType,
-                    subWorkGiver,
-                    cell.ColumnIndex,
-                    bestPawnId);
-                updatedCellCount++;
+                    if (cell.ColumnIndex >= columns.Count ||
+                        cell.ColumnIndex >= previous.Columns.Count)
+                    {
+                        // The prepared snapshot owns this topology. A missing
+                        // column means its layout contract changed without a full
+                        // rebuild, so sparse publication is no longer safe.
+                        return false;
+                    }
 
-                // Best-pawn markers are derived presentation state. When the
-                // winner changes, widen the row revision to both winner rows;
-                // unrelated rows remain untouched by sparse invalidation.
-                if (rowIndex < previous.PreparedRows.Count)
+                    WorkGridColumnEntry snapshotColumn = previous.Columns[cell.ColumnIndex];
+                    if (snapshotColumn.WorkerKind != WorkGridColumnWorkerKind.WorkPriority &&
+                        snapshotColumn.WorkerKind != WorkGridColumnWorkerKind.SubWorkPriority)
+                    {
+                        continue;
+                    }
+
+                    WorkTabLayoutColumn column = columns[cell.ColumnIndex];
+                    TryResolveSubWorkColumn(
+                        column,
+                        out WorkGiver subWorkGiver,
+                        out WorkTypeDef subWorkParent);
+                    WorkTypeDef workType = subWorkParent ?? column.Column?.workType;
+                    if (workType?.shortHash != cell.WorkTypeId ||
+                        (subWorkGiver?.def?.shortHash ?? 0) != snapshotColumn.WorkGiverId)
+                    {
+                        return false;
+                    }
+
+                    WorkTypeDef parentVisualWorkType = subWorkGiver == null ||
+                        !snapshotColumn.IsExpandBesideChild
+                            ? column.Column?.workType
+                            : null;
+                    int bestPawnId = parentVisualWorkType != null &&
+                        _bestPawnIds.TryGetValue(
+                            parentVisualWorkType.shortHash,
+                            out int resolvedBestPawnId)
+                            ? resolvedBestPawnId
+                            : -1;
+
+                    replacements[cellIndex] = BuildCell(
+                        pawn,
+                        workType,
+                        parentVisualWorkType,
+                        subWorkGiver,
+                        cell.ColumnIndex,
+                        bestPawnId);
+                    updatedCellCount++;
+                    rowChanged = true;
+                }
+
+                if (rowChanged)
                 {
                     preparedRowReplacements[rowIndex] =
                         previous.PreparedRows[rowIndex].WithRevision(cellRevision);
@@ -457,16 +421,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             IWorkTabLayoutController layout,
             WorkGridRevisionSet revisions,
             WorkTabEffectiveStateRevision effectiveStateRevision,
-            HashSet<ushort> affectedWorkTypeIds,
-            Dictionary<ushort, int> bestPawnIds,
             Dictionary<int, WorkCellVisualState> replacements,
             Dictionary<int, WorkGridPreparedRowSpan> preparedRowReplacements)
         {
             _revisions = revisions;
-            foreach (ushort workTypeId in affectedWorkTypeIds)
-            {
-                _bestPawnIds[workTypeId] = bestPawnIds[workTypeId];
-            }
             _effectiveStateRevision = effectiveStateRevision;
             _hasEffectiveStateRevision = true;
             _snapshotRevision++;
@@ -483,43 +441,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     revisions,
                     WorkPrioritySystem.GetMaxPriority()));
             _slot.Publish(snapshot);
-        }
-
-        private static bool TryResolvePriorityWorker(
-            IReadOnlyList<WorkTabLayoutColumn> columns,
-            ushort workTypeId,
-            out WorkTypeDef workType,
-            out PawnColumnWorker_WorkPriority worker)
-        {
-            for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
-            {
-                WorkTabLayoutColumn column = columns[columnIndex];
-                WorkTypeDef candidate = column.Column?.workType;
-                if (!column.IsExpandBesideChild &&
-                    candidate?.shortHash == workTypeId &&
-                    column.Column?.Worker is PawnColumnWorker_WorkPriority candidateWorker)
-                {
-                    workType = candidate;
-                    worker = candidateWorker;
-                    return true;
-                }
-            }
-
-            workType = null;
-            worker = null;
-            return false;
-        }
-
-        private readonly struct BestPawnChange
-        {
-            internal BestPawnChange(int previousPawnId, int currentPawnId)
-            {
-                PreviousPawnId = previousPawnId;
-                CurrentPawnId = currentPawnId;
-            }
-
-            internal int PreviousPawnId { get; }
-            internal int CurrentPawnId { get; }
         }
 
         internal void Clear()
@@ -1313,7 +1234,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     continue;
                 }
 
-                if (bestPawn == null || IsBetterPawn(candidate, bestPawn, workType, worker))
+                if (bestPawn == null || worker.Compare(candidate, bestPawn) > 0)
                 {
                     bestPawn = candidate;
                 }
@@ -1400,7 +1321,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                     continue;
                 }
 
-                if (bestPawn == null || IsBetterPawn(candidate, bestPawn, workType, worker))
+                if (bestPawn == null || worker.Compare(candidate, bestPawn) > 0)
                 {
                     bestPawn = candidate;
                 }
@@ -1474,29 +1395,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                    pawn.workSettings.EverWork &&
                    !pawn.WorkTypeIsDisabled(workType) &&
                    WorkTabActionability.CanApplyAnyWorkGiver(pawn, workType);
-        }
-
-        private static bool IsBetterPawn(
-            Pawn candidate,
-            Pawn bestPawn,
-            WorkTypeDef workType,
-            PawnColumnWorker_WorkPriority worker)
-        {
-            if (!WorkTabEffectiveStateRuntime.IsPreviewActive)
-            {
-                return worker.Compare(candidate, bestPawn) > 0;
-            }
-
-            int candidatePriority = ParentPriorityRead.GetObserved(candidate, workType);
-            int bestPriority = ParentPriorityRead.GetObserved(bestPawn, workType);
-            if (candidatePriority != bestPriority)
-            {
-                // RimWorld's Work-priority comparison treats the smallest
-                // enabled number as the preferred assignment.
-                return candidatePriority < bestPriority;
-            }
-
-            return worker.Compare(candidate, bestPawn) > 0;
         }
 
         private static uint PackColor(Color color)

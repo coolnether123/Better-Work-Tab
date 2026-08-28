@@ -226,6 +226,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Event evt = Event.current;
             if (evt == null ||
                 (evt.type != EventType.MouseDown && evt.type != EventType.ScrollWheel) ||
+                (evt.type == EventType.ScrollWheel && evt.shift) ||
                 !rootBoxRect.Contains(evt.mousePosition))
             {
                 return false;
@@ -281,7 +282,8 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return _visualAlpha > 0.999f &&
                     !SubWorkDrilldownState.IsTransitioning &&
                     evt != null &&
-                    (evt.type == EventType.MouseDown || evt.type == EventType.ScrollWheel);
+                    (evt.type == EventType.MouseDown ||
+                     (evt.type == EventType.ScrollWheel && !evt.shift));
             }
         }
 

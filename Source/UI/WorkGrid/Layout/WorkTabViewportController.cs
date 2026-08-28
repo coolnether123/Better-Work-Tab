@@ -75,6 +75,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
 
     internal sealed class WorkTabViewportController
     {
+        private const float WheelMotionEpsilon = 0.01f;
         private bool _stableHorizontalScrollbarVisible;
         private bool _lastRawHorizontalOverflow;
         private bool _lastHorizontalScrollbarVisible;
@@ -287,16 +288,65 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
                 (horizontalOverflow ? WorkGridLayoutMetrics.HorizontalScrollbarHeight : 0f));
             float maxScrollX = Mathf.Max(0f, viewRect.width - effectiveViewportWidth);
             float maxScrollY = Mathf.Max(0f, viewRect.height - effectiveViewportHeight);
+            ResolveWheelMotion(
+                currentEvent,
+                out float horizontalDelta,
+                out float verticalDelta);
 
             scrollPosition = new Vector2(
                 Mathf.Clamp(
-                    scrollPosition.x + currentEvent.delta.x * 20f,
+                    scrollPosition.x + horizontalDelta * 20f,
                     0f,
                     maxScrollX),
                 Mathf.Clamp(
-                    scrollPosition.y + currentEvent.delta.y * 20f,
+                    scrollPosition.y + verticalDelta * 20f,
                     0f,
                     maxScrollY));
+            return true;
+        }
+
+        /// <summary>
+        /// Routes only the Windows/Unity Shift-wheel encoding inside the table
+        /// viewport before BeginScrollView sees it as horizontal motion. All
+        /// other wheel input remains owned by RimWorld's normal scroll view.
+        /// </summary>
+        internal bool TryApplyShiftTranslatedVerticalWheel(
+            ref Vector2 scrollPosition,
+            Event currentEvent)
+        {
+            if (!_hasLastViewport || currentEvent == null ||
+                currentEvent.type != EventType.ScrollWheel ||
+                !_lastViewport.OutRect.Contains(currentEvent.mousePosition) ||
+                !ResolveWheelMotion(currentEvent, out _, out _))
+            {
+                return false;
+            }
+
+            return TryApplyScrollWheel(ref scrollPosition, currentEvent);
+        }
+
+        /// <summary>
+        /// Leaves ordinary wheel input untouched. Windows reports a physical
+        /// Shift plus vertical wheel as horizontal-only motion; within the
+        /// Work-tab viewport that remains vertical because Shift is reserved
+        /// for priority gestures in cells and headers.
+        /// </summary>
+        private static bool ResolveWheelMotion(
+            Event currentEvent,
+            out float horizontalDelta,
+            out float verticalDelta)
+        {
+            horizontalDelta = currentEvent.delta.x;
+            verticalDelta = currentEvent.delta.y;
+            if (!currentEvent.shift ||
+                Mathf.Abs(verticalDelta) >= WheelMotionEpsilon ||
+                Mathf.Abs(horizontalDelta) < WheelMotionEpsilon)
+            {
+                return false;
+            }
+
+            verticalDelta = horizontalDelta;
+            horizontalDelta = 0f;
             return true;
         }
 

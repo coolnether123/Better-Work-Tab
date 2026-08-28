@@ -793,12 +793,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         internal static BetterWorkTabSettings.SubWorkDrilldownStyle EffectiveDrilldownStyle()
         {
             var style = BetterWorkTabMod.Settings?.subWorkDrilldownStyle ?? DefaultSettings.subWorkDrilldownStyle;
-            if (style == BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside &&
-                !FluffyWorkTabGateway.CanHostFluffySubWorkColumns)
-            {
-                return BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView;
-            }
-
             return style == BetterWorkTabSettings.SubWorkDrilldownStyle.NotChosen
                 ? BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView
                 : style;
@@ -818,9 +812,8 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 return;
             }
 
-            if (!FluffyWorkTabGateway.CanHostFluffySubWorkColumns)
+            if (!BwtExpandBesideColumns.CanBuild)
             {
-                Enter(workType);
                 return;
             }
 

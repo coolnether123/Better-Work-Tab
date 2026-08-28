@@ -1,3 +1,4 @@
+using System;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Patches;
@@ -6,10 +7,18 @@ using Better_Work_Tab.UI.WorkGiverReassignments;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using RimWorld;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
+    internal enum RetainedWorkBoxDrawFailure : byte
+    {
+        None,
+        ResourceUnavailable,
+        Unsupported
+    }
+
     /// <summary>
     /// Captures and paints the common visual portion of a pawn work box. The
     /// specialized parent and sub-work renderers add only their own interaction
@@ -18,6 +27,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     [StaticConstructorOnStartup]
     internal static class PreparedWorkBoxRenderer
     {
+        internal const float LowSkillWarningOutset = 2f;
+        internal const float PriorityLabelOutset = 3f;
+
         private static Material _retainedMaterial;
 
         internal static WorkBoxVisualState Capture(
@@ -149,20 +161,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Rect boxRect,
             WorkBoxVisualState visual,
             int displayPriority,
-            Color baseColor)
+            Color baseColor,
+            out RetainedWorkBoxDrawFailure failure)
         {
-            Material material = RetainedMaterial;
-            if (material == null)
-            {
-                return false;
-            }
-
+            failure = RetainedWorkBoxDrawFailure.None;
             bool ageDisabled = (visual.Flags & WorkCellVisualFlags.AgeDisabled) != 0;
             if ((visual.Flags & WorkCellVisualFlags.Disabled) != 0)
             {
                 if (ageDisabled)
                 {
-                    DrawRetainedTexture(boxRect, WidgetsWork.WorkBoxBGTex_AgeDisabled, baseColor, material);
+                    if (!DrawRetainedTexture(boxRect, WidgetsWork.WorkBoxBGTex_AgeDisabled, baseColor))
+                    {
+                        failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                        return false;
+                    }
                 }
                 return true;
             }
@@ -188,63 +200,180 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     break;
             }
 
-            DrawRetainedTexture(boxRect, baseTexture, cellColor, material);
+            if (!DrawRetainedTexture(boxRect, baseTexture, cellColor))
+            {
+                failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                return false;
+            }
             if (visual.SkillBlend > 0.001f)
             {
                 Color blendColor = cellColor;
                 blendColor.a *= visual.SkillBlend;
-                DrawRetainedTexture(boxRect, blendTexture, blendColor, material);
+                if (!DrawRetainedTexture(boxRect, blendTexture, blendColor))
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
             }
             if ((visual.Flags & WorkCellVisualFlags.IdeologyWarning) != 0)
             {
-                DrawRetainedTexture(
-                    boxRect,
-                    WidgetsWork.WorkBoxOverlay_PreceptWarning,
-                    Color.white,
-                    material);
-            }
-            if ((visual.Flags & WorkCellVisualFlags.LowSkillWarning) != 0)
-            {
-                DrawRetainedTexture(
-                    boxRect.ContractedBy(-2f),
-                    WidgetsWork.WorkBoxOverlay_Warning,
-                    Color.white,
-                    material);
-            }
-            if (visual.Passion > 0)
-            {
-                Rect passionRect = boxRect;
-                passionRect.xMin = boxRect.center.x;
-                passionRect.yMin = boxRect.center.y;
-                DrawRetainedTexture(
-                    passionRect,
-                    visual.Passion == 1
-                        ? WidgetsWork.PassionWorkboxMinorIcon
-                        : WidgetsWork.PassionWorkboxMajorIcon,
-                    new Color(1f, 1f, 1f, 0.4f),
-                    material);
-            }
-
-            if ((visual.Flags & WorkCellVisualFlags.ManualPriorityMode) != 0)
-            {
-                if (displayPriority > WorkPrioritySystem.DisabledPriority)
+                if (!DrawRetainedTexture(
+                        boxRect,
+                        WidgetsWork.WorkBoxOverlay_PreceptWarning,
+                        Color.white))
                 {
-                    Color priorityColor = displayPriority == visual.Priority
-                        ? UnpackColor(visual.PriorityColor)
-                        : WorkPrioritySystem.GetPriorityColor(displayPriority);
-                    priorityColor.a *= baseColor.a;
-                    if (!DrawRetainedPriorityLabel(boxRect, displayPriority, priorityColor))
-                    {
-                        return false;
-                    }
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
                 }
             }
-            else if (displayPriority > WorkPrioritySystem.DisabledPriority)
+            // Semi-transparent foreground pixels stay on the live IMGUI pass.
+            // Composing them into this transparent surface would blend them a
+            // second time when the surface is presented. The retained surface
+            // still owns opaque box textures and the checkbox texture.
+            if (!HasPriorityLabel(visual, displayPriority) &&
+                displayPriority > WorkPrioritySystem.DisabledPriority)
             {
-                DrawRetainedTexture(boxRect, WidgetsWork.WorkBoxCheckTex, baseColor, material);
+                if (!DrawRetainedTexture(boxRect, WidgetsWork.WorkBoxCheckTex, baseColor))
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Proves once per render-resource generation that the immediate
+        /// texture path can write a known pixel to a render texture. The row
+        /// cache owns the generation latch; this renderer owns the material and
+        /// the target state used by the probe.
+        /// </summary>
+        internal static bool TryValidateRetainedComposition(
+            out RetainedWorkBoxDrawFailure failure)
+        {
+            failure = RetainedWorkBoxDrawFailure.None;
+            RenderTexture previous = RenderTexture.active;
+            int previousViewportWidth = previous == null ? Screen.width : previous.width;
+            int previousViewportHeight = previous == null ? Screen.height : previous.height;
+            Matrix4x4 previousMatrix = GUI.matrix;
+            Color previousColor = GUI.color;
+            bool previousSrgbWrite = GL.sRGBWrite;
+            RenderTexture surface = null;
+            Texture2D readback = null;
+            bool matrixPushed = false;
+            try
+            {
+                surface = new RenderTexture(
+                    1,
+                    1,
+                    0,
+                    RenderTextureFormat.ARGB32,
+                    RenderTextureReadWrite.sRGB)
+                {
+                    name = "BWT retained work capability sentinel",
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                if (!surface.Create())
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
+
+                readback = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+                RenderTexture.active = surface;
+                GL.InvalidateState();
+                ConfigureSrgbWriteForSrgbTarget();
+                GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));
+                GUI.matrix = Matrix4x4.identity;
+                GL.PushMatrix();
+                matrixPushed = true;
+                GL.LoadPixelMatrix(0f, 1f, 1f, 0f);
+                GL.Clear(true, true, Color.clear);
+                if (!DrawRetainedTexture(
+                        new Rect(0f, 0f, 1f, 1f),
+                        Texture2D.whiteTexture,
+                        Color.red))
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
+
+                GL.PopMatrix();
+                matrixPushed = false;
+                readback.ReadPixels(new Rect(0f, 0f, 1f, 1f), 0, 0, false);
+                readback.Apply(false, false);
+                Color pixel = readback.GetPixel(0, 0);
+                if (pixel.r < 0.5f || pixel.a < 0.5f ||
+                    pixel.g > 0.5f || pixel.b > 0.5f)
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
+
+                return true;
+            }
+            catch (NotSupportedException)
+            {
+                failure = RetainedWorkBoxDrawFailure.Unsupported;
+                return false;
+            }
+            catch (Exception)
+            {
+                failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                return false;
+            }
+            finally
+            {
+                if (matrixPushed)
+                {
+                    GL.PopMatrix();
+                }
+
+                RenderTexture.active = previous;
+                if (previousViewportWidth > 0 && previousViewportHeight > 0)
+                {
+                    GL.Viewport(new Rect(
+                        0f,
+                        0f,
+                        previousViewportWidth,
+                        previousViewportHeight));
+                }
+                GL.sRGBWrite = previousSrgbWrite;
+                GUI.matrix = previousMatrix;
+                GUI.color = previousColor;
+                GL.InvalidateState();
+
+                if (readback != null)
+                {
+                    UnityEngine.Object.Destroy(readback);
+                }
+                if (surface != null)
+                {
+                    if (surface.IsCreated())
+                    {
+                        surface.Release();
+                    }
+                    UnityEngine.Object.Destroy(surface);
+                }
+            }
+        }
+
+        internal static void ReleaseRetainedResources()
+        {
+            Material retainedMaterial = _retainedMaterial;
+            _retainedMaterial = null;
+            if (retainedMaterial != null)
+            {
+                UnityEngine.Object.Destroy(retainedMaterial);
+            }
+        }
+
+        // RenderTextureReadWrite.sRGB does not set GL.sRGBWrite. Derive it from
+        // project color space, never the preceding IMGUI draw.
+        internal static void ConfigureSrgbWriteForSrgbTarget()
+        {
+            GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear;
         }
 
         internal static void DrawDynamicOverlays(
@@ -269,7 +398,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 if (_retainedMaterial == null)
                 {
-                    Shader shader = Shader.Find("UI/Default") ?? ShaderDatabase.Transparent;
+                    Shader shader = ShaderDatabase.Transparent ?? Shader.Find("UI/Default");
                     if (shader == null)
                     {
                         return null;
@@ -279,100 +408,197 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     {
                         hideFlags = HideFlags.HideAndDontSave
                     };
-                    _retainedMaterial.SetInt("_SrcBlend", 5);
-                    _retainedMaterial.SetInt("_DstBlend", 10);
-                    _retainedMaterial.SetInt("_Cull", 0);
+                    _retainedMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                    _retainedMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                    _retainedMaterial.SetInt("_Cull", (int)CullMode.Off);
                     _retainedMaterial.SetInt("_ZWrite", 0);
                 }
                 return _retainedMaterial;
             }
         }
 
-        private static void DrawRetainedTexture(
-            Rect rect,
-            Texture texture,
-            Color color,
-            Material material)
+        internal static bool HasLiveLowSkillWarning(WorkBoxVisualState visual)
         {
-            if (texture == null)
+            return (visual.Flags & WorkCellVisualFlags.LowSkillWarning) != 0 &&
+                   (visual.Flags & WorkCellVisualFlags.Disabled) == 0;
+        }
+
+        internal static bool HasLivePassionIcon(WorkBoxVisualState visual)
+        {
+            return visual.Passion > 0 &&
+                   (visual.Flags & WorkCellVisualFlags.Disabled) == 0;
+        }
+
+        internal static bool HasLiveForeground(
+            WorkBoxVisualState visual,
+            int displayPriority)
+        {
+            return HasLiveLowSkillWarning(visual) ||
+                   HasLivePassionIcon(visual) ||
+                   HasPriorityLabel(visual, displayPriority);
+        }
+
+        /// <summary>
+        /// Draws the low-skill warning on the live IMGUI target. Its transparent
+        /// border must be composed once against the final work-tab background.
+        /// </summary>
+        internal static void DrawLiveLowSkillWarning(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            float visualAlpha)
+        {
+            if (!HasLiveLowSkillWarning(visual) || visualAlpha <= 0.001f)
             {
                 return;
             }
 
-            Graphics.DrawTexture(
-                rect,
-                texture,
-                new Rect(0f, 0f, 1f, 1f),
-                0,
-                0,
-                0,
-                0,
-                color,
-                material);
+            Color previousColor = GUI.color;
+            try
+            {
+                GUI.color = new Color(1f, 1f, 1f, visualAlpha);
+                GUI.DrawTexture(
+                    boxRect.ContractedBy(-LowSkillWarningOutset),
+                    WidgetsWork.WorkBoxOverlay_Warning);
+            }
+            finally
+            {
+                GUI.color = previousColor;
+            }
         }
 
-        private static bool DrawRetainedPriorityLabel(Rect boxRect, int priority, Color color)
+        internal static void DrawLivePassionIcon(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            float visualAlpha)
         {
-            GUIStyle style = Text.CurFontStyle;
-            Font font = style?.font;
-            if (font == null)
+            if (!HasLivePassionIcon(visual) || visualAlpha <= 0.001f)
+            {
+                return;
+            }
+
+            Color previousColor = GUI.color;
+            try
+            {
+                GUI.color = new Color(1f, 1f, 1f, 0.4f * visualAlpha);
+                DrawPassionIcon(boxRect, visual);
+            }
+            finally
+            {
+                GUI.color = previousColor;
+            }
+        }
+
+        private static bool DrawRetainedTexture(
+            Rect rect,
+            Texture texture,
+            Color color)
+        {
+            if (texture == null || rect.width <= 0f || rect.height <= 0f)
             {
                 return false;
             }
 
-            int fontSize = style.fontSize > 0 ? style.fontSize : font.fontSize;
-            FontStyle fontStyle = style.fontStyle;
-            string text = priority.ToStringCached();
-            font.RequestCharactersInTexture(text, fontSize, fontStyle);
-
-            float width = 0f;
-            var glyphs = new CharacterInfo[text.Length];
-            for (int index = 0; index < text.Length; index++)
-            {
-                if (!font.GetCharacterInfo(text[index], out glyphs[index], fontSize, fontStyle))
-                {
-                    return false;
-                }
-                width += glyphs[index].advance;
-            }
-
-            Material material = font.material;
-            if (material == null || !material.SetPass(0))
+            Material material = RetainedMaterial;
+            if (material == null)
             {
                 return false;
             }
 
-            float xPosition = boxRect.center.x - (width * 0.5f);
+            // GUI.DrawTexture and Graphics.DrawTexture queue IMGUI/graphics
+            // work against the caller's target. Emit the quad directly while
+            // the row cache owns RenderTexture.active, so the target cannot be
+            // restored before the stable pixels are written. The explicit UV
+            // flip keeps this top-left pixel matrix oriented like IMGUI.
+            material.SetTexture("_MainTex", texture);
+            material.SetColor("_Color", color);
+            if (!material.SetPass(0))
+            {
+                return false;
+            }
             GL.Begin(GL.QUADS);
             try
             {
-                GL.Color(color);
-                for (int index = 0; index < glyphs.Length; index++)
-                {
-                    CharacterInfo glyph = glyphs[index];
-                    float verticalCenter = (glyph.maxY + glyph.minY) * 0.5f;
-                    float baseline = boxRect.center.y + verticalCenter;
-                    float xMin = xPosition + glyph.minX;
-                    float xMax = xPosition + glyph.maxX;
-                    float yMin = baseline - glyph.maxY;
-                    float yMax = baseline - glyph.minY;
-
-                    GL.TexCoord(glyph.uvTopLeft);
-                    GL.Vertex3(xMin, yMin, 0f);
-                    GL.TexCoord(glyph.uvTopRight);
-                    GL.Vertex3(xMax, yMin, 0f);
-                    GL.TexCoord(glyph.uvBottomRight);
-                    GL.Vertex3(xMax, yMax, 0f);
-                    GL.TexCoord(glyph.uvBottomLeft);
-                    GL.Vertex3(xMin, yMax, 0f);
-                    xPosition += glyph.advance;
-                }
+                GL.Color(Color.white);
+                GL.TexCoord2(0f, 1f);
+                GL.Vertex3(rect.xMin, rect.yMin, 0f);
+                GL.TexCoord2(1f, 1f);
+                GL.Vertex3(rect.xMax, rect.yMin, 0f);
+                GL.TexCoord2(1f, 0f);
+                GL.Vertex3(rect.xMax, rect.yMax, 0f);
+                GL.TexCoord2(0f, 0f);
+                GL.Vertex3(rect.xMin, rect.yMax, 0f);
+                return true;
             }
             finally
             {
                 GL.End();
             }
-            return true;
+        }
+
+        internal static bool HasPriorityLabel(
+            WorkBoxVisualState visual,
+            int displayPriority)
+        {
+            return (visual.Flags & WorkCellVisualFlags.Disabled) == 0 &&
+                   (visual.Flags & WorkCellVisualFlags.ManualPriorityMode) != 0 &&
+                   displayPriority > WorkPrioritySystem.DisabledPriority;
+        }
+
+        /// <summary>
+        /// Draws one manual priority numeral on the live screen pass. The caller
+        /// owns the surrounding GUI-state scope when drawing a prepared run;
+        /// keeping this method state-light avoids a capture/restore per cell.
+        /// </summary>
+        internal static void DrawLivePriorityLabel(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            int displayPriority,
+            Color baseColor,
+            float visualAlpha,
+            bool compactText)
+        {
+            if (!HasPriorityLabel(visual, displayPriority))
+            {
+                return;
+            }
+
+            GameFont font = compactText ? GameFont.Tiny : GameFont.Medium;
+            if (Text.Font != font)
+            {
+                Text.Font = font;
+            }
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.WordWrap = false;
+            DrawPriorityLabel(
+                boxRect,
+                visual,
+                displayPriority,
+                baseColor,
+                visualAlpha,
+                prepareTextStyle: false);
+        }
+
+        /// <summary>
+        /// Replays the transparent foreground in direct-draw order after a
+        /// retained work-box surface has been presented.
+        /// </summary>
+        internal static void DrawLiveForeground(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            int displayPriority,
+            Color baseColor,
+            float visualAlpha,
+            bool compactText)
+        {
+            DrawLiveLowSkillWarning(boxRect, visual, visualAlpha);
+            DrawLivePassionIcon(boxRect, visual, visualAlpha);
+            DrawLivePriorityLabel(
+                boxRect,
+                visual,
+                displayPriority,
+                baseColor,
+                visualAlpha,
+                compactText);
         }
 
         private static bool DrawCore(
@@ -423,21 +649,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             if ((visual.Flags & WorkCellVisualFlags.ManualPriorityMode) != 0)
             {
-                if (displayPriority > WorkPrioritySystem.DisabledPriority)
+                if (HasPriorityLabel(visual, displayPriority))
                 {
-                    if (prepareTextStyle)
-                    {
-                        Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
-                            ? GameFont.Tiny
-                            : GameFont.Medium;
-                        Text.Anchor = TextAnchor.MiddleCenter;
-                    }
-                    Color color = displayPriority == visual.Priority
-                        ? UnpackColor(visual.PriorityColor)
-                        : WorkPrioritySystem.GetPriorityColor(displayPriority);
-                    color.a *= baseColor.a * visualAlpha;
-                    GUI.color = color;
-                    Widgets.Label(boxRect.ContractedBy(-3f), displayPriority.ToStringCached());
+                    DrawPriorityLabel(
+                        boxRect,
+                        visual,
+                        displayPriority,
+                        baseColor,
+                        visualAlpha,
+                        prepareTextStyle);
                 }
             }
             else if (displayPriority > WorkPrioritySystem.DisabledPriority)
@@ -450,6 +670,38 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 DrawStaticFeatureOverlays(boxRect, visual.Flags, baseColor.a * visualAlpha);
             }
+        }
+
+        private static void DrawPriorityLabel(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            int displayPriority,
+            Color baseColor,
+            float visualAlpha,
+            bool prepareTextStyle)
+        {
+            if (!HasPriorityLabel(visual, displayPriority))
+            {
+                return;
+            }
+
+            if (prepareTextStyle)
+            {
+                Text.Font = boxRect.width <= WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f
+                    ? GameFont.Tiny
+                    : GameFont.Medium;
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Text.WordWrap = false;
+            }
+
+            Color color = displayPriority == visual.Priority
+                ? UnpackColor(visual.PriorityColor)
+                : WorkPrioritySystem.GetPriorityColor(displayPriority);
+            color.a *= baseColor.a * visualAlpha;
+            GUI.color = color;
+            Widgets.Label(
+                boxRect.ContractedBy(-PriorityLabelOutset),
+                displayPriority.ToStringCached());
         }
 
         private static void DrawBackground(
@@ -492,20 +744,27 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if ((visual.Flags & WorkCellVisualFlags.LowSkillWarning) != 0)
             {
                 GUI.color = new Color(1f, 1f, 1f, visualAlpha);
-                GUI.DrawTexture(boxRect.ContractedBy(-2f), WidgetsWork.WorkBoxOverlay_Warning);
+                GUI.DrawTexture(
+                    boxRect.ContractedBy(-LowSkillWarningOutset),
+                    WidgetsWork.WorkBoxOverlay_Warning);
             }
             if (visual.Passion > 0)
             {
                 GUI.color = new Color(1f, 1f, 1f, 0.4f * visualAlpha);
-                Rect passionRect = boxRect;
-                passionRect.xMin = boxRect.center.x;
-                passionRect.yMin = boxRect.center.y;
-                GUI.DrawTexture(
-                    passionRect,
-                    visual.Passion == 1
-                        ? WidgetsWork.PassionWorkboxMinorIcon
-                        : WidgetsWork.PassionWorkboxMajorIcon);
+                DrawPassionIcon(boxRect, visual);
             }
+        }
+
+        private static void DrawPassionIcon(Rect boxRect, WorkBoxVisualState visual)
+        {
+            Rect passionRect = boxRect;
+            passionRect.xMin = boxRect.center.x;
+            passionRect.yMin = boxRect.center.y;
+            GUI.DrawTexture(
+                passionRect,
+                visual.Passion == 1
+                    ? WidgetsWork.PassionWorkboxMinorIcon
+                    : WidgetsWork.PassionWorkboxMajorIcon);
         }
 
         private static void DrawStaticFeatureOverlays(

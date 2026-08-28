@@ -43,6 +43,15 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             Rect windowGeometry,
             Rect contentGeometry)
         {
+            if (!BwtExpandBesideColumns.CanBuild)
+            {
+                // A native column-construction failure makes the expand choice
+                // unavailable. End the transient chooser and its hover preview so
+                // its invisible state cannot continue suppressing other Work-tab UI.
+                ResetForWindowClose();
+                return;
+            }
+
             if (!FluffyWorkTabGateway.IsSubWorkStyleChooserActive)
             {
                 _stableSubWorkChooserWindowRect = Rect.zero;
@@ -181,7 +190,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 return false;
             }
 
-            if (!FluffyWorkTabGateway.TryBuildHostedColumnSpecs(
+            if (!BwtExpandBesideColumns.TryBuildColumnSpecs(
                     sourceColumn.Value.Column,
                     workType,
                     out _,

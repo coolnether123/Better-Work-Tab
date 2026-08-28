@@ -482,6 +482,34 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 _workTypeOrderIntents);
         }
 
+        // This is the narrow copy-on-write path for an already normalized
+        // parent-priority value. It deliberately shares every unrelated
+        // collection: changing one captured priority cannot change scope,
+        // schedules, specific jobs, settings, or membership.
+        private WorkloadProjectedState(
+            WorkloadProjectedState source,
+            ReadOnlyCollection<WorkloadParentPriorityEntry> parentPriorities,
+            ReadOnlyCollection<WorkloadParentPriorityIntentEntry> parentPriorityIntents)
+        {
+            _parentPriorities = parentPriorities;
+            _manualModes = source._manualModes;
+            _schedules = source._schedules;
+            _specificJobOverrides = source._specificJobOverrides;
+            _specificJobOrder = source._specificJobOrder;
+            _presentationSettings = source._presentationSettings;
+            _parentPriorityIntents = parentPriorityIntents;
+            _manualModeIntents = source._manualModeIntents;
+            _scheduleIntents = source._scheduleIntents;
+            _specificPriorityIntents = source._specificPriorityIntents;
+            _workTypeOrderIntents = source._workTypeOrderIntents;
+            _presentationSettingIntents = source._presentationSettingIntents;
+            _hasAmbiguousSpecificPriorityIntents = source._hasAmbiguousSpecificPriorityIntents;
+            _hasAmbiguousWorkTypeOrderIntents = source._hasAmbiguousWorkTypeOrderIntents;
+            _representedPawnIds = source._representedPawnIds;
+            _excludedPawnIds = source._excludedPawnIds;
+            _excludedStagedStates = source._excludedStagedStates;
+        }
+
         public static WorkloadProjectedState Empty
         {
             get { return new WorkloadProjectedState(); }
@@ -547,6 +575,109 @@ namespace Better_Work_Tab.Features.Workloads.V2
         {
             WorkloadProjectedState safeOther = other ?? Empty;
             return StringComparer.Ordinal.Equals(GetCanonicalForm(dimensions), safeOther.GetCanonicalForm(dimensions));
+        }
+
+        /// <summary>
+        /// Replaces one already-captured parent priority without rebuilding the
+        /// unrelated workload dimensions. The value must already be part of
+        /// the captured state; a missing typed intent is repaired locally so
+        /// older value-only records can use the same safe path.
+        /// </summary>
+        internal bool TrySetCapturedParentPriority(
+            WorkloadParentPriorityKey key,
+            int priority,
+            out WorkloadProjectedState replacement,
+            out bool preservesPresence)
+        {
+            replacement = this;
+            preservesPresence = false;
+            if (key == null || !key.IsValid || Contains(_excludedPawnIds, key.Pawn))
+            {
+                return false;
+            }
+
+            int priorityIndex = FindParentPriority(key);
+            int intentIndex = FindParentPriorityIntent(key);
+            if (priorityIndex < 0)
+            {
+                return false;
+            }
+
+            WorkloadParentPriorityEntry existingPriority = _parentPriorities[priorityIndex];
+            WorkloadParentPriorityIntentEntry existingIntent = intentIndex >= 0
+                ? _parentPriorityIntents[intentIndex]
+                : null;
+            if (existingPriority.Priority == priority &&
+                existingIntent?.Intent.State == WorkloadIntentState.Set &&
+                existingIntent.Intent.HasValue &&
+                existingIntent.Intent.Value.Priority == priority)
+            {
+                preservesPresence = true;
+                return true;
+            }
+
+            var priorities = new List<WorkloadParentPriorityEntry>(_parentPriorities);
+            priorities[priorityIndex] = new WorkloadParentPriorityEntry(key, priority);
+            var intents = new List<WorkloadParentPriorityIntentEntry>(_parentPriorityIntents);
+            var replacementIntent = new WorkloadParentPriorityIntentEntry(
+                key,
+                WorkloadIntent<WorkloadSpecificPriorityPayload>.CreateSet(
+                    new WorkloadSpecificPriorityPayload(priority)));
+            if (intentIndex >= 0)
+            {
+                preservesPresence = existingIntent.Intent.State == WorkloadIntentState.Set &&
+                    existingIntent.Intent.HasValue;
+                intents[intentIndex] = replacementIntent;
+            }
+            else
+            {
+                intents.Insert(FindParentPriorityIntentInsertionIndex(key), replacementIntent);
+            }
+
+            replacement = new WorkloadProjectedState(
+                this,
+                priorities.AsReadOnly(),
+                intents.AsReadOnly());
+            return true;
+        }
+
+        private int FindParentPriority(WorkloadParentPriorityKey key)
+        {
+            for (int i = 0; i < _parentPriorities.Count; i++)
+            {
+                if (_parentPriorities[i].Key.Equals(key))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private int FindParentPriorityIntent(WorkloadParentPriorityKey key)
+        {
+            for (int i = 0; i < _parentPriorityIntents.Count; i++)
+            {
+                if (_parentPriorityIntents[i].Key.Equals(key))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private int FindParentPriorityIntentInsertionIndex(WorkloadParentPriorityKey key)
+        {
+            for (int i = 0; i < _parentPriorityIntents.Count; i++)
+            {
+                if (_parentPriorityIntents[i].Key.CompareTo(key) > 0)
+                {
+                    return i;
+                }
+            }
+
+            return _parentPriorityIntents.Count;
         }
 
         internal static WorkloadProjectedState FromMaps(

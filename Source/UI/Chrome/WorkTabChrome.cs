@@ -82,6 +82,11 @@ namespace Better_Work_Tab.UI.Chrome
             _manualPriorityPresentationCache.ReleaseRetainedResources();
         }
 
+        internal void ResetRetainedFailureLatchesForReopen()
+        {
+            _manualPriorityPresentationCache.ResetFailureLatchesForReopen();
+        }
+
         internal void DrawTopControls(IWorkTabLayoutController layout, Rect inRect)
         {
             if (SpineTiming.Enabled)
@@ -328,19 +333,13 @@ namespace Better_Work_Tab.UI.Chrome
                 requestedEnabled = wasEnabled;
             }
 
-            bool retainedPresentation = DrawManualPrioritiesPresentation(
-                rect,
-                maxPriority,
-                requestedEnabled);
+            DrawManualPrioritiesCheckboxDirect(rect, requestedEnabled);
             DrawManualModeInspectionIndicator(rect);
 
             bool isEnabled = requestedEnabled;
             if (isEnabled)
             {
-                if (!retainedPresentation)
-                {
-                    DrawManualPrioritiesHelp(rect, maxPriority);
-                }
+                DrawManualPrioritiesHelp(rect, maxPriority);
             }
             else
             {
@@ -381,28 +380,6 @@ namespace Better_Work_Tab.UI.Chrome
                 true,
                 false);
             Text.Anchor = previousAnchor;
-        }
-
-        private bool DrawManualPrioritiesPresentation(
-            Rect rect,
-            int maxPriority,
-            bool enabled)
-        {
-            if (Event.current != null && Event.current.type == EventType.Repaint)
-            {
-                if (_manualPriorityPresentationCache.TryDrawRetained(
-                    rect,
-                    maxPriority,
-                    enabled,
-                    _manualPrioritiesText,
-                    _priorityHelpText))
-                {
-                    return true;
-                }
-            }
-
-            DrawManualPrioritiesCheckboxDirect(rect, enabled);
-            return false;
         }
 
         private void DrawManualPrioritiesCheckboxDirect(Rect rect, bool enabled)

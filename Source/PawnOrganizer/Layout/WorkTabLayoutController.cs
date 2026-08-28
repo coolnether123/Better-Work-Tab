@@ -25,6 +25,7 @@ using UnityEngine;
 using Verse;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Spine.Collections;
+using Spine.Profiling;
 
 namespace Better_Work_Tab.PawnOrganizer
 {
@@ -128,10 +129,20 @@ namespace Better_Work_Tab.PawnOrganizer
             if (!Approximately(dividerHeight, _lastDividerHeight))
                 return true;
 
-            if (ComputeColumnSignature(table) != _lastColumnSignature)
+            int columnSignature = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.Layout.ShouldRebuild.ColumnSignature",
+                    () => ComputeColumnSignature(table))
+                : ComputeColumnSignature(table);
+            if (columnSignature != _lastColumnSignature)
                 return true;
 
-            if (ComputeHiddenWorktypesSignature() != _lastHiddenWorktypesSignature)
+            int hiddenWorktypesSignature = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.Layout.ShouldRebuild.HiddenWorktypesSignature",
+                    ComputeHiddenWorktypesSignature)
+                : ComputeHiddenWorktypesSignature();
+            if (hiddenWorktypesSignature != _lastHiddenWorktypesSignature)
                 return true;
 
             if (SubWorkDrilldownState.LayoutSignature != _publishedSubWorkSignature)
@@ -155,10 +166,20 @@ namespace Better_Work_Tab.PawnOrganizer
             if (TimePriorityScheduleEditor.LayoutSignature != _lastTimePrioritySignature)
                 return true;
 
-            if (ComputeDividerAnimationSignature() != _lastDividerAnimationSignature)
+            int dividerAnimationSignature = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.Layout.ShouldRebuild.DividerAnimationSignature",
+                    ComputeDividerAnimationSignature)
+                : ComputeDividerAnimationSignature();
+            if (dividerAnimationSignature != _lastDividerAnimationSignature)
                 return true;
 
-            if (ComputeSubWorkLayoutSettingsSignature() != _lastSubWorkLayoutSettingsSignature)
+            int subWorkLayoutSettingsSignature = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.Layout.ShouldRebuild.SubWorkSettingsSignature",
+                    ComputeSubWorkLayoutSettingsSignature)
+                : ComputeSubWorkLayoutSettingsSignature();
+            if (subWorkLayoutSettingsSignature != _lastSubWorkLayoutSettingsSignature)
                 return true;
 
             if (SleekWorkTabGateway.BetterWorkTabHostsSleek &&
@@ -181,6 +202,28 @@ namespace Better_Work_Tab.PawnOrganizer
                 return true;
 
             // Check pawn display order changes (after drag-reorder)
+            bool pawnDisplayOrderChanged = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.Layout.ShouldRebuild.PawnDisplayOrder",
+                    () => HasPawnDisplayOrderChanged(snapshot))
+                : HasPawnDisplayOrderChanged(snapshot);
+            if (pawnDisplayOrderChanged) return true;
+
+            // Check divider collapse states
+            bool dividerCollapseStateChanged = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.Layout.ShouldRebuild.DividerCollapseState",
+                    () => HasDividerCollapseStateChanged(snapshot))
+                : HasDividerCollapseStateChanged(snapshot);
+            if (dividerCollapseStateChanged) return true;
+
+            return false;
+        }
+
+        // Keep the two scans isolated so profiling can attribute their aggregate
+        // cost without placing a probe inside either element loop.
+        private bool HasPawnDisplayOrderChanged(IPawnOrganizerSnapshot snapshot)
+        {
             for (int i = 0; i < snapshot.Pawns.Count; i++)
             {
                 var pawn = snapshot.Pawns[i];
@@ -191,14 +234,18 @@ namespace Better_Work_Tab.PawnOrganizer
                     return true;
             }
 
-            // Check divider collapse states
-            if (snapshot.Dividers != null && snapshot.Dividers.Count == _lastCollapsedStates.Count)
+            return false;
+        }
+
+        private bool HasDividerCollapseStateChanged(IPawnOrganizerSnapshot snapshot)
+        {
+            if (snapshot.Dividers == null || snapshot.Dividers.Count != _lastCollapsedStates.Count)
+                return false;
+
+            for (int i = 0; i < snapshot.Dividers.Count; i++)
             {
-                for (int i = 0; i < snapshot.Dividers.Count; i++)
-                {
-                    if (snapshot.Dividers[i].IsCollapsed != _lastCollapsedStates[i])
-                        return true;
-                }
+                if (snapshot.Dividers[i].IsCollapsed != _lastCollapsedStates[i])
+                    return true;
             }
 
             return false;
@@ -517,7 +564,8 @@ namespace Better_Work_Tab.PawnOrganizer
             lock (_stateLock)
             {
                 // SKIP REBUILD IF NOTHING CHANGED
-                if (!ShouldRebuild(table, snapshot, origin))
+                bool shouldRebuild = ShouldRebuild(table, snapshot, origin);
+                if (!shouldRebuild)
                 {
                     return; // All cached data is still valid
                 }
@@ -560,8 +608,21 @@ namespace Better_Work_Tab.PawnOrganizer
                     _headerHeight = SubWorkDrilldownHeaderGeometry.GetEffectiveHeaderHeight(_table);
                     SubWorkDrilldownHeaderGeometry.RecordNormalHeaderHeight(_table, _headerHeight);
 
-                    BuildColumns();
-                    BuildRows();
+                    if (SpineTiming.Enabled)
+                    {
+                        SpineTiming.Time(
+                            "WorkTab.Layout.RebuildBody",
+                            () =>
+                            {
+                                BuildColumns();
+                                BuildRows();
+                            });
+                    }
+                    else
+                    {
+                        BuildColumns();
+                        BuildRows();
+                    }
 
                     _rowDescriptorsDirty = true;
                     _layoutRevision++;
@@ -892,6 +953,20 @@ namespace Better_Work_Tab.PawnOrganizer
                     column.Width));
             }
 
+            // PawnTable's cached width describes the ordinary table. Expand-beside
+            // columns are BWT-owned layout columns, so their natural span can be wider
+            // without changing PawnTable.cachedSize. Publish the complete visual row
+            // width so row backgrounds, separators and body hit regions cover those
+            // columns; the viewport controller still owns clipping and horizontal scroll.
+            float publishedRowWidth = _rowWidth;
+            if (_columns.Count > 0)
+            {
+                WorkTabLayoutColumn lastColumn = _columns[_columns.Count - 1];
+                publishedRowWidth = Mathf.Max(
+                    publishedRowWidth,
+                    lastColumn.OffsetX + lastColumn.Width);
+            }
+
             float schedulePinnedHeight = WorkGridLayoutMetrics.SchedulePinnedHeight;
             float subWorkPinnedHeight = WorkGridLayoutMetrics.SubWorkPinnedHeight;
             float tutorialPinnedHeight = WorkGridLayoutMetrics.TutorialPinnedHeight;
@@ -904,7 +979,7 @@ namespace Better_Work_Tab.PawnOrganizer
                 subWorkPinnedHeight,
                 tutorialPinnedHeight,
                 _contentHeight,
-                _rowWidth,
+                publishedRowWidth,
                 _geometryRows.ToSnapshot(),
                 _geometryColumns.ToSnapshot(),
                 retainedBytes);
@@ -1000,15 +1075,15 @@ namespace Better_Work_Tab.PawnOrganizer
                     !showSubWork &&
                     !blockPreviewSpecificJobOrdering &&
                     SubWorkDrilldownState.GetExpandBesideWidthProgress(def.workType) > 0.001f &&
-                    FluffyWorkTabGateway.TryBuildHostedColumnSpecs(
+                    BwtExpandBesideColumns.TryBuildColumnSpecs(
                         def,
                         def.workType,
                         out _,
-                        out List<PawnColumnDef> hostedChildren))
+                        out List<PawnColumnDef> childColumns))
                 {
-                    for (int slot = 0; slot < hostedChildren.Count; slot++)
+                    for (int slot = 0; slot < childColumns.Count; slot++)
                     {
-                        WorkGiverDef workGiverDef = FluffyWorkTabGateway.TryGetHostedWorkGiver(hostedChildren[slot]);
+                        WorkGiverDef workGiverDef = BwtExpandBesideColumns.TryGetWorkGiver(childColumns[slot]);
                         if (workGiverDef == null)
                         {
                             continue;
@@ -1021,7 +1096,7 @@ namespace Better_Work_Tab.PawnOrganizer
                         }
 
                         visibleColumns.Add(new VisibleColumnSpec(
-                            hostedChildren[slot],
+                            childColumns[slot],
                             i,
                             def.workType,
                             workGiverDef,
@@ -1086,7 +1161,7 @@ namespace Better_Work_Tab.PawnOrganizer
                         : 30f;
                 }
 
-                w = FluffyWorkTabGateway.GetHostedColumnWidth(columnDef, _table, w);
+                w = BwtExpandBesideColumns.GetColumnWidth(columnDef, _table, w);
                 
                 if (visibleColumns[i].IsExpandBesideChild)
                 {

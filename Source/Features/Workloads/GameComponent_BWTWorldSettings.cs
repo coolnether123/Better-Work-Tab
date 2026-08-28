@@ -576,9 +576,16 @@ namespace Better_Work_Tab.Features.Workloads
             return WorkloadsV2;
         }
 
-        internal void NotifyWorkloadV2Changed()
+        internal void NotifyWorkloadV2Changed(bool diagnosticsAlreadyVerified = false)
         {
-            WorkloadsV2?.RefreshDiagnostics();
+            if (diagnosticsAlreadyVerified)
+            {
+                WorkloadsV2?.MarkVerifiedMutationDiagnosticsCurrent();
+            }
+            else
+            {
+                WorkloadsV2?.RefreshDiagnostics();
+            }
             if (MultiplayerBridge.Active)
             {
                 PersistLocalUiState();
@@ -589,7 +596,8 @@ namespace Better_Work_Tab.Features.Workloads
         Worklist IWorkloadWorldState.CurrentWorklist => CurrentWorklist;
         WorkloadV2PersistenceEnvelope IWorkloadWorldState.EnsureV2Persistence() =>
             EnsureWorkloadV2Persistence();
-        void IWorkloadWorldState.NotifyV2Changed() => NotifyWorkloadV2Changed();
+        void IWorkloadWorldState.NotifyV2Changed(bool diagnosticsAlreadyVerified) =>
+            NotifyWorkloadV2Changed(diagnosticsAlreadyVerified);
 
         private void AuditWorkloadV2DiagnosticsIfDue()
         {

@@ -140,7 +140,10 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 string appliedFingerprint,
                 long authorityRevision,
                 bool synchronizedReplay,
-                WorkTabMutationLease authorization)
+                WorkTabMutationLease authorization,
+                WorkTabApplicationDimensions changedDimensions,
+                int changedEntryCount,
+                IReadOnlyList<WorkTabApplicationTargetChange> changedTargets)
             {
                 PreviousData = previousData;
                 PreviousFingerprint = previousFingerprint ?? string.Empty;
@@ -150,6 +153,9 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 AuthorityRevision = authorityRevision;
                 SynchronizedReplay = synchronizedReplay;
                 Authorization = authorization;
+                ChangedDimensions = changedDimensions;
+                ChangedEntryCount = changedEntryCount;
+                ChangedTargets = changedTargets ?? new WorkTabApplicationTargetChange[0];
             }
 
             internal WorkGiverReassignmentData PreviousData { get; private set; }
@@ -160,7 +166,15 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             internal long AuthorityRevision { get; private set; }
             internal bool SynchronizedReplay { get; private set; }
             internal WorkTabMutationLease Authorization { get; private set; }
+            internal WorkTabApplicationDimensions ChangedDimensions { get; private set; }
+            internal int ChangedEntryCount { get; private set; }
+            internal IReadOnlyList<WorkTabApplicationTargetChange> ChangedTargets { get; private set; }
             int IWorkTabSpecificJobRollbackReceipt.AppliedRevision => AppliedRevision;
+            WorkTabApplicationDimensions IWorkTabSpecificJobRollbackReceipt.ChangedDimensions =>
+                ChangedDimensions;
+            int IWorkTabSpecificJobRollbackReceipt.ChangedEntryCount => ChangedEntryCount;
+            IReadOnlyList<WorkTabApplicationTargetChange>
+                IWorkTabSpecificJobRollbackReceipt.ChangedTargets => ChangedTargets;
         }
 
         /// <summary>
@@ -405,15 +419,19 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             WorkGiverReassignmentData previousData = data.Clone();
             string previousFingerprint = previousData.ComputeStateFingerprint();
             int previousRevision = expectedSyncVersion;
-            bool changed = false;
+            bool priorityChanged = false;
+            bool orderChanged = false;
+            int changedEntryCount = 0;
+            var changedTargets = new List<WorkTabApplicationTargetChange>();
             try
             {
                 for (int i = 0; i < priorities.Count; i++)
                 {
                     SpecificPriorityBatchEntry entry = priorities[i];
+                    bool entryChanged;
                     if (entry.IsGlobal)
                     {
-                        changed |= ApplyGlobalWorkGiverPriorityState(
+                        entryChanged = ApplyGlobalWorkGiverPriorityState(
                             data,
                             entry.WorkGiverDefName,
                             entry.DesiredState,
@@ -422,7 +440,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     }
                     else
                     {
-                        changed |= ApplyLocalWorkGiverPriorityState(
+                        entryChanged = ApplyLocalWorkGiverPriorityState(
                             data,
                             entry.PawnId,
                             entry.WorkGiverDefName,
@@ -430,14 +448,23 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                                 ? entry.DesiredPriority
                                 : (int?)null);
                     }
+                    if (entryChanged)
+                    {
+                        priorityChanged = true;
+                        changedEntryCount++;
+                        changedTargets.Add(new WorkTabApplicationTargetChange(
+                            CreateSpecificWorkGiverTarget(entry),
+                            WorkTabApplicationDimensions.SpecificPriority));
+                    }
                 }
 
                 for (int i = 0; i < orders.Count; i++)
                 {
                     SpecificOrderBatchEntry entry = orders[i];
+                    bool entryChanged;
                     if (entry.IsGlobal)
                     {
-                        changed |= ApplyGlobalWorkTypeOrderState(
+                        entryChanged = ApplyGlobalWorkTypeOrderState(
                             data,
                             entry.WorkTypeDefName,
                             entry.DesiredState,
@@ -446,7 +473,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     }
                     else
                     {
-                        changed |= ApplyLocalWorkTypeOrderState(
+                        entryChanged = ApplyLocalWorkTypeOrderState(
                             data,
                             entry.PawnId,
                             entry.WorkTypeDefName,
@@ -454,8 +481,22 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                                 ? entry.DesiredOrder
                                 : null);
                     }
+                    if (entryChanged)
+                    {
+                        orderChanged = true;
+                        changedEntryCount++;
+                        changedTargets.Add(new WorkTabApplicationTargetChange(
+                            TimePriorityTarget.FromRaw(
+                                entry.PawnId,
+                                TimePriorityTargetKind.WorkType,
+                                entry.WorkTypeDefName,
+                                entry.WorkTypeDefName),
+                            WorkTabApplicationDimensions.SpecificOrder |
+                            WorkTabApplicationDimensions.ExecutionOrder));
+                    }
                 }
 
+                bool changed = priorityChanged || orderChanged;
                 if (!changed)
                 {
                     return true;
@@ -479,7 +520,16 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     data.ComputeStateFingerprint(),
                     expectedAuthorityRevision,
                     synchronizedReplay,
-                    authorization);
+                    authorization,
+                    (priorityChanged
+                        ? WorkTabApplicationDimensions.SpecificPriority
+                        : WorkTabApplicationDimensions.None) |
+                    (orderChanged
+                        ? WorkTabApplicationDimensions.SpecificOrder |
+                          WorkTabApplicationDimensions.ExecutionOrder
+                        : WorkTabApplicationDimensions.None),
+                    changedEntryCount,
+                    changedTargets);
                 return true;
             }
             catch (Exception exception)
@@ -681,6 +731,14 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 default:
                     return ExactGlobalStateKind.Absent;
             }
+        }
+
+        private static TimePriorityTarget CreateSpecificWorkGiverTarget(
+            SpecificPriorityBatchEntry entry)
+        {
+            WorkGiverDef workGiver = DefDatabase<WorkGiverDef>.GetNamedSilentFail(
+                entry.WorkGiverDefName);
+            return TimePriorityTarget.ForWorkGiver(entry.PawnId, workGiver);
         }
 
         private static bool TryValidateDistinctBatchKeys(

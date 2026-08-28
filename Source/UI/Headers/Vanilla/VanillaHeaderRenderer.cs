@@ -42,6 +42,9 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 headerRect,
                 column,
                 showMarker,
+                drawText: true,
+                drawStems: true,
+                drawDynamicVisuals: true,
                 in presentation);
         }
 
@@ -63,6 +66,9 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 headerRect,
                 column,
                 showMarker,
+                drawText: true,
+                drawStems: true,
+                drawDynamicVisuals: true,
                 in presentation);
         }
 
@@ -74,6 +80,9 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
             Rect headerRect,
             PawnColumnDef column,
             bool showMarker,
+            bool drawText,
+            bool drawStems,
+            bool drawDynamicVisuals,
             in HeaderPresentationPacket presentation)
         {
             if (column == null || _solver == null)
@@ -143,14 +152,14 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 Text.Anchor = TextAnchor.MiddleCenter;
 
                 // Highlights
-                if (isMouseOver)
+                if (drawDynamicVisuals && isMouseOver)
                 {
                     GUI.color = HeaderUtility.Colors.HoverHighlight;
                     Rect highlightRect = new Rect(headerRect.x, textY, headerRect.width, headerRect.yMax - textY);
                     Widgets.DrawHighlight(highlightRect);
                 }
 
-                if (column != null && Better_Work_Tab.DragDrop.ColumnSelectionManager.IsSelected(column))
+                if (drawDynamicVisuals && column != null && Better_Work_Tab.DragDrop.ColumnSelectionManager.IsSelected(column))
                 {
                     GUI.color = HeaderUtility.Colors.SelectedHighlight;
                     Rect highlightRect = new Rect(headerRect.x, textY, headerRect.width, headerRect.yMax - textY);
@@ -159,8 +168,14 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
 
                 if (parentText != null)
                 {
-                    DrawLabel(parentTextRect, parentText, false, parentAlpha, in presentation);
-                    DrawStemLine(parentTextRect, headerBottom, parentAlpha, in presentation);
+                    if (drawText)
+                    {
+                        DrawLabel(parentTextRect, parentText, false, parentAlpha, in presentation);
+                    }
+                    if (drawStems)
+                    {
+                        DrawStemLine(parentTextRect, headerBottom, parentAlpha, in presentation);
+                    }
                 }
 
                 if (flipScale < 0.999f)
@@ -176,14 +191,20 @@ namespace Better_Work_Tab.UI.Headers.Vanilla
                 }
 
                 float visibleAlpha = flipAlpha * Mathf.Clamp01(layout.Alpha);
-                DrawLabel(textRect, displayText, showMarker, visibleAlpha, in presentation);
+                if (drawText)
+                {
+                    DrawLabel(textRect, displayText, showMarker, visibleAlpha, in presentation);
+                }
 
                 // Stem Line
-                DrawStemLine(textRect, headerBottom, visibleAlpha, in presentation);
+                if (drawStems)
+                {
+                    DrawStemLine(textRect, headerBottom, visibleAlpha, in presentation);
+                }
                 GUI.matrix = oldMatrix;
 
                 // Sort Indicator
-                if (isSorted)
+                if (drawDynamicVisuals && isSorted)
                 {
                     HeaderUtility.DrawSortIndicator(headerRect, sortDescending);
                 }

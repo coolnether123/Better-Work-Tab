@@ -163,6 +163,7 @@ namespace Better_Work_Tab.ModSupport.Mods.FluffyWorkTab
                 }
 
                 work.tabWindowClass = desired;
+                MainTabWindow_BetterWork.ReleaseRetainedResourcesForTeardown();
                 work.Notify_ClearingAllMapsMemory();
 
                 if (workTabOpen && mainTabsRoot != null)
