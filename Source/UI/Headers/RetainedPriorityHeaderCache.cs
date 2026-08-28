@@ -7,6 +7,7 @@ using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Headers.Angled;
+using Better_Work_Tab.UI.Headers.Vanilla;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using RimWorld;
 using UnityEngine;
@@ -145,6 +146,13 @@ namespace Better_Work_Tab.UI.Headers
                 PresentSurface(
                     entry.Surface,
                     surfaceGeometry.Destination);
+                DrawRetainedText(
+                    renderer,
+                    in layout,
+                    headerRect,
+                    column,
+                    showMarker,
+                    in presentation);
                 return true;
             }
             catch (Exception exception)
@@ -330,17 +338,18 @@ namespace Better_Work_Tab.UI.Headers
                             column,
                             in presentation);
                     }
-                    else
+                    else if (renderer is VanillaHeaderRenderer vanilla)
                     {
-                        renderer.DrawHeader(
+                        vanilla.DrawRetainedStable(
                             localLayout,
-                            false,
-                            false,
-                            false,
                             localHeaderRect,
                             column,
                             showMarker,
                             in presentation);
+                    }
+                    else
+                    {
+                        return false;
                     }
                 }
                 finally
@@ -357,6 +366,38 @@ namespace Better_Work_Tab.UI.Headers
                 Text.Anchor = previousAnchor;
                 Text.WordWrap = previousWordWrap;
                 RenderTexture.active = previousTarget;
+            }
+        }
+
+        private static void DrawRetainedText(
+            IHeaderPresentationRenderer renderer,
+            in AngledLabelDrawer.AngledLabelLayout layout,
+            Rect headerRect,
+            PawnColumnDef column,
+            bool showMarker,
+            in HeaderPresentationPacket presentation)
+        {
+            if (renderer is AngledHeaderRenderer angled)
+            {
+                angled.DrawRetainedText(
+                    layout,
+                    headerRect,
+                    column,
+                    in presentation);
+            }
+            else if (renderer is VanillaHeaderRenderer vanilla)
+            {
+                vanilla.DrawRetainedText(
+                    layout,
+                    headerRect,
+                    column,
+                    showMarker,
+                    in presentation);
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    "retained priority-header renderer has no live text boundary");
             }
         }
 

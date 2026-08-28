@@ -37,6 +37,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string angledLabels = Read(
                 root,
                 "Source", "UI", "Headers", "Angled", "AngledLabelDrawer.cs");
+            string vanillaHeaders = Read(
+                root,
+                "Source", "UI", "Headers", "Vanilla", "VanillaHeaderRenderer.cs");
             string window = Read(
                 root,
                 "Source", "UI", "MainTabWindow_BetterWork.cs");
@@ -52,6 +55,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 retainedHeaderKey,
                 headerCoordinator,
                 angledLabels,
+                vanillaHeaders,
                 window,
                 gameCacheReset);
             SparseParentChangesKeepSubWorkUpdatesLocal(snapshots);
@@ -64,6 +68,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string retainedHeaderKey,
             string headerCoordinator,
             string angledLabels,
+            string vanillaHeaders,
             string window,
             string gameCacheReset)
         {
@@ -95,6 +100,32 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 retainedHeaders,
                 "SleekWorkTabGateway.BetterWorkTabHostsSleek",
                 "mixed Sleek header composition must retain its direct path");
+
+            string retainedDraw = MemberBody(retainedHeaders, "internal bool TryDraw(");
+            int surfacePresentation = retainedDraw.IndexOf(
+                "PresentSurface(",
+                StringComparison.Ordinal);
+            int liveText = retainedDraw.IndexOf(
+                "DrawRetainedText(",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                surfacePresentation >= 0 && liveText > surfacePresentation,
+                "retained headers must present static pixels before drawing live glyphs");
+
+            string retainedBuild = MemberBody(
+                retainedHeaders,
+                "private static bool BuildSurface(");
+            TestAssert.False(
+                retainedBuild.IndexOf("renderer.DrawHeader(", StringComparison.Ordinal) >= 0,
+                "transparent retained header surfaces must not compose font glyphs through the full renderer");
+            TestAssert.Contains(
+                retainedBuild,
+                "DrawRetainedStable(",
+                "retained header surfaces must use the static-pixel render boundary");
+            TestAssert.Contains(
+                retainedHeaders,
+                "retained priority-header renderer has no live text boundary",
+                "every retained header renderer must expose an explicit live glyph boundary");
 
             string eligibility = MemberBody(retainedHeaders, "private static bool CanRetain(");
             TestAssert.Contains(eligibility, "isMouseOver", "hover pixels must stay live");
@@ -136,6 +167,44 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 retainedAngled,
                 "useUnclippedPivot: false",
                 "cache-local angled composition must not unclip back into screen space");
+            TestAssert.Contains(
+                retainedAngled,
+                "drawText: false",
+                "transparent retained angled surfaces must exclude font glyphs");
+            TestAssert.Contains(
+                retainedAngled,
+                "drawUnderline: true",
+                "retained angled surfaces must keep their static underline pixels");
+            string retainedAngledText = MemberBody(
+                angledLabels,
+                "internal static void DrawRetainedText(");
+            TestAssert.Contains(
+                retainedAngledText,
+                "useUnclippedPivot: true",
+                "live angled glyphs must return through the screen-space IMGUI boundary");
+            TestAssert.Contains(
+                retainedAngledText,
+                "drawUnderline: false",
+                "the live angled glyph pass must not duplicate cached underlines");
+
+            string retainedVanilla = MemberBody(
+                vanillaHeaders,
+                "internal void DrawRetainedStable(");
+            TestAssert.Contains(
+                retainedVanilla,
+                "drawText: false",
+                "transparent retained vanilla surfaces must exclude font glyphs");
+            TestAssert.Contains(
+                retainedVanilla,
+                "drawStems: true",
+                "retained vanilla surfaces must keep their static stem pixels");
+            string retainedVanillaText = MemberBody(
+                vanillaHeaders,
+                "internal void DrawRetainedText(");
+            TestAssert.Contains(
+                retainedVanillaText,
+                "drawStems: false",
+                "the live vanilla glyph pass must not duplicate cached stems");
             TestAssert.Contains(
                 retainedHeaders,
                 "_failedRenderResourcesRevision == renderResourcesRevision",
