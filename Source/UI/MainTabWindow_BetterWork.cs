@@ -157,6 +157,11 @@ namespace Better_Work_Tab.UI
             RegisterRetainedResourceOwner();
             _workloadPreviewController.ActivateForWindow();
 
+            // External label writers can run while this cached window is closed. Opening
+            // is the one cheap freshness boundary that catches those writes immediately;
+            // it dirties only prepared labels and deliberately keeps healthy retained rows.
+            WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.PawnLabel);
+
             // A new open resets only row/chrome retry latches; valid bounded surfaces remain allocated.
             _optimizedWorkGridRenderer.ResetRetainedRowResourceFailureLatchForReopen();
             _workTabChrome.ResetRetainedFailureLatchesForReopen();

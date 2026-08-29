@@ -66,6 +66,8 @@
     <Compile Include="..\..\Source\UI\Settings\BWTWorkloadPresentationNumericLayout.cs" Link="Production\BWTWorkloadPresentationNumericLayout.cs" />
     <Compile Include="..\..\Source\UI\RetainedResourceReleaseSequence.cs" Link="Production\RetainedResourceReleaseSequence.cs" />
     <Compile Include="..\..\Source\UI\RetainedSurfacePresentation.cs" Link="Production\RetainedSurfacePresentation.cs" />
+    <Compile Include="..\..\Source\Spine\Core\DirtyTracking\SparseDirtySets.cs" Link="Production\SparseDirtySets.cs" />
+    <Compile Include="..\..\Source\UI\WorkGrid\Invalidation\WorkGridInvalidationLedger.cs" Link="Production\WorkGridInvalidationLedger.cs" />
     <!-- The synchronized transaction protocol is linked directly. Multiplayer
          API types are supplied only by the test stub below. -->
     <Compile Include="..\..\Source\Mod Support\Multiplayer\MultiplayerBridge.cs" Link="Production\MultiplayerBridge.cs" />
@@ -95,6 +97,7 @@
     <Compile Include="PreparedWorkRowPacketPerformanceContractTests.cs" />
     <Compile Include="WorkGridSnapshotIsolationContractTests.cs" />
     <Compile Include="PreparedPawnLabelPerformanceContractTests.cs" />
+    <Compile Include="PawnLabelRevisionBehaviorTests.cs" />
     <Compile Include="PreparedPawnLabelTextTests.cs" />
     <Compile Include="ShiftWheelViewportInputTests.cs" />
     <Compile Include="DependencyDirectionContractTests.cs" />
