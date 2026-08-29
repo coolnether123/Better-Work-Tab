@@ -15,7 +15,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         Other,
         PawnLabel,
         WorkPriority,
-        SubWorkPriority
+        SubWorkPriority,
+        CopyPasteWorkPriorities
     }
 
     [Flags]

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -51,6 +52,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Compatibility
             AccessTools.PropertyGetter(typeof(PawnColumnWorker_CopyPasteWorkPriorities), "AnythingInClipboard"),
             AccessTools.Method(typeof(CopyPasteUI), nameof(CopyPasteUI.DoCopyPasteButtons))
         };
+        private static readonly MethodInfo CopyPasteAnythingInClipboardGetter =
+            AccessTools.PropertyGetter(
+                typeof(PawnColumnWorker_CopyPasteWorkPriorities),
+                "AnythingInClipboard");
+        private static readonly CopyPasteClipboardGetter CachedCopyPasteClipboardGetter =
+            CreateCopyPasteClipboardGetter();
         private static readonly MethodBase[] RemainingSpaceViewportScrollHooks =
         {
             AccessTools.Method(
@@ -163,6 +170,43 @@ namespace Better_Work_Tab.UI.WorkGrid.Compatibility
                         HooksAreUnextended(RemainingSpaceViewportScrollHooks);
                 default:
                     return false;
+            }
+        }
+
+        internal static bool CanPrepareCopyPasteWorkPriorities(PawnColumnDef column)
+        {
+            return column?.Worker?.GetType() == typeof(PawnColumnWorker_CopyPasteWorkPriorities) &&
+                   CachedCopyPasteClipboardGetter != null &&
+                   HooksAreUnextended(CopyPasteViewportScrollHooks);
+        }
+
+        internal static bool ReadCopyPasteClipboard(
+            PawnColumnWorker_CopyPasteWorkPriorities worker)
+        {
+            return CachedCopyPasteClipboardGetter(worker);
+        }
+
+        private delegate bool CopyPasteClipboardGetter(
+            PawnColumnWorker_CopyPasteWorkPriorities worker);
+
+        private static CopyPasteClipboardGetter CreateCopyPasteClipboardGetter()
+        {
+            if (CopyPasteAnythingInClipboardGetter == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                return (CopyPasteClipboardGetter)Delegate.CreateDelegate(
+                    typeof(CopyPasteClipboardGetter),
+                    CopyPasteAnythingInClipboardGetter);
+            }
+            catch (Exception)
+            {
+                // This protected vanilla getter is an optional compatibility seam.
+                // An unfamiliar runtime keeps the native worker path instead.
+                return null;
             }
         }
 

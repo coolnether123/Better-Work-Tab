@@ -28,6 +28,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 surface,
                 optimized,
                 compatibility);
+            PreparedCopyPasteKeepsNativeInputAndVanillaPresentation(
+                packet,
+                body,
+                optimized,
+                surface,
+                compatibility,
+                snapshot,
+                provider);
             PacketBuilderConsumesPreparedStateOnly(packet);
             RetainedTransparentForegroundStaysOnTheLivePath(preparedBox, packet, optimized);
             PreparedRowsRejectStalePawns(optimized);
@@ -81,6 +89,102 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string maintenance = MemberBody(subWork, "internal static void MaintainResetAnimations(");
             TestAssert.Contains(maintenance, "ResetAnimations.Clear()", "offscreen reset animations must expire without being drawn");
             TestAssert.False(maintenance.IndexOf("foreach", StringComparison.Ordinal) >= 0, "reset animation maintenance must remain O(1)");
+        }
+
+        private static void PreparedCopyPasteKeepsNativeInputAndVanillaPresentation(
+            string packet,
+            string body,
+            string optimized,
+            string surface,
+            string compatibility,
+            string snapshot,
+            string provider)
+        {
+            TestAssert.Contains(
+                snapshot,
+                "CopyPasteWorkPriorities",
+                "the snapshot must classify the vanilla copy/paste priority column explicitly");
+            TestAssert.Contains(
+                provider,
+                "CanPrepareCopyPasteWorkPriorities(def)",
+                "copy/paste preparation must be admitted by the compatibility policy");
+            TestAssert.Contains(
+                compatibility,
+                "typeof(PawnColumnWorker_CopyPasteWorkPriorities)",
+                "copy/paste preparation must require the exact vanilla worker type");
+            TestAssert.Contains(
+                compatibility,
+                "HooksAreUnextended(CopyPasteViewportScrollHooks)",
+                "patched copy/paste presentation must stay on the native fallback");
+            TestAssert.Contains(
+                compatibility,
+                "CopyPasteAnythingInClipboardGetter",
+                "clipboard state must use the vanilla worker property");
+            TestAssert.Contains(
+                compatibility,
+                "Delegate.CreateDelegate",
+                "clipboard state must be read through one cached open-instance delegate");
+
+            TestAssert.Contains(
+                packet,
+                "PreparedWorkRowCommandKind.PreparedCopyPaste",
+                "prepared rows must carry copy/paste presentation in the existing command stream");
+            TestAssert.Contains(
+                packet,
+                "PreparedColumnDisposition.CopyPaste",
+                "copy/paste columns must be distinct from stable priority runs and native fallbacks");
+            TestAssert.Contains(
+                packet,
+                "_hasPreparedCopyPaste",
+                "a row containing only copy/paste presentation must still receive a packet");
+            TestAssert.False(
+                packet.IndexOf("CopyPasteUI", StringComparison.Ordinal) >= 0,
+                "packet construction must not draw or resolve copy/paste UI");
+
+            TestAssert.Contains(
+                surface,
+                "DrawPreparedCopyPaste",
+                "the prepared layer must expose copy/paste drawing as an explicit capability");
+            string preparedRow = MemberBody(body, "private static bool TryDrawPreparedPawnRow(");
+            TestAssert.Contains(
+                preparedRow,
+                "PreparedWorkRowCommandKind.PreparedCopyPaste",
+                "the body must dispatch the prepared copy/paste command in column order");
+            TestAssert.Contains(
+                preparedRow,
+                "preparedLayer.DrawPreparedCopyPaste(",
+                "prepared copy/paste drawing must stay behind the existing layer boundary");
+            TestAssert.Contains(
+                preparedRow,
+                "Event.current.type != EventType.Repaint",
+                "prepared copy/paste presentation must never take ownership of input events");
+            TestAssert.Contains(
+                body,
+                "column.Column.Worker.DoCell(cellRect, pawn, table)",
+                "native copy/paste input must retain the original worker and its callbacks");
+
+            string draw = MemberBody(optimized, "public void DrawPreparedCopyPaste(");
+            TestAssert.Contains(
+                draw,
+                "TimePriorityScheduleEditor.TryDrawScheduleCopyPasteWorkPrioritiesCell(",
+                "the prepared path must preserve the BWT Time Priority owner before vanilla buttons");
+            TestAssert.Contains(
+                draw,
+                "CopyPasteUI.DoCopyPasteButtons(",
+                "the prepared path must reuse vanilla copy/paste presentation");
+            TestAssert.Contains(
+                draw,
+                "RepaintCopyPasteNoOp",
+                "Repaint must use cached no-op delegates instead of allocating row closures");
+            TestAssert.Contains(
+                optimized,
+                "ReadCopyPasteClipboardState()",
+                "clipboard state must be sampled once during repaint preparation, not per pawn");
+            string topology = MemberBody(optimized, "private void BuildColumnLookup(");
+            TestAssert.Contains(
+                topology,
+                "typeof(PawnColumnWorker_CopyPasteWorkPriorities)",
+                "a live worker topology mismatch must invalidate the prepared layer");
         }
 
         private static void OptimizedInputPolicyEliminatesRedundantWheelDispatch(
