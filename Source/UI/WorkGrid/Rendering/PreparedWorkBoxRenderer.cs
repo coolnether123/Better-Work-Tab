@@ -1,9 +1,12 @@
 using System;
+using System.Runtime.CompilerServices;
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.Patches;
 using Better_Work_Tab.UI.Settings;
 using Better_Work_Tab.UI.WorkGiverReassignments;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using RimWorld;
 using UnityEngine;
@@ -31,6 +34,27 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         internal const float PriorityLabelOutset = 3f;
 
         private static Material _retainedMaterial;
+        private static int _fontTextureRevision;
+
+        static PreparedWorkBoxRenderer()
+        {
+            // Unity rebuilds a Font's atlas in place. The object and GUIStyle
+            // identities survive that operation, so the callback is the
+            // renderer-owned revision boundary for retained native numerals.
+            Font.textureRebuilt += OnFontTextureRebuilt;
+        }
+
+        private static void OnFontTextureRebuilt(Font font)
+        {
+            unchecked
+            {
+                _fontTextureRevision++;
+            }
+
+            // The existing render-resource invalidation rebuilds snapshots and
+            // surfaces without adding work to the steady repaint path.
+            WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.RenderResources);
+        }
 
         internal static WorkBoxVisualState Capture(
             Pawn pawn,
@@ -311,6 +335,23 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     0,
                     PackColor(Color.white),
                     WorkCellVisualFlags.ManualPriorityMode);
+                // Read a baseline after the known texture draw, then read again
+                // after GUIStyle.Draw. Comparing the label region proves that
+                // native text changed this target; a generic bright-pixel scan
+                // could pass because of an unrelated texture or clear color.
+                GL.PopMatrix();
+                matrixPushed = false;
+                readback.ReadPixels(
+                    new Rect(0f, 0f, sentinelSize, sentinelSize),
+                    0,
+                    0,
+                    false);
+                readback.Apply(false, false);
+                Color32[] baselinePixels = readback.GetPixels32();
+
+                GL.PushMatrix();
+                matrixPushed = true;
+                GL.LoadPixelMatrix(0f, sentinelSize, sentinelSize, 0f);
                 if (!DrawRetainedPriorityLabel(
                         new Rect(0f, 0f, sentinelSize, sentinelSize),
                         sentinelVisual,
@@ -324,28 +365,32 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
                 GL.PopMatrix();
                 matrixPushed = false;
-                // One full-sentinel readback proves that native GUIStyle text
-                // reached the same temporary target as the retained textures.
-                // Row rebuilds never read pixels back.
                 readback.ReadPixels(
                     new Rect(0f, 0f, sentinelSize, sentinelSize),
                     0,
                     0,
                     false);
                 readback.Apply(false, false);
-                Color32[] pixels = readback.GetPixels32();
-                bool sawNativeTextPixel = false;
-                for (int index = 0; index < pixels.Length; index++)
+                Color32[] withLabelPixels = readback.GetPixels32();
+                int changedLabelPixels = 0;
+                for (int y = 1; y < sentinelSize - 1; y++)
                 {
-                    Color32 pixel = pixels[index];
-                    if (pixel.a > 32 && pixel.r > 200 &&
-                        pixel.g > 200 && pixel.b > 200)
+                    for (int x = 1; x < sentinelSize - 1; x++)
                     {
-                        sawNativeTextPixel = true;
-                        break;
+                        int index = (y * sentinelSize) + x;
+                        Color32 baseline = baselinePixels[index];
+                        Color32 withLabel = withLabelPixels[index];
+                        int delta = Math.Abs(withLabel.r - baseline.r) +
+                            Math.Abs(withLabel.g - baseline.g) +
+                            Math.Abs(withLabel.b - baseline.b) +
+                            Math.Abs(withLabel.a - baseline.a);
+                        if (delta >= 12)
+                        {
+                            changedLabelPixels++;
+                        }
                     }
                 }
-                if (!sawNativeTextPixel)
+                if (changedLabelPixels == 0)
                 {
                     failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
                     return false;
@@ -523,9 +568,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         }
 
         /// <summary>
-        /// Captures the current GUIStyle identity for a packet key without
-        /// retaining the ambient font state. Packet construction is infrequent;
-        /// stable repaint hits never call this method.
+        /// Captures the visual inputs used by RimWorld's native label style for
+        /// a packet key without retaining ambient font state. The font atlas
+        /// revision comes from Unity's in-place texture rebuild callback; the
+        /// explicit style fields catch in-place GUIStyle edits that do not
+        /// change object identity. Packet construction is infrequent; stable
+        /// repaint hits never call this method.
         /// </summary>
         internal static int GetPriorityLabelStyleRevision(GameFont font)
         {
@@ -534,12 +582,70 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 Text.Font = font;
                 GUIStyle style = Text.CurFontStyle;
-                return style == null ? 0 : style.GetHashCode();
+                return GetPriorityLabelStyleSignature(font, style);
             }
             finally
             {
                 Text.Font = previousFont;
             }
+        }
+
+        private static int GetPriorityLabelStyleSignature(GameFont font, GUIStyle style)
+        {
+            if (style == null)
+            {
+                return 0;
+            }
+
+            unchecked
+            {
+                int revision = 17;
+                revision = (revision * 31) + (int)font;
+                revision = (revision * 31) + RuntimeHelpers.GetHashCode(style);
+                revision = (revision * 31) + (style.font == null ? 0 : style.font.GetInstanceID());
+                revision = (revision * 31) + style.fontSize;
+                revision = (revision * 31) + (int)style.fontStyle;
+                revision = (revision * 31) + (int)style.alignment;
+                revision = (revision * 31) + (style.wordWrap ? 1 : 0);
+                revision = (revision * 31) + (style.richText ? 1 : 0);
+                revision = (revision * 31) + (int)style.clipping;
+                revision = (revision * 31) + style.contentOffset.x.GetHashCode();
+                revision = (revision * 31) + style.contentOffset.y.GetHashCode();
+                revision = (revision * 31) + style.fixedWidth.GetHashCode();
+                revision = (revision * 31) + style.fixedHeight.GetHashCode();
+                revision = (revision * 31) + (style.stretchWidth ? 1 : 0);
+                revision = (revision * 31) + (style.stretchHeight ? 1 : 0);
+                MixRectOffset(ref revision, style.margin);
+                MixRectOffset(ref revision, style.padding);
+                MixRectOffset(ref revision, style.overflow);
+                MixRectOffset(ref revision, style.border);
+                GUIStyleState normal = style.normal;
+                revision = (revision * 31) + (normal == null ? 0 :
+                    normal.background == null ? 0 : normal.background.GetInstanceID());
+                if (normal != null)
+                {
+                    revision = (revision * 31) + normal.textColor.r.GetHashCode();
+                    revision = (revision * 31) + normal.textColor.g.GetHashCode();
+                    revision = (revision * 31) + normal.textColor.b.GetHashCode();
+                    revision = (revision * 31) + normal.textColor.a.GetHashCode();
+                }
+                revision = (revision * 31) + _fontTextureRevision;
+                return revision;
+            }
+        }
+
+        private static void MixRectOffset(ref int revision, RectOffset offset)
+        {
+            if (offset == null)
+            {
+                revision = (revision * 31);
+                return;
+            }
+
+            revision = (revision * 31) + offset.left;
+            revision = (revision * 31) + offset.right;
+            revision = (revision * 31) + offset.top;
+            revision = (revision * 31) + offset.bottom;
         }
 
         private static Rect AdjustLabelRectToNativeScaling(Rect labelRect)

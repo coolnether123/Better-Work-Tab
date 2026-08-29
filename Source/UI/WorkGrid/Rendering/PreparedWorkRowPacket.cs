@@ -248,6 +248,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             var assembly = new RowPacketAssembly(
                 request.ColumnCount,
                 request.VisibleColumns.Count);
+            // Both native priority fonts are stable for this packet. Resolve
+            // their explicit style revisions once per build instead of asking
+            // the ambient GUI style for every eligible cell.
+            int mediumPriorityStyleRevision =
+                PreparedWorkBoxRenderer.GetPriorityLabelStyleRevision(GameFont.Medium);
+            int tinyPriorityStyleRevision =
+                PreparedWorkBoxRenderer.GetPriorityLabelStyleRevision(GameFont.Tiny);
             int visibleEnd = Math.Min(
                 request.ColumnCount,
                 request.VisibleColumns.EndExclusive);
@@ -262,7 +269,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     continue;
                 }
 
-                PreparedColumn prepared = PrepareColumn(in request, columnIndex);
+                PreparedColumn prepared = PrepareColumn(
+                    in request,
+                    columnIndex,
+                    mediumPriorityStyleRevision,
+                    tinyPriorityStyleRevision);
                 switch (prepared.Disposition)
                 {
                     case PreparedColumnDisposition.Retained:
@@ -310,7 +321,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         private static PreparedColumn PrepareColumn(
             in PreparedWorkRowBuildRequest request,
-            int columnIndex)
+            int columnIndex,
+            int mediumPriorityStyleRevision,
+            int tinyPriorityStyleRevision)
         {
             WorkGridColumnEntry column = request.Snapshot.Columns[columnIndex];
             bool subWorkCell = column.WorkerKind ==
@@ -343,8 +356,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 geometry.Width,
                 request.RowHeight);
             return subWorkCell
-                ? PrepareSubWorkColumn(column, cell, columnIndex, cellRect)
-                : PrepareParentColumn(cell, columnIndex, cellRect);
+                ? PrepareSubWorkColumn(
+                    column,
+                    cell,
+                    columnIndex,
+                    cellRect,
+                    mediumPriorityStyleRevision,
+                    tinyPriorityStyleRevision)
+                : PrepareParentColumn(
+                    cell,
+                    columnIndex,
+                    cellRect,
+                    mediumPriorityStyleRevision);
         }
 
         private static bool TryGetPreparedCell(
@@ -370,7 +393,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private static PreparedColumn PrepareParentColumn(
             WorkCellVisualState cell,
             int columnIndex,
-            Rect cellRect)
+            Rect cellRect,
+            int priorityStyleRevision)
         {
             Rect boxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
             WorkBoxVisualState visual = CreateVisual(cell);
@@ -396,9 +420,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     cell.Priority,
                     bakePriorityLabel,
                     GameFont.Medium,
-                    bakePriorityLabel
-                        ? PreparedWorkBoxRenderer.GetPriorityLabelStyleRevision(GameFont.Medium)
-                        : 0),
+                    bakePriorityLabel ? priorityStyleRevision : 0),
                 parentDynamicOverlay: hasDynamicOverlay,
                 subWorkRingOverlay: false,
                 subWork: false);
@@ -408,7 +430,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridColumnEntry column,
             WorkCellVisualState cell,
             int columnIndex,
-            Rect cellRect)
+            Rect cellRect,
+            int mediumPriorityStyleRevision,
+            int tinyPriorityStyleRevision)
         {
             WorkGridSubWorkVisualState presentation = cell.SubWork;
             if (!presentation.IsPrepared || !presentation.CanUseStablePresentation)
@@ -444,7 +468,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     bakePriorityLabel,
                     priorityFont,
                     bakePriorityLabel
-                        ? PreparedWorkBoxRenderer.GetPriorityLabelStyleRevision(priorityFont)
+                        ? compactText
+                            ? tinyPriorityStyleRevision
+                            : mediumPriorityStyleRevision
                         : 0),
                 parentDynamicOverlay: false,
                 subWorkRingOverlay: presentation.HasDynamicRing,
