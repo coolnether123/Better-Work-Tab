@@ -698,7 +698,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 else
                 {
                     Text.Font = GameFont.Medium;
-                    PreparedWorkBoxRenderer.DrawInBatch(
+                    PreparedWorkBoxRenderer.DrawInBatchWithoutStaticFeatureOverlays(
                         pending.BoxRect,
                         pending.Visual,
                         pending.Cell.Priority,
@@ -825,12 +825,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     int displayPriority = slot.IsSubWork
                         ? slot.Cell.SubWork.EffectivePriority
                         : slot.Cell.Priority;
-                    PreparedWorkBoxRenderer.DrawInBatch(
-                        boxRect,
-                        slot.Visual,
-                        displayPriority,
-                        1f,
-                        baseColor);
+                    if (slot.IsSubWork)
+                    {
+                        PreparedWorkBoxRenderer.DrawInBatch(
+                            boxRect,
+                            slot.Visual,
+                            displayPriority,
+                            1f,
+                            baseColor);
+                    }
+                    else
+                    {
+                        PreparedWorkBoxRenderer.DrawInBatchWithoutStaticFeatureOverlays(
+                            boxRect,
+                            slot.Visual,
+                            displayPriority,
+                            1f,
+                            baseColor);
+                    }
                 }
             }
             finally

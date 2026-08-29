@@ -44,6 +44,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             RetainedCompositionRestoresRenderState(retained, preparedBox);
             RetainedPresentationKeepsOwnerClipForAllVerticalPositions(retained, optimized);
             RetainedFailuresStayRevisionScoped(retained, preparedBox);
+            RetainedColdSurfacesUseCompleteDirectFallback(retained, optimized);
+            DirectFallbackDrawsStaticOverlaysOnce(preparedBox, optimized);
             ResourceOwnershipIsBounded(retained, optimized, window);
             ReopenRetriesOnlyRevisionScopedRowFailures(retained, optimized, window);
             RepresentativeStableWorkIsRemoved();
@@ -818,6 +820,99 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 preparedDraw,
                 "HandleCompositionException(renderResourcesRevision, exception)",
                 "prepared-row exceptions must not permanently disable on an unclassified transient failure");
+        }
+
+        private static void RetainedColdSurfacesUseCompleteDirectFallback(
+            string retained,
+            string optimized)
+        {
+            string drawCore = MemberBody(retained, "private bool TryDrawCore(");
+            int rebuild = drawCore.IndexOf(
+                "TryRebuildSurfaceIfChanged(",
+                StringComparison.Ordinal);
+            int warmupGuard = drawCore.IndexOf(
+                "entry.SurfaceBuiltFrame == Time.frameCount",
+                StringComparison.Ordinal);
+            int present = drawCore.IndexOf(
+                "PresentSurface(entry.Surface, destination);",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                rebuild >= 0 && warmupGuard > rebuild && present > warmupGuard,
+                "a surface built during this repaint must use direct fallback before presentation");
+            TestAssert.Contains(
+                drawCore,
+                "return false;",
+                "the cold-surface guard must transfer ownership to the complete direct row path");
+
+            string rebuildMember = MemberBody(
+                retained,
+                "private bool TryRebuildSurfaceIfChanged(");
+            TestAssert.Contains(
+                rebuildMember,
+                "entry.SurfaceBuiltFrame = Time.frameCount",
+                "successful surface composition must record the repaint that built it");
+            string entry = retained.Substring(
+                retained.IndexOf("private sealed class Entry", StringComparison.Ordinal));
+            TestAssert.Contains(
+                entry,
+                "SurfaceBuiltFrame = -1",
+                "surface entries must start cold and reset their warmup marker on replacement");
+
+            string preparedDraw = MemberBody(optimized, "public void DrawPreparedRun(");
+            int direct = preparedDraw.IndexOf(
+                "DrawPreparedRunDirect(packet, run, rowOffsetY, baseColor);",
+                StringComparison.Ordinal);
+            int dynamic = preparedDraw.IndexOf(
+                "DrawPreparedRunDynamic(packet, runIndex, run, rowOffsetY, baseColor);",
+                StringComparison.Ordinal);
+            TestAssert.True(
+                direct >= 0 && dynamic > direct,
+                "the complete direct row must finish before the shared dynamic overlay pass");
+        }
+
+        private static void DirectFallbackDrawsStaticOverlaysOnce(
+            string preparedBox,
+            string optimized)
+        {
+            string noStatic = MemberBody(
+                preparedBox,
+                "internal static bool DrawInBatchWithoutStaticFeatureOverlays(");
+            TestAssert.Contains(
+                noStatic,
+                "drawStaticFeatureOverlays: false",
+                "prepared direct fallback cells must defer static overlays to the shared dynamic pass");
+            string core = MemberBody(preparedBox, "private static bool DrawCore(");
+            TestAssert.Contains(
+                core,
+                "drawStaticFeatureOverlays",
+                "the common direct cell primitive must make static-overlay ownership explicit");
+            string foreground = MemberBody(preparedBox, "private static void DrawForeground(");
+            TestAssert.Contains(
+                foreground,
+                "drawStaticFeatureOverlays &&",
+                "static best-pawn and override-ring overlays must be suppressible for row fallback");
+
+            string direct = MemberBody(optimized, "private void DrawPreparedRunDirect(");
+            TestAssert.Contains(
+                direct,
+                "if (slot.IsSubWork)",
+                "prepared fallback must distinguish sub-work's own overlay owner from parent rows");
+            TestAssert.Contains(
+                direct,
+                "DrawInBatchWithoutStaticFeatureOverlays(",
+                "parent row fallback must draw static overlays in the shared ordered pass only");
+
+            string flush = MemberBody(optimized, "private void FlushRetainedCells(");
+            int parentFallback = flush.IndexOf(
+                "DrawInBatchWithoutStaticFeatureOverlays(",
+                StringComparison.Ordinal);
+            int parentDynamic = flush.IndexOf(
+                "PreparedWorkBoxRenderer.DrawDynamicOverlays(",
+                parentFallback,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                parentFallback >= 0 && parentDynamic > parentFallback,
+                "batched parent fallback must draw static overlays once after its direct cell core");
         }
 
         private static void ResourceOwnershipIsBounded(

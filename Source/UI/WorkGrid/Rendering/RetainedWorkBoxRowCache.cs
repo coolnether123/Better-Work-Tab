@@ -507,6 +507,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return false;
             }
 
+            // Native GUIStyle.Draw is issued against the new target above, but
+            // Unity may not expose the freshly written font atlas pixels until
+            // the following repaint. Do not present a cold surface in that
+            // frame: the caller's direct path is complete and clipped, so it
+            // supplies the authoritative row while this surface warms.
+            if (entry.SurfaceBuiltFrame == Time.frameCount)
+            {
+                return false;
+            }
+
             PresentSurface(entry.Surface, destination);
             return true;
         }
@@ -580,6 +590,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             _estimatedSurfaceBytes += requestedBytes;
             entry.PixelWidth = pixelWidth;
             entry.PixelHeight = pixelHeight;
+            entry.SurfaceBuiltFrame = -1;
             entry.Fingerprint = 0UL;
             if (!existing)
             {
@@ -627,6 +638,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             entry.Fingerprint = fingerprint;
             entry.RetainedVisualKey = retainedVisualKey;
             entry.Bounds = bounds;
+            entry.SurfaceBuiltFrame = Time.frameCount;
             return true;
         }
 
@@ -757,6 +769,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 _estimatedSurfaceBytes = 0L;
             }
             entry.EstimatedBytes = 0L;
+            entry.SurfaceBuiltFrame = -1;
             try
             {
                 surface.Release();
@@ -818,6 +831,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             internal WorkGridRetainedVisualKey RetainedVisualKey;
             internal long LastUsedSequence;
             internal long EstimatedBytes;
+            // A rebuilt surface is direct-rendered for the rest of its build
+            // frame so native numerals cannot be presented before they settle.
+            internal int SurfaceBuiltFrame = -1;
         }
     }
 }
