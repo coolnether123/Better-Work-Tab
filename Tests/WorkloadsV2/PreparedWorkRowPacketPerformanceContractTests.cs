@@ -174,6 +174,14 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the prepared path must reuse vanilla copy/paste presentation");
             TestAssert.Contains(
                 draw,
+                "CopyPasteUI.CopyPasteColumnWidth",
+                "the prepared path must keep vanilla's fixed copy/paste width");
+            TestAssert.Contains(
+                draw,
+                "30f",
+                "the prepared path must keep vanilla's fixed copy/paste height");
+            TestAssert.Contains(
+                draw,
                 "RepaintCopyPasteNoOp",
                 "Repaint must use cached no-op delegates instead of allocating row closures");
             TestAssert.Contains(
@@ -185,6 +193,18 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 topology,
                 "typeof(PawnColumnWorker_CopyPasteWorkPriorities)",
                 "a live worker topology mismatch must invalidate the prepared layer");
+            TestAssert.Contains(
+                optimized,
+                "validated the row's live",
+                "TryGetPreparedRow must document that it owns the live-row validation boundary");
+            TestAssert.Contains(
+                optimized,
+                "Owns the live-row precondition",
+                "IsLiveRenderablePawn must document the prepared-row ownership precondition");
+            TestAssert.Contains(
+                optimized,
+                "do not add duplicate",
+                "downstream prepared drawing must rely on the owned precondition instead of redundant null checks");
         }
 
         private static void OptimizedInputPolicyEliminatesRedundantWheelDispatch(

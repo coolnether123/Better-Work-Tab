@@ -37,7 +37,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         void DrawPreparedRun(PreparedWorkRowPacket packet, int runIndex, float rowOffsetY);
         bool DrawPreparedPawnLabel(PreparedWorkRowPacket packet, float rowOffsetY);
         void DrawPreparedCopyPaste(
-            PreparedWorkRowPacket packet,
             int columnIndex,
             Pawn pawn,
             float rowOffsetY);

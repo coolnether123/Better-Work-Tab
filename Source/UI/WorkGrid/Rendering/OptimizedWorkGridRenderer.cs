@@ -410,6 +410,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             _retainedRows.ResetResourceFailureLatchForReopen();
         }
 
+        /// <summary>
+        /// Returns a packet only after this pass has validated the row's live
+        /// pawn through <see cref="IsLiveRenderablePawn"/>. A successful result
+        /// gives the caller a work-capable pawn for this Repaint; callers should
+        /// use the direct path when the boundary returns false instead of
+        /// repeating the row checks downstream.
+        /// </summary>
         public bool TryGetPreparedRow(
             int rowIndex,
             Rect rowRect,
@@ -505,17 +512,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         }
 
         public void DrawPreparedCopyPaste(
-            PreparedWorkRowPacket packet,
             int columnIndex,
             Pawn pawn,
             float rowOffsetY)
         {
             WorkGridColumnGeometry geometry = _currentGeometry.Columns[columnIndex];
+            // PawnColumnWorker_CopyPasteWorkPriorities normalizes its input to
+            // the vanilla button width and row height before drawing. Keep the
+            // same normalization even when the surrounding layout is wider or
+            // taller than the native column.
             Rect cellRect = new Rect(
                 geometry.OffsetX,
                 rowOffsetY,
-                geometry.Width,
-                packet.RowHeight);
+                CopyPasteUI.CopyPasteColumnWidth,
+                30f);
 
             // The native worker remains responsible for input, callbacks, and
             // tooltips. Repaint only needs the vanilla button presentation, so
@@ -1139,9 +1149,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         }
 
         /// <summary>
-        /// The prepared row is safe only while the same work-capable pawn is
-        /// still alive. Death/destruction can race the table's roster recache;
-        /// failing this boundary sends the row back through native drawing.
+        /// Owns the live-row precondition for prepared drawing: the pawn must be
+        /// alive, present, and work-capable. Death/destruction can race the
+        /// table's roster recache; failing this boundary sends the row back
+        /// through native drawing, so prepared callers do not add duplicate
+        /// null or eligibility checks.
         /// </summary>
         private static bool IsLiveRenderablePawn(Pawn pawn)
         {

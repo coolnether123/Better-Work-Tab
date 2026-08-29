@@ -1545,7 +1545,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 if (command.Kind == PreparedWorkRowCommandKind.PreparedCopyPaste)
                 {
                     preparedLayer.DrawPreparedCopyPaste(
-                        packet,
                         command.Index,
                         pawn,
                         rowRect.y);
