@@ -17,9 +17,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
         SettingsThemeLanguageScale = 1 << 7,
         HoverInteraction = 1 << 8,
         Animation = 1 << 9,
+        PawnLabel = 1 << 10,
         All = GameState | PawnListOrder | ColumnLayout | Priority | CapabilitySkill |
               ScheduleHour | SubWorkOverride | SettingsThemeLanguageScale |
-              HoverInteraction | Animation
+              HoverInteraction | Animation | PawnLabel
     }
 
     public readonly struct WorkGridPriorityKey : IEquatable<WorkGridPriorityKey>
@@ -61,6 +62,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             SettingsThemeLanguageScale = revisions[7];
             HoverInteraction = revisions[8];
             Animation = revisions[9];
+            PawnLabel = revisions[10];
         }
 
         public long GameState { get; }
@@ -73,6 +75,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
         public long SettingsThemeLanguageScale { get; }
         public long HoverInteraction { get; }
         public long Animation { get; }
+        public long PawnLabel { get; }
     }
 
     /// <summary>Framework-safe category revisions plus sparse priority dirtiness.</summary>
@@ -89,7 +92,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             WorkGridInvalidationCategory.SubWorkOverride,
             WorkGridInvalidationCategory.SettingsThemeLanguageScale,
             WorkGridInvalidationCategory.HoverInteraction,
-            WorkGridInvalidationCategory.Animation
+            WorkGridInvalidationCategory.Animation,
+            WorkGridInvalidationCategory.PawnLabel
         };
 
         private readonly long[] _revisions = new long[Categories.Length];

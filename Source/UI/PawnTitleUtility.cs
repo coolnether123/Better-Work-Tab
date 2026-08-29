@@ -1,4 +1,6 @@
 using System.Reflection;
+using Better_Work_Tab.UI.WorkGrid.Contracts;
+using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Verse;
 
 namespace Better_Work_Tab.UI
@@ -40,20 +42,28 @@ namespace Better_Work_Tab.UI
             }
 
             string cleanTitle = (title ?? string.Empty).Trim();
+            string previousTitle = GetCurrentTitle(pawn);
             PropertyInfo titleProperty = GetWritableTitleProperty(story);
             if (titleProperty != null)
             {
                 titleProperty.SetValue(story, cleanTitle, null);
-                return true;
             }
-
-            FieldInfo titleField = GetTitleField(story);
-            if (titleField == null)
+            else
             {
-                return false;
+                FieldInfo titleField = GetTitleField(story);
+                if (titleField == null)
+                {
+                    return false;
+                }
+
+                titleField.SetValue(story, string.IsNullOrEmpty(cleanTitle) ? null : cleanTitle);
             }
 
-            titleField.SetValue(story, string.IsNullOrEmpty(cleanTitle) ? null : cleanTitle);
+            if (!string.Equals(previousTitle, GetCurrentTitle(pawn), System.StringComparison.Ordinal))
+            {
+                WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.PawnLabel);
+            }
+
             return true;
         }
 

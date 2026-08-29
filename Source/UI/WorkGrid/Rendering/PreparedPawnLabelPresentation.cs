@@ -1,5 +1,7 @@
 using System;
 using System.Reflection;
+using Better_Work_Tab.Features.RaisedPriorityMaximum;
+using Better_Work_Tab.ModSupport.Mods.SleekWorkPriorities;
 using Better_Work_Tab.PawnOrganizer.API;
 using HarmonyLib;
 using RimWorld;
@@ -188,42 +190,25 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 metricKey);
         }
 
-        internal static int ComputeSourceSignature(
-            PawnColumnWorker_Label worker,
-            PawnTable table)
+        /// <summary>
+        /// Captures only O(1) mode inputs. Per-pawn name, title, role, color,
+        /// and contrast inputs are owned by PawnLabelPresentationInvalidation.
+        /// The bounded audit is the compatibility backstop for external writers.
+        /// </summary>
+        internal static int ComputePresentationModeSignature(PawnColumnWorker_Label worker)
         {
             unchecked
             {
-                // Enumerate native label-visible inputs not covered by another
-                // revision. Add new inputs here when that state grows.
-                int hash = PawnColorDatabase.Version;
+                int hash = 17;
                 hash = (hash * 397) ^ (worker?.def?.useLabelShort == true ? 1 : 0);
-                if (table.cachedPawns == null)
-                {
-                    return hash;
-                }
-
-                for (int index = 0; index < table.cachedPawns.Count; index++)
-                {
-                    Pawn pawn = table.cachedPawns[index];
-                    hash = (hash * 397) ^ (pawn?.thingIDNumber ?? 0);
-                    if (pawn == null)
-                    {
-                        continue;
-                    }
-                    hash = (hash * 397) ^ (pawn.Name?.ToStringShort?.GetHashCode() ?? 0);
-                    hash = (hash * 397) ^ (pawn.story?.Title?.GetHashCode() ?? 0);
-                    hash = (hash * 397) ^ (pawn.KindLabel?.GetHashCode() ?? 0);
-                    hash = (hash * 397) ^ (pawn.IsSlave ? 1 : 0);
-                    hash = (hash * 397) ^ (pawn.IsColonyMech ? 1 : 0);
-                    if (pawn.IsSlave || pawn.IsColonyMech)
-                    {
-                        hash = (hash * 397) ^
-                            PawnNameColorUtility.PawnNameColorOf(pawn).GetHashCode();
-                    }
-                    hash = (hash * 397) ^ (pawn.IsSubhuman ? 1 : 0);
-                    hash = (hash * 397) ^ (pawn.mutant?.HasTurned == true ? 1 : 0);
-                }
+                // PawnColorDatabase exposes a producer-owned O(1) version. It
+                // covers contrast changes without making the render pass walk
+                // every pawn just to rediscover the same state.
+                hash = (hash * 397) ^ PawnColorDatabase.Version;
+                hash = (hash * 397) ^ (BwtRaisedPriorityFeatureInstaller.IsFeatureActive ? 1 : 0);
+                hash = (hash * 397) ^
+                    (PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures ? 1 : 0);
+                hash = (hash * 397) ^ (SleekWorkTabGateway.SleekOwnsWorkTab ? 1 : 0);
                 return hash;
             }
         }

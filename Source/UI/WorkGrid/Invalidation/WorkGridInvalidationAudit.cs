@@ -1,9 +1,11 @@
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Application;
 using Better_Work_Tab.Features.WorkGiverReassignments;
+using Better_Work_Tab.PawnOrganizer.API;
 using Better_Work_Tab.UI.WorkGrid.Contracts;
 using RimWorld;
 using Spine.Profiling;
+using UnityEngine;
 using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Invalidation
@@ -12,10 +14,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
     internal static class WorkGridInvalidationAudit
     {
         private const int AuditIntervalTicks = 60;
+        private const int PawnLabelAuditIntervalFrames = 60;
         private static int _nextAuditTick;
         private static int _nextRosterAuditTick;
+        private static int _nextPawnLabelAuditFrame;
         private static int _lastSignature;
+        private static int _lastPawnLabelSignature;
         private static bool _hasSignature;
+        private static bool _hasPawnLabelSignature;
         private static WorkGridRevisionSet _lastTrackedRevisions;
 
         internal static void PollRoster(PawnTable table)
@@ -43,6 +49,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
 
         internal static void Poll(PawnTable table)
         {
+            PollPawnLabelSignature(table);
+
             int ticks = Find.TickManager?.TicksGame ?? 0;
             if (ticks < _nextAuditTick)
             {
@@ -70,6 +78,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                 _lastTrackedRevisions.PawnListOrder != revisions.PawnListOrder ||
                 _lastTrackedRevisions.ColumnLayout != revisions.ColumnLayout ||
                 _lastTrackedRevisions.Priority != revisions.Priority ||
+                _lastTrackedRevisions.PawnLabel != revisions.PawnLabel ||
                 _lastTrackedRevisions.CapabilitySkill != revisions.CapabilitySkill ||
                 _lastTrackedRevisions.ScheduleHour != revisions.ScheduleHour ||
                 _lastTrackedRevisions.SubWorkOverride != revisions.SubWorkOverride ||
@@ -90,9 +99,45 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
         {
             _nextAuditTick = 0;
             _nextRosterAuditTick = 0;
+            _nextPawnLabelAuditFrame = 0;
             _lastSignature = 0;
+            _lastPawnLabelSignature = 0;
             _hasSignature = false;
+            _hasPawnLabelSignature = false;
             _lastTrackedRevisions = default;
+        }
+
+        private static void PollPawnLabelSignature(PawnTable table)
+        {
+            // Game ticks stop while the player pauses, but labels can still
+            // change through UI or compatibility code. Keep this backstop
+            // frame-cadenced and well away from the snapshot admission path.
+            int frame = UnityEngine.Time.frameCount;
+            if (frame < _nextPawnLabelAuditFrame)
+            {
+                return;
+            }
+
+            _nextPawnLabelAuditFrame = frame + PawnLabelAuditIntervalFrames;
+            int signature = SpineTiming.Enabled
+                ? SpineTiming.Time(
+                    "WorkTab.InvalidationAudit.PawnLabelSignature",
+                    () => ComputePawnLabelSignature(table))
+                : ComputePawnLabelSignature(table);
+            WorkGridRevisionSet revisions = WorkTabInvalidationHub.Current.CategoryRevisions;
+            bool knownTrackedLabelChange =
+                _lastTrackedRevisions.PawnLabel != revisions.PawnLabel;
+            if (_hasPawnLabelSignature &&
+                signature != _lastPawnLabelSignature &&
+                !knownTrackedLabelChange)
+            {
+                WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.PawnLabel);
+                revisions = WorkTabInvalidationHub.Current.CategoryRevisions;
+            }
+
+            _lastPawnLabelSignature = signature;
+            _lastTrackedRevisions = revisions;
+            _hasPawnLabelSignature = true;
         }
 
         private static int RosterSignature(System.Collections.Generic.IEnumerable<Pawn> pawns)
@@ -187,6 +232,62 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                         hash = (hash * 397) ^ (int)skill.passion;
                     }
                 }
+                return hash;
+            }
+        }
+
+        private static int ComputePawnLabelSignature(PawnTable table)
+        {
+            unchecked
+            {
+                // These are the inputs used by the native label worker and
+                // BWT's contrast/name-color adapter. This full scan belongs
+                // only to the slow external-writer audit.
+                int hash = (17 * 397) ^ PawnColorDatabase.Version;
+                if (table?.Columns != null)
+                {
+                    for (int columnIndex = 0; columnIndex < table.Columns.Count; columnIndex++)
+                    {
+                        PawnColumnWorker_Label labelWorker =
+                            table.Columns[columnIndex]?.Worker as PawnColumnWorker_Label;
+                        if (labelWorker != null)
+                        {
+                            hash = (hash * 397) ^
+                                (labelWorker.def?.useLabelShort == true ? 1 : 0);
+                            break;
+                        }
+                    }
+                }
+
+                if (table?.cachedPawns == null)
+                {
+                    return hash;
+                }
+
+                for (int index = 0; index < table.cachedPawns.Count; index++)
+                {
+                    Pawn pawn = table.cachedPawns[index];
+                    hash = (hash * 397) ^ (pawn?.thingIDNumber ?? 0);
+                    if (pawn == null)
+                    {
+                        continue;
+                    }
+
+                    hash = (hash * 397) ^ (pawn.Name?.ToStringShort?.GetHashCode() ?? 0);
+                    hash = (hash * 397) ^ (pawn.story?.Title?.GetHashCode() ?? 0);
+                    hash = (hash * 397) ^ (pawn.KindLabel?.GetHashCode() ?? 0);
+                    hash = (hash * 397) ^ (pawn.IsSlave ? 1 : 0);
+                    hash = (hash * 397) ^ (pawn.IsColonyMech ? 1 : 0);
+                    if (pawn.IsSlave || pawn.IsColonyMech)
+                    {
+                        hash = (hash * 397) ^
+                            PawnNameColorUtility.PawnNameColorOf(pawn).GetHashCode();
+                    }
+
+                    hash = (hash * 397) ^ (pawn.IsSubhuman ? 1 : 0);
+                    hash = (hash * 397) ^ (pawn.mutant?.HasTurned == true ? 1 : 0);
+                }
+
                 return hash;
             }
         }

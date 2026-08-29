@@ -44,10 +44,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Contracts
         SettingsThemeLanguageScale = 1 << 15,
         HoverInteraction = 1 << 16,
         Animation = 1 << 17,
+        PawnLabel = 1 << 18,
         All = Presentation | Rows | Columns | HeaderGeometry | HeaderText | Viewport | WindowSize |
-              RenderResources | GameState | PawnListOrder | ColumnLayout | Priority |
-              CapabilitySkill | ScheduleHour | SubWorkOverride | SettingsThemeLanguageScale |
-              HoverInteraction | Animation
+               RenderResources | GameState | PawnListOrder | ColumnLayout | Priority |
+               CapabilitySkill | ScheduleHour | SubWorkOverride | SettingsThemeLanguageScale |
+               HoverInteraction | Animation | PawnLabel
     }
 
     public readonly struct WorkTabInvalidationVersion

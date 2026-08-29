@@ -131,6 +131,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             if ((flags & (WorkTabDirtyFlags.SettingsThemeLanguageScale | WorkTabDirtyFlags.HeaderText | WorkTabDirtyFlags.RenderResources)) != 0) result |= WorkGridInvalidationCategory.SettingsThemeLanguageScale;
             if ((flags & (WorkTabDirtyFlags.HoverInteraction | WorkTabDirtyFlags.Viewport)) != 0) result |= WorkGridInvalidationCategory.HoverInteraction;
             if ((flags & WorkTabDirtyFlags.Animation) != 0) result |= WorkGridInvalidationCategory.Animation;
+            if ((flags & WorkTabDirtyFlags.PawnLabel) != 0) result |= WorkGridInvalidationCategory.PawnLabel;
             if ((flags & WorkTabDirtyFlags.Presentation) != 0)
             {
                 result |= WorkGridInvalidationCategory.Priority |

@@ -51,7 +51,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private WorkGridRevisionSet _revisions;
         private long _snapshotRevision;
         private long _topologyRevision;
-        private int _pawnLabelSourceSignature;
+        private int _pawnLabelPresentationMode;
         private PawnColumnWorker_Label _labelWorker;
         private int _labelWorkerLayoutRevision = int.MinValue;
         private int _preparedCapacityBytes;
@@ -104,24 +104,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 _labelWorkerLayoutRevision == layout.LayoutRevision
                     ? _labelWorker
                     : FindExactLabelWorker(layout.Columns);
-            int pawnLabelSourceSignature = PreparedPawnLabelCapture.ComputeSourceSignature(
-                labelWorker,
-                table);
-            unchecked
-            {
-                pawnLabelSourceSignature = (pawnLabelSourceSignature * 397) ^
-                    (BwtRaisedPriorityFeatureInstaller.IsFeatureActive ? 1 : 0);
-                pawnLabelSourceSignature = (pawnLabelSourceSignature * 397) ^
-                    (PriorityAuthorityBroker.ShouldRunBetterWorkTabPriorityFeatures ? 1 : 0);
-                pawnLabelSourceSignature = (pawnLabelSourceSignature * 397) ^
-                    (SleekWorkTabGateway.SleekOwnsWorkTab ? 1 : 0);
-            }
+            // Pawn label content is owned by the PawnLabel revision. This is
+            // deliberately O(1): walking every pawn here made an otherwise
+            // retained Repaint pay the full label-source scan every pass.
+            int pawnLabelPresentationMode = PreparedPawnLabelCapture.ComputePresentationModeSignature(
+                labelWorker);
             bool effectiveStateCurrent = _hasEffectiveStateRevision &&
                 _effectiveStateRevision == effectiveStateRevision;
             if (_slot.Current != null &&
                 ReferenceEquals(_layout, layout) &&
                 _slot.Current.LayoutRevision == layout.LayoutRevision &&
-                _pawnLabelSourceSignature == pawnLabelSourceSignature &&
+                _pawnLabelPresentationMode == pawnLabelPresentationMode &&
                 effectiveStateCurrent &&
                 EqualConsumedRevisions(_revisions, current))
             {
@@ -130,7 +123,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
 
             int layoutSignature = ComputeLayoutSignature(layout);
             var timer = Stopwatch.StartNew();
-            if (_pawnLabelSourceSignature == pawnLabelSourceSignature &&
+            if (_pawnLabelPresentationMode == pawnLabelPresentationMode &&
                 CanApplySparsePriorityUpdate(
                     layout,
                     current,
@@ -161,7 +154,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             if (_slot.Current != null &&
                 _hasLayoutSignature &&
                 _layoutSignature == layoutSignature &&
-                _pawnLabelSourceSignature == pawnLabelSourceSignature &&
+                _pawnLabelPresentationMode == pawnLabelPresentationMode &&
                 effectiveStateCurrent &&
                 EqualConsumedRevisions(_revisions, current))
             {
@@ -177,7 +170,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 effectiveStateRevision,
                 versions.PriorityDirtyKeys,
                 labelWorker,
-                pawnLabelSourceSignature);
+                pawnLabelPresentationMode);
             timer.Stop();
             WorkTabInvalidationHub.ClearConsumedPriorityKeys();
             WorkGridSnapshot snapshot = _slot.Current;
@@ -463,7 +456,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _revisions = default;
             _effectiveStateRevision = default;
             _hasEffectiveStateRevision = false;
-            _pawnLabelSourceSignature = 0;
+            _pawnLabelPresentationMode = 0;
             _labelWorker = null;
             _labelWorkerLayoutRevision = int.MinValue;
             _preparedCapacityBytes = 0;
@@ -478,7 +471,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             WorkTabEffectiveStateRevision effectiveStateRevision,
             IReadOnlyList<WorkGridPriorityKey> priorityDirtyKeys,
             PawnColumnWorker_Label labelWorker,
-            int pawnLabelSourceSignature)
+            int pawnLabelPresentationMode)
         {
             WorkGridSnapshot previous = _slot.Current;
             bool canReuseRosterCells = CanReuseRosterCellVisuals(
@@ -546,7 +539,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 layoutSignature,
                 effectiveStateRevision,
                 labelWorker,
-                pawnLabelSourceSignature,
+                pawnLabelPresentationMode,
                 bestPawnIds);
         }
 
@@ -660,7 +653,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             int layoutSignature,
             WorkTabEffectiveStateRevision effectiveStateRevision,
             PawnColumnWorker_Label labelWorker,
-            int pawnLabelSourceSignature,
+            int pawnLabelPresentationMode,
             Dictionary<ushort, int> bestPawnIds)
         {
             _layoutSignature = layoutSignature;
@@ -668,7 +661,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             _hasLayoutSignature = true;
             _revisions = revisions;
             _effectiveStateRevision = effectiveStateRevision;
-            _pawnLabelSourceSignature = pawnLabelSourceSignature;
+            _pawnLabelPresentationMode = pawnLabelPresentationMode;
             _labelWorker = labelWorker;
             _labelWorkerLayoutRevision = layout.LayoutRevision;
             _hasEffectiveStateRevision = true;
@@ -1406,6 +1399,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private static bool EqualConsumedRevisions(WorkGridRevisionSet left, WorkGridRevisionSet right)
         {
             return left.GameState == right.GameState &&
+                   left.PawnLabel == right.PawnLabel &&
                    left.Priority == right.Priority &&
                    left.CapabilitySkill == right.CapabilitySkill &&
                    left.ScheduleHour == right.ScheduleHour &&
@@ -1416,6 +1410,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         private static bool EqualNonPriorityConsumedRevisions(WorkGridRevisionSet left, WorkGridRevisionSet right)
         {
             return left.GameState == right.GameState &&
+                   left.PawnLabel == right.PawnLabel &&
                    left.CapabilitySkill == right.CapabilitySkill &&
                    left.ScheduleHour == right.ScheduleHour &&
                    left.SubWorkOverride == right.SubWorkOverride &&
