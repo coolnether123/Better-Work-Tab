@@ -80,7 +80,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                 _lastTrackedRevisions.PawnListOrder != revisions.PawnListOrder ||
                 _lastTrackedRevisions.ColumnLayout != revisions.ColumnLayout ||
                 _lastTrackedRevisions.Priority != revisions.Priority ||
-                _lastTrackedRevisions.PawnLabel != revisions.PawnLabel ||
                 _lastTrackedRevisions.CapabilitySkill != revisions.CapabilitySkill ||
                 _lastTrackedRevisions.ScheduleHour != revisions.ScheduleHour ||
                 _lastTrackedRevisions.SubWorkOverride != revisions.SubWorkOverride ||
