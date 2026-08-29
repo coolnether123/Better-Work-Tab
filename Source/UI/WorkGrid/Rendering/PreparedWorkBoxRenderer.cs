@@ -135,7 +135,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     displayPriority,
                     visualAlpha,
                     oldColor,
-                    prepareTextStyle: true);
+                    prepareTextStyle: true,
+                    drawStaticFeatureOverlays: true);
             }
             finally
             {
@@ -167,7 +168,39 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     displayPriority,
                     visualAlpha,
                     batchColor,
-                    prepareTextStyle: false);
+                    prepareTextStyle: false,
+                    drawStaticFeatureOverlays: true);
+            }
+            finally
+            {
+                GUI.color = batchColor;
+            }
+        }
+
+        /// <summary>
+        /// Draws a direct cell without the static best-pawn/override overlays.
+        /// The prepared-row fallback draws those overlays in its ordered
+        /// dynamic pass, matching the retained path and preventing a duplicate
+        /// outline or ring. Other direct callers use DrawInBatch so they retain
+        /// the complete standalone cell behavior.
+        /// </summary>
+        internal static bool DrawInBatchWithoutStaticFeatureOverlays(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            int displayPriority,
+            float visualAlpha,
+            Color batchColor)
+        {
+            try
+            {
+                return DrawCore(
+                    boxRect,
+                    visual,
+                    displayPriority,
+                    visualAlpha,
+                    batchColor,
+                    prepareTextStyle: false,
+                    drawStaticFeatureOverlays: false);
             }
             finally
             {
@@ -907,7 +940,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int displayPriority,
             float visualAlpha,
             Color baseColor,
-            bool prepareTextStyle)
+            bool prepareTextStyle,
+            bool drawStaticFeatureOverlays)
         {
             if (visualAlpha <= 0.001f)
             {
@@ -935,7 +969,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 displayPriority,
                 visualAlpha,
                 baseColor,
-                prepareTextStyle);
+                prepareTextStyle,
+                drawStaticFeatureOverlays);
             return true;
         }
 
@@ -945,7 +980,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int displayPriority,
             float visualAlpha,
             Color baseColor,
-            bool prepareTextStyle)
+            bool prepareTextStyle,
+            bool drawStaticFeatureOverlays)
         {
             if ((visual.Flags & WorkCellVisualFlags.ManualPriorityMode) != 0)
             {
@@ -966,7 +1002,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 GUI.DrawTexture(boxRect, WidgetsWork.WorkBoxCheckTex);
             }
 
-            if ((visual.Flags & (WorkCellVisualFlags.BestPawn | WorkCellVisualFlags.OverrideRing)) != 0)
+            if (drawStaticFeatureOverlays &&
+                (visual.Flags & (WorkCellVisualFlags.BestPawn | WorkCellVisualFlags.OverrideRing)) != 0)
             {
                 DrawStaticFeatureOverlays(boxRect, visual.Flags, baseColor.a * visualAlpha);
             }
