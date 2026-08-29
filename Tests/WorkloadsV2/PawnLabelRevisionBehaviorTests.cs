@@ -25,6 +25,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             CloseAndReopenKeepsTheResourceOwner(window);
             ExternalAuditIsSlowAndNarrow(audit);
             AuditBaselinesRemainIndependent(audit);
+            ConcurrentExternalChangeIsNotHiddenByLabelRevision(audit);
             SparsePriorityEditsRemainSparse();
         }
 
@@ -131,6 +132,41 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 regularPoll,
                 "_lastTrackedRevisions = revisions;",
                 "the regular audit must retain ownership of its own baseline");
+        }
+
+        private static void ConcurrentExternalChangeIsNotHiddenByLabelRevision(string audit)
+        {
+            string regularPoll = MemberBody(audit, "internal static void Poll(PawnTable table)");
+            TestAssert.False(
+                regularPoll.IndexOf("_lastTrackedRevisions.PawnLabel", StringComparison.Ordinal) >= 0,
+                "a label revision must not certify the regular non-label signature");
+
+            // Model the race the regular audit protects: a tracked label write
+            // and an untracked non-label write arrive between two audits. The
+            // non-label baseline must still report the signature as unknown.
+            var ledger = new WorkGridInvalidationLedger();
+            WorkGridRevisionSet before = ledger.Current;
+            ledger.Invalidate(WorkGridInvalidationCategory.PawnLabel);
+            WorkGridRevisionSet after = ledger.Current;
+            bool signatureChanged = true;
+            bool knownNonLabelChange = HasKnownNonLabelChange(before, after);
+            TestAssert.True(
+                signatureChanged && !knownNonLabelChange,
+                "an external non-label mutation must remain eligible for broad audit invalidation");
+        }
+
+        private static bool HasKnownNonLabelChange(
+            WorkGridRevisionSet before,
+            WorkGridRevisionSet after)
+        {
+            return before.GameState != after.GameState ||
+                   before.PawnListOrder != after.PawnListOrder ||
+                   before.ColumnLayout != after.ColumnLayout ||
+                   before.Priority != after.Priority ||
+                   before.CapabilitySkill != after.CapabilitySkill ||
+                   before.ScheduleHour != after.ScheduleHour ||
+                   before.SubWorkOverride != after.SubWorkOverride ||
+                   before.SettingsThemeLanguageScale != after.SettingsThemeLanguageScale;
         }
 
         private static void SparsePriorityEditsRemainSparse()
