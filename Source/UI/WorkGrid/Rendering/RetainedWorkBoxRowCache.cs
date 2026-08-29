@@ -37,13 +37,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 int columnIndex,
                 Rect boxRect,
                 WorkBoxVisualState visual,
-                int displayPriority)
+                int displayPriority,
+                bool bakePriorityLabel = false,
+                GameFont priorityFont = GameFont.Medium,
+                int priorityStyleRevision = 0)
             {
                 PawnId = pawnId;
                 ColumnIndex = columnIndex;
                 BoxRect = boxRect;
                 Visual = visual;
                 DisplayPriority = displayPriority;
+                BakePriorityLabel = bakePriorityLabel;
+                PriorityFont = priorityFont;
+                PriorityStyleRevision = priorityStyleRevision;
             }
 
             internal int PawnId { get; }
@@ -51,6 +57,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             internal Rect BoxRect { get; }
             internal WorkBoxVisualState Visual { get; }
             internal int DisplayPriority { get; }
+            internal bool BakePriorityLabel { get; }
+            internal GameFont PriorityFont { get; }
+            internal int PriorityStyleRevision { get; }
         }
 
         internal sealed class PreparedRun
@@ -264,10 +273,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 GL.InvalidateState();
                 PreparedWorkBoxRenderer.ConfigureSrgbWriteForSrgbTarget();
                 GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));
-                // The retained surface contains textures only. Match the
-                // header/chrome retained boundaries and keep prepared logical
-                // rects in surface coordinates; live IMGUI glyphs are drawn
-                // after presentation by the row renderer.
+                // Keep prepared logical rects in surface coordinates. Stable
+                // textures and proven native priority numerals are composed
+                // here; translucent warnings, passion icons, and interaction
+                // feedback remain live after presentation.
                 GUI.matrix = Matrix4x4.identity;
                 GL.PushMatrix();
                 matrixPushed = true;
@@ -288,6 +297,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                             baseColor,
                             out RetainedWorkBoxDrawFailure cellFailure);
                         if (!drawn)
+                        {
+                            failure = cellFailure;
+                            return false;
+                        }
+
+                        if (cell.BakePriorityLabel &&
+                            !PreparedWorkBoxRenderer.DrawRetainedPriorityLabel(
+                                localRect,
+                                cell.Visual,
+                                cell.DisplayPriority,
+                                cell.PriorityFont,
+                                baseColor,
+                                out cellFailure))
                         {
                             failure = cellFailure;
                             return false;
@@ -352,6 +374,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Mix(ref hash, pixelWidth);
             Mix(ref hash, pixelHeight);
             Mix(ref hash, baseColor.GetHashCode());
+            // The material is shared by every retained row, but its identity
+            // still belongs in the key. A device/resource reset can replace
+            // it without changing the row topology.
+            Mix(ref hash, PreparedWorkBoxRenderer.RetainedMaterialRevision);
             Mix(ref hash, unchecked((int)staticFingerprint));
             Mix(ref hash, unchecked((int)(staticFingerprint >> 32)));
             return hash;
@@ -375,13 +401,24 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     ~(WorkCellVisualFlags.BestPawn |
                       WorkCellVisualFlags.OverrideRing |
                       WorkCellVisualFlags.LowSkillWarning)));
-                // Manual numerals and their color are drawn after presentation;
-                // only the checkbox's on/off state changes retained pixels.
+                // Non-manual cells retain only the checkbox state. Eligible
+                // manual numerals are also retained, so their effective value,
+                // color, font, and style revision must participate in the key.
                 bool retainedCheck =
                     (visual.Flags & (WorkCellVisualFlags.Disabled |
                                      WorkCellVisualFlags.ManualPriorityMode)) == 0 &&
                     cell.DisplayPriority > WorkPrioritySystem.DisabledPriority;
                 Mix(ref hash, retainedCheck ? 1 : 0);
+                Mix(ref hash, cell.BakePriorityLabel ? 1 : 0);
+                if (cell.BakePriorityLabel)
+                {
+                    Mix(ref hash, cell.DisplayPriority);
+                    Mix(ref hash, unchecked((int)PreparedWorkBoxRenderer.GetPriorityLabelColor(
+                        visual,
+                        cell.DisplayPriority).GetHashCode()));
+                    Mix(ref hash, (int)cell.PriorityFont);
+                    Mix(ref hash, cell.PriorityStyleRevision);
+                }
             }
             return hash;
         }

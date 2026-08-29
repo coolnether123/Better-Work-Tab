@@ -164,13 +164,46 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string retained = MemberBody(preparedBox, "internal static bool DrawRetained(");
             TestAssert.False(
                 retained.IndexOf("Widgets.Label", StringComparison.Ordinal) >= 0,
-                "transparent retained surfaces must not compose manual priority glyphs");
+                "retained surfaces must not route priority labels through a second IMGUI label pass");
             TestAssert.False(
                 retained.IndexOf("DrawPriorityLabel(", StringComparison.Ordinal) >= 0,
-                "retained work boxes must leave manual priority glyphs to the live pass");
+                "retained work boxes must use the dedicated native-style composition boundary");
             TestAssert.False(
                 retained.IndexOf("PassionWorkbox", StringComparison.Ordinal) >= 0,
                 "transparent passion icons must not be composed into a retained surface");
+
+            string canBake = MemberBody(preparedBox, "internal static bool CanBakePriorityLabel(");
+            TestAssert.Contains(
+                canBake,
+                "WorkCellVisualFlags.HasPassion",
+                "passion cells must remain on the live foreground path");
+            TestAssert.Contains(
+                canBake,
+                "WorkCellVisualFlags.LowSkillWarning",
+                "low-skill warning cells must remain on the live foreground path");
+            TestAssert.Contains(
+                canBake,
+                "HasPriorityLabel(visual, displayPriority)",
+                "only cells that visibly own a priority numeral may bake one");
+            string bakedLabel = MemberBody(
+                preparedBox,
+                "internal static bool DrawRetainedPriorityLabel(");
+            TestAssert.Contains(
+                bakedLabel,
+                "GUIStyle style = Text.CurFontStyle",
+                "retained numerals must use RimWorld's native GUIStyle");
+            TestAssert.Contains(
+                bakedLabel,
+                "style.Draw(",
+                "retained numerals must use the native style draw operation");
+            TestAssert.Contains(
+                bakedLabel,
+                "AdjustLabelRectToNativeScaling",
+                "retained numerals must preserve native UI-scale geometry");
+            TestAssert.Contains(
+                bakedLabel,
+                "catch (NotSupportedException)",
+                "unsupported native text composition must take the complete direct fallback");
 
             string live = MemberBody(
                 preparedBox,
@@ -511,18 +544,20 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(fingerprint, "staticFingerprint", "steady fingerprints must mix the packet fingerprint in O(1)");
             TestAssert.False(fingerprint.IndexOf("Text.CurFontStyle", StringComparison.Ordinal) >= 0, "steady hits must not depend on ambient GUI font state");
             string staticFingerprint = MemberBody(retained, "private static ulong GetStaticFingerprint(");
-            TestAssert.False(staticFingerprint.IndexOf("visual.Priority", StringComparison.Ordinal) >= 0, "manual priority values must not rebuild texture-only retained surfaces");
+            TestAssert.Contains(staticFingerprint, "cell.DisplayPriority", "baked priority values must invalidate their retained numeral");
             TestAssert.False(staticFingerprint.IndexOf("visual.Passion", StringComparison.Ordinal) >= 0, "live passion icons must not rebuild texture-only retained surfaces");
-            TestAssert.False(staticFingerprint.IndexOf("PriorityColor", StringComparison.Ordinal) >= 0, "manual priority colors belong to the live label pass");
-            TestAssert.False(staticFingerprint.IndexOf("CompactText", StringComparison.Ordinal) >= 0, "font-size metadata must not rebuild texture-only retained surfaces");
+            TestAssert.Contains(staticFingerprint, "GetPriorityLabelColor", "baked priority colors must invalidate their retained numeral");
+            TestAssert.Contains(staticFingerprint, "PriorityFont", "baked priority font choice must invalidate its retained numeral");
+            TestAssert.Contains(staticFingerprint, "PriorityStyleRevision", "baked GUIStyle changes must invalidate their retained numeral");
             TestAssert.Contains(
                 staticFingerprint,
                 "WorkCellVisualFlags.LowSkillWarning",
-                "live warning state must not rebuild the texture-only retained surface");
+                "live warning state must remain outside the retained numeral eligibility decision");
             TestAssert.Contains(staticFingerprint, "retainedCheck", "retained fingerprints must preserve checkbox visibility changes");
             string buildSurface = MemberBody(retained, "private static bool BuildSurface(");
-            TestAssert.False(buildSurface.IndexOf("Widgets.Label", StringComparison.Ordinal) >= 0, "retained surface composition must remain texture-only");
-            TestAssert.False(buildSurface.IndexOf("Text.Font", StringComparison.Ordinal) >= 0, "retained surface composition must not prepare unused glyph state");
+            TestAssert.Contains(buildSurface, "DrawRetainedPriorityLabel", "eligible numerals must use the existing retained surface owner");
+            TestAssert.False(buildSurface.IndexOf("Widgets.Label", StringComparison.Ordinal) >= 0, "retained numeral composition must not enqueue a second IMGUI label pass");
+            TestAssert.False(buildSurface.IndexOf("Text.Font", StringComparison.Ordinal) >= 0, "font state must remain scoped to the native numeral helper");
             TestAssert.Contains(
                 buildSurface,
                 "GL.LoadPixelMatrix(0f, bounds.width, bounds.height, 0f);",
