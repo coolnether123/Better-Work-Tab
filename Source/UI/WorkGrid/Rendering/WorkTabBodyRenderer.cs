@@ -1542,6 +1542,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     continue;
                 }
 
+                if (command.Kind == PreparedWorkRowCommandKind.PreparedCopyPaste)
+                {
+                    preparedLayer.DrawPreparedCopyPaste(
+                        packet,
+                        command.Index,
+                        pawn,
+                        rowRect.y);
+                    continue;
+                }
+
                 int columnIndex = command.Index;
                 WorkTabLayoutColumn column = columns[columnIndex];
                 Rect cellRect = WorkGridInteractionGeometry.GetAnimatedBodyContentRect(

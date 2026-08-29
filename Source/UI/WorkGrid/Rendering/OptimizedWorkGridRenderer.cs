@@ -59,8 +59,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             new Dictionary<WorkTypeDef, int>();
         private readonly Dictionary<HoverColumnKey, int> _columnIndexByHoverKey =
             new Dictionary<HoverColumnKey, int>();
+        private static readonly System.Action RepaintCopyPasteNoOp = delegate { };
         private long _cellLookupTopologyRevision = long.MinValue;
         private int _renderResourcesRevision;
+        private bool _copyPasteClipboardAvailable;
         private int _hoveredRowIndex = -1;
         private int _hoveredColumnIndex = -1;
         private int _headerHoveredColumnIndex = -1;
@@ -154,6 +156,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             if (context.EventPhase == ImGuiEventPhase.Repaint)
             {
                 WorkGiverPriorityBoxRenderer.MaintainResetAnimations();
+                _copyPasteClipboardAvailable = ReadCopyPasteClipboardState();
                 Vector2 scroll = context.Table.scrollPosition;
                 _visibleRows = context.Geometry.GetVisibleRowRange(context.Viewport, scroll.y);
                 _visibleColumns = context.Geometry.GetVisibleColumnRange(context.Viewport, scroll.x);
@@ -377,6 +380,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             _currentLayoutRows = Array.Empty<WorkTabLayoutRow>();
             _liveWorkTypesByColumn = Array.Empty<WorkTypeDef>();
             _liveWorkGiversByColumn = Array.Empty<WorkGiver>();
+            _copyPasteClipboardAvailable = false;
             _liveReferenceLayout = null;
             _liveReferenceLayoutRevision = int.MinValue;
             _currentGeometry = null;
@@ -498,6 +502,35 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             DrawPreparedRunDynamic(packet, runIndex, run, rowOffsetY, baseColor);
+        }
+
+        public void DrawPreparedCopyPaste(
+            PreparedWorkRowPacket packet,
+            int columnIndex,
+            Pawn pawn,
+            float rowOffsetY)
+        {
+            WorkGridColumnGeometry geometry = _currentGeometry.Columns[columnIndex];
+            Rect cellRect = new Rect(
+                geometry.OffsetX,
+                rowOffsetY,
+                geometry.Width,
+                packet.RowHeight);
+
+            // The native worker remains responsible for input, callbacks, and
+            // tooltips. Repaint only needs the vanilla button presentation, so
+            // the shared no-op delegates avoid a closure per pawn row.
+            if (TimePriorityScheduleEditor.TryDrawScheduleCopyPasteWorkPrioritiesCell(
+                    cellRect,
+                    pawn))
+            {
+                return;
+            }
+
+            CopyPasteUI.DoCopyPasteButtons(
+                cellRect,
+                RepaintCopyPasteNoOp,
+                _copyPasteClipboardAvailable ? RepaintCopyPasteNoOp : null);
         }
 
         public bool DrawPreparedPawnLabel(PreparedWorkRowPacket packet, float rowOffsetY)
@@ -1015,6 +1048,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 {
                     columnsValid = false;
                 }
+                else if (column.WorkerKind == WorkGridColumnWorkerKind.CopyPasteWorkPriorities &&
+                         (layoutColumn.Column?.Worker == null ||
+                          layoutColumn.Column.Worker.GetType() !=
+                              typeof(PawnColumnWorker_CopyPasteWorkPriorities)))
+                {
+                    // The prepared command replays CopyPasteUI only when the
+                    // same vanilla worker was classified during snapshot build.
+                    columnsValid = false;
+                }
                 else if (column.WorkerKind == WorkGridColumnWorkerKind.SubWorkPriority &&
                          (_liveWorkTypesByColumn[columnIndex] == null ||
                           _liveWorkGiversByColumn[columnIndex]?.def == null))
@@ -1031,6 +1073,30 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             _liveReferenceTopologyValid = columnsValid && HasMatchingLiveRows(snapshot);
+        }
+
+        private bool ReadCopyPasteClipboardState()
+        {
+            if (_snapshot == null || !_liveReferenceTopologyValid)
+            {
+                return false;
+            }
+
+            for (int columnIndex = 0; columnIndex < _snapshot.Columns.Count; columnIndex++)
+            {
+                if (_snapshot.Columns[columnIndex].WorkerKind !=
+                    WorkGridColumnWorkerKind.CopyPasteWorkPriorities)
+                {
+                    continue;
+                }
+
+                PawnColumnWorker_CopyPasteWorkPriorities worker =
+                    (PawnColumnWorker_CopyPasteWorkPriorities)
+                        _currentLayoutColumns[columnIndex].Column.Worker;
+                return WorkGridVanillaCompatibilityPolicy.ReadCopyPasteClipboard(worker);
+            }
+
+            return false;
         }
 
         private bool HasMatchingLiveRows(WorkGridSnapshot snapshot)

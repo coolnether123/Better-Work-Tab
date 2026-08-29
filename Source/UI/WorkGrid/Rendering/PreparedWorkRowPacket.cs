@@ -11,7 +11,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     {
         NativeColumn,
         RetainedRun,
-        PreparedPawnLabel
+        PreparedPawnLabel,
+        PreparedCopyPaste
     }
 
     internal sealed class PreparedPawnLabelCell
@@ -282,6 +283,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     case PreparedColumnDisposition.Hidden:
                         assembly.EndRetainedRun();
                         break;
+                    case PreparedColumnDisposition.CopyPaste:
+                        assembly.AppendCopyPaste(columnIndex);
+                        break;
                     default:
                         assembly.AppendNativeColumn(columnIndex);
                         break;
@@ -326,6 +330,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int tinyPriorityStyleRevision)
         {
             WorkGridColumnEntry column = request.Snapshot.Columns[columnIndex];
+            if (column.WorkerKind == WorkGridColumnWorkerKind.CopyPasteWorkPriorities)
+            {
+                return PreparedColumn.CopyPaste;
+            }
+
             bool subWorkCell = column.WorkerKind ==
                 WorkGridColumnWorkerKind.SubWorkPriority;
             bool preparedKind = column.WorkerKind ==
@@ -507,7 +516,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             Native,
             Hidden,
-            Retained
+            Retained,
+            CopyPaste
         }
 
         private readonly struct PreparedColumn
@@ -560,6 +570,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     subWork);
             }
 
+            internal static PreparedColumn CopyPaste => new PreparedColumn(
+                PreparedColumnDisposition.CopyPaste,
+                default,
+                default,
+                false,
+                false,
+                false);
+
             internal PreparedColumnDisposition Disposition { get; }
             internal PreparedWorkRowCell Slot { get; }
             internal RetainedWorkBoxRowCache.Cell RetainedCell { get; }
@@ -588,6 +606,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             private readonly List<int> _subWorkSlotIndexes = new List<int>(4);
             private readonly List<int> _liveForegroundSlotIndexes = new List<int>(8);
             private PreparedPawnLabelCell _pawnLabel;
+            private bool _hasPreparedCopyPaste;
 
             internal RowPacketAssembly(int columnCount, int visibleColumnCount)
             {
@@ -613,6 +632,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 EndRetainedRun();
                 _commands.Add(new PreparedWorkRowCommand(
                     PreparedWorkRowCommandKind.NativeColumn,
+                    columnIndex));
+            }
+
+            internal void AppendCopyPaste(int columnIndex)
+            {
+                EndRetainedRun();
+                _hasPreparedCopyPaste = true;
+                _commands.Add(new PreparedWorkRowCommand(
+                    PreparedWorkRowCommandKind.PreparedCopyPaste,
                     columnIndex));
             }
 
@@ -674,7 +702,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 in PreparedWorkRowBuildRequest request)
             {
                 EndRetainedRun();
-                if (_runs.Count == 0 && _pawnLabel == null)
+                if (_runs.Count == 0 && _pawnLabel == null && !_hasPreparedCopyPaste)
                 {
                     // A packet with only native commands cannot optimize the row.
                     // Returning null gives the direct renderer complete ownership.
@@ -739,6 +767,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                             if (!hasPawnLabel ||
                                 command.Index < 0 ||
                                 command.Index >= columnCount)
+                            {
+                                return false;
+                            }
+                            break;
+                        case PreparedWorkRowCommandKind.PreparedCopyPaste:
+                            if (command.Index < 0 || command.Index >= columnCount)
                             {
                                 return false;
                             }

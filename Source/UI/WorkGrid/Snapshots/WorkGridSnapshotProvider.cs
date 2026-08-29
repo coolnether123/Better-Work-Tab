@@ -783,15 +783,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 }
                 object worker = def?.Worker;
                 bool externalFluffyWorkGiver = FluffyWorkTabGateway.IsFluffyWorkGiverColumn(def);
+                bool canPrepareCopyPaste =
+                    WorkGridVanillaCompatibilityPolicy.CanPrepareCopyPasteWorkPriorities(def);
                 WorkGridColumnWorkerKind workerKind = workGiver != null
                     ? WorkGridColumnWorkerKind.SubWorkPriority
-                    : canSnapshotVanillaPriorityCells &&
-                      WorkGridVanillaCompatibilityPolicy.CanSnapshotPriorityColumn(def) &&
-                      !externalFluffyWorkGiver
-                        ? WorkGridColumnWorkerKind.WorkPriority
-                        : worker is PawnColumnWorker_Label
-                            ? WorkGridColumnWorkerKind.PawnLabel
-                            : WorkGridColumnWorkerKind.Other;
+                    : canPrepareCopyPaste
+                        ? WorkGridColumnWorkerKind.CopyPasteWorkPriorities
+                        : canSnapshotVanillaPriorityCells &&
+                          WorkGridVanillaCompatibilityPolicy.CanSnapshotPriorityColumn(def) &&
+                          !externalFluffyWorkGiver
+                            ? WorkGridColumnWorkerKind.WorkPriority
+                            : worker is PawnColumnWorker_Label
+                                ? WorkGridColumnWorkerKind.PawnLabel
+                                : WorkGridColumnWorkerKind.Other;
                 _columns.Add(new WorkGridColumnEntry(
                     (ushort)i,
                     workType?.shortHash ?? 0,
