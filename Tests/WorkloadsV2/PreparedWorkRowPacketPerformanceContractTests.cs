@@ -146,6 +146,15 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(packet.IndexOf("SubWorkDrilldownState", StringComparison.Ordinal) >= 0, "packet construction must not query live transition state");
             TestAssert.False(packet.IndexOf("Text.CalcSize", StringComparison.Ordinal) >= 0, "packet construction must not measure labels from ambient GUI state");
             TestAssert.False(packet.IndexOf("Workload", StringComparison.Ordinal) >= 0, "packet construction must not read workload domains");
+            string build = MemberBody(packet, "internal static PreparedWorkRowPacket Build(");
+            TestAssert.Contains(
+                build,
+                "mediumPriorityStyleRevision",
+                "packet builds must resolve the medium style revision once");
+            TestAssert.Contains(
+                build,
+                "tinyPriorityStyleRevision",
+                "packet builds must resolve the tiny style revision once");
         }
 
         private static void RetainedTransparentForegroundStaysOnTheLivePath(
@@ -422,9 +431,21 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the capability sentinel must exercise the immediate textured-quad path");
             int readback = sentinel.IndexOf("ReadPixels(", StringComparison.Ordinal);
             TestAssert.True(readback >= 0, "the capability sentinel must verify a written pixel");
-            TestAssert.False(
+            TestAssert.True(
                 sentinel.IndexOf("ReadPixels(", readback + 1, StringComparison.Ordinal) >= 0,
-                "the capability sentinel must perform at most one synchronous readback");
+                "the capability sentinel must compare a pre-label target with the native text target");
+            TestAssert.Contains(
+                sentinel,
+                "changedLabelPixels",
+                "the capability sentinel must require native text to change the target pixels");
+            TestAssert.Contains(
+                sentinel,
+                "baselinePixels",
+                "the capability sentinel must retain a pre-label pixel baseline");
+            TestAssert.Contains(
+                sentinel,
+                "withLabelPixels",
+                "the capability sentinel must inspect the post-label target pixels");
             string capability = MemberBody(
                 retained,
                 "private bool TryEnsureCompositionCapability(");
@@ -533,12 +554,21 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(prepared, "Bounds = GetBounds(Cells)", "run bounds must be computed once during packet preparation");
             TestAssert.Contains(prepared, "StaticFingerprint = GetStaticFingerprint(Cells)", "cell fingerprints must be computed once during packet preparation");
             string bounds = MemberBody(retained, "private static Rect GetBounds(");
+            TestAssert.Contains(
+                bounds,
+                "BakePriorityLabel",
+                "retained bounds must account for stable baked numerals");
+            TestAssert.Contains(
+                bounds,
+                "PriorityLabelOutset",
+                "retained bounds must include the native numeral outset");
+            TestAssert.Contains(
+                bounds,
+                "bounds.ExpandedBy(stableOutset)",
+                "only stable baked content may enlarge retained work-box surfaces");
             TestAssert.False(
-                bounds.IndexOf("ExpandedBy", StringComparison.Ordinal) >= 0,
+                bounds.IndexOf("LowSkillWarningOutset", StringComparison.Ordinal) >= 0,
                 "live warning borders must not enlarge retained work-box surfaces");
-            TestAssert.False(
-                retained.IndexOf("GetStableVisualOutset", StringComparison.Ordinal) >= 0,
-                "no live visual may contribute unused retained-surface padding");
             string fingerprint = MemberBody(retained, "private static ulong GetFingerprint(");
             TestAssert.False(fingerprint.IndexOf("for (", StringComparison.Ordinal) >= 0, "steady retained hits must not rescan cells");
             TestAssert.Contains(fingerprint, "staticFingerprint", "steady fingerprints must mix the packet fingerprint in O(1)");
@@ -549,6 +579,20 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(staticFingerprint, "GetPriorityLabelColor", "baked priority colors must invalidate their retained numeral");
             TestAssert.Contains(staticFingerprint, "PriorityFont", "baked priority font choice must invalidate its retained numeral");
             TestAssert.Contains(staticFingerprint, "PriorityStyleRevision", "baked GUIStyle changes must invalidate their retained numeral");
+            string styleRevision = MemberBody(
+                preparedBox,
+                "internal static int GetPriorityLabelStyleRevision(");
+            TestAssert.Contains(
+                styleRevision,
+                "GetPriorityLabelStyleSignature",
+                "style revisions must be owned by explicit native style inputs");
+            TestAssert.False(
+                styleRevision.IndexOf("style.GetHashCode", StringComparison.Ordinal) >= 0,
+                "style revisions must not use GUIStyle object hashing");
+            TestAssert.Contains(
+                preparedBox,
+                "Font.textureRebuilt",
+                "font atlas rebuilds must advance the retained label revision");
             TestAssert.Contains(
                 staticFingerprint,
                 "WorkCellVisualFlags.LowSkillWarning",

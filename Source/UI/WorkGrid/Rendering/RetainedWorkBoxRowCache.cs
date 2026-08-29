@@ -210,6 +210,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private static Rect GetBounds(IReadOnlyList<Cell> cells)
         {
             Rect bounds = cells[0].BoxRect;
+            float stableOutset = cells[0].BakePriorityLabel
+                ? PreparedWorkBoxRenderer.PriorityLabelOutset
+                : 0f;
             for (int index = 1; index < cells.Count; index++)
             {
                 Cell cell = cells[index];
@@ -218,8 +221,21 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 bounds.yMin = Mathf.Min(bounds.yMin, rect.yMin);
                 bounds.xMax = Mathf.Max(bounds.xMax, rect.xMax);
                 bounds.yMax = Mathf.Max(bounds.yMax, rect.yMax);
+                if (cell.BakePriorityLabel)
+                {
+                    stableOutset = Mathf.Max(
+                        stableOutset,
+                        PreparedWorkBoxRenderer.PriorityLabelOutset);
+                }
             }
-            return bounds;
+
+            // Native GUIStyle.Draw uses the same three-pixel outset as the
+            // direct label path. Include it in the surface only when a stable
+            // numeral is actually baked; live warning/passion pixels remain
+            // outside the retained surface and therefore need no padding here.
+            return stableOutset > 0f
+                ? bounds.ExpandedBy(stableOutset)
+                : bounds;
         }
 
         private static RenderTexture CreateSurface(int width, int height)
