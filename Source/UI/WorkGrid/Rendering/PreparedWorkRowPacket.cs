@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using UnityEngine;
+using Verse;
 
 namespace Better_Work_Tab.UI.WorkGrid.Rendering
 {
@@ -373,6 +374,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             Rect boxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
             WorkBoxVisualState visual = CreateVisual(cell);
+            bool bakePriorityLabel = PreparedWorkBoxRenderer.CanBakePriorityLabel(
+                boxRect,
+                visual,
+                cell.Priority);
             bool hasDynamicOverlay = (cell.Flags &
                 (WorkCellVisualFlags.BestPawn | WorkCellVisualFlags.OverrideRing)) != 0;
             return PreparedColumn.Retain(
@@ -388,7 +393,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     columnIndex,
                     boxRect,
                     visual,
-                    cell.Priority),
+                    cell.Priority,
+                    bakePriorityLabel,
+                    GameFont.Medium,
+                    bakePriorityLabel
+                        ? PreparedWorkBoxRenderer.GetPriorityLabelStyleRevision(GameFont.Medium)
+                        : 0),
                 parentDynamicOverlay: hasDynamicOverlay,
                 subWorkRingOverlay: false,
                 subWork: false);
@@ -410,6 +420,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 ? WorkPriorityCellGeometry.GetFluffyStyleSubWorkPriorityBoxRect(cellRect)
                 : WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
             WorkBoxVisualState visual = presentation.WorkBoxVisual;
+            bool compactText = boxRect.width <=
+                WorkPriorityCellGeometry.CompactSubWorkBoxSize + 0.01f;
+            bool bakePriorityLabel = PreparedWorkBoxRenderer.CanBakePriorityLabel(
+                boxRect,
+                visual,
+                presentation.EffectivePriority);
+            GameFont priorityFont = compactText ? GameFont.Tiny : GameFont.Medium;
             return PreparedColumn.Retain(
                 new PreparedWorkRowCell(
                     columnIndex,
@@ -423,7 +440,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     columnIndex,
                     boxRect,
                     visual,
-                    presentation.EffectivePriority),
+                    presentation.EffectivePriority,
+                    bakePriorityLabel,
+                    priorityFont,
+                    bakePriorityLabel
+                        ? PreparedWorkBoxRenderer.GetPriorityLabelStyleRevision(priorityFont)
+                        : 0),
                 parentDynamicOverlay: false,
                 subWorkRingOverlay: presentation.HasDynamicRing,
                 subWork: true);
@@ -585,7 +607,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
                 if (PreparedWorkBoxRenderer.HasLiveForeground(
                         prepared.Slot.Visual,
-                        prepared.RetainedCell.DisplayPriority))
+                        prepared.RetainedCell.DisplayPriority,
+                        prepared.RetainedCell.BakePriorityLabel))
                 {
                     _liveForegroundSlotIndexes.Add(slotIndex);
                 }

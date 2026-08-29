@@ -262,11 +262,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             RenderTexture surface = null;
             Texture2D readback = null;
             bool matrixPushed = false;
+            const int sentinelSize = 16;
             try
             {
                 surface = new RenderTexture(
-                    1,
-                    1,
+                    sentinelSize,
+                    sentinelSize,
                     0,
                     RenderTextureFormat.ARGB32,
                     RenderTextureReadWrite.sRGB)
@@ -280,7 +281,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     return false;
                 }
 
-                readback = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+                readback = new Texture2D(
+                    sentinelSize,
+                    sentinelSize,
+                    TextureFormat.RGBA32,
+                    false);
                 RenderTexture.active = surface;
                 GL.InvalidateState();
                 ConfigureSrgbWriteForSrgbTarget();
@@ -288,10 +293,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 GUI.matrix = Matrix4x4.identity;
                 GL.PushMatrix();
                 matrixPushed = true;
-                GL.LoadPixelMatrix(0f, 1f, 1f, 0f);
+                GL.LoadPixelMatrix(0f, sentinelSize, sentinelSize, 0f);
                 GL.Clear(true, true, Color.clear);
                 if (!DrawRetainedTexture(
-                        new Rect(0f, 0f, 1f, 1f),
+                        new Rect(sentinelSize - 1f, sentinelSize - 1f, 1f, 1f),
                         Texture2D.whiteTexture,
                         Color.red))
                 {
@@ -299,13 +304,48 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     return false;
                 }
 
+                var sentinelVisual = new WorkBoxVisualState(
+                    3,
+                    0,
+                    0f,
+                    0,
+                    PackColor(Color.white),
+                    WorkCellVisualFlags.ManualPriorityMode);
+                if (!DrawRetainedPriorityLabel(
+                        new Rect(0f, 0f, sentinelSize, sentinelSize),
+                        sentinelVisual,
+                        3,
+                        GameFont.Medium,
+                        Color.white,
+                        out failure))
+                {
+                    return false;
+                }
+
                 GL.PopMatrix();
                 matrixPushed = false;
-                readback.ReadPixels(new Rect(0f, 0f, 1f, 1f), 0, 0, false);
+                // One full-sentinel readback proves that native GUIStyle text
+                // reached the same temporary target as the retained textures.
+                // Row rebuilds never read pixels back.
+                readback.ReadPixels(
+                    new Rect(0f, 0f, sentinelSize, sentinelSize),
+                    0,
+                    0,
+                    false);
                 readback.Apply(false, false);
-                Color pixel = readback.GetPixel(0, 0);
-                if (pixel.r < 0.5f || pixel.a < 0.5f ||
-                    pixel.g > 0.5f || pixel.b > 0.5f)
+                Color32[] pixels = readback.GetPixels32();
+                bool sawNativeTextPixel = false;
+                for (int index = 0; index < pixels.Length; index++)
+                {
+                    Color32 pixel = pixels[index];
+                    if (pixel.a > 32 && pixel.r > 200 &&
+                        pixel.g > 200 && pixel.b > 200)
+                    {
+                        sawNativeTextPixel = true;
+                        break;
+                    }
+                }
+                if (!sawNativeTextPixel)
                 {
                     failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
                     return false;
@@ -367,6 +407,159 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             {
                 UnityEngine.Object.Destroy(retainedMaterial);
             }
+        }
+
+        /// <summary>
+        /// Identifies the shared material generation without creating it. The
+        /// retained-row key uses this so a material replacement cannot reuse a
+        /// surface composed with a previous device/resource state.
+        /// </summary>
+        internal static int RetainedMaterialRevision => _retainedMaterial == null
+            ? 0
+            : _retainedMaterial.GetInstanceID();
+
+        /// <summary>
+        /// Returns the exact color used by the live native priority label.
+        /// Keeping this decision in one place makes the retained and direct
+        /// paths agree for both stored and effective priorities.
+        /// </summary>
+        internal static Color GetPriorityLabelColor(
+            WorkBoxVisualState visual,
+            int displayPriority)
+        {
+            return displayPriority == visual.Priority
+                ? UnpackColor(visual.PriorityColor)
+                : WorkPrioritySystem.GetPriorityColor(displayPriority);
+        }
+
+        /// <summary>
+        /// Checks only immutable visual facts. The caller must already have
+        /// rejected animation, transition, foreign-worker, and topology
+        /// states; resource/style readiness is verified by the draw itself.
+        /// </summary>
+        internal static bool CanBakePriorityLabel(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            int displayPriority)
+        {
+            return boxRect.width > 0f &&
+                   boxRect.height > 0f &&
+                   HasPriorityLabel(visual, displayPriority) &&
+                   (visual.Flags & (WorkCellVisualFlags.HasPassion |
+                                    WorkCellVisualFlags.LowSkillWarning)) == 0;
+        }
+
+        /// <summary>
+        /// Draws one eligible priority numeral while the retained row cache's
+        /// render target is active. It deliberately uses RimWorld's GUIStyle
+        /// draw path, not a glyph atlas or custom rasterizer. A failure returns
+        /// to the row's complete direct path instead of publishing a partial
+        /// surface.
+        /// </summary>
+        internal static bool DrawRetainedPriorityLabel(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            int displayPriority,
+            GameFont font,
+            Color baseColor,
+            out RetainedWorkBoxDrawFailure failure)
+        {
+            failure = RetainedWorkBoxDrawFailure.None;
+            if (!CanBakePriorityLabel(
+                    boxRect,
+                    visual,
+                    displayPriority))
+            {
+                return true;
+            }
+
+            GameFont previousFont = Text.Font;
+            TextAnchor previousAnchor = Text.Anchor;
+            bool previousWordWrap = Text.WordWrap;
+            Color previousColor = GUI.color;
+            try
+            {
+                Text.Font = font;
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Text.WordWrap = false;
+                GUIStyle style = Text.CurFontStyle;
+                if (style == null)
+                {
+                    failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                    return false;
+                }
+
+                Color labelColor = GetPriorityLabelColor(visual, displayPriority);
+                labelColor.a *= baseColor.a;
+                GUI.color = labelColor;
+                Rect labelRect = boxRect.ContractedBy(-PriorityLabelOutset);
+                labelRect = AdjustLabelRectToNativeScaling(labelRect);
+                style.Draw(
+                    labelRect,
+                    displayPriority.ToStringCached(),
+                    isHover: false,
+                    isActive: false,
+                    on: false,
+                    hasKeyboardFocus: false);
+                return true;
+            }
+            catch (NotSupportedException)
+            {
+                failure = RetainedWorkBoxDrawFailure.Unsupported;
+                return false;
+            }
+            catch (Exception)
+            {
+                failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                return false;
+            }
+            finally
+            {
+                GUI.color = previousColor;
+                Text.Font = previousFont;
+                Text.Anchor = previousAnchor;
+                Text.WordWrap = previousWordWrap;
+            }
+        }
+
+        /// <summary>
+        /// Captures the current GUIStyle identity for a packet key without
+        /// retaining the ambient font state. Packet construction is infrequent;
+        /// stable repaint hits never call this method.
+        /// </summary>
+        internal static int GetPriorityLabelStyleRevision(GameFont font)
+        {
+            GameFont previousFont = Text.Font;
+            try
+            {
+                Text.Font = font;
+                GUIStyle style = Text.CurFontStyle;
+                return style == null ? 0 : style.GetHashCode();
+            }
+            finally
+            {
+                Text.Font = previousFont;
+            }
+        }
+
+        private static Rect AdjustLabelRectToNativeScaling(Rect labelRect)
+        {
+            // Widgets.Label rounds only at non-integral half UI scales. Keep
+            // its epsilon and adjustment so the retained style draw uses the
+            // same pixel rectangle as the direct native path.
+            float uiScale = Prefs.UIScale;
+            if (uiScale > 1f)
+            {
+                float halfScale = uiScale / 2f;
+                if (Math.Abs(halfScale - Mathf.Floor(halfScale)) > float.Epsilon)
+                {
+                    labelRect.xMax += 1e-5f;
+                    labelRect.yMax += 1e-5f;
+                    labelRect = LudeonTK.UIScaling.AdjustRectToUIScaling(labelRect);
+                }
+            }
+
+            return labelRect;
         }
 
         // RenderTextureReadWrite.sRGB does not set GL.sRGBWrite. Derive it from
@@ -431,11 +624,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         internal static bool HasLiveForeground(
             WorkBoxVisualState visual,
-            int displayPriority)
+            int displayPriority,
+            bool priorityLabelBaked = false)
         {
             return HasLiveLowSkillWarning(visual) ||
                    HasLivePassionIcon(visual) ||
-                   HasPriorityLabel(visual, displayPriority);
+                   (!priorityLabelBaked && HasPriorityLabel(visual, displayPriority));
         }
 
         /// <summary>
@@ -694,9 +888,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Text.WordWrap = false;
             }
 
-            Color color = displayPriority == visual.Priority
-                ? UnpackColor(visual.PriorityColor)
-                : WorkPrioritySystem.GetPriorityColor(displayPriority);
+            Color color = GetPriorityLabelColor(visual, displayPriority);
             color.a *= baseColor.a * visualAlpha;
             GUI.color = color;
             Widgets.Label(
