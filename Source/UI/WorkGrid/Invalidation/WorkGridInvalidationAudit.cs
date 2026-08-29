@@ -22,6 +22,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
         private static int _lastPawnLabelSignature;
         private static bool _hasSignature;
         private static bool _hasPawnLabelSignature;
+        private static long _lastPawnLabelAuditRevision;
+        private static bool _hasPawnLabelAuditRevision;
         private static WorkGridRevisionSet _lastTrackedRevisions;
 
         internal static void PollRoster(PawnTable table)
@@ -104,6 +106,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             _lastPawnLabelSignature = 0;
             _hasSignature = false;
             _hasPawnLabelSignature = false;
+            _lastPawnLabelAuditRevision = 0L;
+            _hasPawnLabelAuditRevision = false;
             _lastTrackedRevisions = default;
         }
 
@@ -126,7 +130,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
                 : ComputePawnLabelSignature(table);
             WorkGridRevisionSet revisions = WorkTabInvalidationHub.Current.CategoryRevisions;
             bool knownTrackedLabelChange =
-                _lastTrackedRevisions.PawnLabel != revisions.PawnLabel;
+                _hasPawnLabelAuditRevision &&
+                _lastPawnLabelAuditRevision != revisions.PawnLabel;
             if (_hasPawnLabelSignature &&
                 signature != _lastPawnLabelSignature &&
                 !knownTrackedLabelChange)
@@ -136,7 +141,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
             }
 
             _lastPawnLabelSignature = signature;
-            _lastTrackedRevisions = revisions;
+            // Keep this baseline separate from the regular audit baseline. Label
+            // polling must not hide an unrelated tracked change before Poll can
+            // decide whether its broad compatibility signature is still needed.
+            _lastPawnLabelAuditRevision = revisions.PawnLabel;
+            _hasPawnLabelAuditRevision = true;
             _hasPawnLabelSignature = true;
         }
 
@@ -240,10 +249,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Invalidation
         {
             unchecked
             {
-                // These are the inputs used by the native label worker and
-                // BWT's contrast/name-color adapter. This full scan belongs
-                // only to the slow external-writer audit.
-                int hash = (17 * 397) ^ PawnColorDatabase.Version;
+                // These are the per-pawn inputs used by the native label worker
+                // and BWT's name-color adapter. Contrast changes are owned by
+                // the producer-owned color-database revision in the O(1)
+                // presentation-mode signature, so this slow audit intentionally
+                // does not hash that global value a second time.
+                int hash = 17;
                 if (table?.Columns != null)
                 {
                     for (int columnIndex = 0; columnIndex < table.Columns.Count; columnIndex++)

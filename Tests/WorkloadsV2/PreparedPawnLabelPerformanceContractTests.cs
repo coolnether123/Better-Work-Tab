@@ -34,9 +34,17 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "label auditing must remain slower than the render pass");
             TestAssert.Contains(audit, "WorkTabDirtyFlags.PawnLabel",
                 "external label changes must invalidate only the label lane");
+            TestAssert.Contains(audit, "_lastPawnLabelAuditRevision",
+                "label audit freshness must have its own revision baseline");
+            TestAssert.False(
+                MemberBody(audit, "private static void PollPawnLabelSignature(PawnTable table)")
+                    .IndexOf("_lastTrackedRevisions =", StringComparison.Ordinal) >= 0,
+                "label polling must not overwrite the regular audit revision baseline");
             TestAssert.Contains(audit, "private static int ComputePawnLabelSignature(PawnTable table)",
                 "the compatibility audit must retain the complete label source coverage");
             string auditSignature = MemberBody(audit, "private static int ComputePawnLabelSignature(PawnTable table)");
+            TestAssert.False(auditSignature.IndexOf("PawnColorDatabase.Version", StringComparison.Ordinal) >= 0,
+                "the slow label audit must not duplicate the O(1) color-version owner");
             TestAssert.Contains(auditSignature, "pawn.Name?.ToStringShort", "the audit must cover pawn-name changes");
             TestAssert.Contains(auditSignature, "pawn.story?.Title", "the audit must cover title changes");
             TestAssert.Contains(auditSignature, "pawn.KindLabel", "the audit must cover role-label changes");
