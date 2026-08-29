@@ -18,15 +18,30 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string preparedBox = Read(root, "Source", "UI", "WorkGrid", "Rendering", "PreparedWorkBoxRenderer.cs");
             string optimized = Read(root, "Source", "UI", "WorkGrid", "Rendering", "OptimizedWorkGridRenderer.cs");
             string provider = Read(root, "Source", "UI", "WorkGrid", "Snapshots", "WorkGridSnapshotProvider.cs");
+            string audit = Read(root, "Source", "UI", "WorkGrid", "Invalidation", "WorkGridInvalidationAudit.cs");
 
             TestAssert.Contains(compatibility, "column?.Worker?.GetType() != typeof(PawnColumnWorker_Label)", "worker subclasses must stay native");
             TestAssert.Contains(compatibility, "ReplacedVanillaLabelHooks", "label replacement needs an explicit hook allowlist");
             TestAssert.Contains(compatibility, "HasExternalPatch(Harmony.GetPatchInfo(hook))", "foreign label patches must force native fallback");
 
-            string signature = MemberBody(capture, "internal static int ComputeSourceSignature(");
-            TestAssert.Contains(signature, "pawn.Name?.ToStringShort", "name changes must invalidate prepared text");
-            TestAssert.Contains(signature, "pawn.story?.Title", "title changes must invalidate prepared text");
-            TestAssert.Contains(signature, "PawnColorDatabase.Version", "contrast changes must invalidate prepared text");
+            string signature = MemberBody(capture, "internal static int ComputePresentationModeSignature(");
+            TestAssert.Contains(signature, "PawnColorDatabase.Version", "contrast changes need an O(1) producer revision");
+            TestAssert.False(signature.IndexOf("table.cachedPawns", StringComparison.Ordinal) >= 0,
+                "presentation mode must not scan every pawn during snapshot admission");
+            TestAssert.Contains(audit, "private static void PollPawnLabelSignature(PawnTable table)",
+                "label freshness must have a separate compatibility-audit path");
+            TestAssert.Contains(audit, "PawnLabelAuditIntervalFrames",
+                "label auditing must remain slower than the render pass");
+            TestAssert.Contains(audit, "WorkTabDirtyFlags.PawnLabel",
+                "external label changes must invalidate only the label lane");
+            TestAssert.Contains(audit, "private static int ComputePawnLabelSignature(PawnTable table)",
+                "the compatibility audit must retain the complete label source coverage");
+            string auditSignature = MemberBody(audit, "private static int ComputePawnLabelSignature(PawnTable table)");
+            TestAssert.Contains(auditSignature, "pawn.Name?.ToStringShort", "the audit must cover pawn-name changes");
+            TestAssert.Contains(auditSignature, "pawn.story?.Title", "the audit must cover title changes");
+            TestAssert.Contains(auditSignature, "pawn.KindLabel", "the audit must cover role-label changes");
+            TestAssert.Contains(auditSignature, "pawn.IsSlave", "the audit must cover slave-label changes");
+            TestAssert.Contains(auditSignature, "pawn.IsColonyMech", "the audit must cover mech-label changes");
             TestAssert.False(signature.IndexOf("Widgets.ThingIcon", StringComparison.Ordinal) >= 0, "portraits must not enter snapshot capture");
             TestAssert.False(capture.IndexOf("internal Pawn Pawn", StringComparison.Ordinal) >= 0,
                 "prepared label state must not retain a live pawn");
@@ -94,7 +109,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(packet.IndexOf("Text.CalcSize", StringComparison.Ordinal) >= 0,
                 "row-packet compilation must not measure unchanged label text");
 
-            TestAssert.Contains(provider, "_pawnLabelSourceSignature == pawnLabelSourceSignature", "unchanged snapshots need a label freshness guard");
+            TestAssert.Contains(provider, "_pawnLabelPresentationMode == pawnLabelPresentationMode", "unchanged snapshots need a label freshness guard");
             TestAssert.Contains(packet, "PreparedWorkRowCommandKind.PreparedPawnLabel", "stable labels must use the existing ordered row packet");
             TestAssert.Contains(packet, "internal string Text { get; }", "prepared labels must carry their stable display text");
             TestAssert.Contains(optimized, "Widgets.Label(OffsetY(label.TextRect, rowOffsetY), label.Text)",
