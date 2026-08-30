@@ -411,6 +411,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 boxRect,
                 visual,
                 cell.Priority);
+            bool bakePassion = PreparedWorkBoxRenderer.CanBakePassionAndPriorityLabel(
+                boxRect,
+                visual,
+                cell.Priority);
+            bakePriorityLabel |= bakePassion;
             bool hasDynamicOverlay = (cell.Flags &
                 (WorkCellVisualFlags.BestPawn | WorkCellVisualFlags.OverrideRing)) != 0;
             return PreparedColumn.Retain(
@@ -428,6 +433,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     visual,
                     cell.Priority,
                     bakePriorityLabel,
+                    bakePassion,
                     GameFont.Medium,
                     bakePriorityLabel ? priorityStyleRevision : 0),
                 parentDynamicOverlay: hasDynamicOverlay,
@@ -459,6 +465,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 boxRect,
                 visual,
                 presentation.EffectivePriority);
+            bool bakePassion = PreparedWorkBoxRenderer.CanBakePassionAndPriorityLabel(
+                boxRect,
+                visual,
+                presentation.EffectivePriority);
+            bakePriorityLabel |= bakePassion;
             GameFont priorityFont = compactText ? GameFont.Tiny : GameFont.Medium;
             return PreparedColumn.Retain(
                 new PreparedWorkRowCell(
@@ -475,6 +486,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     visual,
                     presentation.EffectivePriority,
                     bakePriorityLabel,
+                    bakePassion,
                     priorityFont,
                     bakePriorityLabel
                         ? compactText
@@ -662,7 +674,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 if (PreparedWorkBoxRenderer.HasLiveForeground(
                         prepared.Slot.Visual,
                         prepared.RetainedCell.DisplayPriority,
-                        prepared.RetainedCell.BakePriorityLabel))
+                        prepared.RetainedCell.BakePriorityLabel,
+                        prepared.RetainedCell.BakePassion))
                 {
                     _liveForegroundSlotIndexes.Add(slotIndex);
                 }
