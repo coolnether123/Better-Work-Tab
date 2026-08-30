@@ -69,8 +69,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         /// <summary>
         /// The target-space rectangles for one cell. They are derived while
-        /// the live owner clip is still active, so they describe device pixels
-        /// rather than a guessed row-local phase.
+        /// the live owner clip is still active, so their fractional device
+        /// phase is preserved rather than guessed from a row-local phase.
         /// </summary>
         private readonly struct DeviceSurfaceCell
         {
@@ -608,9 +608,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             for (int index = 0; index < cells.Count; index++)
             {
                 Rect localCell = OffsetRect(cells[index].BoxRect, offsetX, offsetY);
-                if (!TryGetOwnerAlignedDeviceRect(localCell, out Rect deviceCell) ||
-                    !TryMapDeviceRect(
-                        deviceCell,
+                // The row allocation is integer device space, but the direct
+                // GUI.DrawTexture path receives the original fractional cell
+                // rect. Do not align an individual cell here: its native
+                // alignment policy is not the retained raster policy.
+                Rect screenCell = UnclipRect(localCell);
+                if (!IsUsableRect(screenCell) ||
+                    !TryMapScreenRect(
+                        screenCell,
                         frame.AllocationLeft,
                         frame.AllocationTop,
                         frame.PixelWidth,
@@ -623,9 +628,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Rect localPassion = localCell;
                 localPassion.xMin = localCell.center.x;
                 localPassion.yMin = localCell.center.y;
-                if (!TryGetOwnerAlignedDeviceRect(localPassion, out Rect devicePassion) ||
-                    !TryMapDeviceRect(
-                        devicePassion,
+                Rect screenPassion = UnclipRect(localPassion);
+                if (!IsUsableRect(screenPassion) ||
+                    !TryMapScreenRect(
+                        screenPassion,
                         frame.AllocationLeft,
                         frame.AllocationTop,
                         frame.PixelWidth,
@@ -686,42 +692,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             return Rect.MinMaxRect(minimum.x, minimum.y, maximum.x, maximum.y);
         }
 
-        private static bool TryGetOwnerAlignedDeviceRect(Rect localRect, out Rect deviceRect)
-        {
-            deviceRect = default(Rect);
-            if (!IsUsableRect(localRect))
-            {
-                return false;
-            }
-
-            Rect aligned = GUIUtility.AlignRectToDevice(
-                localRect,
-                out int deviceWidth,
-                out int deviceHeight);
-            if (deviceWidth <= 0 || deviceHeight <= 0)
-            {
-                return false;
-            }
-
-            Rect screenAligned = UnclipRect(aligned);
-            if (!IsUsableRect(screenAligned))
-            {
-                return false;
-            }
-
-            // AlignRectToDevice supplies the physical dimensions. At UI 1 the
-            // unclipped origin is in the same device space, so floor it exactly
-            // once and carry the native width/height through the RT.
-            deviceRect = new Rect(
-                Mathf.FloorToInt(screenAligned.xMin),
-                Mathf.FloorToInt(screenAligned.yMin),
-                deviceWidth,
-                deviceHeight);
-            return true;
-        }
-
-        private static bool TryMapDeviceRect(
-            Rect deviceRect,
+        private static bool TryMapScreenRect(
+            Rect screenRect,
             int allocationLeft,
             int allocationTop,
             int allocationWidth,
@@ -729,10 +701,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             out Rect sourceRect)
         {
             sourceRect = new Rect(
-                deviceRect.x - allocationLeft,
-                deviceRect.y - allocationTop,
-                deviceRect.width,
-                deviceRect.height);
+                screenRect.x - allocationLeft,
+                screenRect.y - allocationTop,
+                screenRect.width,
+                screenRect.height);
             return sourceRect.xMin >= 0f && sourceRect.yMin >= 0f &&
                    sourceRect.xMax <= allocationWidth &&
                    sourceRect.yMax <= allocationHeight;
