@@ -47,5 +47,13 @@ namespace Better_Work_Tab.UI.Headers.Angled
             if (UnclipHandle == null) return pos;
             return UnclipHandle(pos);
         }
+
+        /// <summary>
+        /// Callers that require real owner-to-screen coordinates must fail
+        /// closed when Unity's internal GUIClip bridge is unavailable. The
+        /// legacy header path may still use <see cref="Unclip"/>'s harmless
+        /// identity fallback, but retained device surfaces cannot.
+        /// </summary>
+        public static bool CanUnclip => UnclipHandle != null;
     }
 }

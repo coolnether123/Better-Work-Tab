@@ -85,31 +85,49 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         }
 
         /// <summary>
-        /// Keeps the live-owner-to-surface coordinate contract at one narrow
-        /// boundary. It has a single caller because retention must not become a
-        /// second renderer with its own geometry rules.
+        /// The small value-type key that a warm row needs. It captures only
+        /// the owner-clipped row allocation and phase; it deliberately never
+        /// walks prepared cells or allocates on a cache hit.
         /// </summary>
-        private sealed class DeviceSurfaceLayout
+        private readonly struct DeviceSurfaceFrame
         {
-            internal DeviceSurfaceLayout(
-                DeviceSurfaceCell[] cells,
+            internal DeviceSurfaceFrame(
                 Rect presentationDestination,
+                int allocationLeft,
+                int allocationTop,
                 int pixelWidth,
                 int pixelHeight,
                 ulong mappingFingerprint)
             {
-                Cells = cells;
                 PresentationDestination = presentationDestination;
+                AllocationLeft = allocationLeft;
+                AllocationTop = allocationTop;
                 PixelWidth = pixelWidth;
                 PixelHeight = pixelHeight;
                 MappingFingerprint = mappingFingerprint;
             }
 
-            internal DeviceSurfaceCell[] Cells { get; }
             internal Rect PresentationDestination { get; }
+            internal int AllocationLeft { get; }
+            internal int AllocationTop { get; }
             internal int PixelWidth { get; }
             internal int PixelHeight { get; }
             internal ulong MappingFingerprint { get; }
+        }
+
+        /// <summary>
+        /// Cold-build geometry owned by this cache. It has one caller and is
+        /// constructed only after the row-level key misses, preserving packet
+        /// ownership of prepared topology and the hot retained-hit path.
+        /// </summary>
+        private sealed class DeviceSurfaceLayout
+        {
+            internal DeviceSurfaceLayout(DeviceSurfaceCell[] cells)
+            {
+                Cells = cells;
+            }
+
+            internal DeviceSurfaceCell[] Cells { get; }
         }
 
         internal sealed class PreparedRun
@@ -516,18 +534,18 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
-        private static bool TryCreateDeviceSurfaceLayout(
-            Rect bounds,
+        private static bool TryCreateDeviceSurfaceFrame(
             Rect destination,
-            IReadOnlyList<Cell> cells,
-            out DeviceSurfaceLayout layout)
+            out DeviceSurfaceFrame frame)
         {
-            layout = null;
+            frame = default(DeviceSurfaceFrame);
             // This experiment intentionally owns only the known UI-1 path.
             // Any screen/UI scaling or caller transform would require a second
             // rasterization contract, so the existing complete direct path is
             // safer than a near-pixel presentation.
-            if (!IsUiOneDeviceSpace() || !IsIdentity(GUI.matrix))
+            if (!GUIClipUtility.CanUnclip ||
+                !IsUiOneDeviceSpace() ||
+                !IsIdentity(GUI.matrix))
             {
                 return false;
             }
@@ -557,14 +575,34 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 destination.y + allocationTop - screenDestination.yMin,
                 pixelWidth,
                 pixelHeight);
-            var deviceCells = new DeviceSurfaceCell[cells.Count];
             ulong mappingFingerprint = 1469598103934665603UL;
-            Mix(ref mappingFingerprint, allocationLeft);
-            Mix(ref mappingFingerprint, allocationTop);
             Mix(ref mappingFingerprint, pixelWidth);
             Mix(ref mappingFingerprint, pixelHeight);
-            Mix(ref mappingFingerprint, presentation.GetHashCode());
+            // Integer screen translation reuses the same source surface. Only
+            // the fractional owner phase can change the aligned source cells.
+            Mix(ref mappingFingerprint, GetFractionalPhase(screenDestination.xMin).GetHashCode());
+            Mix(ref mappingFingerprint, GetFractionalPhase(screenDestination.yMin).GetHashCode());
+            Mix(ref mappingFingerprint, GetFractionalPhase(screenDestination.xMax).GetHashCode());
+            Mix(ref mappingFingerprint, GetFractionalPhase(screenDestination.yMax).GetHashCode());
+            frame = new DeviceSurfaceFrame(
+                presentation,
+                allocationLeft,
+                allocationTop,
+                pixelWidth,
+                pixelHeight,
+                mappingFingerprint);
+            return true;
+        }
 
+        private static bool TryCreateDeviceSurfaceLayout(
+            Rect bounds,
+            Rect destination,
+            IReadOnlyList<Cell> cells,
+            DeviceSurfaceFrame frame,
+            out DeviceSurfaceLayout layout)
+        {
+            layout = null;
+            var deviceCells = new DeviceSurfaceCell[cells.Count];
             float offsetX = destination.x - bounds.x;
             float offsetY = destination.y - bounds.y;
             for (int index = 0; index < cells.Count; index++)
@@ -573,10 +611,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 if (!TryGetOwnerAlignedDeviceRect(localCell, out Rect deviceCell) ||
                     !TryMapDeviceRect(
                         deviceCell,
-                        allocationLeft,
-                        allocationTop,
-                        pixelWidth,
-                        pixelHeight,
+                        frame.AllocationLeft,
+                        frame.AllocationTop,
+                        frame.PixelWidth,
+                        frame.PixelHeight,
                         out Rect sourceCell))
                 {
                     return false;
@@ -588,27 +626,25 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 if (!TryGetOwnerAlignedDeviceRect(localPassion, out Rect devicePassion) ||
                     !TryMapDeviceRect(
                         devicePassion,
-                        allocationLeft,
-                        allocationTop,
-                        pixelWidth,
-                        pixelHeight,
+                        frame.AllocationLeft,
+                        frame.AllocationTop,
+                        frame.PixelWidth,
+                        frame.PixelHeight,
                         out Rect sourcePassion))
                 {
                     return false;
                 }
 
                 deviceCells[index] = new DeviceSurfaceCell(sourceCell, sourcePassion);
-                Mix(ref mappingFingerprint, sourceCell.GetHashCode());
-                Mix(ref mappingFingerprint, sourcePassion.GetHashCode());
             }
 
-            layout = new DeviceSurfaceLayout(
-                deviceCells,
-                presentation,
-                pixelWidth,
-                pixelHeight,
-                mappingFingerprint);
+            layout = new DeviceSurfaceLayout(deviceCells);
             return true;
+        }
+
+        private static float GetFractionalPhase(float value)
+        {
+            return value - Mathf.Floor(value);
         }
 
         private static bool IsUiOneDeviceSpace()
@@ -723,13 +759,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int renderResourcesRevision)
         {
             if (!IsNeutralTint(baseColor) ||
-                !TryCreateDeviceSurfaceLayout(bounds, destination, cells, out DeviceSurfaceLayout layout))
+                !TryCreateDeviceSurfaceFrame(destination, out DeviceSurfaceFrame frame))
             {
                 return false;
             }
 
-            int pixelWidth = layout.PixelWidth;
-            int pixelHeight = layout.PixelHeight;
+            int pixelWidth = frame.PixelWidth;
+            int pixelHeight = frame.PixelHeight;
             long requestedBytes = (long)pixelWidth * pixelHeight * 4L;
             if (requestedBytes > MaximumEstimatedSurfaceBytes)
             {
@@ -748,7 +784,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 retainedVisualKey,
                 pixelWidth,
                 pixelHeight,
-                layout.MappingFingerprint,
+                frame.MappingFingerprint,
                 renderResourcesRevision);
 
             if (!TryAcquireSurface(
@@ -767,7 +803,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     fingerprint,
                     retainedVisualKey,
                     bounds,
-                    layout,
+                    destination,
+                    frame,
                     cells,
                     baseColor,
                     renderResourcesRevision))
@@ -785,7 +822,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return false;
             }
 
-            PresentSurface(entry.Surface, layout.PresentationDestination);
+            PresentSurface(entry.Surface, frame.PresentationDestination);
             return true;
         }
 
@@ -880,7 +917,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             ulong fingerprint,
             WorkGridRetainedVisualKey retainedVisualKey,
             Rect bounds,
-            DeviceSurfaceLayout layout,
+            Rect destination,
+            DeviceSurfaceFrame frame,
             IReadOnlyList<Cell> cells,
             Color baseColor,
             int renderResourcesRevision)
@@ -890,6 +928,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 entry.Bounds == bounds)
             {
                 return true;
+            }
+
+            if (!TryCreateDeviceSurfaceLayout(
+                    bounds,
+                    destination,
+                    cells,
+                    frame,
+                    out DeviceSurfaceLayout layout))
+            {
+                return false;
             }
 
             if (!BuildSurface(
