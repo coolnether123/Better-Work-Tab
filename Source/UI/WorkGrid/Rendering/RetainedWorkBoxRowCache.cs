@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Headers.Angled;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using UnityEngine;
 using Verse;
@@ -21,6 +22,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
     {
         private const int MaximumEntries = 128;
         private const long MaximumEstimatedSurfaceBytes = 64L * 1024L * 1024L;
+        private const float DeviceScaleEpsilon = 0.0001f;
         private readonly Dictionary<RowKey, Entry> _entries =
             new Dictionary<RowKey, Entry>(64);
         private bool _disabled;
@@ -39,6 +41,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 WorkBoxVisualState visual,
                 int displayPriority,
                 bool bakePriorityLabel = false,
+                bool bakePassion = false,
                 GameFont priorityFont = GameFont.Medium,
                 int priorityStyleRevision = 0)
             {
@@ -48,6 +51,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Visual = visual;
                 DisplayPriority = displayPriority;
                 BakePriorityLabel = bakePriorityLabel;
+                BakePassion = bakePassion;
                 PriorityFont = priorityFont;
                 PriorityStyleRevision = priorityStyleRevision;
             }
@@ -58,8 +62,54 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             internal WorkBoxVisualState Visual { get; }
             internal int DisplayPriority { get; }
             internal bool BakePriorityLabel { get; }
+            internal bool BakePassion { get; }
             internal GameFont PriorityFont { get; }
             internal int PriorityStyleRevision { get; }
+        }
+
+        /// <summary>
+        /// The target-space rectangles for one cell. They are derived while
+        /// the live owner clip is still active, so they describe device pixels
+        /// rather than a guessed row-local phase.
+        /// </summary>
+        private readonly struct DeviceSurfaceCell
+        {
+            internal DeviceSurfaceCell(Rect cellRect, Rect passionRect)
+            {
+                CellRect = cellRect;
+                PassionRect = passionRect;
+            }
+
+            internal Rect CellRect { get; }
+            internal Rect PassionRect { get; }
+        }
+
+        /// <summary>
+        /// Keeps the live-owner-to-surface coordinate contract at one narrow
+        /// boundary. It has a single caller because retention must not become a
+        /// second renderer with its own geometry rules.
+        /// </summary>
+        private sealed class DeviceSurfaceLayout
+        {
+            internal DeviceSurfaceLayout(
+                DeviceSurfaceCell[] cells,
+                Rect presentationDestination,
+                int pixelWidth,
+                int pixelHeight,
+                ulong mappingFingerprint)
+            {
+                Cells = cells;
+                PresentationDestination = presentationDestination;
+                PixelWidth = pixelWidth;
+                PixelHeight = pixelHeight;
+                MappingFingerprint = mappingFingerprint;
+            }
+
+            internal DeviceSurfaceCell[] Cells { get; }
+            internal Rect PresentationDestination { get; }
+            internal int PixelWidth { get; }
+            internal int PixelHeight { get; }
+            internal ulong MappingFingerprint { get; }
         }
 
         internal sealed class PreparedRun
@@ -270,7 +320,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         private static bool BuildSurface(
             RenderTexture surface,
-            Rect bounds,
+            DeviceSurfaceLayout layout,
             IReadOnlyList<Cell> cells,
             Color baseColor,
             out RetainedWorkBoxDrawFailure failure)
@@ -289,25 +339,22 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 GL.InvalidateState();
                 PreparedWorkBoxRenderer.ConfigureSrgbWriteForSrgbTarget();
                 GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));
-                // Keep prepared logical rects in surface coordinates. Stable
-                // textures and proven native priority numerals are composed
-                // here; translucent warnings, passion icons, and interaction
-                // feedback remain live after presentation.
+                // The target owns device pixels. Its rectangles were captured
+                // before this target became active, while the real owner clip
+                // and native device alignment were still in force.
                 GUI.matrix = Matrix4x4.identity;
                 GL.PushMatrix();
                 matrixPushed = true;
                 try
                 {
-                    GL.LoadPixelMatrix(0f, bounds.width, bounds.height, 0f);
+                    GL.LoadPixelMatrix(0f, surface.width, surface.height, 0f);
                     GL.Clear(true, true, Color.clear);
                     for (int index = 0; index < cells.Count; index++)
                     {
                         Cell cell = cells[index];
-                        Rect localRect = cell.BoxRect;
-                        localRect.x -= bounds.x;
-                        localRect.y -= bounds.y;
+                        DeviceSurfaceCell deviceCell = layout.Cells[index];
                         bool drawn = PreparedWorkBoxRenderer.DrawRetained(
-                            localRect,
+                            deviceCell.CellRect,
                             cell.Visual,
                             cell.DisplayPriority,
                             baseColor,
@@ -318,14 +365,25 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                             return false;
                         }
 
+                        if (cell.BakePassion &&
+                            !PreparedWorkBoxRenderer.DrawRetainedPassionIcon(
+                                deviceCell.PassionRect,
+                                cell.Visual,
+                                out cellFailure))
+                        {
+                            failure = cellFailure;
+                            return false;
+                        }
+
                         if (cell.BakePriorityLabel &&
                             !PreparedWorkBoxRenderer.DrawRetainedPriorityLabel(
-                                localRect,
+                                deviceCell.CellRect,
                                 cell.Visual,
                                 cell.DisplayPriority,
                                 cell.PriorityFont,
                                 baseColor,
-                                out cellFailure))
+                                out cellFailure,
+                                passionBaked: cell.BakePassion))
                         {
                             failure = cellFailure;
                             return false;
@@ -378,6 +436,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridRetainedVisualKey retainedVisualKey,
             int pixelWidth,
             int pixelHeight,
+            ulong mappingFingerprint,
             int renderResourcesRevision)
         {
             ulong hash = 1469598103934665603UL;
@@ -389,6 +448,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Mix(ref hash, renderResourcesRevision);
             Mix(ref hash, pixelWidth);
             Mix(ref hash, pixelHeight);
+            Mix(ref hash, unchecked((int)mappingFingerprint));
+            Mix(ref hash, unchecked((int)(mappingFingerprint >> 32)));
             Mix(ref hash, baseColor.GetHashCode());
             // The material is shared by every retained row, but its identity
             // still belongs in the key. A device/resource reset can replace
@@ -426,6 +487,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     cell.DisplayPriority > WorkPrioritySystem.DisabledPriority;
                 Mix(ref hash, retainedCheck ? 1 : 0);
                 Mix(ref hash, cell.BakePriorityLabel ? 1 : 0);
+                Mix(ref hash, cell.BakePassion ? 1 : 0);
+                if (cell.BakePassion)
+                {
+                    // The texture choice is an observable foreground input;
+                    // never reuse a minor-passion surface for a major icon.
+                    Mix(ref hash, visual.Passion);
+                }
                 if (cell.BakePriorityLabel)
                 {
                     Mix(ref hash, cell.DisplayPriority);
@@ -448,6 +516,201 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
+        private static bool TryCreateDeviceSurfaceLayout(
+            Rect bounds,
+            Rect destination,
+            IReadOnlyList<Cell> cells,
+            out DeviceSurfaceLayout layout)
+        {
+            layout = null;
+            // This experiment intentionally owns only the known UI-1 path.
+            // Any screen/UI scaling or caller transform would require a second
+            // rasterization contract, so the existing complete direct path is
+            // safer than a near-pixel presentation.
+            if (!IsUiOneDeviceSpace() || !IsIdentity(GUI.matrix))
+            {
+                return false;
+            }
+
+            Rect screenDestination = UnclipRect(destination);
+            if (!IsUsableRect(screenDestination))
+            {
+                return false;
+            }
+
+            int allocationLeft = Mathf.FloorToInt(screenDestination.xMin);
+            int allocationTop = Mathf.FloorToInt(screenDestination.yMin);
+            int allocationRight = Mathf.CeilToInt(screenDestination.xMax);
+            int allocationBottom = Mathf.CeilToInt(screenDestination.yMax);
+            int pixelWidth = allocationRight - allocationLeft;
+            int pixelHeight = allocationBottom - allocationTop;
+            if (pixelWidth <= 0 || pixelHeight <= 0)
+            {
+                return false;
+            }
+
+            // Present the complete integer allocation through the owner clip.
+            // The delta maps its physical top-left back into the caller's local
+            // coordinates without guessing a half-row phase.
+            Rect presentation = new Rect(
+                destination.x + allocationLeft - screenDestination.xMin,
+                destination.y + allocationTop - screenDestination.yMin,
+                pixelWidth,
+                pixelHeight);
+            var deviceCells = new DeviceSurfaceCell[cells.Count];
+            ulong mappingFingerprint = 1469598103934665603UL;
+            Mix(ref mappingFingerprint, allocationLeft);
+            Mix(ref mappingFingerprint, allocationTop);
+            Mix(ref mappingFingerprint, pixelWidth);
+            Mix(ref mappingFingerprint, pixelHeight);
+            Mix(ref mappingFingerprint, presentation.GetHashCode());
+
+            float offsetX = destination.x - bounds.x;
+            float offsetY = destination.y - bounds.y;
+            for (int index = 0; index < cells.Count; index++)
+            {
+                Rect localCell = OffsetRect(cells[index].BoxRect, offsetX, offsetY);
+                if (!TryGetOwnerAlignedDeviceRect(localCell, out Rect deviceCell) ||
+                    !TryMapDeviceRect(
+                        deviceCell,
+                        allocationLeft,
+                        allocationTop,
+                        pixelWidth,
+                        pixelHeight,
+                        out Rect sourceCell))
+                {
+                    return false;
+                }
+
+                Rect localPassion = localCell;
+                localPassion.xMin = localCell.center.x;
+                localPassion.yMin = localCell.center.y;
+                if (!TryGetOwnerAlignedDeviceRect(localPassion, out Rect devicePassion) ||
+                    !TryMapDeviceRect(
+                        devicePassion,
+                        allocationLeft,
+                        allocationTop,
+                        pixelWidth,
+                        pixelHeight,
+                        out Rect sourcePassion))
+                {
+                    return false;
+                }
+
+                deviceCells[index] = new DeviceSurfaceCell(sourceCell, sourcePassion);
+                Mix(ref mappingFingerprint, sourceCell.GetHashCode());
+                Mix(ref mappingFingerprint, sourcePassion.GetHashCode());
+            }
+
+            layout = new DeviceSurfaceLayout(
+                deviceCells,
+                presentation,
+                pixelWidth,
+                pixelHeight,
+                mappingFingerprint);
+            return true;
+        }
+
+        private static bool IsUiOneDeviceSpace()
+        {
+            if (Verse.UI.screenWidth <= 0 || Verse.UI.screenHeight <= 0 ||
+                Screen.width <= 0 || Screen.height <= 0 ||
+                Mathf.Abs(Prefs.UIScale - 1f) > DeviceScaleEpsilon)
+            {
+                return false;
+            }
+
+            float screenScaleX = (float)Screen.width / Verse.UI.screenWidth;
+            float screenScaleY = (float)Screen.height / Verse.UI.screenHeight;
+            return Mathf.Abs(screenScaleX - 1f) <= DeviceScaleEpsilon &&
+                   Mathf.Abs(screenScaleY - 1f) <= DeviceScaleEpsilon;
+        }
+
+        private static bool IsIdentity(Matrix4x4 matrix)
+        {
+            return matrix.m00 == 1f && matrix.m11 == 1f &&
+                   matrix.m22 == 1f && matrix.m33 == 1f &&
+                   matrix.m01 == 0f && matrix.m02 == 0f && matrix.m03 == 0f &&
+                   matrix.m10 == 0f && matrix.m12 == 0f && matrix.m13 == 0f &&
+                   matrix.m20 == 0f && matrix.m21 == 0f && matrix.m23 == 0f &&
+                   matrix.m30 == 0f && matrix.m31 == 0f && matrix.m32 == 0f;
+        }
+
+        private static Rect OffsetRect(Rect rect, float x, float y)
+        {
+            rect.x += x;
+            rect.y += y;
+            return rect;
+        }
+
+        private static Rect UnclipRect(Rect rect)
+        {
+            Vector2 minimum = GUIClipUtility.Unclip(new Vector2(rect.xMin, rect.yMin));
+            Vector2 maximum = GUIClipUtility.Unclip(new Vector2(rect.xMax, rect.yMax));
+            return Rect.MinMaxRect(minimum.x, minimum.y, maximum.x, maximum.y);
+        }
+
+        private static bool TryGetOwnerAlignedDeviceRect(Rect localRect, out Rect deviceRect)
+        {
+            deviceRect = default(Rect);
+            if (!IsUsableRect(localRect))
+            {
+                return false;
+            }
+
+            Rect aligned = GUIUtility.AlignRectToDevice(
+                localRect,
+                out int deviceWidth,
+                out int deviceHeight);
+            if (deviceWidth <= 0 || deviceHeight <= 0)
+            {
+                return false;
+            }
+
+            Rect screenAligned = UnclipRect(aligned);
+            if (!IsUsableRect(screenAligned))
+            {
+                return false;
+            }
+
+            // AlignRectToDevice supplies the physical dimensions. At UI 1 the
+            // unclipped origin is in the same device space, so floor it exactly
+            // once and carry the native width/height through the RT.
+            deviceRect = new Rect(
+                Mathf.FloorToInt(screenAligned.xMin),
+                Mathf.FloorToInt(screenAligned.yMin),
+                deviceWidth,
+                deviceHeight);
+            return true;
+        }
+
+        private static bool TryMapDeviceRect(
+            Rect deviceRect,
+            int allocationLeft,
+            int allocationTop,
+            int allocationWidth,
+            int allocationHeight,
+            out Rect sourceRect)
+        {
+            sourceRect = new Rect(
+                deviceRect.x - allocationLeft,
+                deviceRect.y - allocationTop,
+                deviceRect.width,
+                deviceRect.height);
+            return sourceRect.xMin >= 0f && sourceRect.yMin >= 0f &&
+                   sourceRect.xMax <= allocationWidth &&
+                   sourceRect.yMax <= allocationHeight;
+        }
+
+        private static bool IsUsableRect(Rect rect)
+        {
+            return !float.IsNaN(rect.xMin) && !float.IsNaN(rect.yMin) &&
+                   !float.IsNaN(rect.xMax) && !float.IsNaN(rect.yMax) &&
+                   !float.IsInfinity(rect.xMin) && !float.IsInfinity(rect.yMin) &&
+                   !float.IsInfinity(rect.xMax) && !float.IsInfinity(rect.yMax) &&
+                   rect.width > 0f && rect.height > 0f;
+        }
+
         private bool TryDrawCore(
             RowKey key,
             Rect bounds,
@@ -459,11 +722,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkGridRetainedVisualKey retainedVisualKey,
             int renderResourcesRevision)
         {
-            float pixelScale = Verse.UI.screenWidth > 0
-                ? Mathf.Max(1f, (float)Screen.width / Verse.UI.screenWidth)
-                : 1f;
-            int pixelWidth = Mathf.Max(1, Mathf.CeilToInt(bounds.width * pixelScale));
-            int pixelHeight = Mathf.Max(1, Mathf.CeilToInt(bounds.height * pixelScale));
+            if (!IsNeutralTint(baseColor) ||
+                !TryCreateDeviceSurfaceLayout(bounds, destination, cells, out DeviceSurfaceLayout layout))
+            {
+                return false;
+            }
+
+            int pixelWidth = layout.PixelWidth;
+            int pixelHeight = layout.PixelHeight;
             long requestedBytes = (long)pixelWidth * pixelHeight * 4L;
             if (requestedBytes > MaximumEstimatedSurfaceBytes)
             {
@@ -482,6 +748,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 retainedVisualKey,
                 pixelWidth,
                 pixelHeight,
+                layout.MappingFingerprint,
                 renderResourcesRevision);
 
             if (!TryAcquireSurface(
@@ -500,6 +767,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     fingerprint,
                     retainedVisualKey,
                     bounds,
+                    layout,
                     cells,
                     baseColor,
                     renderResourcesRevision))
@@ -517,8 +785,16 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return false;
             }
 
-            PresentSurface(entry.Surface, destination);
+            PresentSurface(entry.Surface, layout.PresentationDestination);
             return true;
+        }
+
+        private static bool IsNeutralTint(Color color)
+        {
+            return Mathf.Abs(color.r - 1f) <= DeviceScaleEpsilon &&
+                   Mathf.Abs(color.g - 1f) <= DeviceScaleEpsilon &&
+                   Mathf.Abs(color.b - 1f) <= DeviceScaleEpsilon &&
+                   Mathf.Abs(color.a - 1f) <= DeviceScaleEpsilon;
         }
 
         private bool TryEnsureCompositionCapability(int renderResourcesRevision)
@@ -604,6 +880,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             ulong fingerprint,
             WorkGridRetainedVisualKey retainedVisualKey,
             Rect bounds,
+            DeviceSurfaceLayout layout,
             IReadOnlyList<Cell> cells,
             Color baseColor,
             int renderResourcesRevision)
@@ -617,7 +894,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             if (!BuildSurface(
                     entry.Surface,
-                    bounds,
+                    layout,
                     cells,
                     baseColor,
                     out RetainedWorkBoxDrawFailure failure))

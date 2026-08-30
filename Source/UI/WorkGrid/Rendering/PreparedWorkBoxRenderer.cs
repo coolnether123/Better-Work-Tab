@@ -520,11 +520,50 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkBoxVisualState visual,
             int displayPriority)
         {
+            return CanBakePriorityLabel(
+                boxRect,
+                visual,
+                displayPriority,
+                allowPassion: false);
+        }
+
+        /// <summary>
+        /// Admits the one foreground combination that the retained row can own
+        /// as a unit: an immediate passion icon followed by its native-style
+        /// manual numeral. Warning-bearing cells remain on the live path.
+        /// </summary>
+        internal static bool CanBakePassionAndPriorityLabel(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            int displayPriority)
+        {
+            return CanBakePassionIcon(visual) &&
+                   CanBakePriorityLabel(
+                       boxRect,
+                       visual,
+                       displayPriority,
+                       allowPassion: true);
+        }
+
+        private static bool CanBakePriorityLabel(
+            Rect boxRect,
+            WorkBoxVisualState visual,
+            int displayPriority,
+            bool allowPassion)
+        {
             return boxRect.width > 0f &&
                    boxRect.height > 0f &&
                    HasPriorityLabel(visual, displayPriority) &&
-                   (visual.Flags & (WorkCellVisualFlags.HasPassion |
-                                    WorkCellVisualFlags.LowSkillWarning)) == 0;
+                   (visual.Flags & WorkCellVisualFlags.LowSkillWarning) == 0 &&
+                   (allowPassion ||
+                    (visual.Flags & WorkCellVisualFlags.HasPassion) == 0);
+        }
+
+        private static bool CanBakePassionIcon(WorkBoxVisualState visual)
+        {
+            return HasLivePassionIcon(visual) &&
+                   (visual.Flags & (WorkCellVisualFlags.LowSkillWarning |
+                                     WorkCellVisualFlags.IdeologyWarning)) == 0;
         }
 
         /// <summary>
@@ -540,13 +579,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int displayPriority,
             GameFont font,
             Color baseColor,
-            out RetainedWorkBoxDrawFailure failure)
+            out RetainedWorkBoxDrawFailure failure,
+            bool passionBaked = false)
         {
             failure = RetainedWorkBoxDrawFailure.None;
             if (!CanBakePriorityLabel(
                     boxRect,
                     visual,
-                    displayPriority))
+                    displayPriority,
+                    passionBaked))
             {
                 return true;
             }
@@ -598,6 +639,32 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 Text.Anchor = previousAnchor;
                 Text.WordWrap = previousWordWrap;
             }
+        }
+
+        /// <summary>
+        /// Emits a passion icon immediately while the retained row owns its
+        /// render target. The caller supplies the already device-aligned source
+        /// rectangle captured from the live owner clip.
+        /// </summary>
+        internal static bool DrawRetainedPassionIcon(
+            Rect passionRect,
+            WorkBoxVisualState visual,
+            out RetainedWorkBoxDrawFailure failure)
+        {
+            failure = RetainedWorkBoxDrawFailure.None;
+            if (!HasLivePassionIcon(visual) ||
+                !DrawRetainedTexture(
+                    passionRect,
+                    visual.Passion == 1
+                        ? WidgetsWork.PassionWorkboxMinorIcon
+                        : WidgetsWork.PassionWorkboxMajorIcon,
+                    new Color(1f, 1f, 1f, 0.4f)))
+            {
+                failure = RetainedWorkBoxDrawFailure.ResourceUnavailable;
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -764,10 +831,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         internal static bool HasLiveForeground(
             WorkBoxVisualState visual,
             int displayPriority,
-            bool priorityLabelBaked = false)
+            bool priorityLabelBaked = false,
+            bool passionBaked = false)
         {
             return HasLiveLowSkillWarning(visual) ||
-                   HasLivePassionIcon(visual) ||
+                   (!passionBaked && HasLivePassionIcon(visual)) ||
                    (!priorityLabelBaked && HasPriorityLabel(visual, displayPriority));
         }
 
