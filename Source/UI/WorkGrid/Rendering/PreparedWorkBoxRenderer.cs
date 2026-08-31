@@ -112,7 +112,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 skillBand,
                 skillBlend,
                 passion,
-                PackColor(WorkPrioritySystem.GetPriorityColor(priority)),
+                WorkPrioritySystem.GetPriorityColor(priority),
                 flags);
         }
 
@@ -366,7 +366,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     0,
                     0f,
                     0,
-                    PackColor(Color.white),
+                    Color.white,
                     WorkCellVisualFlags.ManualPriorityMode);
                 // Read a baseline after the known texture draw, then read again
                 // after GUIStyle.Draw. Comparing the label region proves that
@@ -506,7 +506,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             int displayPriority)
         {
             return displayPriority == visual.Priority
-                ? UnpackColor(visual.PriorityColor)
+                ? visual.PriorityColor
                 : WorkPrioritySystem.GetPriorityColor(displayPriority);
         }
 
@@ -1205,25 +1205,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
         }
 
-        private static uint PackColor(Color color)
-        {
-            Color32 value = color;
-            return (uint)(value.r | (value.g << 8) | (value.b << 16) | (value.a << 24));
-        }
-
         private static Color WithAlpha(Color color, float alpha)
         {
             color.a *= alpha;
             return color;
         }
 
-        private static Color UnpackColor(uint packed)
-        {
-            return new Color32(
-                (byte)(packed & 0xFF),
-                (byte)((packed >> 8) & 0xFF),
-                (byte)((packed >> 16) & 0xFF),
-                (byte)((packed >> 24) & 0xFF));
-        }
     }
 }

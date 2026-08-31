@@ -1298,7 +1298,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private static void DrawCellStandalone(
             Rect cellRect,
             byte priority,
-            uint priorityColor,
+            Color priorityColor,
             WorkCellVisualFlags flags,
             byte skillBand,
             float skillBlend,
@@ -1319,7 +1319,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         private void DrawCellInBatch(
             Rect cellRect,
             byte priority,
-            uint priorityColor,
+            Color priorityColor,
             WorkCellVisualFlags flags,
             byte skillBand,
             float skillBlend,
