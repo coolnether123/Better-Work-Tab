@@ -38,7 +38,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 provider);
             PacketBuilderConsumesPreparedStateOnly(packet);
             DynamicPassUsesPreparedOwnership(optimized, packet, subWork);
-            RetainedTransparentForegroundStaysOnTheLivePath(preparedBox, packet, optimized);
+            RetainedForegroundBoundaryPreservesSafeCombination(
+                preparedBox,
+                packet,
+                optimized,
+                retained);
             PreparedRowsRejectStalePawns(optimized);
             SparseUpdatesAdvanceOnlyDirtyRows(snapshot, provider);
             RetainedHitsUsePrecomputedBoundsAndFingerprint(retained, preparedBox);
@@ -362,10 +366,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "the cached reset property must be a side-effect-free collection count");
         }
 
-        private static void RetainedTransparentForegroundStaysOnTheLivePath(
+        private static void RetainedForegroundBoundaryPreservesSafeCombination(
             string preparedBox,
             string packet,
-            string optimized)
+            string optimized,
+            string retainedCache)
         {
             TestAssert.Contains(
                 preparedBox,
@@ -382,23 +387,81 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 retained.IndexOf("DrawPriorityLabel(", StringComparison.Ordinal) >= 0,
                 "retained work boxes must use the dedicated native-style composition boundary");
-            TestAssert.False(
-                retained.IndexOf("PassionWorkbox", StringComparison.Ordinal) >= 0,
-                "transparent passion icons must not be composed into a retained surface");
-
             string canBake = MemberBody(preparedBox, "private static bool CanBakePriorityLabel(");
             TestAssert.Contains(
                 canBake,
                 "WorkCellVisualFlags.HasPassion",
-                "passion cells must remain on the live foreground path");
+                "the private label predicate must account for the combined passion path");
             TestAssert.Contains(
                 canBake,
                 "WorkCellVisualFlags.LowSkillWarning",
-                "low-skill warning cells must remain on the live foreground path");
+                "warning-bearing cells must remain outside the retained label path");
             TestAssert.Contains(
                 canBake,
                 "HasPriorityLabel(visual, displayPriority)",
                 "only cells that visibly own a priority numeral may bake one");
+            TestAssert.Contains(
+                canBake,
+                "allowPassion ||",
+                "the private label predicate must allow passion only for the combined path");
+            string passionIcon = MemberBody(
+                preparedBox,
+                "private static bool CanBakePassionIcon(");
+            TestAssert.Contains(
+                passionIcon,
+                "HasLivePassionIcon(visual)",
+                "the combined path must require a live passion icon");
+            TestAssert.Contains(
+                passionIcon,
+                "WorkCellVisualFlags.LowSkillWarning |",
+                "low-skill warnings must reject retained passion composition");
+            TestAssert.Contains(
+                passionIcon,
+                "WorkCellVisualFlags.IdeologyWarning",
+                "ideology warnings must reject retained passion composition");
+            string passionAndPriority = MemberBody(
+                preparedBox,
+                "internal static bool CanBakePassionAndPriorityLabel(");
+            int passionGate = passionAndPriority.IndexOf(
+                "CanBakePassionIcon(visual)",
+                StringComparison.Ordinal);
+            int priorityGate = passionAndPriority.IndexOf(
+                "CanBakePriorityLabel(",
+                passionGate + 1,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                passionGate >= 0 && priorityGate > passionGate,
+                "passion retention must require the passion icon and native priority label gates in order");
+            TestAssert.Contains(
+                passionAndPriority,
+                "allowPassion: true",
+                "the combined path must pass passion ownership to the retained native label");
+            string buildSurface = MemberBody(
+                retainedCache,
+                "private static bool BuildSurface(");
+            int retainedBase = buildSurface.IndexOf(
+                "PreparedWorkBoxRenderer.DrawRetained(",
+                StringComparison.Ordinal);
+            int retainedPassion = buildSurface.IndexOf(
+                "PreparedWorkBoxRenderer.DrawRetainedPassionIcon(",
+                retainedBase + 1,
+                StringComparison.Ordinal);
+            int retainedLabel = buildSurface.IndexOf(
+                "PreparedWorkBoxRenderer.DrawRetainedPriorityLabel(",
+                retainedPassion + 1,
+                StringComparison.Ordinal);
+            TestAssert.True(
+                retainedBase >= 0 && retainedPassion > retainedBase &&
+                    retainedLabel > retainedPassion,
+                "retained cells must compose background, safe passion, then native priority label in order");
+            TestAssert.Contains(
+                buildSurface,
+                "if (cell.BakePassion",
+                "only the safe combined predicate may publish a retained passion icon");
+            TestAssert.Contains(
+                buildSurface,
+                "passionBaked: cell.BakePassion",
+                "the retained label must share passion ownership with the retained surface");
             string bakedLabel = MemberBody(
                 preparedBox,
                 "internal static bool DrawRetainedPriorityLabel(");
@@ -562,9 +625,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 stable.IndexOf("WidgetsWork.WorkBoxOverlay_Warning", StringComparison.Ordinal) >= 0,
                 "transparent low-skill warning borders must not be composed into a retained surface");
-            TestAssert.False(
-                stable.IndexOf("PassionWorkbox", StringComparison.Ordinal) >= 0,
-                "transparent passion icons must not be composed into a retained surface");
             TestAssert.Contains(
                 stable,
                 "WidgetsWork.WorkBoxOverlay_PreceptWarning",
@@ -780,7 +840,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(fingerprint.IndexOf("Text.CurFontStyle", StringComparison.Ordinal) >= 0, "steady hits must not depend on ambient GUI font state");
             string staticFingerprint = MemberBody(retained, "private static ulong GetStaticFingerprint(");
             TestAssert.Contains(staticFingerprint, "cell.DisplayPriority", "baked priority values must invalidate their retained numeral");
-            TestAssert.False(staticFingerprint.IndexOf("visual.Passion", StringComparison.Ordinal) >= 0, "live passion icons must not rebuild texture-only retained surfaces");
+            TestAssert.Contains(
+                staticFingerprint,
+                "visual.Passion",
+                "safe retained passion icons must invalidate surfaces when their texture choice changes");
             TestAssert.Contains(staticFingerprint, "GetPriorityLabelColor", "baked priority colors must invalidate their retained numeral");
             TestAssert.Contains(staticFingerprint, "PriorityFont", "baked priority font choice must invalidate its retained numeral");
             TestAssert.Contains(staticFingerprint, "PriorityStyleRevision", "baked GUIStyle changes must invalidate their retained numeral");
@@ -809,7 +872,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(buildSurface.IndexOf("Text.Font", StringComparison.Ordinal) >= 0, "font state must remain scoped to the native numeral helper");
             TestAssert.Contains(
                 buildSurface,
-                "GL.LoadPixelMatrix(0f, bounds.width, bounds.height, 0f);",
+                "GL.LoadPixelMatrix(0f, surface.width, surface.height, 0f);",
                 "retained surface composition must establish its own pixel matrix");
             TestAssert.False(
                 buildSurface.IndexOf("GUI.BeginGroup", StringComparison.Ordinal) >= 0 ||
@@ -913,7 +976,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "entry.SurfaceBuiltFrame == Time.frameCount",
                 StringComparison.Ordinal);
             int present = drawCore.IndexOf(
-                "PresentSurface(entry.Surface, destination);",
+                "PresentSurface(entry.Surface, frame.PresentationDestination);",
                 StringComparison.Ordinal);
             TestAssert.True(
                 rebuild >= 0 && warmupGuard > rebuild && present > warmupGuard,
