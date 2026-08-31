@@ -74,13 +74,15 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         /// </summary>
         private readonly struct DeviceSurfaceCell
         {
-            internal DeviceSurfaceCell(Rect cellRect, Rect passionRect)
+            internal DeviceSurfaceCell(Rect cellRect, Rect textureRect, Rect passionRect)
             {
                 CellRect = cellRect;
+                TextureRect = textureRect;
                 PassionRect = passionRect;
             }
 
             internal Rect CellRect { get; }
+            internal Rect TextureRect { get; }
             internal Rect PassionRect { get; }
         }
 
@@ -372,7 +374,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         Cell cell = cells[index];
                         DeviceSurfaceCell deviceCell = layout.Cells[index];
                         bool drawn = PreparedWorkBoxRenderer.DrawRetained(
-                            deviceCell.CellRect,
+                            deviceCell.TextureRect,
                             cell.Visual,
                             cell.DisplayPriority,
                             baseColor,
@@ -608,10 +610,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             for (int index = 0; index < cells.Count; index++)
             {
                 Rect localCell = OffsetRect(cells[index].BoxRect, offsetX, offsetY);
-                // The row allocation is integer device space, but the direct
-                // GUI.DrawTexture path receives the original fractional cell
-                // rect. Do not align an individual cell here: its native
-                // alignment policy is not the retained raster policy.
+                // GUIStyle keeps the original fractional rectangle. Texture
+                // draws use native device alignment independently of text.
                 Rect screenCell = UnclipRect(localCell);
                 if (!IsUsableRect(screenCell) ||
                     !TryMapScreenRect(
@@ -625,11 +625,22 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     return false;
                 }
 
+                if (!TryGetOwnerTextureRect(localCell, out Rect screenTexture) ||
+                    !TryMapScreenRect(
+                        screenTexture,
+                        frame.AllocationLeft,
+                        frame.AllocationTop,
+                        frame.PixelWidth,
+                        frame.PixelHeight,
+                        out Rect sourceTexture))
+                {
+                    return false;
+                }
+
                 Rect localPassion = localCell;
                 localPassion.xMin = localCell.center.x;
                 localPassion.yMin = localCell.center.y;
-                Rect screenPassion = UnclipRect(localPassion);
-                if (!IsUsableRect(screenPassion) ||
+                if (!TryGetOwnerTextureRect(localPassion, out Rect screenPassion) ||
                     !TryMapScreenRect(
                         screenPassion,
                         frame.AllocationLeft,
@@ -641,7 +652,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     return false;
                 }
 
-                deviceCells[index] = new DeviceSurfaceCell(sourceCell, sourcePassion);
+                deviceCells[index] = new DeviceSurfaceCell(sourceCell, sourceTexture, sourcePassion);
             }
 
             layout = new DeviceSurfaceLayout(deviceCells);
@@ -690,6 +701,33 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             Vector2 minimum = GUIClipUtility.Unclip(new Vector2(rect.xMin, rect.yMin));
             Vector2 maximum = GUIClipUtility.Unclip(new Vector2(rect.xMax, rect.yMax));
             return Rect.MinMaxRect(minimum.x, minimum.y, maximum.x, maximum.y);
+        }
+
+        private static bool TryGetOwnerTextureRect(Rect localRect, out Rect screenRect)
+        {
+            Rect aligned = GUIUtility.AlignRectToDevice(
+                localRect,
+                out int pixelWidth,
+                out int pixelHeight);
+            screenRect = UnclipRect(aligned);
+            if (!IsUsableRect(screenRect) || pixelWidth <= 0 || pixelHeight <= 0)
+            {
+                return false;
+            }
+
+            float left = Mathf.Round(screenRect.x);
+            float top = Mathf.Round(screenRect.y);
+            // Unclip can return an integral device origin a few float ULPs
+            // below its integer. Normalize only that round-trip error; floor
+            // would move the entire texture by a pixel.
+            if (Mathf.Abs(screenRect.x - left) > DeviceScaleEpsilon ||
+                Mathf.Abs(screenRect.y - top) > DeviceScaleEpsilon)
+            {
+                return false;
+            }
+
+            screenRect = new Rect(left, top, pixelWidth, pixelHeight);
+            return true;
         }
 
         private static bool TryMapScreenRect(
