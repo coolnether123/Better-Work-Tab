@@ -1,6 +1,7 @@
 using System;
 using Spine.Collections;
 using Better_Work_Tab.UI.WorkGrid.Rendering;
+using UnityEngine;
 
 namespace Better_Work_Tab.UI.WorkGrid.Snapshots
 {
@@ -131,7 +132,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             byte skillBand,
             float skillBlend,
             byte passion,
-            uint priorityColor,
+            Color priorityColor,
             WorkCellVisualFlags flags)
         {
             Priority = priority;
@@ -146,7 +147,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         internal byte SkillBand { get; }
         internal float SkillBlend { get; }
         internal byte Passion { get; }
-        internal uint PriorityColor { get; }
+        internal Color PriorityColor { get; }
         internal WorkCellVisualFlags Flags { get; }
     }
 
@@ -238,7 +239,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             byte skillBand,
             float skillBlend,
             byte passion,
-            uint priorityColor,
+            Color priorityColor,
             WorkCellVisualFlags flags,
             WorkGridSubWorkVisualState subWork = default)
         {
@@ -261,7 +262,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
         internal byte SkillBand { get; }
         internal float SkillBlend { get; }
         internal byte Passion { get; }
-        internal uint PriorityColor { get; }
+        internal Color PriorityColor { get; }
         internal WorkCellVisualFlags Flags { get; }
         internal WorkGridSubWorkVisualState SubWork { get; }
     }
