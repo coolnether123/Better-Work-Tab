@@ -858,6 +858,22 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             float rowOffsetY,
             Color baseColor)
         {
+            bool hasActiveResetAnimations =
+                WorkGiverPriorityBoxRenderer.HasActiveResetAnimations;
+            // This pass owns prepared overlays, reset-animation replay, and
+            // hover chrome. Stable runs with none of those inputs need no
+            // dynamic work after their retained/direct pass has completed.
+            if (run.ParentDynamicSlotIndexes.Length == 0 &&
+                run.SubWorkRingSlotIndexes.Length == 0 &&
+                !hasActiveResetAnimations &&
+                packet.RowIndex != _hoveredRowIndex &&
+                _headerHoveredColumnIndex < 0)
+            {
+                return;
+            }
+
+            bool pointerOwned = TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
+                BWTWorkTabTutorial.OwnsCurrentPointer;
             for (int index = 0; index < run.ParentDynamicSlotIndexes.Length; index++)
             {
                 PreparedWorkRowCell slot = packet.Slots[run.ParentDynamicSlotIndexes[index]];
@@ -868,8 +884,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             int headerSlot = GetRunSlot(packet, runIndex, _headerHoveredColumnIndex);
-            bool pointerOwned = TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
-                BWTWorkTabTutorial.OwnsCurrentPointer;
             if (!pointerOwned && headerSlot >= 0)
             {
                 Widgets.DrawHighlight(OffsetY(packet.Slots[headerSlot].CellRect, rowOffsetY));
@@ -886,7 +900,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     rowOffsetY);
             }
 
-            if (WorkGiverPriorityBoxRenderer.HasActiveResetAnimations)
+            if (hasActiveResetAnimations)
             {
                 for (int index = 0; index < run.SubWorkSlotIndexes.Length; index++)
                 {
@@ -898,7 +912,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                             out _,
                             out _,
                             out WorkGiver workGiver) &&
-                        !Contains(run.SubWorkRingSlotIndexes, slotIndex) &&
+                        !slot.Cell.SubWork.HasDynamicRing &&
                         workGiver?.def != null &&
                         WorkGiverPriorityBoxRenderer.HasResetAnimation(
                             slot.Cell.PawnId,
@@ -922,8 +936,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                         out WorkGiver workGiver);
                     if (hasLiveWorkGiver &&
                         workGiver?.def != null &&
-                        !Contains(run.SubWorkRingSlotIndexes, hoveredSlot) &&
-                        (!WorkGiverPriorityBoxRenderer.HasActiveResetAnimations ||
+                        !slot.Cell.SubWork.HasDynamicRing &&
+                        (!hasActiveResetAnimations ||
                          !WorkGiverPriorityBoxRenderer.HasResetAnimation(
                              slot.Cell.PawnId,
                              workGiver.def)))
@@ -1001,22 +1015,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             return packet.RunByColumn[columnIndex] == runIndex
                 ? packet.SlotByColumn[columnIndex]
                 : -1;
-        }
-
-        private static bool Contains(int[] indexes, int value)
-        {
-            if (value < 0)
-            {
-                return false;
-            }
-            for (int index = 0; index < indexes.Length; index++)
-            {
-                if (indexes[index] == value)
-                {
-                    return true;
-                }
-            }
-            return false;
         }
 
         private static Rect OffsetY(Rect rect, float offsetY)
