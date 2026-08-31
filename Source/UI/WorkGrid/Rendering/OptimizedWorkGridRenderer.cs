@@ -863,11 +863,14 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             // This pass owns prepared overlays, reset-animation replay, and
             // hover chrome. Stable runs with none of those inputs need no
             // dynamic work after their retained/direct pass has completed.
+            // IsVisible also owns schedule-editor authority validation, which
+            // may finish a stale close; keep that lifecycle read in the gate.
             if (run.ParentDynamicSlotIndexes.Length == 0 &&
                 run.SubWorkRingSlotIndexes.Length == 0 &&
                 !hasActiveResetAnimations &&
                 packet.RowIndex != _hoveredRowIndex &&
-                _headerHoveredColumnIndex < 0)
+                _headerHoveredColumnIndex < 0 &&
+                !TimePriorityScheduleEditor.IsVisible)
             {
                 return;
             }

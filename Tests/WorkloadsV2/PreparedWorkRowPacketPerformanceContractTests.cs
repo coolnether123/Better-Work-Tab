@@ -303,7 +303,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 .Replace("\n", string.Empty)
                 .Replace(" ", string.Empty)
                 .Replace("\t", string.Empty);
-            TestAssert.Equal("if(run.ParentDynamicSlotIndexes.Length==0&&run.SubWorkRingSlotIndexes.Length==0&&!hasActiveResetAnimations&&packet.RowIndex!=_hoveredRowIndex&&_headerHoveredColumnIndex<0){return;", guard, "the dynamic guard must combine every effect predicate before returning");
+            TestAssert.Equal("if(run.ParentDynamicSlotIndexes.Length==0&&run.SubWorkRingSlotIndexes.Length==0&&!hasActiveResetAnimations&&packet.RowIndex!=_hoveredRowIndex&&_headerHoveredColumnIndex<0&&!TimePriorityScheduleEditor.IsVisible){return;", guard, "the dynamic guard must combine every effect predicate and preserve schedule-editor lifecycle validation before returning");
             TestAssert.Equal(1, CountOccurrences(dynamic, "WorkGiverPriorityBoxRenderer.HasActiveResetAnimations"), "the reset-animation property must be read once per dynamic pass");
             TestAssert.Equal(2, CountOccurrences(dynamic, "!slot.Cell.SubWork.HasDynamicRing"), "reset and hover replay must use the prepared ring predicate");
             TestAssert.False(dynamic.IndexOf("Contains(", StringComparison.Ordinal) >= 0, "dynamic replay must not linearly scan the prepared ring index array");
