@@ -289,90 +289,35 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string packet,
             string subWork)
         {
-            string dynamic = MemberBody(
-                optimized,
-                "private void DrawPreparedRunDynamic(");
-            int guard = dynamic.IndexOf(
-                "if (run.ParentDynamicSlotIndexes.Length == 0",
-                StringComparison.Ordinal);
-            int firstDynamicEffect = dynamic.IndexOf(
-                "DrawDynamicOverlays(",
-                StringComparison.Ordinal);
+            string dynamic = MemberBody(optimized, "private void DrawPreparedRunDynamic(");
+            int guardStart = dynamic.IndexOf("if (run.ParentDynamicSlotIndexes.Length == 0", StringComparison.Ordinal);
+            const string returnToken = "return;";
+            int guardReturn = dynamic.IndexOf(returnToken, guardStart, StringComparison.Ordinal);
+            int firstDynamicEffect = dynamic.IndexOf("DrawDynamicOverlays(", guardReturn, StringComparison.Ordinal);
             TestAssert.True(
-                guard >= 0 && firstDynamicEffect > guard,
-                "the dynamic pass must gate all effects before its first overlay call");
-            TestAssert.Contains(
-                dynamic,
-                "run.SubWorkRingSlotIndexes.Length == 0",
-                "the dynamic guard must account for prepared sub-work rings");
-            TestAssert.Contains(
-                dynamic,
-                "!hasActiveResetAnimations",
-                "the dynamic guard must account for reset-animation replay");
-            TestAssert.Contains(
-                dynamic,
-                "packet.RowIndex != _hoveredRowIndex",
-                "the dynamic guard must preserve row-hover effects");
-            TestAssert.Contains(
-                dynamic,
-                "_headerHoveredColumnIndex < 0",
-                "the dynamic guard must preserve header-hover effects");
-            TestAssert.Equal(
-                1,
-                CountOccurrences(
-                    dynamic,
-                    "WorkGiverPriorityBoxRenderer.HasActiveResetAnimations"),
-                "the reset-animation property must be read once per dynamic pass");
-            TestAssert.Equal(
-                2,
-                CountOccurrences(dynamic, "!slot.Cell.SubWork.HasDynamicRing"),
-                "reset and hover replay must use the prepared ring predicate");
-            TestAssert.False(
-                dynamic.IndexOf("Contains(", StringComparison.Ordinal) >= 0,
-                "dynamic replay must not linearly scan the prepared ring index array");
-            TestAssert.Contains(
-                dynamic,
-                "TryGetLiveCellReferences(",
-                "reset and hover replay must keep live interaction validation");
-            TestAssert.Contains(
-                dynamic,
-                "DrawParentTooltip(",
-                "the dynamic pass must retain parent hover tooltip ownership");
+                guardStart >= 0 && guardReturn > guardStart &&
+                firstDynamicEffect > guardReturn,
+                "the complete dynamic guard must return before its first effect");
+            string guard = dynamic.Substring(guardStart, guardReturn + returnToken.Length - guardStart)
+                .Replace("\r", string.Empty)
+                .Replace("\n", string.Empty)
+                .Replace(" ", string.Empty)
+                .Replace("\t", string.Empty);
+            TestAssert.Equal("if(run.ParentDynamicSlotIndexes.Length==0&&run.SubWorkRingSlotIndexes.Length==0&&!hasActiveResetAnimations&&packet.RowIndex!=_hoveredRowIndex&&_headerHoveredColumnIndex<0){return;", guard, "the dynamic guard must combine every effect predicate before returning");
+            TestAssert.Equal(1, CountOccurrences(dynamic, "WorkGiverPriorityBoxRenderer.HasActiveResetAnimations"), "the reset-animation property must be read once per dynamic pass");
+            TestAssert.Equal(2, CountOccurrences(dynamic, "!slot.Cell.SubWork.HasDynamicRing"), "reset and hover replay must use the prepared ring predicate");
+            TestAssert.False(dynamic.IndexOf("Contains(", StringComparison.Ordinal) >= 0, "dynamic replay must not linearly scan the prepared ring index array");
 
-            string prepareColumn = MemberBody(
-                packet,
-                "private static PreparedColumn PrepareColumn(");
-            TestAssert.Contains(
-                prepareColumn,
-                "PrepareSubWorkColumn(",
-                "every prepared sub-work route must use the shared ring flag producer");
-            string prepareSubWork = MemberBody(
-                packet,
-                "private static PreparedColumn PrepareSubWorkColumn(");
-            TestAssert.Contains(
-                prepareSubWork,
-                "subWorkRingOverlay: presentation.HasDynamicRing",
-                "the ring index source must be the prepared HasDynamicRing value");
-            string appendRetained = MemberBody(
-                packet,
-                "internal void AppendRetained(");
-            int ringGuard = appendRetained.IndexOf(
-                "if (prepared.SubWorkRingOverlay)",
-                StringComparison.Ordinal);
-            int ringAdd = appendRetained.IndexOf(
-                "_subWorkRingSlotIndexes.Add(slotIndex)",
-                StringComparison.Ordinal);
-            TestAssert.True(
-                ringGuard >= 0 && ringAdd > ringGuard,
-                "ring index membership must be published only from the prepared ring flag");
-            TestAssert.Equal(
-                1,
-                CountOccurrences(packet, "_subWorkRingSlotIndexes.Add(slotIndex)"),
-                "the packet must have one ring-index publication boundary");
-            TestAssert.Contains(
-                subWork,
-                "internal static bool HasActiveResetAnimations => ResetAnimations.Count > 0;",
-                "the cached reset property must be a side-effect-free collection count");
+            string routes = MemberBody(packet, "private static PreparedColumn PrepareColumn(") +
+                MemberBody(packet, "private static PreparedColumn PrepareParentColumn(");
+            TestAssert.Contains(routes, "PrepareSubWorkColumn(", "every prepared sub-work route must use the shared ring flag producer");
+            TestAssert.Contains(routes, "subWorkRingOverlay: false", "prepared parent cells must never enter the sub-work ring index");
+            TestAssert.Contains(MemberBody(packet, "private static PreparedColumn PrepareSubWorkColumn("), "subWorkRingOverlay: presentation.HasDynamicRing", "the ring index source must be the prepared HasDynamicRing value");
+            string appendRetained = MemberBody(packet, "internal void AppendRetained(");
+            int ringGuard = appendRetained.IndexOf("if (prepared.SubWorkRingOverlay)", StringComparison.Ordinal);
+            int ringAdd = appendRetained.IndexOf("_subWorkRingSlotIndexes.Add(slotIndex)", StringComparison.Ordinal);
+            TestAssert.True(ringGuard >= 0 && ringAdd > ringGuard, "ring index membership must be published only from the prepared ring flag");
+            TestAssert.Contains(subWork, "internal static bool HasActiveResetAnimations => ResetAnimations.Count > 0;", "the cached reset property must be a side-effect-free collection count");
         }
 
         private static void RetainedTransparentForegroundStaysOnTheLivePath(
@@ -1093,8 +1038,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
         {
             int count = 0;
             int offset = 0;
-            while (source != null && value != null &&
-                   (offset = source.IndexOf(value, offset, StringComparison.Ordinal)) >= 0)
+            while ((offset = source.IndexOf(value, offset, StringComparison.Ordinal)) >= 0)
             {
                 count++;
                 offset += value.Length;

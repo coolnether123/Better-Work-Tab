@@ -872,8 +872,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 return;
             }
 
-            bool pointerOwned = TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
-                BWTWorkTabTutorial.OwnsCurrentPointer;
             for (int index = 0; index < run.ParentDynamicSlotIndexes.Length; index++)
             {
                 PreparedWorkRowCell slot = packet.Slots[run.ParentDynamicSlotIndexes[index]];
@@ -884,6 +882,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             }
 
             int headerSlot = GetRunSlot(packet, runIndex, _headerHoveredColumnIndex);
+            bool pointerOwned = TimePriorityScheduleEditor.OwnsCurrentMousePosition ||
+                BWTWorkTabTutorial.OwnsCurrentPointer;
             if (!pointerOwned && headerSlot >= 0)
             {
                 Widgets.DrawHighlight(OffsetY(packet.Slots[headerSlot].CellRect, rowOffsetY));
