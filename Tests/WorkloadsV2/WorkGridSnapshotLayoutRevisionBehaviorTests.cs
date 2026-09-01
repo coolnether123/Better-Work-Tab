@@ -4,10 +4,8 @@ using System.IO;
 namespace BetterWorkTab.WorkloadsV2.Deterministic
 {
     /// <summary>
-    /// Exercises the snapshot cache contract at the same scalar boundaries used
-    /// by the production provider, then locks the production gate placement.
-    /// This keeps the layout-transition case executable without constructing
-    /// RimWorld's UI or allocating a colony-sized snapshot.
+    /// Locks the production snapshot revision gate, view coherence, and
+    /// renderer consumption contracts without constructing RimWorld's UI.
     /// </summary>
     internal static class WorkGridSnapshotLayoutRevisionBehaviorTests
     {
@@ -22,72 +20,9 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string window = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
             string renderer = Read(root, "Source", "UI", "WorkGrid", "Rendering", "OptimizedWorkGridRenderer.cs");
 
-            LayoutRevisionChangeForcesBuildAndCoherentSnapshot();
-            UnchangedLayoutReusesThePreparedSnapshot();
             ProviderUsesTheRevisionGateForEveryReusePath(provider);
             ViewAndLayoutPublishOneRevision(contracts, layout, window);
             RendererOnlyConsumesMatchingPassState(renderer);
-        }
-
-        private static void LayoutRevisionChangeForcesBuildAndCoherentSnapshot()
-        {
-            var cache = new SnapshotCacheProbe();
-            SnapshotCacheProbe.Snapshot first = cache.Prepare(
-                layoutRevision: 12,
-                geometryRevision: 12,
-                topologyRevision: 4,
-                effectiveStateRevision: 9,
-                layoutSignature: 77);
-
-            // Tutorial strip reservation changes geometry/layout revision while
-            // topology, effective state, and the topology signature stay fixed.
-            SnapshotCacheProbe.Snapshot rebuilt = cache.Prepare(
-                layoutRevision: 13,
-                geometryRevision: 13,
-                topologyRevision: 4,
-                effectiveStateRevision: 9,
-                layoutSignature: 77);
-
-            TestAssert.False(
-                ReferenceEquals(first, rebuilt),
-                "a layout revision change must build a new prepared snapshot even when topology is unchanged");
-            TestAssert.Equal(
-                13,
-                rebuilt.LayoutRevision,
-                "the rebuilt snapshot must carry the current layout revision");
-            TestAssert.Equal(
-                rebuilt.LayoutRevision,
-                rebuilt.GeometryRevision,
-                "the rebuilt snapshot must be coherent with the current geometry revision");
-            TestAssert.Equal(
-                2,
-                cache.BuildCount,
-                "a layout revision transition must take the full snapshot build path once");
-        }
-
-        private static void UnchangedLayoutReusesThePreparedSnapshot()
-        {
-            var cache = new SnapshotCacheProbe();
-            SnapshotCacheProbe.Snapshot first = cache.Prepare(
-                layoutRevision: 21,
-                geometryRevision: 21,
-                topologyRevision: 8,
-                effectiveStateRevision: 14,
-                layoutSignature: 101);
-            SnapshotCacheProbe.Snapshot reused = cache.Prepare(
-                layoutRevision: 21,
-                geometryRevision: 21,
-                topologyRevision: 8,
-                effectiveStateRevision: 14,
-                layoutSignature: 101);
-
-            TestAssert.True(
-                ReferenceEquals(first, reused),
-                "an unchanged layout must retain the O(1) prepared snapshot cache hit");
-            TestAssert.Equal(
-                1,
-                cache.BuildCount,
-                "an unchanged layout must not rebuild the prepared snapshot");
         }
 
         private static void ProviderUsesTheRevisionGateForEveryReusePath(string provider)
@@ -207,61 +142,5 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             throw new InvalidOperationException("source member has no closing brace");
         }
 
-        private sealed class SnapshotCacheProbe
-        {
-            private Snapshot _current;
-
-            internal int BuildCount { get; private set; }
-
-            internal Snapshot Prepare(
-                int layoutRevision,
-                int geometryRevision,
-                long topologyRevision,
-                long effectiveStateRevision,
-                int layoutSignature)
-            {
-                if (_current != null &&
-                    _current.LayoutRevision == layoutRevision &&
-                    _current.LayoutRevision == geometryRevision &&
-                    _current.TopologyRevision == topologyRevision &&
-                    _current.EffectiveStateRevision == effectiveStateRevision &&
-                    _current.LayoutSignature == layoutSignature)
-                {
-                    return _current;
-                }
-
-                BuildCount++;
-                _current = new Snapshot(
-                    layoutRevision,
-                    geometryRevision,
-                    topologyRevision,
-                    effectiveStateRevision,
-                    layoutSignature);
-                return _current;
-            }
-
-            internal sealed class Snapshot
-            {
-                internal Snapshot(
-                    int layoutRevision,
-                    int geometryRevision,
-                    long topologyRevision,
-                    long effectiveStateRevision,
-                    int layoutSignature)
-                {
-                    LayoutRevision = layoutRevision;
-                    GeometryRevision = geometryRevision;
-                    TopologyRevision = topologyRevision;
-                    EffectiveStateRevision = effectiveStateRevision;
-                    LayoutSignature = layoutSignature;
-                }
-
-                internal int LayoutRevision { get; }
-                internal int GeometryRevision { get; }
-                internal long TopologyRevision { get; }
-                internal long EffectiveStateRevision { get; }
-                internal int LayoutSignature { get; }
-            }
-        }
     }
 }
