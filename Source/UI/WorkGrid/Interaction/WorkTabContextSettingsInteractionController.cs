@@ -40,13 +40,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 request.TargetSettingId);
             if (handled)
             {
-                BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-                if (settings?.showContextSettingsHint ?? false)
-                {
-                    settings.showContextSettingsHint = false;
-                    settings.Write();
-                    BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
-                }
+                HideContextSettingsHint();
             }
 
             return handled;
@@ -104,13 +98,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
 
             if (handled)
             {
-                BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
-                if (settings?.showContextSettingsHint ?? false)
-                {
-                    settings.showContextSettingsHint = false;
-                    settings.Write();
-                    BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
-                }
+                HideContextSettingsHint();
             }
 
             return handled;
@@ -124,6 +112,17 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             return rect.width > 0f &&
                    rect.height > 0f &&
                    contextualSettings.BindSetting(rect, settingId);
+        }
+
+        private static void HideContextSettingsHint()
+        {
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            if (settings?.showContextSettingsHint ?? false)
+            {
+                settings.showContextSettingsHint = false;
+                settings.Write();
+                BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
+            }
         }
     }
 }

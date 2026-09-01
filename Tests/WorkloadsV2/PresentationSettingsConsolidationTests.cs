@@ -1144,12 +1144,24 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string tutorial,
             string migration)
         {
+            string hintHelper = MethodBody(
+                contextSettingsInteraction,
+                "private static void HideContextSettingsHint()");
             AssertWritePublishesOnce(
+                hintHelper,
+                "context-settings hint auto-hide helper");
+            TestAssert.Contains(
                 MethodBody(contextSettingsInteraction, "internal bool TryHandleInput("),
-                "context-settings hint auto-hide in the Work-tab body");
-            AssertWritePublishesOnce(
+                "HideContextSettingsHint();",
+                "context-settings body must publish through the hint helper");
+            TestAssert.Contains(
                 MethodBody(contextSettingsInteraction, "internal bool TryHandleFooterInput("),
-                "context-settings hint auto-hide in the footer");
+                "HideContextSettingsHint();",
+                "context-settings footer must publish through the hint helper");
+            TestAssert.Equal(
+                2,
+                CountOccurrences(contextSettingsInteraction, "HideContextSettingsHint();"),
+                "both context-settings gesture paths must share the hint helper");
             TestAssert.Contains(
                 contextSettingsInteraction,
                 "if (settings?.showContextSettingsHint ?? false)",
