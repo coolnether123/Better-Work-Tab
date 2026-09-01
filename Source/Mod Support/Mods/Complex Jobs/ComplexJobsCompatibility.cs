@@ -70,6 +70,7 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
                 : BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView;
 
             settings.Write();
+            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
             PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
             WorkTabInvalidationHub.Invalidate(

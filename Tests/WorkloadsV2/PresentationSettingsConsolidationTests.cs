@@ -36,6 +36,10 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string fluffy = Read(root, "Source", "Mod Support", "Mods", "Fluffy WorkTab", "FluffyWorkTabGateway.cs");
             string fluffyCoexistence = Read(root, "Source", "Mod Support", "Mods", "Fluffy WorkTab", "FluffyWorkTabCoexistence.cs");
             string legacyImporter = Read(root, "Source", "UI", "Settings", "LegacySettingsJsonImporter.cs");
+            string complexJobs = Read(root, "Source", "Mod Support", "Mods", "Complex Jobs", "ComplexJobsCompatibility.cs");
+            string contextSettingsInteraction = Read(root, "Source", "UI", "WorkGrid", "Interaction", "WorkTabContextSettingsInteractionController.cs");
+            string tutorial = Read(root, "Source", "Features", "Tutorial", "BWTGeneralTutorial.cs");
+            string migration = Read(root, "Source", "Features", "Migration", "BWT20SettingsMigration.cs");
 
             Dictionary<string, string> idsByName = ReadSettingIds(settingIds);
             IReadOnlyDictionary<string, HashSet<string>> facadeUsage = ReadFacadeUsage(root, idsByName);
@@ -57,6 +61,8 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 root, "Source", "UI", "BetterWorkTabSettingsUI.cs"));
             AllGlobalWriteRoutesAdvanceTheSnapshotToken(
                 router, registry, fluffy, fluffyCoexistence, legacyImporter);
+            CompatibilityWritesPublishGlobalPresentationExactlyOnce(
+                complexJobs, contextSettingsInteraction, tutorial, migration);
             ProjectionDelegatesSetClearReleaseNormalizationToTheModel(router, workloadState);
         }
 
@@ -1014,6 +1020,121 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "legacy imports must invalidate the cached presentation values");
         }
 
+        private static void CompatibilityWritesPublishGlobalPresentationExactlyOnce(
+            string complexJobs,
+            string contextSettingsInteraction,
+            string tutorial,
+            string migration)
+        {
+            AssertWritePublishesOnce(
+                MethodBody(complexJobs, "private static void ApplyMode("),
+                "Complex Jobs mode selection");
+            AssertWritePublishesOnce(
+                MethodBody(contextSettingsInteraction, "internal bool TryHandleInput("),
+                "context-settings hint auto-hide in the Work-tab body");
+            AssertWritePublishesOnce(
+                MethodBody(contextSettingsInteraction, "internal bool TryHandleFooterInput("),
+                "context-settings hint auto-hide in the footer");
+            TestAssert.Contains(
+                contextSettingsInteraction,
+                "if (settings?.showContextSettingsHint ?? false)",
+                "repeated context-settings gestures must retain the existing one-time hint guard");
+
+            string startCourse = MethodBody(tutorial, "private static void StartCourse(");
+            AssertWritePublishesOnce(startCourse, "first public-1.0.5 tutorial opt-in");
+            TestAssert.Contains(
+                startCourse,
+                "bool firstPublic105Course = settings.tutorialMigratedFromPublic105 &&\n                settings.selectedTutorialCourse == BWTTutorialCourse.None;",
+                "repeated tutorial starts must retain the existing first-course guard");
+            TestAssert.Contains(
+                startCourse,
+                "settings.Write();\n            if (firstPublic105Course)\n            {\n                BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();",
+                "tutorial opt-in publication must stay behind its existing first-course guard");
+            TestAssert.Equal(
+                0,
+                CountOccurrences(
+                    MethodBody(migration, "internal static void EnablePublic20TutorialFeatures("),
+                    "BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();"),
+                "the tutorial feature helper must not publish a second time before its caller persists the combined change");
+
+            AssertPublishedEffectiveValue(
+                new GlobalSettingsPublicationProbe(),
+                "features.subWorkJobs",
+                false,
+                true,
+                "Complex Jobs mode selection",
+                false);
+            AssertPublishedEffectiveValue(
+                new GlobalSettingsPublicationProbe(),
+                "ui.contextSettingsHint",
+                true,
+                false,
+                "context-settings hint auto-hide",
+                true);
+            AssertPublishedEffectiveValue(
+                new GlobalSettingsPublicationProbe(),
+                "ui.timePrioritySchedules",
+                false,
+                true,
+                "first public-1.0.5 tutorial opt-in",
+                true);
+        }
+
+        private static void AssertWritePublishesOnce(string method, string label)
+        {
+            const string publication =
+                "BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();";
+            int write = method.IndexOf("settings.Write();", StringComparison.Ordinal);
+            int notify = method.IndexOf(publication, StringComparison.Ordinal);
+            TestAssert.True(
+                write >= 0 && notify > write,
+                label + " must publish the global presentation revision after its settings write");
+            TestAssert.Equal(
+                1,
+                CountOccurrences(method, publication),
+                label + " must publish the global presentation revision exactly once");
+        }
+
+        private static void AssertPublishedEffectiveValue(
+            GlobalSettingsPublicationProbe probe,
+            string settingId,
+            bool initial,
+            bool updated,
+            string label,
+            bool hasNoOpGuard)
+        {
+            probe.SetDirect(settingId, initial);
+            TestAssert.Equal(
+                initial,
+                probe.Effective(settingId),
+                label + " must start from its direct global value");
+
+            long revisionBeforeWrite = probe.Revision;
+            TestAssert.True(
+                probe.WriteIfChanged(settingId, updated),
+                label + " must apply its changed direct value");
+            TestAssert.Equal(
+                revisionBeforeWrite + 1,
+                probe.Revision,
+                label + " must advance WorkTabPresentationRevision once after a semantic write");
+            TestAssert.Equal(
+                updated,
+                probe.Effective(settingId),
+                label + " must refresh the effective cached value after publication");
+
+            if (hasNoOpGuard)
+            {
+                long revisionAfterWrite = probe.Revision;
+                TestAssert.False(
+                    probe.WriteIfChanged(settingId, updated),
+                    label + " must reject a repeated no-op before publication");
+                TestAssert.Equal(
+                    revisionAfterWrite,
+                    probe.Revision,
+                    label + " must not publish a repeated no-op write when its existing guard rejects it");
+            }
+        }
+
         private static void ProjectionDelegatesSetClearReleaseNormalizationToTheModel(
             string router,
             string workloadState)
@@ -1040,6 +1161,78 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 TestAssert.Contains(workloadState, fragment,
                     "the model must own Set/Clear/Release normalization through " + fragment);
                 }
+        }
+
+        private static int CountOccurrences(string source, string value)
+        {
+            int count = 0;
+            int start = 0;
+            while (source != null && value != null)
+            {
+                int found = source.IndexOf(value, start, StringComparison.Ordinal);
+                if (found < 0)
+                {
+                    break;
+                }
+
+                count++;
+                start = found + value.Length;
+            }
+
+            return count;
+        }
+
+        private sealed class GlobalSettingsPublicationProbe
+        {
+            private readonly Dictionary<string, bool> _directValues =
+                new Dictionary<string, bool>(StringComparer.Ordinal);
+            private readonly Dictionary<string, bool> _effectiveValues =
+                new Dictionary<string, bool>(StringComparer.Ordinal);
+            private long _revision;
+            private long _effectiveRevision = -1;
+
+            internal long Revision => _revision;
+
+            internal bool Direct(string settingId) =>
+                _directValues.TryGetValue(settingId, out bool value) && value;
+
+            internal void SetDirect(string settingId, bool value)
+            {
+                _directValues[settingId] = value;
+            }
+
+            internal bool WriteIfChanged(string settingId, bool value)
+            {
+                if (Direct(settingId) == value)
+                {
+                    return false;
+                }
+
+                SetDirect(settingId, value);
+                NotifyGlobalSettingsChanged();
+                return true;
+            }
+
+            internal void NotifyGlobalSettingsChanged()
+            {
+                _revision++;
+            }
+
+            internal bool Effective(string settingId)
+            {
+                if (_effectiveRevision != _revision)
+                {
+                    _effectiveValues.Clear();
+                    foreach (KeyValuePair<string, bool> value in _directValues)
+                    {
+                        _effectiveValues[value.Key] = value.Value;
+                    }
+
+                    _effectiveRevision = _revision;
+                }
+
+                return _effectiveValues.TryGetValue(settingId, out bool effective) && effective;
+            }
         }
 
         private sealed class FakePresentationSettingsStore : IWorkloadPresentationSettingsStore
