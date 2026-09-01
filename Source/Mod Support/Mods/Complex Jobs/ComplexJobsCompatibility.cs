@@ -53,30 +53,42 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
                 : SubWorkMode.BetterWorkTabFocus;
         }
 
-        private static void ApplyMode(BetterWorkTabSettings settings, SubWorkMode mode)
+        private static bool ApplyMode(BetterWorkTabSettings settings, SubWorkMode mode)
         {
             if (settings == null)
             {
-                return;
+                return false;
+            }
+
+            bool enableSubWorkDrilldown = mode != SubWorkMode.ComplexJobsOnly;
+            bool enableFluffyStyleFeatures = mode == SubWorkMode.FluffyStyleExpansion;
+            BetterWorkTabSettings.SubWorkDrilldownStyle subWorkDrilldownStyle =
+                mode == SubWorkMode.FluffyStyleExpansion
+                    ? BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside
+                    : BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView;
+            bool changed = settings.enableSubWorkDrilldown != enableSubWorkDrilldown ||
+                           settings.enableFluffyStyleFeatures != enableFluffyStyleFeatures ||
+                           settings.subWorkDrilldownStyle != subWorkDrilldownStyle;
+            if (!changed)
+            {
+                return false;
             }
 
             SubWorkDrilldownState.ExitImmediate();
             SubWorkDrilldownState.CollapseAllExpandBesideImmediate();
 
-            settings.enableSubWorkDrilldown = mode != SubWorkMode.ComplexJobsOnly;
-            settings.enableFluffyStyleFeatures = mode == SubWorkMode.FluffyStyleExpansion;
-            settings.subWorkDrilldownStyle = mode == SubWorkMode.FluffyStyleExpansion
-                ? BetterWorkTabSettings.SubWorkDrilldownStyle.ExpandBeside
-                : BetterWorkTabSettings.SubWorkDrilldownStyle.FocusView;
+            settings.enableSubWorkDrilldown = enableSubWorkDrilldown;
+            settings.enableFluffyStyleFeatures = enableFluffyStyleFeatures;
+            settings.subWorkDrilldownStyle = subWorkDrilldownStyle;
 
             settings.Write();
-            BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
             PriorityAuthorityBroker.NotifyPotentialAuthorityChanged();
             HeaderDrawingCoordinator.NotifyAngledHeadersChanged();
             WorkTabInvalidationHub.Invalidate(
                 WorkTabDirtyFlags.Columns |
                 WorkTabDirtyFlags.HeaderGeometry |
                 WorkTabDirtyFlags.SettingsThemeLanguageScale);
+            return true;
         }
 
         private static bool DrawMode(
@@ -114,7 +126,13 @@ namespace Better_Work_Tab.ModSupport.Mods.ComplexJobs
                     SubWorkMode capturedMode = mode;
                     var option = new FloatMenuOption(
                         GetModeLabel(capturedMode),
-                        () => ApplyMode(settings, capturedMode));
+                        () =>
+                        {
+                            if (ApplyMode(settings, capturedMode))
+                            {
+                                BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
+                            }
+                        });
                     options.Add(option);
                     descriptions[option] = GetModeDescription(capturedMode);
                     if (capturedMode == current)
