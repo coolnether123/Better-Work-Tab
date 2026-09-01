@@ -860,6 +860,10 @@ namespace Better_Work_Tab.UI.Settings
         private static readonly HashSet<string> Metadata =
             BuildMetadata();
 
+        // Metadata is the prepared global-value/visibility set, not the
+        // workload ownership set. Global-only consumers must be captured here
+        // while remaining absent from StageablePresentationSettingIds below.
+
         private static readonly HashSet<SettingDefinition> PreparedDefinitions =
             new HashSet<SettingDefinition>();
 
@@ -2875,6 +2879,8 @@ namespace Better_Work_Tab.UI.Settings
                 FeaturesOverlay,
                 FeaturesHighlights,
                 FeaturesDividers,
+                FeaturesSubWorkJobs,
+                DragdropEnableGrouping,
                 LayoutWorkTabMinimumWidth,
                 LayoutWorkTabMaxVisiblePawns,
                 LayoutWorkTabTopSpace,
@@ -2882,6 +2888,7 @@ namespace Better_Work_Tab.UI.Settings
                 LayoutBedCount,
                 UiPriorityLegend,
                 UiDragInstructions,
+                UiContextSettingsHint,
                 UiManualPriorities,
                 OverlayNumbersMode,
                 OverlayBestPawnMode,
@@ -2909,6 +2916,7 @@ namespace Better_Work_Tab.UI.Settings
                 ColorsBestPawnOutline,
                 DividersShow,
                 DividersCustomColors,
+                "dividers.highlight",
                 DividersLabels,
                 DividersCollapse,
                 DividersAnimations,
@@ -2918,6 +2926,12 @@ namespace Better_Work_Tab.UI.Settings
                 ColumnsShowBaselineLine,
                 "columns.showMovedColorTint",
                 "columns.movedMarkerColor",
+                AdvancedScrollWheelPriority,
+                UiTimePrioritySchedules,
+                UiTimePriorityHourDivider,
+                UiTimePriorityCopyPasteButtons,
+                UiTimePrioritySourceColumnHighlight,
+                UiChronosPointerTimePriorityIncidents,
                 WorkloadsPreviewRevealAnimation,
                 WorkloadsPreviewRevealSpeed,
                 WorkloadsInspectionHighlights,
