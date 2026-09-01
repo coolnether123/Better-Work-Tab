@@ -45,6 +45,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 {
                     settings.showContextSettingsHint = false;
                     settings.Write();
+                    BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
                 }
             }
 
@@ -108,6 +109,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
                 {
                     settings.showContextSettingsHint = false;
                     settings.Write();
+                    BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
                 }
             }
 

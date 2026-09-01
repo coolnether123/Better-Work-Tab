@@ -1774,6 +1774,10 @@ namespace Better_Work_Tab.Features.Tutorial
             WelcomeOverlay.ResetAnimation();
             Selector.Reset();
             settings.Write();
+            if (firstPublic105Course)
+            {
+                BWTWorkloadSettingsOwnershipPolicy.NotifyGlobalSettingsChanged();
+            }
             PlayTutorialSound("Tick_High");
         }
 
