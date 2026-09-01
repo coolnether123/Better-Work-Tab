@@ -25,6 +25,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string router = Read(root, "Source", "UI", "Settings", "BWTWorkTabContextSettingsRouter.cs");
             string registry = Read(root, "Source", "UI", "Settings", "BWTSettingsRegistry.cs");
             string settingIds = Read(root, "Source", "UI", "Settings", "SettingIDs.cs");
+            string scheduleEditor = Read(root, "Source", "Features", "TimePriority", "TimePriorityScheduleEditor.cs");
             string gateway = Read(root, "Source", "UI", "Workloads", "WorkloadGateway.cs");
             string mainWindow = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
             string previewPort = Read(root, "Source", "UI", "Settings", "WorkTabPresentationPreviewPort.cs");
@@ -37,8 +38,12 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             string legacyImporter = Read(root, "Source", "UI", "Settings", "LegacySettingsJsonImporter.cs");
 
             Dictionary<string, string> idsByName = ReadSettingIds(settingIds);
+            IReadOnlyDictionary<string, HashSet<string>> facadeUsage = ReadFacadeUsage(root, idsByName);
+            FallbackFreeFacadeValuesHavePreparedGlobalState(facadeUsage, router, idsByName);
             FallbackFreeFacadesHaveCompatibleContributors(
-                ReadFacadeUsage(root, idsByName), registry, chronos, fluffy, idsByName);
+                facadeUsage, registry, chronos, fluffy, idsByName);
+            ScheduleEditorAdmissionUsesGlobalSetting(
+                facadeUsage, router, scheduleEditor);
             PreviewStampTracksStartEditRebaseForkAndSwitch();
             FirstRefreshAndPerFieldFallbackAreBehavioral();
             SetClearAndReleaseAreBehavioral();
@@ -357,6 +362,159 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "all remaining presentation facade calls must use the fallback-free cache; preview renderer values are captured on its neutral port");
             TestAssert.Equal(53, usage.Count, "facade calls must resolve exactly 53 active registry setting IDs");
             return usage;
+        }
+
+        private static void FallbackFreeFacadeValuesHavePreparedGlobalState(
+            IReadOnlyDictionary<string, HashSet<string>> usage,
+            string router,
+            IReadOnlyDictionary<string, string> idsByName)
+        {
+            string metadata = MethodBody(
+                router,
+                "private static HashSet<string> BuildMetadata()");
+            foreach (string settingId in usage.Keys)
+            {
+                IEnumerable<string> forms = idsByName
+                    .Where(pair => string.Equals(pair.Value, settingId, StringComparison.Ordinal))
+                    .Select(pair => pair.Key)
+                    .Concat(new[] { "\"" + settingId + "\"" });
+                TestAssert.True(
+                    forms.Any(form => metadata.IndexOf(form, StringComparison.Ordinal) >= 0),
+                    "fallback-free presentation value must have a prepared global field: " + settingId);
+            }
+        }
+
+        private static void ScheduleEditorAdmissionUsesGlobalSetting(
+            IReadOnlyDictionary<string, HashSet<string>> usage,
+            string router,
+            string scheduleEditor)
+        {
+            const string scheduleSettingId = "ui.timePrioritySchedules";
+            TestAssert.True(
+                usage.ContainsKey(scheduleSettingId),
+                "the schedule editor must remain covered by the effective-settings inventory");
+
+            string metadata = MethodBody(
+                router,
+                "private static HashSet<string> BuildMetadata()");
+            TestAssert.Contains(
+                metadata,
+                "UiTimePrioritySchedules,",
+                "the globally-owned schedule gate must be captured in the prepared global metadata");
+
+            string stageable = Slice(
+                router,
+                "private static readonly HashSet<string> StageablePresentationSettingIds",
+                "private static readonly Dictionary<string, string> BlockedReasons");
+            TestAssert.False(
+                stageable.Contains("UiTimePrioritySchedules"),
+                "the schedule gate must stay global-only and never become workload-owned");
+
+            string prepare = MethodBody(
+                router,
+                "internal static void PrepareDefinition(SettingDefinition definition)");
+            TestAssert.Contains(
+                prepare,
+                "Metadata.Contains(definition.Id)",
+                "prepared metadata must decide which global settings enter the cached snapshot");
+            TestAssert.Contains(
+                prepare,
+                "PreparedPresentationSettings[definition.Id] = rowState",
+                "the schedule definition must use the prepared scalar state path");
+
+            string capture = MethodBody(
+                router,
+                "private static IDictionary<string, PresentationValue> CapturePreparedPresentationValues(");
+            TestAssert.Contains(
+                capture,
+                "foreach (string settingId in PreparedPresentationSettings.Keys)",
+                "global schedule settings must be captured once per semantic refresh");
+
+            string snapshot = MethodBody(
+                router,
+                "private bool TryGetValue(string settingId, out PresentationValue value)");
+            TestAssert.Contains(
+                snapshot,
+                "intent.IsOwned && intent.HasValue",
+                "preview-owned values must take precedence only when an owned intent is present");
+            TestAssert.Contains(
+                snapshot,
+                "return _globalValues.TryGetValue(settingId, out value);",
+                "a global-only setting with no preview intent must pass through its global value");
+
+            string enabled = Slice(
+                scheduleEditor,
+                "internal static bool IsEnabled =>",
+                "private static bool HasBetterWorkTabScheduleAuthority");
+            TestAssert.Contains(
+                enabled,
+                "BWTWorkTabEffectiveSettings.GetBool(SettingIDs.UiTimePrioritySchedules)",
+                "schedule admission must consume the effective presentation snapshot");
+            string canUse = Slice(
+                scheduleEditor,
+                "internal static bool CanUseBetterWorkTabScheduleUi =>",
+                "private static bool EnsureBetterWorkTabScheduleAuthority");
+            TestAssert.Contains(
+                canUse,
+                "IsEnabled && HasBetterWorkTabScheduleAuthority",
+                "schedule admission must keep the independent authority guard");
+            string authority = MethodBody(
+                scheduleEditor,
+                "private static bool HasBetterWorkTabScheduleAuthority");
+            TestAssert.Contains(
+                authority,
+                "PriorityAuthorityResolver.ShouldBlockBetterWorkTabPriorityDataAccess",
+                "schedule admission must consult the real priority authority resolver");
+
+            string open = MethodBody(
+                scheduleEditor,
+                "internal static bool OpenForPriorityBox(");
+            foreach (string fragment in new[]
+            {
+                "!IsEnabled",
+                "!HasBetterWorkTabScheduleAuthority",
+                "string.IsNullOrEmpty(target.WorkTypeDefName)",
+                "ScheduleProjection.CanEditSchedule(target"
+            })
+            {
+                TestAssert.Contains(
+                    open,
+                    fragment,
+                    "priority-box schedule admission must retain " + fragment);
+            }
+
+            bool directSchedulesEnabled = true;
+            var preparedGlobalValues = new Dictionary<string, bool>(StringComparer.Ordinal);
+            bool missingMetadataEffective = preparedGlobalValues.TryGetValue(
+                scheduleSettingId,
+                out bool missingMetadataValue) && missingMetadataValue;
+            TestAssert.False(
+                missingMetadataEffective,
+                "the regression fixture must reproduce direct=true/effective=false when metadata is absent");
+
+            // A global-only setting is a pass-through in both states. The
+            // preview owns no schedule intent, so it cannot become a fake
+            // workload authority.
+            preparedGlobalValues[scheduleSettingId] = directSchedulesEnabled;
+            bool normalEffective = preparedGlobalValues[scheduleSettingId];
+            bool previewOwnsSchedule = false;
+            bool previewEffective = previewOwnsSchedule
+                ? false
+                : preparedGlobalValues[scheduleSettingId];
+            bool authorityBlocked = false;
+            bool targetIsValid = true;
+            bool projectionCanEdit = true;
+            bool normalAdmitted = normalEffective &&
+                !authorityBlocked && targetIsValid && projectionCanEdit;
+            bool previewAdmitted = previewEffective &&
+                !authorityBlocked && targetIsValid && projectionCanEdit;
+            TestAssert.True(normalAdmitted,
+                "normal schedule editor admission must succeed with direct global schedules enabled");
+            TestAssert.True(previewAdmitted,
+                "preview schedule editor admission must pass through the global schedule gate");
+            TestAssert.False(
+                previewEffective && authorityBlocked,
+                "the preview schedule admission fixture must not bypass schedule authority");
         }
 
         private static string ResolveSettingId(
