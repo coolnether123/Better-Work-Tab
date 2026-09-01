@@ -96,6 +96,7 @@
     <Compile Include="WorkGridRetainedSparseAuditPerformanceContractTests.cs" />
     <Compile Include="PreparedWorkRowPacketPerformanceContractTests.cs" />
     <Compile Include="WorkGridSnapshotIsolationContractTests.cs" />
+    <Compile Include="WorkGridSnapshotLayoutRevisionBehaviorTests.cs" />
     <Compile Include="PreparedPawnLabelPerformanceContractTests.cs" />
     <Compile Include="PawnLabelRevisionBehaviorTests.cs" />
     <Compile Include="PreparedPawnLabelTextTests.cs" />

@@ -111,9 +111,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 labelWorker);
             bool effectiveStateCurrent = _hasEffectiveStateRevision &&
                 _effectiveStateRevision == effectiveStateRevision;
-            if (_slot.Current != null &&
-                ReferenceEquals(_layout, layout) &&
-                _slot.Current.LayoutRevision == layout.LayoutRevision &&
+            if (ReferenceEquals(_layout, layout) &&
+                HasMatchingCurrentLayoutRevision(layout) &&
                 _pawnLabelPresentationMode == pawnLabelPresentationMode &&
                 effectiveStateCurrent &&
                 EqualConsumedRevisions(_revisions, current))
@@ -151,7 +150,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 return incrementalSnapshot;
             }
 
-            if (_slot.Current != null &&
+            if (HasMatchingCurrentLayoutRevision(layout) &&
                 _hasLayoutSignature &&
                 _layoutSignature == layoutSignature &&
                 _pawnLabelPresentationMode == pawnLabelPresentationMode &&
@@ -192,7 +191,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
             int layoutSignature,
             IReadOnlyList<WorkGridPriorityKey> dirtyKeys)
         {
-            return _slot.Current != null &&
+            return HasMatchingCurrentLayoutRevision(layout) &&
                    IsSparseParentPriorityRevisionTransition(
                        _effectiveStateRevision,
                        effectiveStateRevision) &&
@@ -286,6 +285,20 @@ namespace Better_Work_Tab.UI.WorkGrid.Snapshots
                 replacements,
                 preparedRowReplacements);
             return true;
+        }
+
+        /// <summary>
+        /// A cached snapshot is reusable only when its presentation revision is
+        /// the revision published by both the layout and its finished geometry.
+        /// Keep this gate shared by the clean, sparse, and topology-signature
+        /// paths so none can replay a snapshot across a geometry rebuild.
+        /// </summary>
+        private bool HasMatchingCurrentLayoutRevision(IWorkTabLayoutController layout)
+        {
+            WorkGridSnapshot snapshot = _slot.Current;
+            return snapshot != null &&
+                   snapshot.LayoutRevision == layout.LayoutRevision &&
+                   layout.GeometrySnapshot.Revision == layout.LayoutRevision;
         }
 
         private static Dictionary<int, int> BuildSparseRowIndex(WorkGridSnapshot previous)
