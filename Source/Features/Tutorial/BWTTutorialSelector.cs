@@ -253,6 +253,13 @@ namespace Better_Work_Tab.Features.Tutorial
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
             Vector2 pointer)
         {
+            if (pinnedAnchor != TutorialHubAnchor.None &&
+                pinnedGeometry.IsValid &&
+                pinnedGeometry.Rect.Contains(pointer))
+            {
+                return true;
+            }
+
             // The list drawn last frame owns the pointer outright. Re-deriving it
             // from the active anchor misses the case where the pointer has left
             // the anchor to travel into the list, which let the grid underneath

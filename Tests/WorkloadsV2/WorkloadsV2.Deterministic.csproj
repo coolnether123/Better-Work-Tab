@@ -27,9 +27,12 @@
     <Reference Include="System.Security" />
   </ItemGroup>
   <ItemGroup>
-    <!-- This project links only pure model/projection/protocol contracts. It
-         is deliberately outside Source and is never included by the shipping
-         Better Work Tab project or package manifests. -->
+    <!-- This project links focused production contracts. It is deliberately
+         outside Source and is never included by the shipping Better Work Tab
+         project or package manifests. -->
+    <Compile Include="..\..\Source\Spine\UI\Tutorial\TutorialHubState.cs" Link="Production\TutorialHubState.cs" />
+    <Compile Include="..\..\Source\Features\Tutorial\BWTTutorialAnchor.cs" Link="Production\BWTTutorialAnchor.cs" />
+    <Compile Include="..\..\Source\Features\Tutorial\BWTTutorialSelector.cs" Link="Production\BWTTutorialSelector.cs" />
     <Compile Include="..\..\Source\Foundation\Canonicalization\DeterministicCanonical.cs" Link="Production\DeterministicCanonical.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadCanonical.cs" Link="Production\WorkloadCanonical.cs" />
     <Compile Include="..\..\Source\Features\Workloads\V2\WorkloadKeys.cs" Link="Production\WorkloadKeys.cs" />
@@ -73,6 +76,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Stubs\VerseScribeStubs.cs" />
+    <Compile Include="Stubs\TutorialSelectorStubs.cs" />
     <Compile Include="Stubs\MultiplayerApiStubs.cs" />
     <Compile Include="Stubs\UnityGuiStubs.cs" />
     <Compile Include="TestAssert.cs" />
@@ -99,6 +103,7 @@
     <Compile Include="PreparedPawnLabelPerformanceContractTests.cs" />
     <Compile Include="PawnLabelRevisionBehaviorTests.cs" />
     <Compile Include="PreparedPawnLabelTextTests.cs" />
+    <Compile Include="TutorialSelectorOwnershipTests.cs" />
     <Compile Include="ShiftWheelViewportInputTests.cs" />
     <Compile Include="DependencyDirectionContractTests.cs" />
     <Compile Include="WorkloadFeatureIsolationContractTests.cs" />
