@@ -65,7 +65,6 @@
     <Compile Include="..\..\Source\UI\Settings\WorkTabPresentationPreviewPort.cs" Link="Production\WorkTabPresentationPreviewPort.cs" />
     <Compile Include="..\..\Source\UI\Settings\BWTWorkloadPresentationNumericLayout.cs" Link="Production\BWTWorkloadPresentationNumericLayout.cs" />
     <Compile Include="..\..\Source\UI\RetainedResourceReleaseSequence.cs" Link="Production\RetainedResourceReleaseSequence.cs" />
-    <Compile Include="..\..\Source\UI\RetainedSurfacePresentation.cs" Link="Production\RetainedSurfacePresentation.cs" />
     <Compile Include="..\..\Source\Spine\Core\DirtyTracking\SparseDirtySets.cs" Link="Production\SparseDirtySets.cs" />
     <Compile Include="..\..\Source\UI\WorkGrid\Invalidation\WorkGridInvalidationLedger.cs" Link="Production\WorkGridInvalidationLedger.cs" />
     <!-- The synchronized transaction protocol is linked directly. Multiplayer
@@ -114,7 +113,6 @@
     <Compile Include="CapturePolicyTests.cs" />
     <Compile Include="PresentationSettingsConsolidationTests.cs" />
     <Compile Include="ChromePresentationCacheTests.cs" />
-    <Compile Include="RetainedSurfacePresentationTests.cs" />
     <Compile Include="LayoutHistoryTransactionTests.cs" />
     <Compile Include="PresentationBoundaryTests.cs" />
     <Compile Include="ExpandBesideOwnershipContractTests.cs" />

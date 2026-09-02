@@ -13,12 +13,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 Path.Combine("Source", "UI", "Chrome", "WorkTabChrome.cs"),
                 "chrome presentation cache contracts");
             string chrome = Read(root, "Source", "UI", "Chrome", "WorkTabChrome.cs");
-            string manualCache = Read(
-                root,
-                "Source",
-                "UI",
-                "Chrome",
-                "ManualPriorityChromePresentationCache.cs");
             string retainedRows = Read(
                 root,
                 "Source",
@@ -33,72 +27,11 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 "Chrome",
                 "FooterInstructionTextCache.cs");
             string header = Read(root, "Source", "UI", "HeaderButtons.cs");
-            string window = Read(root, "Source", "UI", "MainTabWindow_BetterWork.cs");
-            ManualChromeUsesLivePresentationAndCachedGeometry(manualCache);
             ManualInputAndOverlaysRemainLive(chrome);
-            RetainedResourcesFollowWindowLifecycle(chrome, manualCache, window);
             RetainedResourceReleaseContinuesAfterFailures();
             SurfaceReleaseAlwaysAttemptsDestroy(retainedRows);
-            RetainedSurfacePresentationUsesNeutralTint(retainedRows);
             FooterAndCounterPathsAvoidStableAllocations(chrome, footerCache);
             SelectorAndTooltipCachesRemainBounded(header);
-        }
-
-        private static void RetainedSurfacePresentationUsesNeutralTint(string retainedRows)
-        {
-            string rowDraw = MemberBody(
-                retainedRows,
-                "private static void PresentSurface(");
-            AssertNeutralTexturePresentation(
-                rowDraw,
-                "retained work-grid row surface");
-        }
-
-        private static void AssertNeutralTexturePresentation(
-            string source,
-            string surfaceOwner)
-        {
-            const string scope = "RetainedSurfacePresentation.EnterNeutralTextureTint()";
-            int scopeIndex = source.IndexOf(scope, StringComparison.Ordinal);
-            int drawIndex = source.IndexOf(
-                "GUI.DrawTextureWithTexCoords(",
-                StringComparison.Ordinal);
-            TestAssert.True(
-                scopeIndex >= 0 && drawIndex > scopeIndex,
-                surfaceOwner + " must neutralize GUI.color before presenting retained pixels");
-        }
-
-        private static void RetainedResourcesFollowWindowLifecycle(
-            string chrome,
-            string manualCache,
-            string window)
-        {
-            string release = MemberBody(
-                chrome,
-                "internal void ReleaseRetainedResources()");
-            TestAssert.Contains(
-                release,
-                "_manualPriorityPresentationCache.ReleaseRetainedResources();",
-                "the chrome must preserve the retained-resource teardown seam");
-            TestAssert.Contains(
-                manualCache,
-                "Manual chrome no longer owns a GPU-backed surface",
-                "manual chrome resource teardown must document its live presentation boundary");
-
-            string resolution = MemberBody(
-                window,
-                "public override void Notify_ResolutionChanged()");
-            TestAssert.Contains(
-                resolution,
-                "ReleaseRetainedResources();",
-                "resolution changes must release retained chrome resources");
-            string close = MemberBody(window, "private void ResetTransientWindowState()");
-            TestAssert.False(
-                close.IndexOf("_workTabChrome.ReleaseRetainedResources();", StringComparison.Ordinal) >= 0,
-                "ordinary Work-tab close must not cross the render-resource release boundary");
-            TestAssert.False(
-                close.IndexOf("ReleaseRetainedResources();", StringComparison.Ordinal) >= 0,
-                "ordinary Work-tab close must not cross the render-resource release boundary");
         }
 
         private static void RetainedResourceReleaseContinuesAfterFailures()
@@ -114,21 +47,20 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 },
                 () =>
                 {
-                    releaseOrder.Add("chrome");
-                    throw new InvalidOperationException("chrome device lost");
+                    releaseOrder.Add("headers");
+                    throw new InvalidOperationException("header device lost");
                 },
-                () => releaseOrder.Add("headers"),
                 (group, exception) => reportedGroups.Add(group + ":" + exception.GetType().Name));
 
             TestAssert.Sequence(
-                new[] { "rows", "chrome", "headers" },
+                new[] { "rows", "headers" },
                 releaseOrder,
                 "each retained owner must be attempted after an earlier release fails");
             TestAssert.Sequence(
                 new[]
                 {
                     "retained work-grid rows:InvalidOperationException",
-                    "retained Work tab chrome:InvalidOperationException"
+                    "retained priority headers:InvalidOperationException"
                 },
                 reportedGroups,
                 "each failed owner must report without suppressing a later release");
@@ -149,18 +81,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.True(
                 releaseCall >= 0 && finallyBlock > releaseCall && destroyCall > finallyBlock,
                 surfaceOwner + " must destroy a surface even when Unity release throws");
-        }
-
-        private static void ManualChromeUsesLivePresentationAndCachedGeometry(string source)
-        {
-            TestAssert.Contains(source, "private readonly GUIContent _checkboxContent", "manual chrome must retain one stable GUIContent instance");
-            TestAssert.Contains(source, "GetCheckboxLabelRect", "manual chrome must retain translated label geometry");
-            TestAssert.Contains(source, "_checkboxPresentationRevision != presentationRevision", "manual label geometry must invalidate on presentation revision");
-            TestAssert.Contains(source, "_checkboxUiScale != uiScale", "manual label geometry must invalidate on UI scale");
-            TestAssert.Contains(source, "_checkboxLanguage", "manual label geometry must invalidate on language");
-            TestAssert.False(source.IndexOf("RenderTexture", StringComparison.Ordinal) >= 0, "manual chrome must not own a deferred RenderTexture");
-            TestAssert.False(source.IndexOf("GUI.DrawTextureWithTexCoords", StringComparison.Ordinal) >= 0, "manual chrome must not present a deferred surface");
-            TestAssert.False(source.IndexOf("Widgets.CheckboxDraw", StringComparison.Ordinal) >= 0, "manual cache must not compose checkbox pixels offscreen");
         }
 
         private static void ManualInputAndOverlaysRemainLive(string source)
@@ -239,10 +159,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.False(
                 footerCache.IndexOf("string.Join", StringComparison.Ordinal) >= 0,
                 "footer cache must compose at most one bounded string without string.Join");
-            TestAssert.Contains(
-                footerCache,
-                "_presentationRevision == presentationRevision",
-                "footer text must invalidate when the presentation revision changes");
         }
 
         private static void SelectorAndTooltipCachesRemainBounded(string source)

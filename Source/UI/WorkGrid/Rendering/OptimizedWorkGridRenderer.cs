@@ -543,13 +543,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 _copyPasteClipboardAvailable ? RepaintCopyPasteNoOp : null);
         }
 
-        public bool DrawPreparedPawnLabel(PreparedWorkRowPacket packet, float rowOffsetY)
+        public bool DrawPreparedPawnLabel(
+            PreparedWorkRowPacket packet,
+            Pawn pawn,
+            float rowOffsetY)
         {
             PreparedPawnLabelCell label = packet.PawnLabel;
-            if (!TryGetLivePawn(packet.RowIndex, packet.PawnId, out Pawn pawn))
-            {
-                return false;
-            }
             Rect cellRect = OffsetY(label.CellRect, rowOffsetY);
             if (pawn.health.summaryHealth.SummaryHealthPercent < 0.99f ||
                 (!BWTWorkTabTutorial.OwnsCurrentPointer && Mouse.IsOver(cellRect)))
@@ -1294,27 +1293,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
             EndCellBatch();
             return false;
-        }
-
-        private static void DrawCellStandalone(
-            Rect cellRect,
-            byte priority,
-            Color priorityColor,
-            WorkCellVisualFlags flags,
-            byte skillBand,
-            float skillBlend,
-            byte passion,
-            float visualAlpha)
-        {
-            Rect boxRect = WorkPriorityCellGeometry.GetPriorityBoxRect(cellRect);
-            var visual = new WorkBoxVisualState(
-                priority,
-                skillBand,
-                skillBlend,
-                passion,
-                priorityColor,
-                flags);
-            PreparedWorkBoxRenderer.Draw(boxRect, visual, priority, visualAlpha);
         }
 
         private void DrawCellInBatch(

@@ -162,9 +162,8 @@ namespace Better_Work_Tab.UI
             // it dirties only prepared labels and deliberately keeps healthy retained rows.
             WorkTabInvalidationHub.Invalidate(WorkTabDirtyFlags.PawnLabel);
 
-            // A new open resets only row/chrome retry latches; valid bounded surfaces remain allocated.
+            // A new open resets only the row retry latch; valid bounded surfaces remain allocated.
             _optimizedWorkGridRenderer.ResetRetainedRowResourceFailureLatchForReopen();
-            _workTabChrome.ResetRetainedFailureLatchesForReopen();
             base.PreOpen();
             _application = WorkTabGameRoots.For(Current.Game)?.Application;
             BWTWorkloadSettingsOwnershipPolicy.BindApplication(_application);
@@ -979,7 +978,6 @@ namespace Better_Work_Tab.UI
         {
             RetainedResourceReleaseSequence.Release(
                 _optimizedWorkGridRenderer.ReleaseRetainedResources,
-                _workTabChrome.ReleaseRetainedResources,
                 HeaderDrawingCoordinator.ReleaseRetainedResources,
                 ReportRetainedResourceReleaseFailure);
         }

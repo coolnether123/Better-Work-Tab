@@ -983,13 +983,19 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             // IMGUI presents it inside the owning scroll-view/group clip. Its
             // pixels already contain their warning/glyph colors, so do not
             // multiply them by the caller's stale cell tint a second time.
-            using (RetainedSurfacePresentation.EnterNeutralTextureTint())
+            Color previousColor = GUI.color;
+            GUI.color = Color.white;
+            try
             {
                 GUI.DrawTextureWithTexCoords(
                     destination,
                     surface,
                     new Rect(0f, 0f, 1f, 1f),
                     true);
+            }
+            finally
+            {
+                GUI.color = previousColor;
             }
         }
 

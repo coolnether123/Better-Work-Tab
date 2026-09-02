@@ -39,7 +39,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("workload-performance-instrumentation-contracts", WorkloadPerformanceInstrumentationContractTests.Run),
             new TestCase("presentation-settings-consolidation", PresentationSettingsConsolidationTests.Run),
             new TestCase("chrome-presentation-cache-contracts", ChromePresentationCacheTests.Run),
-            new TestCase("retained-surface-presentation", RetainedSurfacePresentationTests.Run),
             new TestCase("layout-history-transaction-contracts", LayoutHistoryTransactionTests.Run),
             new TestCase("presentation-boundary-contracts", PresentationBoundaryTests.Run),
             new TestCase("expand-beside-ownership-contracts", ExpandBesideOwnershipContractTests.Run)

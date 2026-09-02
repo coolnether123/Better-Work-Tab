@@ -35,10 +35,17 @@ namespace Better_Work_Tab.UI.Chrome
     {
         private readonly SubWorkInteractionController _subWorkInteractionController;
         private readonly Func<WorkTabApplication> _application;
-        private readonly ManualPriorityChromePresentationCache _manualPriorityPresentationCache =
-            new ManualPriorityChromePresentationCache();
+        private readonly GUIContent _manualPriorityCheckboxContent = new GUIContent();
         private readonly FooterInstructionTextCache _footerInstructionTextCache =
             new FooterInstructionTextCache();
+
+        private string _manualPriorityCheckboxText;
+        private string _manualPriorityCheckboxLanguage;
+        private long _manualPriorityCheckboxPresentationRevision = long.MinValue;
+        private float _manualPriorityCheckboxUiScale;
+        private Rect _manualPriorityCheckboxSourceRect;
+        private Rect _manualPriorityCheckboxLabelRect;
+        private bool _manualPriorityCheckboxPresentationValid;
 
         private static string _cachedUiTextLanguage;
         private static long _cachedUiTextPresentationRevision = long.MinValue;
@@ -75,16 +82,6 @@ namespace Better_Work_Tab.UI.Chrome
             _subWorkInteractionController = subWorkInteractionController ??
                 throw new ArgumentNullException(nameof(subWorkInteractionController));
             _application = application ?? throw new ArgumentNullException(nameof(application));
-        }
-
-        internal void ReleaseRetainedResources()
-        {
-            _manualPriorityPresentationCache.ReleaseRetainedResources();
-        }
-
-        internal void ResetRetainedFailureLatchesForReopen()
-        {
-            _manualPriorityPresentationCache.ResetFailureLatchesForReopen();
         }
 
         internal void DrawTopControls(IWorkTabLayoutController layout, Rect inRect)
@@ -386,10 +383,10 @@ namespace Better_Work_Tab.UI.Chrome
         {
             TextAnchor previousAnchor = Text.Anchor;
             Text.Anchor = TextAnchor.MiddleLeft;
-            Rect labelRect = _manualPriorityPresentationCache.GetCheckboxLabelRect(
+            Rect labelRect = GetManualPriorityCheckboxLabelRect(
                 rect,
                 _manualPrioritiesText);
-            Widgets.Label(labelRect, _manualPriorityPresentationCache.CheckboxContent);
+            Widgets.Label(labelRect, _manualPriorityCheckboxContent);
             Widgets.CheckboxDraw(
                 rect.x + rect.width - 24f,
                 rect.y + (rect.height - 24f) / 2f,
@@ -399,6 +396,51 @@ namespace Better_Work_Tab.UI.Chrome
                 null,
                 null);
             Text.Anchor = previousAnchor;
+        }
+
+        private Rect GetManualPriorityCheckboxLabelRect(Rect rect, string checkboxText)
+        {
+            string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
+            long presentationRevision = WorkTabPresentationRevision.Current;
+            float uiScale = Prefs.UIScale;
+            if (!_manualPriorityCheckboxPresentationValid ||
+                !String.Equals(
+                    _manualPriorityCheckboxText,
+                    checkboxText,
+                    StringComparison.Ordinal) ||
+                !String.Equals(
+                    _manualPriorityCheckboxLanguage,
+                    language,
+                    StringComparison.Ordinal) ||
+                _manualPriorityCheckboxPresentationRevision != presentationRevision ||
+                _manualPriorityCheckboxUiScale != uiScale ||
+                _manualPriorityCheckboxSourceRect.x != rect.x ||
+                _manualPriorityCheckboxSourceRect.y != rect.y ||
+                _manualPriorityCheckboxSourceRect.width != rect.width ||
+                _manualPriorityCheckboxSourceRect.height != rect.height)
+            {
+                Rect labelRect = rect;
+                labelRect.xMax -= 24f;
+                if (uiScale > 1f)
+                {
+                    float halfScale = uiScale / 2f;
+                    if (Math.Abs(halfScale - Math.Floor(halfScale)) > float.Epsilon)
+                    {
+                        labelRect = LudeonTK.UIScaling.AdjustRectToUIScaling(labelRect);
+                    }
+                }
+
+                _manualPriorityCheckboxText = checkboxText;
+                _manualPriorityCheckboxContent.text = checkboxText;
+                _manualPriorityCheckboxLanguage = language;
+                _manualPriorityCheckboxPresentationRevision = presentationRevision;
+                _manualPriorityCheckboxUiScale = uiScale;
+                _manualPriorityCheckboxSourceRect = rect;
+                _manualPriorityCheckboxLabelRect = labelRect;
+                _manualPriorityCheckboxPresentationValid = true;
+            }
+
+            return _manualPriorityCheckboxLabelRect;
         }
 
         private void DrawManualPrioritiesHelp(Rect rect, int maxPriority)

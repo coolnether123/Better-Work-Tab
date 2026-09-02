@@ -411,8 +411,6 @@
     <Compile Include="UI\WorkGrid\Layout\WorkGridLayoutMetrics.cs" />
     <Compile Include="UI\WorkGrid\Layout\WorkGridInteractionGeometry.cs" />
     <Compile Include="UI\Chrome\WorkTabChrome.cs" />
-    <Compile Include="UI\Chrome\ManualPriorityChromePresentationCache.cs" />
-    <Compile Include="UI\RetainedSurfacePresentation.cs" />
     <Compile Include="UI\Chrome\FooterInstructionTextCache.cs" />
     <Compile Include="UI\Chrome\WorkTabChromeGeometry.cs" />
     <Compile Include="UI\WorkGrid\Layout\WorkTabViewportController.cs" />

@@ -20,30 +20,9 @@ namespace Better_Work_Tab.UI.Chrome
     /// </summary>
     internal sealed class FooterInstructionTextCache
     {
-        private string _language;
-        private long _presentationRevision = long.MinValue;
-        private bool _overlayTextValid;
-        private bool _overlayShifted;
-        private string _overlayText;
-        private bool _ctrlClickTextValid;
-        private string _ctrlClickText;
-        private bool _actionTextValid;
-        private bool _actionActive;
-        private string _actionText;
-        private bool _gestureTextValid;
-        private string _gestureInput;
-        private string _gestureText;
-        private bool _gestureActionTextValid;
-        private string _gestureActionInput;
-        private string _gestureActionLabelInput;
-        private string _gestureActionText;
-        private string _overlayInput;
-        private string _pointerInput;
-        private string _joinedText;
-        private bool _compositionValid;
-        private float _truncateWidth;
-        private string _truncatedText;
-        private bool _truncateValid;
+        private CacheKey _cacheKey;
+        private string _cachedInstructionText;
+        private bool _hasCachedInstruction;
 
         internal string GetInstructionText(
             bool hasOverlayInstruction,
@@ -53,168 +32,118 @@ namespace Better_Work_Tab.UI.Chrome
             string gesture,
             float textWidth)
         {
-            EnsureCacheKey();
-            string overlayText = ResolveOverlayText(
+            float truncateWidth = Mathf.Max(1f, textWidth);
+            string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
+            CacheKey cacheKey = new CacheKey(
+                language,
+                WorkTabPresentationRevision.Current,
                 hasOverlayInstruction,
-                overlayShifted);
-            string pointerText = ResolvePointerText(
+                hasOverlayInstruction && overlayShifted,
                 pointerKind,
-                subWorkActive,
-                gesture);
-            string composedText = ComposeInstructionText(overlayText, pointerText);
-            return TruncateInstructionText(composedText, textWidth);
-        }
-
-        private string ResolveOverlayText(bool hasOverlayInstruction, bool overlayShifted)
-        {
-            if (!hasOverlayInstruction)
+                pointerKind == FooterPointerKind.GestureAction && subWorkActive,
+                pointerKind == FooterPointerKind.GestureAction ? gesture : null,
+                truncateWidth);
+            if (_hasCachedInstruction && _cacheKey.Equals(cacheKey))
             {
-                return null;
+                return _cachedInstructionText;
             }
 
-            if (!_overlayTextValid || _overlayShifted != overlayShifted)
-            {
-                _overlayShifted = overlayShifted;
-                _overlayText = overlayShifted
+            string overlayText = hasOverlayInstruction
+                ? overlayShifted
                     ? "BWT_Footer_ReleaseShiftForPriorities".Translate()
-                    : "BWT_Footer_HoldShiftForSkills".Translate();
-                _overlayTextValid = true;
-            }
-
-            return _overlayText;
-        }
-
-        private string ResolvePointerText(
-            FooterPointerKind pointerKind,
-            bool subWorkActive,
-            string gesture)
-        {
+                    : "BWT_Footer_HoldShiftForSkills".Translate()
+                : null;
+            string pointerText = null;
             switch (pointerKind)
             {
                 case FooterPointerKind.CtrlClickSchedule:
-                    if (!_ctrlClickTextValid)
-                    {
-                        _ctrlClickText = "BWT_Footer_CtrlClickSchedule".Translate();
-                        _ctrlClickTextValid = true;
-                    }
-
-                    return _ctrlClickText;
+                    pointerText = "BWT_Footer_CtrlClickSchedule".Translate();
+                    break;
                 case FooterPointerKind.GestureAction:
-                    string actionText = EnsureActionText(subWorkActive);
-                    string gestureText = EnsureGestureText(gesture);
-                    if (!_gestureActionTextValid ||
-                        !String.Equals(
-                            _gestureActionInput,
-                            gestureText,
-                            StringComparison.Ordinal) ||
-                        !String.Equals(
-                            _gestureActionLabelInput,
-                            actionText,
-                            StringComparison.Ordinal))
-                    {
-                        _gestureActionInput = gestureText;
-                        _gestureActionLabelInput = actionText;
-                        _gestureActionText = "BWT_Footer_GestureAction".Translate(
-                            gestureText,
-                            actionText);
-                        _gestureActionTextValid = true;
-                    }
-
-                    return _gestureActionText;
+                    string actionText = subWorkActive
+                        ? "BWT_Footer_BackToWorkTypes".Translate()
+                        : "BWT_Footer_OpenSpecificJobs".Translate();
+                    pointerText = "BWT_Footer_GestureAction".Translate(
+                        gesture.CapitalizeFirst(),
+                        actionText);
+                    break;
             }
 
-            return null;
+            string composedText = overlayText == null
+                ? pointerText
+                : pointerText == null
+                    ? overlayText
+                    : overlayText + " | " + pointerText;
+            _cacheKey = cacheKey;
+            _cachedInstructionText = composedText == null
+                ? null
+                : composedText.Truncate(truncateWidth);
+            _hasCachedInstruction = true;
+            return _cachedInstructionText;
         }
 
-        private string ComposeInstructionText(string overlayText, string pointerText)
+        private readonly struct CacheKey : IEquatable<CacheKey>
         {
-            if (!_compositionValid ||
-                !String.Equals(_overlayInput, overlayText, StringComparison.Ordinal) ||
-                !String.Equals(_pointerInput, pointerText, StringComparison.Ordinal))
-            {
-                _overlayInput = overlayText;
-                _pointerInput = pointerText;
-                _joinedText = overlayText == null
-                    ? pointerText
-                    : pointerText == null
-                        ? overlayText
-                        : overlayText + " | " + pointerText;
-                _compositionValid = true;
-                _truncateValid = false;
-            }
+            private readonly string _language;
+            private readonly long _presentationRevision;
+            private readonly bool _hasOverlayInstruction;
+            private readonly bool _overlayShifted;
+            private readonly FooterPointerKind _pointerKind;
+            private readonly bool _subWorkActive;
+            private readonly string _gesture;
+            private readonly float _truncateWidth;
 
-            return _joinedText;
-        }
-
-        private string TruncateInstructionText(string composedText, float textWidth)
-        {
-            if (composedText == null)
+            internal CacheKey(
+                string language,
+                long presentationRevision,
+                bool hasOverlayInstruction,
+                bool overlayShifted,
+                FooterPointerKind pointerKind,
+                bool subWorkActive,
+                string gesture,
+                float truncateWidth)
             {
-                return null;
-            }
-
-            float truncateWidth = Mathf.Max(1f, textWidth);
-            if (!_truncateValid || _truncateWidth != truncateWidth)
-            {
+                _language = language;
+                _presentationRevision = presentationRevision;
+                _hasOverlayInstruction = hasOverlayInstruction;
+                _overlayShifted = overlayShifted;
+                _pointerKind = pointerKind;
+                _subWorkActive = subWorkActive;
+                _gesture = gesture;
                 _truncateWidth = truncateWidth;
-                _truncatedText = composedText.Truncate(truncateWidth);
-                _truncateValid = true;
             }
 
-            return _truncatedText;
-        }
-
-        private string EnsureActionText(bool subWorkActive)
-        {
-            if (!_actionTextValid || _actionActive != subWorkActive)
+            public bool Equals(CacheKey other)
             {
-                _actionActive = subWorkActive;
-                _actionText = subWorkActive
-                    ? "BWT_Footer_BackToWorkTypes".Translate()
-                    : "BWT_Footer_OpenSpecificJobs".Translate();
-                _actionTextValid = true;
+                return String.Equals(_language, other._language, StringComparison.Ordinal) &&
+                       _presentationRevision == other._presentationRevision &&
+                       _hasOverlayInstruction == other._hasOverlayInstruction &&
+                       _overlayShifted == other._overlayShifted &&
+                       _pointerKind == other._pointerKind &&
+                       _subWorkActive == other._subWorkActive &&
+                       String.Equals(_gesture, other._gesture, StringComparison.Ordinal) &&
+                       _truncateWidth == other._truncateWidth;
             }
 
-            return _actionText;
-        }
-
-        private string EnsureGestureText(string gesture)
-        {
-            if (!_gestureTextValid ||
-                !String.Equals(_gestureInput, gesture, StringComparison.Ordinal))
+            public override bool Equals(object obj)
             {
-                _gestureInput = gesture;
-                _gestureText = gesture.CapitalizeFirst();
-                _gestureTextValid = true;
+                return obj is CacheKey && Equals((CacheKey)obj);
             }
 
-            return _gestureText;
-        }
-
-        private void EnsureCacheKey()
-        {
-            string language = LanguageDatabase.activeLanguage?.folderName ?? string.Empty;
-            long presentationRevision = WorkTabPresentationRevision.Current;
-            if (String.Equals(_language, language, StringComparison.Ordinal) &&
-                _presentationRevision == presentationRevision)
+            public override int GetHashCode()
             {
-                return;
+                unchecked
+                {
+                    int hash = _language?.GetHashCode() ?? 0;
+                    hash = (hash * 397) ^ _presentationRevision.GetHashCode();
+                    hash = (hash * 397) ^ (_hasOverlayInstruction ? 1 : 0);
+                    hash = (hash * 397) ^ (_overlayShifted ? 1 : 0);
+                    hash = (hash * 397) ^ (int)_pointerKind;
+                    hash = (hash * 397) ^ (_subWorkActive ? 1 : 0);
+                    hash = (hash * 397) ^ (_gesture?.GetHashCode() ?? 0);
+                    return (hash * 397) ^ _truncateWidth.GetHashCode();
+                }
             }
-
-            _language = language;
-            _presentationRevision = presentationRevision;
-            _overlayTextValid = false;
-            _ctrlClickTextValid = false;
-            _actionTextValid = false;
-            _gestureTextValid = false;
-            _gestureActionTextValid = false;
-            _compositionValid = false;
-            _truncateValid = false;
-            _overlayInput = null;
-            _pointerInput = null;
-            _joinedText = null;
-            _gestureActionInput = null;
-            _gestureActionLabelInput = null;
         }
     }
 }
