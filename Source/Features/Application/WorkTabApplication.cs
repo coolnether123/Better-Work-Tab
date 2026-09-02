@@ -1958,6 +1958,8 @@ namespace Better_Work_Tab.Features.Application
             WorkTabApplicationEffects effects = WorkTabApplicationEffects.None;
             if (durable)
                 effects |= WorkTabApplicationEffects.Persistence;
+            bool sparseParentPriorityChange =
+                !broad && dimensions == WorkTabApplicationDimensions.ParentPriority;
             if ((dimensions & (WorkTabApplicationDimensions.Schedule |
                                WorkTabApplicationDimensions.ParentPriority |
                                WorkTabApplicationDimensions.SpecificPriority |
@@ -1989,7 +1991,10 @@ namespace Better_Work_Tab.Features.Application
                 (dimensions & WorkTabApplicationDimensions.ManualPriorityMode) != 0;
             WorkTabApplicationDimensions nonManualDimensions = dimensions &
                 ~WorkTabApplicationDimensions.ManualPriorityMode;
-            if ((nonManualDimensions & (WorkTabApplicationDimensions.Schedule |
+            // A precise parent write already invalidates its target through the sparse
+            // path; keep it from fanning out into global execution/table refreshes.
+            if (!sparseParentPriorityChange &&
+                (nonManualDimensions & (WorkTabApplicationDimensions.Schedule |
                                         WorkTabApplicationDimensions.ParentPriority |
                                         WorkTabApplicationDimensions.SpecificPriority |
                                         WorkTabApplicationDimensions.SpecificOrder |
@@ -2001,6 +2006,7 @@ namespace Better_Work_Tab.Features.Application
             // not enqueue the separate global table refresh; combined changes
             // retain it for their non-manual dimensions.
             if (notifyPawnTables &&
+                !sparseParentPriorityChange &&
                 (!manualPriorityModeChanged ||
                  nonManualDimensions != WorkTabApplicationDimensions.None))
                 effects |= WorkTabApplicationEffects.PawnTableRecache;
