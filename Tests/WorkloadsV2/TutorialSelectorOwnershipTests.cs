@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Better_Work_Tab.Features.Tutorial;
 using Spine.UI.Tutorial;
 using UnityEngine;
@@ -22,7 +21,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                     new Vector2(180f, 60f),
                     new Vector2(100f, 60f)
                 });
-            var anchors = new List<BWTTutorialAnchor> { pawnAnchor, headerAnchor };
             Vector2 pawnPoint = pawnAnchor.Rect.center;
             Vector2 headerPoint = new Vector2(150f, 40f);
 
