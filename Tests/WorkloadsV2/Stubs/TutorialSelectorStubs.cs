@@ -39,8 +39,6 @@ namespace UnityEngine
     {
         Ignore,
         Repaint,
-        KeyDown,
-        KeyUp,
         MouseDown,
         MouseUp,
         MouseMove,
@@ -49,17 +47,10 @@ namespace UnityEngine
         Used
     }
 
-    public enum KeyCode
-    {
-        None,
-        Escape
-    }
-
     public sealed class Event
     {
         public static Event current { get; set; }
         public EventType type;
-        public KeyCode keyCode;
         public int button;
         public Vector2 mousePosition;
 
