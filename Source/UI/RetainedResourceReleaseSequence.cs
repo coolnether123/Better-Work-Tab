@@ -10,21 +10,17 @@ namespace Better_Work_Tab.UI
     {
         internal static void Release(
             Action releaseRows,
-            Action releaseChrome,
             Action releaseHeaders,
             Action<string, Exception> reportFailure)
         {
             if (releaseRows == null) throw new ArgumentNullException(nameof(releaseRows));
-            if (releaseChrome == null) throw new ArgumentNullException(nameof(releaseChrome));
             if (releaseHeaders == null) throw new ArgumentNullException(nameof(releaseHeaders));
             if (reportFailure == null) throw new ArgumentNullException(nameof(reportFailure));
 
             Exception rowFailure = TryRelease(releaseRows);
-            Exception chromeFailure = TryRelease(releaseChrome);
             Exception headerFailure = TryRelease(releaseHeaders);
 
             ReportFailure(reportFailure, "retained work-grid rows", rowFailure);
-            ReportFailure(reportFailure, "retained Work tab chrome", chromeFailure);
             ReportFailure(reportFailure, "retained priority headers", headerFailure);
         }
 

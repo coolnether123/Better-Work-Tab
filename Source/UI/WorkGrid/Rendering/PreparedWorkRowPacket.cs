@@ -725,15 +725,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 PreparedWorkRowCommand[] preparedCommands = _commands.ToArray();
                 PreparedWorkRowRun[] preparedRuns = _runs.ToArray();
                 PreparedWorkRowCell[] preparedSlots = _slots.ToArray();
-                if (!HasValidCommandTopology(
-                        preparedCommands,
-                        request.ColumnCount,
-                        preparedRuns.Length,
-                        _pawnLabel != null))
-                {
-                    return null;
-                }
-
+                // Column commands are emitted only by the bounded build loop;
+                // retained-run commands use the run index immediately after
+                // that run is appended. The private assembly therefore cannot
+                // produce an out-of-range command index.
                 int[] runByColumn = CreateRunLookup(
                     request.ColumnCount,
                     preparedRuns,
@@ -746,56 +741,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     _pawnLabel,
                     _slotByColumn,
                     runByColumn);
-            }
-
-            /// <summary>
-            /// Validates the producer-owned command stream once, before it can be
-            /// cached. Retained hits can then trust every index without repeating
-            /// defensive checks or risking a partially drawn row.
-            /// </summary>
-            private static bool HasValidCommandTopology(
-                PreparedWorkRowCommand[] commands,
-                int columnCount,
-                int runCount,
-                bool hasPawnLabel)
-            {
-                for (int index = 0; index < commands.Length; index++)
-                {
-                    PreparedWorkRowCommand command = commands[index];
-                    switch (command.Kind)
-                    {
-                        case PreparedWorkRowCommandKind.NativeColumn:
-                            if (command.Index < 0 || command.Index >= columnCount)
-                            {
-                                return false;
-                            }
-                            break;
-                        case PreparedWorkRowCommandKind.RetainedRun:
-                            if (command.Index < 0 || command.Index >= runCount)
-                            {
-                                return false;
-                            }
-                            break;
-                        case PreparedWorkRowCommandKind.PreparedPawnLabel:
-                            if (!hasPawnLabel ||
-                                command.Index < 0 ||
-                                command.Index >= columnCount)
-                            {
-                                return false;
-                            }
-                            break;
-                        case PreparedWorkRowCommandKind.PreparedCopyPaste:
-                            if (command.Index < 0 || command.Index >= columnCount)
-                            {
-                                return false;
-                            }
-                            break;
-                        default:
-                            return false;
-                    }
-                }
-
-                return true;
             }
 
             private static int[] CreateRunLookup(

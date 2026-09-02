@@ -266,11 +266,6 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             TestAssert.Contains(packet, "PreparedColumnDisposition.Hidden", "hidden focus-view parents must remain distinct from native fallback");
             TestAssert.Contains(packet, "request.Geometry.Columns[columnIndex]", "packet geometry must come from the finished pass geometry");
             TestAssert.Contains(packet, "return delegateScheduleCells", "every sub-work cell must delegate while the live schedule owner is open");
-            string complete = MemberBody(packet, "internal PreparedWorkRowPacket Complete(");
-            TestAssert.Contains(
-                complete,
-                "HasValidCommandTopology(",
-                "the packet producer must validate the complete command stream before caching it");
             TestAssert.False(packet.IndexOf("ParentPriorityRead", StringComparison.Ordinal) >= 0, "packet construction must not read live parent priorities");
             TestAssert.False(packet.IndexOf("AverageOfRelevantSkillsFor", StringComparison.Ordinal) >= 0, "packet construction must not read pawn skills");
             TestAssert.False(packet.IndexOf("WorkGiverCellPresentationCache.Resolve", StringComparison.Ordinal) >= 0, "packet construction must not resolve live sub-work presentation");

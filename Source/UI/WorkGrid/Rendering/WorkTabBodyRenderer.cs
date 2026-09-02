@@ -1537,7 +1537,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
 
                 if (command.Kind == PreparedWorkRowCommandKind.PreparedPawnLabel &&
-                    preparedLayer.DrawPreparedPawnLabel(packet, rowRect.y))
+                    preparedLayer.DrawPreparedPawnLabel(packet, pawn, rowRect.y))
                 {
                     continue;
                 }
