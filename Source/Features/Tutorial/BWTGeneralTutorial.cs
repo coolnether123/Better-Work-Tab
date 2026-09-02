@@ -530,21 +530,24 @@ namespace Better_Work_Tab.Features.Tutorial
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             EnsureState(settings);
             TutorialPresentation presentation = Presentation;
-            TutorialCancelAction cancelAction = TutorialCancelPolicy.Resolve(
-                presentation,
-                presentation == TutorialPresentation.Lesson &&
-                IsShowingCompletionOutcome(settings.activeTutorialLessonId));
-            switch (cancelAction)
+            if (presentation == TutorialPresentation.Welcome)
             {
-                case TutorialCancelAction.Pause:
-                    Pause();
-                    break;
-                case TutorialCancelAction.ReturnToSelection:
-                    ReturnToSelection();
-                    break;
-                case TutorialCancelAction.AcknowledgeLessonOutcome:
+                Pause();
+            }
+            else if (presentation == TutorialPresentation.Lesson)
+            {
+                if (IsShowingCompletionOutcome(settings.activeTutorialLessonId))
+                {
                     AcknowledgeLessonOutcome();
-                    break;
+                }
+                else
+                {
+                    ReturnToSelection();
+                }
+            }
+            else
+            {
+                Pause();
             }
 
             return true;

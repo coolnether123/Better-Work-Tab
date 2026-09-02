@@ -58,30 +58,6 @@ namespace Spine.UI.Tutorial
         }
     }
 
-    public enum TutorialCancelAction
-    {
-        Pause,
-        ReturnToSelection,
-        AcknowledgeLessonOutcome
-    }
-
-    public static class TutorialCancelPolicy
-    {
-        public static TutorialCancelAction Resolve(
-            TutorialPresentation presentation,
-            bool showingCompletionOutcome)
-        {
-            if (presentation != TutorialPresentation.Lesson)
-            {
-                return TutorialCancelAction.Pause;
-            }
-
-            return showingCompletionOutcome
-                ? TutorialCancelAction.AcknowledgeLessonOutcome
-                : TutorialCancelAction.ReturnToSelection;
-        }
-    }
-
     /// <summary>
     /// Pure policy for deciding whether a visible tutorial surface owns the
     /// pointer instead of the interface drawn beneath it.
