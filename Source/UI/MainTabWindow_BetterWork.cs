@@ -871,6 +871,12 @@ namespace Better_Work_Tab.UI
                 return;
             }
 
+            if (_tutorialInteractionController.TryHandleCancelKey())
+            {
+                Event.current?.Use();
+                return;
+            }
+
             base.OnCancelKeyPressed();
         }
 

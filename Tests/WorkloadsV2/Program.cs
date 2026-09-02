@@ -27,6 +27,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             new TestCase("pawn-label-revision-behavior", PawnLabelRevisionBehaviorTests.Run),
             new TestCase("prepared-pawn-label-text", PreparedPawnLabelTextTests.Run),
             new TestCase("tutorial-selector-ownership", TutorialSelectorOwnershipTests.Run),
+            new TestCase("tutorial-cancel-behavior", TutorialCancelBehaviorTests.Run),
             new TestCase("shift-wheel-viewport-input-contracts", ShiftWheelViewportInputTests.Run),
             new TestCase("dependency-direction-contracts", DependencyDirectionContractTests.Run),
             new TestCase("workload-feature-isolation-contracts", WorkloadFeatureIsolationContractTests.Run),

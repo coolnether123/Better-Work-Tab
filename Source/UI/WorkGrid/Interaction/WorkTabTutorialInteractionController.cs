@@ -37,6 +37,11 @@ namespace Better_Work_Tab.UI.WorkGrid.Interaction
             return BWTWorkTabTutorial.TryHandleAcceptKey();
         }
 
+        internal bool TryHandleCancelKey()
+        {
+            return BWTWorkTabTutorial.TryHandleCancelKey();
+        }
+
         internal void ReportInteraction(in WorkTabView view, Event evt)
         {
             if (evt == null || evt.type != EventType.MouseDown)
