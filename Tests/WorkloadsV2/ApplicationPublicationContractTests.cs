@@ -20,6 +20,7 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
             FailureOutcomesDistinguishRecovery(application);
             SpecificJobStorageUsesNeutralAuthority(application, staged);
             ManualModePublicationAvoidsDuplicateRecaches(application, staged);
+            SparseParentPublicationAvoidsGlobalRecaches(application);
             StagedRequestsAreSeparatedFromAppliedChanges(application, staged);
             StagedPublicationUsesAppliedState(application, staged);
             FailedRollbackReleasesApplicationAdmission(application, staged);
@@ -124,6 +125,26 @@ namespace BetterWorkTab.WorkloadsV2.Deterministic
                 staged,
                 "_mutation.ManualPriorityModeChanged = true",
                 "the staged receipt must record the writer-owned notifier boundary");
+        }
+
+        private static void SparseParentPublicationAvoidsGlobalRecaches(string application)
+        {
+            TestAssert.Contains(
+                application,
+                "bool sparseParentPriorityChange =\n                !broad && dimensions == WorkTabApplicationDimensions.ParentPriority;",
+                "the exact parent-priority publication path must be identified explicitly");
+            TestAssert.Contains(
+                application,
+                "if (!sparseParentPriorityChange &&\n                (nonManualDimensions & (WorkTabApplicationDimensions.Schedule |",
+                "sparse parent changes must not request a global execution recache");
+            TestAssert.Contains(
+                application,
+                "if (notifyPawnTables &&\n                !sparseParentPriorityChange &&",
+                "sparse parent changes must not request a global pawn-table recache");
+            TestAssert.Contains(
+                application,
+                "if (!broad && dimensions == WorkTabApplicationDimensions.ParentPriority)\n                effects |= WorkTabApplicationEffects.SparseParentPriorityInvalidation;",
+                "sparse parent changes must retain the precise invalidation effect");
         }
 
         private static void StagedRequestsAreSeparatedFromAppliedChanges(
