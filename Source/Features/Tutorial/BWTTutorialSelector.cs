@@ -79,6 +79,7 @@ namespace Better_Work_Tab.Features.Tutorial
         private readonly TutorialHoverGraceState hover = new TutorialHoverGraceState(0.75d);
         private TutorialHubAnchor pinnedAnchor = TutorialHubAnchor.None;
         private BWTTutorialAnchor pinnedGeometry;
+        private bool pendingAnchorRelease;
         private Rect lastPopupRect;
 
         /// <summary>The anchor a click has pinned, or None. Observed by the quicktest driver.</summary>
@@ -94,6 +95,7 @@ namespace Better_Work_Tab.Features.Tutorial
             hover.Clear();
             pinnedAnchor = TutorialHubAnchor.None;
             pinnedGeometry = default(BWTTutorialAnchor);
+            pendingAnchorRelease = false;
             lastPopupRect = Rect.zero;
         }
 
@@ -157,6 +159,26 @@ namespace Better_Work_Tab.Features.Tutorial
                 }
             }
             hover.Pin(anchor, Time.realtimeSinceStartup);
+            pendingAnchorRelease = true;
+            return true;
+        }
+
+        internal bool TryHandlePinnedAnchorMouseUp(Event evt)
+        {
+            if (!pendingAnchorRelease ||
+                evt.type != EventType.MouseUp ||
+                evt.button != 0)
+            {
+                return false;
+            }
+
+            pendingAnchorRelease = false;
+            if (!pinnedGeometry.IsValid || !pinnedGeometry.Contains(evt.mousePosition))
+            {
+                return false;
+            }
+
+            evt.Use();
             return true;
         }
 
@@ -253,13 +275,6 @@ namespace Better_Work_Tab.Features.Tutorial
             IDictionary<TutorialHubAnchor, BWTTutorialHubDefinition> hubs,
             Vector2 pointer)
         {
-            if (pinnedAnchor != TutorialHubAnchor.None &&
-                pinnedGeometry.IsValid &&
-                pinnedGeometry.Rect.Contains(pointer))
-            {
-                return true;
-            }
-
             // The list drawn last frame owns the pointer outright. Re-deriving it
             // from the active anchor misses the case where the pointer has left
             // the anchor to travel into the list, which let the grid underneath
