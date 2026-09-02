@@ -258,6 +258,12 @@ namespace Better_Work_Tab.Features.Tutorial
                 return true;
             }
 
+            if (presentation == TutorialPresentation.Selector &&
+                Selector.TryHandlePinnedAnchorMouseUp(evt))
+            {
+                return true;
+            }
+
             // Everything else the tutorial claims is the list holding the pointer
             // during its hover grace, so the grid underneath stops drawing
             // highlights and tooltips through it.
