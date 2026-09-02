@@ -104,6 +104,7 @@
     <Compile Include="PawnLabelRevisionBehaviorTests.cs" />
     <Compile Include="PreparedPawnLabelTextTests.cs" />
     <Compile Include="TutorialSelectorOwnershipTests.cs" />
+    <Compile Include="TutorialCancelBehaviorTests.cs" />
     <Compile Include="ShiftWheelViewportInputTests.cs" />
     <Compile Include="DependencyDirectionContractTests.cs" />
     <Compile Include="WorkloadFeatureIsolationContractTests.cs" />

@@ -206,28 +206,10 @@ namespace Better_Work_Tab.Features.Tutorial
             BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
             EnsureState(settings);
             TutorialPresentation presentation = Presentation;
-            if (evt.type == EventType.KeyDown && evt.keyCode == KeyCode.Escape)
+            if (evt.type == EventType.KeyDown &&
+                evt.keyCode == KeyCode.Escape &&
+                TryHandleCancelKey())
             {
-                if (presentation == TutorialPresentation.Welcome)
-                {
-                    Pause();
-                }
-                else if (presentation == TutorialPresentation.Lesson)
-                {
-                    if (IsShowingCompletionOutcome(settings.activeTutorialLessonId))
-                    {
-                        AcknowledgeLessonOutcome();
-                    }
-                    else
-                    {
-                        ReturnToSelection();
-                    }
-                }
-                else
-                {
-                    Pause();
-                }
-
                 evt.Use();
                 return true;
             }
@@ -536,6 +518,36 @@ namespace Better_Work_Tab.Features.Tutorial
             }
 
             return TutorialPointerOwnershipPolicy.BlocksUnderlyingPointer(presentation, overSurface);
+        }
+
+        internal static bool TryHandleCancelKey()
+        {
+            if (!IsActive)
+            {
+                return false;
+            }
+
+            BetterWorkTabSettings settings = BetterWorkTabMod.Settings;
+            EnsureState(settings);
+            TutorialPresentation presentation = Presentation;
+            TutorialCancelAction cancelAction = TutorialCancelPolicy.Resolve(
+                presentation,
+                presentation == TutorialPresentation.Lesson &&
+                IsShowingCompletionOutcome(settings.activeTutorialLessonId));
+            switch (cancelAction)
+            {
+                case TutorialCancelAction.Pause:
+                    Pause();
+                    break;
+                case TutorialCancelAction.ReturnToSelection:
+                    ReturnToSelection();
+                    break;
+                case TutorialCancelAction.AcknowledgeLessonOutcome:
+                    AcknowledgeLessonOutcome();
+                    break;
+            }
+
+            return true;
         }
 
         internal static bool TryHandleAcceptKey()

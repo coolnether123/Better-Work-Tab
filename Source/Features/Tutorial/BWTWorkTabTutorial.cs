@@ -17,6 +17,11 @@ namespace Better_Work_Tab.Features.Tutorial
             return BWTGeneralTutorial.TryHandleAcceptKey();
         }
 
+        internal static bool TryHandleCancelKey()
+        {
+            return BWTGeneralTutorial.TryHandleCancelKey();
+        }
+
         internal static bool OwnsCurrentPointer => BWTGeneralTutorial.OwnsCurrentPointer;
 
         internal static void UpdatePointerOwnership(
