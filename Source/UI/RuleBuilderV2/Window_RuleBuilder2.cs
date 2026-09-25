@@ -196,7 +196,6 @@ namespace Better_Work_Tab.UI.RuleBuilderV2
         public override void PreOpen()
         {
             base.PreOpen();
-            RuleBuilderGateway.EnsureRuleBuilder2ServicesRegistered();
             flowController = new RuleBuilder2FlowController(seededRuleset, previewOnOpen, persistRuleset);
             targetPickerView = new RuleBuilder2TargetPickerView(this, flowController, layout);
             conditionsView = new RuleBuilder2ConditionsView(this, flowController, layout);

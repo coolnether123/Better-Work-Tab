@@ -378,7 +378,10 @@ namespace Better_Work_Tab.Features.Workloads
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                Root.Lifecycle.CompletePostLoad(currentWorklistName);
+                Root.Lifecycle.CompletePostLoad(
+                    string.IsNullOrEmpty(currentWorklistName)
+                        ? CurrentWorklist?.RenamableLabel
+                        : currentWorklistName);
             }
         }
 

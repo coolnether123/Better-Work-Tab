@@ -84,23 +84,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             bool headersDrawn = false;
             try
             {
-                renderer.Prepare(in context);
-                if ((context.Configuration.Layers & WorkGridLayerFlags.Headers) != 0)
-                {
-                    _drawingSurface.DrawHeaders(in context);
-                    headersDrawn = true;
-                }
-                renderer.Draw(in context);
-
-                if (context.EventPhase == ImGuiEventPhase.Input)
-                {
-                    renderer.HandleEvent(in context);
-                }
-
-                if (context.EventPhase == ImGuiEventPhase.Repaint)
-                {
-                    renderer.ReleaseTransient(in context);
-                }
+                DispatchRendererPhase(renderer, in context, ref headersDrawn);
             }
             catch (Exception exception)
             {
@@ -136,21 +120,32 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
                 // Complete the current event with the native renderer so a
                 // failure does not leave a half-rendered frame until Layout.
-                _vanilla.Prepare(in context);
-                if ((context.Configuration.Layers & WorkGridLayerFlags.Headers) != 0 &&
-                    !headersDrawn)
-                {
-                    _drawingSurface.DrawHeaders(in context);
-                }
-                _vanilla.Draw(in context);
-                if (context.EventPhase == ImGuiEventPhase.Input)
-                {
-                    _vanilla.HandleEvent(in context);
-                }
-                if (context.EventPhase == ImGuiEventPhase.Repaint)
-                {
-                    _vanilla.ReleaseTransient(in context);
-                }
+                DispatchRendererPhase(_vanilla, in context, ref headersDrawn);
+            }
+        }
+
+        private void DispatchRendererPhase(
+            IWorkGridRenderer renderer,
+            in WorkTabView context,
+            ref bool headersDrawn)
+        {
+            renderer.Prepare(in context);
+            if ((context.Configuration.Layers & WorkGridLayerFlags.Headers) != 0 &&
+                !headersDrawn)
+            {
+                _drawingSurface.DrawHeaders(in context);
+                headersDrawn = true;
+            }
+            renderer.Draw(in context);
+
+            if (context.EventPhase == ImGuiEventPhase.Input)
+            {
+                renderer.HandleEvent(in context);
+            }
+
+            if (context.EventPhase == ImGuiEventPhase.Repaint)
+            {
+                renderer.ReleaseTransient(in context);
             }
         }
 

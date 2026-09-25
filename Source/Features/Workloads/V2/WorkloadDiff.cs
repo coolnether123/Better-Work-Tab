@@ -11,6 +11,29 @@ namespace Better_Work_Tab.Features.Workloads.V2
         Changed = 2
     }
 
+    internal sealed class WorkloadChangeInspectionTarget
+    {
+        internal WorkloadChangeInspectionTarget(
+            PawnKey pawn = null,
+            WorkTypeKey workType = null,
+            WorkGiverKey workGiver = null,
+            WorkloadTargetScope scope = WorkloadTargetScope.PawnLocal,
+            WorkloadScheduleTargetKind scheduleKind = WorkloadScheduleTargetKind.ParentWorkType)
+        {
+            Pawn = pawn;
+            WorkType = workType;
+            WorkGiver = workGiver;
+            Scope = scope;
+            ScheduleKind = scheduleKind;
+        }
+
+        public PawnKey Pawn { get; private set; }
+        public WorkTypeKey WorkType { get; private set; }
+        public WorkGiverKey WorkGiver { get; private set; }
+        public WorkloadTargetScope Scope { get; private set; }
+        public WorkloadScheduleTargetKind ScheduleKind { get; private set; }
+    }
+
     public sealed class WorkloadChange
     {
         public WorkloadChange(
@@ -19,12 +42,24 @@ namespace Better_Work_Tab.Features.Workloads.V2
             string canonicalKey,
             string beforeValue,
             string afterValue)
+            : this(dimension, kind, canonicalKey, beforeValue, afterValue, null)
+        {
+        }
+
+        internal WorkloadChange(
+            WorkloadStateDimension dimension,
+            WorkloadChangeKind kind,
+            string canonicalKey,
+            string beforeValue,
+            string afterValue,
+            WorkloadChangeInspectionTarget inspectionTarget)
         {
             Dimension = dimension;
             Kind = kind;
             CanonicalKey = canonicalKey ?? string.Empty;
             BeforeValue = beforeValue;
             AfterValue = afterValue;
+            InspectionTarget = inspectionTarget;
         }
 
         public WorkloadStateDimension Dimension { get; private set; }
@@ -32,11 +67,24 @@ namespace Better_Work_Tab.Features.Workloads.V2
         public string CanonicalKey { get; private set; }
         public string BeforeValue { get; private set; }
         public string AfterValue { get; private set; }
+        internal WorkloadChangeInspectionTarget InspectionTarget { get; private set; }
     }
 
     public sealed class WorkloadSemanticDiff
     {
         private readonly ReadOnlyCollection<WorkloadChange> _changes;
+
+        private readonly struct DiffValue
+        {
+            public DiffValue(string value, WorkloadChangeInspectionTarget inspectionTarget)
+            {
+                Value = value;
+                InspectionTarget = inspectionTarget;
+            }
+
+            public string Value { get; }
+            public WorkloadChangeInspectionTarget InspectionTarget { get; }
+        }
 
         private WorkloadSemanticDiff(
             string beforeCanonical,
@@ -78,10 +126,12 @@ namespace Better_Work_Tab.Features.Workloads.V2
             var changes = new List<WorkloadChange>();
             foreach (string compositeKey in keys)
             {
-                string beforeValue;
-                string afterValue;
-                bool hasBefore = beforeValues.TryGetValue(compositeKey, out beforeValue);
-                bool hasAfter = afterValues.TryGetValue(compositeKey, out afterValue);
+                DiffValue beforeEntry;
+                DiffValue afterEntry;
+                bool hasBefore = beforeValues.TryGetValue(compositeKey, out beforeEntry);
+                bool hasAfter = afterValues.TryGetValue(compositeKey, out afterEntry);
+                string beforeValue = hasBefore ? beforeEntry.Value : null;
+                string afterValue = hasAfter ? afterEntry.Value : null;
                 if (hasBefore && hasAfter && StringComparer.Ordinal.Equals(beforeValue, afterValue)) continue;
 
                 WorkloadStateDimension dimension = GetDimension(compositeKey);
@@ -91,7 +141,13 @@ namespace Better_Work_Tab.Features.Workloads.V2
                     : !hasAfter
                         ? WorkloadChangeKind.Removed
                         : WorkloadChangeKind.Changed;
-                changes.Add(new WorkloadChange(dimension, kind, key, hasBefore ? beforeValue : null, hasAfter ? afterValue : null));
+                changes.Add(new WorkloadChange(
+                    dimension,
+                    kind,
+                    key,
+                    beforeValue,
+                    afterValue,
+                    beforeEntry.InspectionTarget ?? afterEntry.InspectionTarget));
             }
 
             changes.Sort(CompareChanges);
@@ -103,23 +159,29 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 changes);
         }
 
-        private static Dictionary<string, string> BuildValues(
+        private static Dictionary<string, DiffValue> BuildValues(
             WorkloadProjectedState state,
             WorkloadOwnershipDimensions dimensions)
         {
-            var values = new Dictionary<string, string>(StringComparer.Ordinal);
+            var values = new Dictionary<string, DiffValue>(StringComparer.Ordinal);
             for (int i = 0; i < state.RepresentedPawnIds.Count; i++)
             {
-                values[ComposeKey(
+                SetValue(values,
                     WorkloadStateDimension.Membership,
-                    "I:" + WorkloadCanonical.Encode(state.RepresentedPawnIds[i].Value))] = "1";
+                    "I:" + WorkloadCanonical.Encode(state.RepresentedPawnIds[i].Value),
+                    "1",
+                    new WorkloadChangeInspectionTarget(
+                        new PawnKey(state.RepresentedPawnIds[i].Value)));
             }
 
             for (int i = 0; i < state.ExcludedPawnIds.Count; i++)
             {
-                values[ComposeKey(
+                SetValue(values,
                     WorkloadStateDimension.Membership,
-                    "E:" + WorkloadCanonical.Encode(state.ExcludedPawnIds[i].Value))] = "1";
+                    "E:" + WorkloadCanonical.Encode(state.ExcludedPawnIds[i].Value),
+                    "1",
+                    new WorkloadChangeInspectionTarget(
+                        new PawnKey(state.ExcludedPawnIds[i].Value)));
             }
 
             if ((dimensions & WorkloadOwnershipDimensions.ParentPriorities) != 0)
@@ -127,8 +189,12 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 for (int i = 0; i < state.ParentPriorities.Count; i++)
                 {
                     WorkloadParentPriorityEntry entry = state.ParentPriorities[i];
-                    values[ComposeKey(WorkloadStateDimension.ParentPriorities, entry.Key.CanonicalKey)] =
-                        WorkloadCanonical.Integer(entry.Priority);
+                    SetValue(
+                        values,
+                        WorkloadStateDimension.ParentPriorities,
+                        entry.Key.CanonicalKey,
+                        WorkloadCanonical.Integer(entry.Priority),
+                        new WorkloadChangeInspectionTarget(entry.Key.Pawn, entry.Key.WorkType));
                 }
             }
 
@@ -137,8 +203,12 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 for (int i = 0; i < state.ManualModes.Count; i++)
                 {
                     WorkloadManualModeEntry entry = state.ManualModes[i];
-                    values[ComposeKey(WorkloadStateDimension.ManualModes, entry.Key.CanonicalKey)] =
-                        WorkloadCanonical.Boolean(entry.Manual);
+                    SetValue(
+                        values,
+                        WorkloadStateDimension.ManualModes,
+                        entry.Key.CanonicalKey,
+                        WorkloadCanonical.Boolean(entry.Manual),
+                        new WorkloadChangeInspectionTarget(entry.Key.Pawn, entry.Key.WorkType));
                 }
             }
 
@@ -147,8 +217,12 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 for (int i = 0; i < state.Schedules.Count; i++)
                 {
                     WorkloadScheduleEntry entry = state.Schedules[i];
-                    values[ComposeKey(WorkloadStateDimension.Schedules, WorkloadCanonical.Encode(entry.Pawn.Value))] =
-                        WorkloadCanonical.Integer(entry.Schedule.Value);
+                    SetValue(
+                        values,
+                        WorkloadStateDimension.Schedules,
+                        WorkloadCanonical.Encode(entry.Pawn.Value),
+                        WorkloadCanonical.Integer(entry.Schedule.Value),
+                        new WorkloadChangeInspectionTarget(pawn: entry.Pawn));
                 }
             }
 
@@ -157,8 +231,16 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 for (int i = 0; i < state.SpecificJobOverrides.Count; i++)
                 {
                     WorkloadSpecificJobOverrideEntry entry = state.SpecificJobOverrides[i];
-                    values[ComposeKey(WorkloadStateDimension.SpecificJobOverrides, entry.Key.CanonicalKey)] =
-                        entry.Value.CanonicalValue;
+                    SetValue(
+                        values,
+                        WorkloadStateDimension.SpecificJobOverrides,
+                        entry.Key.CanonicalKey,
+                        entry.Value.CanonicalValue,
+                        new WorkloadChangeInspectionTarget(
+                            entry.Key.IsGlobal ? null : entry.Key.Pawn,
+                            entry.Key.WorkType,
+                            entry.Key.WorkGiver,
+                            entry.Key.Scope));
                 }
             }
 
@@ -167,8 +249,16 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 for (int i = 0; i < state.SpecificJobOrder.Count; i++)
                 {
                     WorkloadSpecificJobOrderEntry entry = state.SpecificJobOrder[i];
-                    values[ComposeKey(WorkloadStateDimension.SpecificJobOrder, entry.Key.CanonicalKey)] =
-                        WorkloadCanonical.Integer(entry.Order);
+                    SetValue(
+                        values,
+                        WorkloadStateDimension.SpecificJobOrder,
+                        entry.Key.CanonicalKey,
+                        WorkloadCanonical.Integer(entry.Order),
+                        new WorkloadChangeInspectionTarget(
+                            entry.Key.IsGlobal ? null : entry.Key.Pawn,
+                            entry.Key.WorkType,
+                            entry.Key.WorkGiver,
+                            entry.Key.Scope));
                 }
             }
 
@@ -177,8 +267,11 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 for (int i = 0; i < state.PresentationSettings.Count; i++)
                 {
                     WorkloadPresentationSettingEntry entry = state.PresentationSettings[i];
-                    values[ComposeKey(WorkloadStateDimension.PresentationSettings, WorkloadCanonical.Encode(entry.Key))] =
-                        entry.Value.CanonicalValue;
+                    SetValue(
+                        values,
+                        WorkloadStateDimension.PresentationSettings,
+                        WorkloadCanonical.Encode(entry.Key),
+                        entry.Value.CanonicalValue);
                 }
             }
 
@@ -187,9 +280,11 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 for (int i = 0; i < state.ParentPriorityIntents.Count; i++)
                 {
                     WorkloadParentPriorityIntentEntry entry = state.ParentPriorityIntents[i];
-                    values[ComposeKey(
+                    SetValue(values,
                         WorkloadStateDimension.ParentPriorities,
-                        "intent:" + entry.Key.CanonicalKey)] = entry.Intent.CanonicalForm;
+                        "intent:" + entry.Key.CanonicalKey,
+                        entry.Intent.CanonicalForm,
+                        new WorkloadChangeInspectionTarget(entry.Key.Pawn, entry.Key.WorkType));
                 }
             }
 
@@ -198,9 +293,11 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 for (int i = 0; i < state.ManualModeIntents.Count; i++)
                 {
                     WorkloadManualModeIntentEntry entry = state.ManualModeIntents[i];
-                    values[ComposeKey(
+                    SetValue(values,
                         WorkloadStateDimension.ManualModes,
-                        "intent:" + entry.Key.CanonicalKey)] = entry.Intent.CanonicalForm;
+                        "intent:" + entry.Key.CanonicalKey,
+                        entry.Intent.CanonicalForm,
+                        new WorkloadChangeInspectionTarget(entry.Key.Pawn, entry.Key.WorkType));
                 }
             }
 
@@ -209,9 +306,16 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 for (int i = 0; i < state.ScheduleIntents.Count; i++)
                 {
                     WorkloadScheduleIntentEntry entry = state.ScheduleIntents[i];
-                    values[ComposeKey(
+                    SetValue(values,
                         WorkloadStateDimension.Schedules,
-                        "intent:" + entry.Key.CanonicalKey)] = entry.Intent.CanonicalForm;
+                        "intent:" + entry.Key.CanonicalKey,
+                        entry.Intent.CanonicalForm,
+                        new WorkloadChangeInspectionTarget(
+                            entry.Key.IsGlobal ? null : entry.Key.Pawn,
+                            entry.Key.WorkType,
+                            entry.Key.WorkGiver,
+                            entry.Key.Scope,
+                            entry.Key.TargetKind));
                 }
             }
 
@@ -221,16 +325,23 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 {
                     WorkloadSpecificPriorityIntentEntry entry = state.SpecificPriorityIntents[i];
                     if (entry == null || entry.Intent.IsNoOpinion) continue;
-                    values[ComposeKey(
+                    SetValue(values,
                         WorkloadStateDimension.SpecificJobOverrides,
-                        "intent:" + entry.Key.CanonicalKey)] = entry.Intent.CanonicalForm;
+                        "intent:" + entry.Key.CanonicalKey,
+                        entry.Intent.CanonicalForm,
+                        new WorkloadChangeInspectionTarget(
+                            entry.Key.IsGlobal ? null : entry.Key.Pawn,
+                            entry.Key.WorkType,
+                            entry.Key.WorkGiver,
+                            entry.Key.Scope));
                 }
 
                 if (state.HasAmbiguousSpecificPriorityIntents)
                 {
-                    values[ComposeKey(
+                    SetValue(values,
                         WorkloadStateDimension.SpecificJobOverrides,
-                        "invalid:duplicate-target")] = "1";
+                        "invalid:duplicate-target",
+                        "1");
                 }
             }
 
@@ -240,16 +351,22 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 {
                     WorkloadWorkTypeOrderIntentEntry entry = state.WorkTypeOrderIntents[i];
                     if (entry == null || entry.Intent.IsNoOpinion) continue;
-                    values[ComposeKey(
+                    SetValue(values,
                         WorkloadStateDimension.SpecificJobOrder,
-                        "intent:" + entry.Key.CanonicalKey)] = entry.Intent.CanonicalForm;
+                        "intent:" + entry.Key.CanonicalKey,
+                        entry.Intent.CanonicalForm,
+                        new WorkloadChangeInspectionTarget(
+                            entry.Key.IsGlobal ? null : entry.Key.Pawn,
+                            entry.Key.WorkType,
+                            scope: entry.Key.Scope));
                 }
 
                 if (state.HasAmbiguousWorkTypeOrderIntents)
                 {
-                    values[ComposeKey(
+                    SetValue(values,
                         WorkloadStateDimension.SpecificJobOrder,
-                        "invalid:duplicate-target")] = "1";
+                        "invalid:duplicate-target",
+                        "1");
                 }
             }
 
@@ -258,13 +375,24 @@ namespace Better_Work_Tab.Features.Workloads.V2
                 for (int i = 0; i < state.PresentationSettingIntents.Count; i++)
                 {
                     WorkloadPresentationSettingIntentEntry entry = state.PresentationSettingIntents[i];
-                    values[ComposeKey(
+                    SetValue(values,
                         WorkloadStateDimension.PresentationSettings,
-                        "intent:" + WorkloadCanonical.Encode(entry.Key))] = entry.Intent.CanonicalForm;
+                        "intent:" + WorkloadCanonical.Encode(entry.Key),
+                        entry.Intent.CanonicalForm);
                 }
             }
 
             return values;
+        }
+
+        private static void SetValue(
+            Dictionary<string, DiffValue> values,
+            WorkloadStateDimension dimension,
+            string key,
+            string value,
+            WorkloadChangeInspectionTarget inspectionTarget = null)
+        {
+            values[ComposeKey(dimension, key)] = new DiffValue(value, inspectionTarget);
         }
 
         private static string ComposeKey(WorkloadStateDimension dimension, string key)

@@ -87,6 +87,7 @@
     <Compile Include="ProjectionAndSettingsTests.cs" />
     <Compile Include="PriorityCycleMathTests.cs" />
     <Compile Include="SpecificJobTests.cs" />
+    <Compile Include="WorkloadDiffInspectionTests.cs" />
     <Compile Include="SessionTests.cs" />
     <Compile Include="PersistenceReceiptRecoveryTests.cs" />
     <Compile Include="InspectionSemanticsTests.cs" />

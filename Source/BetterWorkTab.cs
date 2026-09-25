@@ -1,6 +1,5 @@
 using Better_Work_Tab.Features;
 using Better_Work_Tab.Features.RaisedPriorityMaximum;
-using Better_Work_Tab.Features.Workloads;
 using Better_Work_Tab.Features.Migration;
 using Better_Work_Tab.ModSupport;
 using Better_Work_Tab.ModSupport.Mods.FluffyWorkTab;
@@ -120,17 +119,10 @@ namespace Better_Work_Tab
             LongEventHandler.ExecuteWhenFinished(Settings.InitializeRulesets);
 
 
-            // Ensure game component exists and check for worklist
+            // Initialize column order after the game finishes loading.
             LongEventHandler.ExecuteWhenFinished(() =>
             {
                 WorkColumnOrderManager.InitializeOnGameLoad();
-                if (Current.Game != null)
-                {
-                    if (WorkloadWorldStates.Current?.CurrentWorklist == null)
-                    {
-                        Log.Warning("[BetterWorkTab] No current worklist on startup. Create one in the Work tab.");
-                    }
-                }
             });
 
 

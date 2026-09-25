@@ -518,9 +518,11 @@ namespace Better_Work_Tab.UI
                 renderFeatures |= WorkGridFeatureFlags.SubWork;
 
             WorkGridSnapshot presentationSnapshot = null;
+            WorkTabInvalidationVersion invalidationVersion;
             try
             {
                 WorkGridInvalidationAudit.Poll(table);
+                invalidationVersion = WorkTabInvalidationHub.Current;
                 if (SpineTiming.Enabled)
                 {
                     SpineTiming.Time(
@@ -528,18 +530,19 @@ namespace Better_Work_Tab.UI
                         () => presentationSnapshot = _workGridSnapshots.Prepare(
                             organizer?.Layout,
                             table,
-                            WorkTabInvalidationHub.Current));
+                            invalidationVersion));
                 }
                 else
                 {
                     presentationSnapshot = _workGridSnapshots.Prepare(
                         organizer?.Layout,
                         table,
-                        WorkTabInvalidationHub.Current);
+                        invalidationVersion);
                 }
             }
             catch (Exception exception)
             {
+                invalidationVersion = WorkTabInvalidationHub.Current;
                 _workGridSnapshots.Clear();
                 Log.ErrorOnce(
                     "[BWT] Work-grid snapshot construction failed; vanilla rendering remains active.\n" + exception,
@@ -585,7 +588,7 @@ namespace Better_Work_Tab.UI
                 windowRect,
                 ExtraBottomSpace,
                 Time.frameCount,
-                WorkTabInvalidationHub.Current,
+                invalidationVersion,
                 new WorkGridRenderConfiguration(renderFeatures, WorkGridLayerFlags.All),
                 WorkGridSelectionScope.Window);
         }

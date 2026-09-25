@@ -27,10 +27,6 @@ namespace Better_Work_Tab.UI.RuleBuilder
             RuleBuilder2Evaluator.RegisterCurrentPawnOrderProvider(GetWorkTabOrderedPawns);
         }
 
-        internal static void EnsureRuleBuilder2ServicesRegistered()
-        {
-        }
-
         /// <summary>
         /// Footer-facing operations: labels, apply behavior, and menu construction.
         /// These methods choose between classic rulesets and Rule Builder 2 according
