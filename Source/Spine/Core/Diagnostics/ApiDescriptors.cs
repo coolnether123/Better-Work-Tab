@@ -147,12 +147,15 @@ namespace Spine.Api
             int count = Math.Min(leftParts.Length, rightParts.Length);
             for (int i = 0; i < count; i++)
             {
-                bool leftNumeric = int.TryParse(leftParts[i], NumberStyles.None, CultureInfo.InvariantCulture, out int leftNumber);
-                bool rightNumeric = int.TryParse(rightParts[i], NumberStyles.None, CultureInfo.InvariantCulture, out int rightNumber);
+                bool leftNumeric = IsNumericPrereleaseIdentifier(leftParts[i]);
+                bool rightNumeric = IsNumericPrereleaseIdentifier(rightParts[i]);
                 int result;
                 if (leftNumeric && rightNumeric)
                 {
-                    result = leftNumber.CompareTo(rightNumber);
+                    string leftDigits = leftParts[i].TrimStart('0');
+                    string rightDigits = rightParts[i].TrimStart('0');
+                    result = leftDigits.Length.CompareTo(rightDigits.Length);
+                    if (result == 0) result = string.CompareOrdinal(leftDigits, rightDigits);
                 }
                 else if (leftNumeric != rightNumeric)
                 {
@@ -167,6 +170,16 @@ namespace Spine.Api
             }
 
             return leftParts.Length.CompareTo(rightParts.Length);
+        }
+
+        private static bool IsNumericPrereleaseIdentifier(string value)
+        {
+            if (value.Length == 0) return false;
+            foreach (char character in value)
+            {
+                if (character < '0' || character > '9') return false;
+            }
+            return true;
         }
     }
 
