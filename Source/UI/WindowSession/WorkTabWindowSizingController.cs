@@ -173,7 +173,9 @@ namespace Better_Work_Tab.UI.WindowSession
                 finalWidth = Mathf.Min(finalWidth, maxWindowWidth);
 
                 _requestedTabSizeCacheSignature = ComputeRequestedTabSizeSignature(table, organizer?.Layout);
-                _requestedTabSizeCache = new Vector2(finalWidth, finalHeight);
+                // Verse rounds the window rect before drawing. Round height upward
+                // so a fractional header cannot consume the reserved footer gap.
+                _requestedTabSizeCache = new Vector2(finalWidth, Mathf.Ceil(finalHeight));
                 return _requestedTabSizeCache;
             }
         }

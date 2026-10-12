@@ -122,7 +122,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             WorkTabHeaderFrame headerFrame = new WorkTabHeaderFrame(
                 view.WindowRect.height,
                 view.ExtraBottomSpace,
-                WorkGridLayoutMetrics.GetInlineTimePriorityReservedHeight(layout),
                 WorkGridLayoutMetrics.GetPinnedRowsHeight(),
                 GetTableViewportWidth(layout),
                 WorkGridLayoutMetrics.ScrollViewFitAllowance);
@@ -157,7 +156,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 view.Viewport,
                 view.WindowRect,
                 view.ExtraBottomSpace,
-                WorkGridLayoutMetrics.GetInlineTimePriorityReservedHeight(layout),
                 WorkGridLayoutMetrics.GetPinnedRowsHeight(),
                 WorkGridLayoutMetrics.GetVisualTableScrollWidth(layout, layout.Table),
                 SubWorkDrilldownState.IsExpandBesideTransitioning,

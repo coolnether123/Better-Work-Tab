@@ -10,7 +10,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
             Rect contentRect,
             Rect windowRect,
             float bottomReservedSpace,
-            float inlineReservedHeight,
             float pinnedHeight,
             float tableScrollWidth,
             bool expandBesideTransitioning,
@@ -20,7 +19,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
             ContentRect = contentRect;
             WindowRect = windowRect;
             BottomReservedSpace = bottomReservedSpace;
-            InlineReservedHeight = inlineReservedHeight;
             PinnedHeight = pinnedHeight;
             TableScrollWidth = tableScrollWidth;
             ExpandBesideTransitioning = expandBesideTransitioning;
@@ -31,7 +29,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
         internal Rect ContentRect { get; }
         internal Rect WindowRect { get; }
         internal float BottomReservedSpace { get; }
-        internal float InlineReservedHeight { get; }
         internal float PinnedHeight { get; }
         internal float TableScrollWidth { get; }
         internal bool ExpandBesideTransitioning { get; }
@@ -124,9 +121,7 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
         {
             IWorkTabLayoutController layout = frame.Layout;
             float headerHeight = layout.HeaderHeight;
-            float tableBottomSpace = Mathf.Max(
-                0f,
-                frame.BottomReservedSpace - frame.InlineReservedHeight);
+            float tableBottomSpace = Mathf.Max(0f, frame.BottomReservedSpace);
             float scrollAreaHeight = Mathf.Max(0f,
                 frame.ContentRect.yMax -
                 tableBottomSpace -

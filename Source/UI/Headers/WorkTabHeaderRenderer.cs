@@ -33,14 +33,12 @@ namespace Better_Work_Tab.UI.Headers
         internal WorkTabHeaderFrame(
             float windowHeight,
             float bottomReservation,
-            float inlineTimePriorityReservedHeight,
             float pinnedRowsHeight,
             float tableViewportWidth,
             float scrollViewFitAllowance)
         {
             WindowHeight = windowHeight;
             BottomReservation = bottomReservation;
-            InlineTimePriorityReservedHeight = inlineTimePriorityReservedHeight;
             PinnedRowsHeight = pinnedRowsHeight;
             TableViewportWidth = tableViewportWidth;
             ScrollViewFitAllowance = scrollViewFitAllowance;
@@ -48,7 +46,6 @@ namespace Better_Work_Tab.UI.Headers
 
         internal float WindowHeight { get; }
         internal float BottomReservation { get; }
-        internal float InlineTimePriorityReservedHeight { get; }
         internal float PinnedRowsHeight { get; }
         internal float TableViewportWidth { get; }
         internal float ScrollViewFitAllowance { get; }
@@ -505,9 +502,7 @@ namespace Better_Work_Tab.UI.Headers
             in WorkTabHeaderFrame frame)
         {
             float bodyTop = layout.TableOrigin.y + layout.HeaderHeight;
-            float tableBottomSpace = Mathf.Max(
-                0f,
-                frame.BottomReservation - frame.InlineTimePriorityReservedHeight);
+            float tableBottomSpace = Mathf.Max(0f, frame.BottomReservation);
             float available = Mathf.Max(
                 0f,
                 frame.WindowHeight - tableBottomSpace - frame.ScrollViewFitAllowance - bodyTop);

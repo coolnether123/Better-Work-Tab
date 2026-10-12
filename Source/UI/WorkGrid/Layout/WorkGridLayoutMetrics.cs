@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Better_Work_Tab.Features.TimePriority;
 using Better_Work_Tab.Features.Tutorial;
 using Better_Work_Tab.Features.WorkGiverReassignments;
@@ -18,7 +17,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
     {
         internal const float ScrollViewFitAllowance = 4f;
         internal const float HorizontalScrollbarHeight = 16f;
-        private const float InlineScheduleFooterReclaim = 18f;
 
         internal static float SchedulePinnedHeight =>
             Mathf.Max(0f, TimePriorityScheduleEditor.HeaderPinnedRowsHeight);
@@ -73,22 +71,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
 
         internal static float GetHeaderAnchoredPinnedRowsHeight()
         {
-            return Mathf.Max(0f, GetPinnedRowsHeight() -
-                Mathf.Min(SchedulePinnedHeight, InlineScheduleFooterReclaim));
+            return GetPinnedRowsHeight();
         }
 
         internal static float GetHeaderAnchoredContentHeight(IWorkTabLayoutController layout)
         {
-            float transientHeight = GetTransientTimePriorityRowHeight(layout);
-            float reclaimedHeight = Mathf.Min(transientHeight, InlineScheduleFooterReclaim);
-            return Mathf.Max(0f, (layout?.ContentHeight ?? 0f) - reclaimedHeight);
-        }
-
-        internal static float GetInlineTimePriorityReservedHeight(IWorkTabLayoutController layout)
-        {
-            float reservedHeight = SchedulePinnedHeight +
-                GetTransientTimePriorityRowHeight(layout);
-            return Mathf.Min(reservedHeight, InlineScheduleFooterReclaim);
+            // Schedule rows belong to the grid. Footer controls retain their own space.
+            return Mathf.Max(0f, layout?.ContentHeight ?? 0f);
         }
 
         internal static float GetVisualTableScrollWidth(IWorkTabLayoutController layout, PawnTable table)
@@ -101,26 +90,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Layout
             }
 
             return Mathf.Ceil(visualColumnWidth + 16f);
-        }
-
-        private static float GetTransientTimePriorityRowHeight(IWorkTabLayoutController layout)
-        {
-            IReadOnlyList<WorkTabLayoutRow> rows = layout?.Rows;
-            if (rows == null)
-            {
-                return 0f;
-            }
-
-            for (int i = 0; i < rows.Count; i++)
-            {
-                WorkTabLayoutRow row = rows[i];
-                if (row.Divider != null && TimePriorityScheduleEditor.IsTransientDivider(row.Divider))
-                {
-                    return row.Height;
-                }
-            }
-
-            return 0f;
         }
 
         private static float GetVisualColumnWidth(IWorkTabLayoutController layout)
