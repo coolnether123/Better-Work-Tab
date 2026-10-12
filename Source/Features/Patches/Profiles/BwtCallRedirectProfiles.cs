@@ -34,7 +34,7 @@ namespace Better_Work_Tab.Features.Patches.Profiles
         {
             return new BwtCallRedirectProfile(
                 id,
-                BwtTargetIdentity.ForMethod(target, BwtBuildIdentity.RimWorld16),
+                BwtTargetIdentity.ForMethod(target, BwtBuildIdentity.RimWorld17),
                 source,
                 replacement,
                 MatchMode.ExactlyOne);

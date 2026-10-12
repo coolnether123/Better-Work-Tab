@@ -54,7 +54,7 @@ namespace Better_Work_Tab.Features.Patches.Profiles
                 new[] { typeof(UnityEngine.Rect), typeof(PawnTable) });
             return new BwtHeaderProfile(
                 "BWT.PawnColumnWorker.DoHeader.DisableHighlight",
-                BwtTargetIdentity.ForMethod(target, BwtBuildIdentity.RimWorld16),
+                BwtTargetIdentity.ForMethod(target, BwtBuildIdentity.RimWorld17),
                 AccessTools.Method(typeof(Widgets), nameof(Widgets.DrawHighlight), new[] { typeof(UnityEngine.Rect) }),
                 AccessTools.Method(
                     typeof(PawnColumnWorker_WorkPriority_DoHeader_Patch),

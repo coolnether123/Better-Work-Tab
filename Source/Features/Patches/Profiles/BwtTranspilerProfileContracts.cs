@@ -8,10 +8,10 @@ namespace Better_Work_Tab.Features.Patches.Profiles
 {
     internal sealed class BwtBuildIdentity
     {
-        internal static readonly BwtBuildIdentity RimWorld16 = new BwtBuildIdentity(
+        internal static readonly BwtBuildIdentity RimWorld17 = new BwtBuildIdentity(
             "Assembly-CSharp",
-            "1.6.9676.17238",
-            new Guid("13bee51f-e6fa-4214-a4a5-e1e7b84a41ee"));
+            "1.7.9781.31297",
+            new Guid("c81d9e22-b334-4602-9be7-27f86395fbe2"));
 
         internal BwtBuildIdentity(string assemblyName, string assemblyVersion, Guid moduleVersionId)
         {

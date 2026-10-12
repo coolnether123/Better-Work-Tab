@@ -55,7 +55,7 @@ namespace Better_Work_Tab.Features.Patches.Profiles
             params BwtPriorityConstantEdit[] edits)
         {
             return new BwtPriorityConstantProfile(
-                id, BwtTargetIdentity.ForMethod(target, BwtBuildIdentity.RimWorld16),
+                id, BwtTargetIdentity.ForMethod(target, BwtBuildIdentity.RimWorld17),
                 shape,
                 edits);
         }
