@@ -213,7 +213,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
 
             if (shouldRestoreMouse)
             {
-                NativeCursorPosition.ScheduleMoveToUiPosition(returnMousePosition);
+                NativeCursorPosition.ScheduleMoveToClientPosition(returnMousePosition);
             }
 
             SoundDefOf.Tick_Low.PlayOneShotOnCamera();

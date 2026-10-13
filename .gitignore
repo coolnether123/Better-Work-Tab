@@ -9,3 +9,6 @@ Thumbs.db
 /Source/bin/Debug/
 /Source/bin/Release/
 **/__pycache__/
+
+# Build fresh 1.7 candidates outside source; never commit generated payloads.
+/1.7/**/Assemblies/

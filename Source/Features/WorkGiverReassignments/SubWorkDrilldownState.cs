@@ -680,7 +680,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
             _baseHeaderDrawWidth = baseHeaderDrawWidth > 0f ? baseHeaderDrawWidth : 0f;
             _returnMousePosition = returnMousePosition;
             _returnMouseLocalPosition = returnMouseLocalPosition;
-            _entryNativeCursorPosition = NativeCursorPosition.TryGetClientPosition(out Vector2 currentCursorPosition)
+            _entryNativeCursorPosition = GuiMousePosition.TryGetClientPosition(out Vector2 currentCursorPosition)
                 ? currentCursorPosition
                 : (Vector2?)null;
             _cursorMovedSinceEnter = false;
@@ -975,7 +975,7 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                 _isExiting ||
                 _cursorMovedSinceEnter ||
                 !_entryNativeCursorPosition.HasValue ||
-                !NativeCursorPosition.TryGetClientPosition(out Vector2 currentPosition))
+                !GuiMousePosition.TryGetClientPosition(out Vector2 currentPosition))
             {
                 return;
             }

@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Better_Work_Tab.Diagnostics;
 using Better_Work_Tab.Features;
@@ -80,14 +81,14 @@ namespace Better_Work_Tab.Foundation.GameState
     }
 
     /// <summary>
-    /// Current-game lookup that does not require feature domains to know the
-    /// compatibility GameComponent type. Reference equality rejects stale
-    /// roots during a game transition.
+    /// Game-owned lookup that does not require feature domains to know the
+    /// compatibility GameComponent type. Weak keys release each registration
+    /// with its game, even though a root references its owning game.
     /// </summary>
     internal static class WorkTabGameRoots
     {
-        private static System.WeakReference<Game> _game;
-        private static System.WeakReference<WorkTabGameRoot> _root;
+        private static readonly ConditionalWeakTable<Game, WorkTabGameRoot> Roots =
+            new ConditionalWeakTable<Game, WorkTabGameRoot>();
 
         internal static WorkTabGameRoot Attach<TState>(
             Game game,
@@ -100,22 +101,11 @@ namespace Better_Work_Tab.Foundation.GameState
                 IWorkTabWorldSchemaState,
                 IWorkTabCompatibilityMigrationState
         {
-            var gameState = new WorkTabGameState(
-                state,
-                state,
-                state,
-                state,
-                state,
-                state,
-                state);
-            var root = new WorkTabGameRoot(
+            return Attach(
                 game,
-                gameState,
+                state,
                 WorkTabNoOpLifecyclePort.Instance,
                 WorkTabNoOpMaintenancePort.Instance);
-            _game = new System.WeakReference<Game>(game);
-            _root = new System.WeakReference<WorkTabGameRoot>(root);
-            return root;
         }
 
         internal static WorkTabGameRoot Attach<TState>(
@@ -131,6 +121,7 @@ namespace Better_Work_Tab.Foundation.GameState
                 IWorkTabWorldSchemaState,
                 IWorkTabCompatibilityMigrationState
         {
+            ArgumentNullException.ThrowIfNull(game);
             var gameState = new WorkTabGameState(
                 state,
                 state,
@@ -140,22 +131,15 @@ namespace Better_Work_Tab.Foundation.GameState
                 state,
                 state);
             var root = new WorkTabGameRoot(game, gameState, lifecyclePort, maintenancePort);
-            _game = new System.WeakReference<Game>(game);
-            _root = new System.WeakReference<WorkTabGameRoot>(root);
+            Roots.AddOrUpdate(game, root);
             return root;
         }
 
         internal static WorkTabGameRoot For(Game game)
         {
-            if (game == null || _game == null || _root == null ||
-                !_game.TryGetTarget(out Game attachedGame) ||
-                !ReferenceEquals(game, attachedGame) ||
-                !_root.TryGetTarget(out WorkTabGameRoot root))
-            {
-                return null;
-            }
-
-            return root;
+            return game != null && Roots.TryGetValue(game, out WorkTabGameRoot root)
+                ? root
+                : null;
         }
     }
 

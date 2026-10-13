@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Better_Work_Tab.Features.Workloads.V2.Runtime;
 using Verse;
 
@@ -25,28 +27,27 @@ namespace Better_Work_Tab.Features.Workloads
 
     internal static class WorkloadWorldStates
     {
-        private static System.WeakReference<Game> _game;
-        private static System.WeakReference<IWorkloadWorldState> _state;
+        private static readonly ConditionalWeakTable<Game, IWorkloadWorldState> States =
+            new ConditionalWeakTable<Game, IWorkloadWorldState>();
 
         internal static void Attach(Game game, IWorkloadWorldState state)
         {
-            _game = game == null ? null : new System.WeakReference<Game>(game);
-            _state = state == null
-                ? null
-                : new System.WeakReference<IWorkloadWorldState>(state);
+            ArgumentNullException.ThrowIfNull(game);
+            if (state == null)
+            {
+                States.Remove(game);
+            }
+            else
+            {
+                States.AddOrUpdate(game, state);
+            }
         }
 
         internal static IWorkloadWorldState For(Game game)
         {
-            if (game == null || _game == null || _state == null ||
-                !_game.TryGetTarget(out Game attachedGame) ||
-                !ReferenceEquals(game, attachedGame) ||
-                !_state.TryGetTarget(out IWorkloadWorldState state))
-            {
-                return null;
-            }
-
-            return state;
+            return game != null && States.TryGetValue(game, out IWorkloadWorldState state)
+                ? state
+                : null;
         }
 
         internal static IWorkloadWorldState Current => For(Verse.Current.Game);

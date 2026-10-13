@@ -11,6 +11,10 @@ namespace Spine.UI.WidgetExtensions
     internal static class ConnectedOutlineDrawer
     {
         private static Material outlineMaterial;
+        // Unity shader property values also pass through Waylith's material API.
+        private const int SourceAlphaBlend = 5;
+        private const int OneMinusSourceAlphaBlend = 10;
+        private const int NoCulling = 0;
 
         internal static void DrawClosed(
             Vector2[] points,
@@ -181,9 +185,9 @@ namespace Spine.UI.WidgetExtensions
                     {
                         hideFlags = HideFlags.HideAndDontSave
                     };
-                    outlineMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                    outlineMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                    outlineMaterial.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+                    outlineMaterial.SetInt("_SrcBlend", SourceAlphaBlend);
+                    outlineMaterial.SetInt("_DstBlend", OneMinusSourceAlphaBlend);
+                    outlineMaterial.SetInt("_Cull", NoCulling);
                     outlineMaterial.SetInt("_ZWrite", 0);
                 }
 

@@ -26,7 +26,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
         {
             PriorityAuthorityDiagnostics.RecordAuthorityRequest();
 
-            ExternalWorkTabRegistry.RefreshDynamicAuthorityStateIfNeeded();
+            bool refreshedRegistry = ExternalWorkTabRegistry.RefreshDynamicAuthorityStateIfNeeded();
             Game game = Current.Game;
             int registeredStoreCount = ExternalWorkTabRegistry.RegisteredStoreCount;
             int frame = Time.frameCount;
@@ -83,7 +83,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             if (preference == PriorityDataAuthorityPreference.FluffyWorkTab)
             {
                 ExternalWorkTabRegistry.AuthoritativeStoreResult fluffySelection =
-                    ExternalWorkTabRegistry.FindAuthoritativeStore();
+                    ExternalWorkTabRegistry.FindAuthoritativeStore(refreshAvailability: !refreshedRegistry);
                 if (!fluffySelection.IsCoherent)
                 {
                     PriorityAuthorityDiagnostics.RecordAuthorityComputation();
@@ -174,7 +174,7 @@ namespace Better_Work_Tab.Features.RaisedPriorityMaximum
             }
 
             ExternalWorkTabRegistry.AuthoritativeStoreResult selection =
-                ExternalWorkTabRegistry.FindAuthoritativeStore();
+                ExternalWorkTabRegistry.FindAuthoritativeStore(refreshAvailability: !refreshedRegistry);
             if (!selection.IsCoherent)
             {
                 PriorityAuthorityDiagnostics.RecordAuthorityComputation();

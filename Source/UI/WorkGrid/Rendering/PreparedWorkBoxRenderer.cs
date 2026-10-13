@@ -311,11 +311,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             failure = RetainedWorkBoxDrawFailure.None;
             RenderTexture previous = RenderTexture.active;
-            int previousViewportWidth = previous == null ? Screen.width : previous.width;
-            int previousViewportHeight = previous == null ? Screen.height : previous.height;
             Matrix4x4 previousMatrix = GUI.matrix;
             Color previousColor = GUI.color;
-            bool previousSrgbWrite = GL.sRGBWrite;
             RenderTexture surface = null;
             Texture2D readback = null;
             bool matrixPushed = false;
@@ -344,9 +341,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     TextureFormat.RGBA32,
                     false);
                 RenderTexture.active = surface;
-                GL.InvalidateState();
-                ConfigureSrgbWriteForSrgbTarget();
-                GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));
                 GUI.matrix = Matrix4x4.identity;
                 GL.PushMatrix();
                 matrixPushed = true;
@@ -449,18 +443,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
 
                 RenderTexture.active = previous;
-                if (previousViewportWidth > 0 && previousViewportHeight > 0)
-                {
-                    GL.Viewport(new Rect(
-                        0f,
-                        0f,
-                        previousViewportWidth,
-                        previousViewportHeight));
-                }
-                GL.sRGBWrite = previousSrgbWrite;
                 GUI.matrix = previousMatrix;
                 GUI.color = previousColor;
-                GL.InvalidateState();
 
                 if (readback != null)
                 {
@@ -768,13 +752,6 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             return labelRect;
         }
 
-        // RenderTextureReadWrite.sRGB does not set GL.sRGBWrite. Derive it from
-        // project color space, never the preceding IMGUI draw.
-        internal static void ConfigureSrgbWriteForSrgbTarget()
-        {
-            GL.sRGBWrite = QualitySettings.activeColorSpace == ColorSpace.Linear;
-        }
-
         internal static void DrawDynamicOverlays(
             Rect boxRect,
             WorkBoxVisualState visual,
@@ -807,9 +784,10 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                     {
                         hideFlags = HideFlags.HideAndDontSave
                     };
-                    _retainedMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
-                    _retainedMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
-                    _retainedMaterial.SetInt("_Cull", (int)CullMode.Off);
+                    // Waylith accepts Unity shader property values but omits these enums.
+                    _retainedMaterial.SetInt("_SrcBlend", 5);
+                    _retainedMaterial.SetInt("_DstBlend", 10);
+                    _retainedMaterial.SetInt("_Cull", 0);
                     _retainedMaterial.SetInt("_ZWrite", 0);
                 }
                 return _retainedMaterial;

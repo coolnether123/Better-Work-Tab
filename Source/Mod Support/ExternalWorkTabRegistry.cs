@@ -46,12 +46,10 @@ namespace Better_Work_Tab.ModSupport
         private static bool availabilityRefreshInProgress;
         private static bool availabilityRefreshPending;
         private static bool availabilityRefreshDeferred;
-        private static bool authorityRefreshInProgress;
         private static bool authorityRefreshPending;
         private static bool authorityRefreshDeferred;
         private static int lastDynamicAuthorityRefreshFrame = -1;
         private static Game lastDynamicAuthorityRefreshGame;
-        private const int MaxSynchronousAuthorityRefreshPasses = 8;
         private const int MaxSynchronousAvailabilityRefreshPasses = 8;
 
         internal static long RegistryGeneration => Interlocked.Read(ref registryGeneration);
@@ -126,8 +124,7 @@ namespace Better_Work_Tab.ModSupport
                 registryGeneration++;
             }
 
-            RequestAvailabilityRefresh(generationChanged: false);
-            NotifyAuthorityChangedAfterRegistryMutation();
+            RequestAvailabilityRefresh(generationChanged: false, notifyAuthority: true);
             return true;
         }
 
@@ -153,8 +150,7 @@ namespace Better_Work_Tab.ModSupport
 
             if (removed)
             {
-                RequestAvailabilityRefresh(generationChanged: false);
-                NotifyAuthorityChangedAfterRegistryMutation();
+                RequestAvailabilityRefresh(generationChanged: false, notifyAuthority: true);
             }
 
             return removed;
@@ -639,16 +635,17 @@ namespace Better_Work_Tab.ModSupport
             return ExternalWorkTabPriorityImportService.Import(records);
         }
 
-        internal static AuthoritativeStoreResult FindAuthoritativeStore()
+        internal static AuthoritativeStoreResult FindAuthoritativeStore(bool refreshAvailability = true)
         {
             if (RegisteredStoreEntryCount == 0)
             {
                 return AuthoritativeStoreResult.Coherent(null, null, 0, 0);
             }
 
-            RefreshDynamicAuthorityStateIfNeeded();
-            DrainDeferredAuthorityRefresh();
-            DrainDeferredAvailabilityRefresh();
+            if (refreshAvailability && !RefreshDynamicAuthorityStateIfNeeded())
+            {
+                DrainDeferredAvailabilityRefresh();
+            }
             RegistrySnapshot snapshot = Volatile.Read(ref availableSnapshot);
             long currentGeneration = RegistryGeneration;
             return snapshot.IsCoherent && snapshot.Generation == currentGeneration
@@ -660,7 +657,7 @@ namespace Better_Work_Tab.ModSupport
                 : AuthoritativeStoreResult.Unstable(currentGeneration);
         }
 
-        internal static void RefreshDynamicAuthorityStateIfNeeded()
+        internal static bool RefreshDynamicAuthorityStateIfNeeded()
         {
             int frame = Time.frameCount;
             Game game = Current.Game;
@@ -673,6 +670,9 @@ namespace Better_Work_Tab.ModSupport
                 {
                     lastDynamicAuthorityRefreshFrame = frame;
                     lastDynamicAuthorityRefreshGame = game;
+                    // The active registry refresh already covers this frame. A resolver read
+                    // inside its notification must not schedule another copy of the same stores.
+                    shouldRefresh = !availabilityRefreshInProgress;
                 }
             }
 
@@ -683,6 +683,7 @@ namespace Better_Work_Tab.ModSupport
                 // not have a notification hook for an in-place property change.
                 RequestAvailabilityRefresh(generationChanged: false);
             }
+            return shouldRefresh;
         }
 
         internal static bool TryGetAvailableStore(
@@ -799,7 +800,7 @@ namespace Better_Work_Tab.ModSupport
             RequestAvailabilityRefresh(generationChanged: true);
         }
 
-        private static void RequestAvailabilityRefresh(bool generationChanged)
+        private static void RequestAvailabilityRefresh(bool generationChanged, bool notifyAuthority = false)
         {
             bool shouldRefresh = false;
             lock (SyncRoot)
@@ -809,15 +810,11 @@ namespace Better_Work_Tab.ModSupport
                     registryGeneration++;
                 }
 
-                if (availabilityRefreshInProgress)
-                {
-                    availabilityRefreshPending = true;
-                }
-                else
+                availabilityRefreshPending = true;
+                authorityRefreshPending |= notifyAuthority;
+                if (!availabilityRefreshInProgress)
                 {
                     availabilityRefreshInProgress = true;
-                    availabilityRefreshDeferred = false;
-                    authorityRefreshDeferred = false;
                     shouldRefresh = true;
                 }
             }
@@ -833,9 +830,8 @@ namespace Better_Work_Tab.ModSupport
             bool shouldRefresh = false;
             lock (SyncRoot)
             {
-                if (availabilityRefreshDeferred && !availabilityRefreshInProgress)
+                if ((availabilityRefreshDeferred || authorityRefreshDeferred) && !availabilityRefreshInProgress)
                 {
-                    availabilityRefreshDeferred = false;
                     availabilityRefreshInProgress = true;
                     shouldRefresh = true;
                 }
@@ -849,14 +845,21 @@ namespace Better_Work_Tab.ModSupport
 
         private static void RunBoundedAvailabilityRefresh()
         {
-            bool published = false;
+            bool completed = false;
+            bool refreshAuthority = false;
             try
             {
+                // Availability callbacks and authority notifications share one pass budget.
+                // Reentrant registrations queue work for this owner rather than start a new loop.
                 for (int attempt = 0; attempt < MaxSynchronousAvailabilityRefreshPasses; attempt++)
                 {
                     lock (SyncRoot)
                     {
                         availabilityRefreshPending = false;
+                        refreshAuthority |= authorityRefreshPending || authorityRefreshDeferred;
+                        authorityRefreshPending = false;
+                        availabilityRefreshDeferred = false;
+                        authorityRefreshDeferred = false;
                     }
 
                     RecordRegistryListBuild();
@@ -903,15 +906,32 @@ namespace Better_Work_Tab.ModSupport
                         true);
                     lock (SyncRoot)
                     {
-                        if (registryGeneration != observedGeneration)
+                        if (registryGeneration == observedGeneration)
                         {
-                            continue;
+                            Volatile.Write(ref availableSnapshot, next);
+                            Volatile.Write(ref registeredStoreCount, availableStores.Length);
                         }
 
-                        Volatile.Write(ref availableSnapshot, next);
-                        Volatile.Write(ref registeredStoreCount, availableStores.Length);
-                        published = true;
-                        return;
+                        refreshAuthority |= authorityRefreshPending;
+                        authorityRefreshPending = false;
+                    }
+
+                    if (refreshAuthority)
+                    {
+#if DEBUG
+                        Interlocked.Increment(ref authorityRefreshPasses);
+#endif
+                        PriorityAuthorityTransitionService.NotifyPotentialAuthorityChanged(refreshRegistry: false);
+                    }
+
+                    lock (SyncRoot)
+                    {
+                        if (registryGeneration == observedGeneration &&
+                            !availabilityRefreshPending && !authorityRefreshPending)
+                        {
+                            completed = true;
+                            return;
+                        }
                     }
                 }
             }
@@ -920,25 +940,21 @@ namespace Better_Work_Tab.ModSupport
                 lock (SyncRoot)
                 {
                     availabilityRefreshInProgress = false;
-                    if (!published && availabilityRefreshPending)
-                    {
-                        availabilityRefreshPending = false;
-                        availabilityRefreshDeferred = true;
-                        authorityRefreshDeferred = true;
-                    }
-                    else if (!published)
+                    if (!completed || availabilityRefreshPending || authorityRefreshPending)
                     {
                         Volatile.Write(
                             ref availableSnapshot,
                             RegistrySnapshot.Unstable(registryGeneration));
                         availabilityRefreshDeferred = true;
-                        authorityRefreshDeferred = true;
+                        authorityRefreshDeferred = refreshAuthority || authorityRefreshPending;
                     }
-                    else if (published && !availabilityRefreshPending)
+                    else
                     {
                         availabilityRefreshDeferred = false;
                         authorityRefreshDeferred = false;
                     }
+                    availabilityRefreshPending = false;
+                    authorityRefreshPending = false;
                 }
             }
         }
@@ -1224,77 +1240,6 @@ namespace Better_Work_Tab.ModSupport
                 "[ExternalWorkTab] Failed to " + action + " for " +
                 (store?.DisplayName ?? "<unknown>") + ": " + ex.Message,
                 DebugFeature.ModSupport);
-        }
-
-        private static void NotifyAuthorityChangedAfterRegistryMutation()
-        {
-            lock (SyncRoot)
-            {
-                if (authorityRefreshInProgress)
-                {
-                    authorityRefreshPending = true;
-                    return;
-                }
-
-                authorityRefreshInProgress = true;
-                authorityRefreshDeferred = false;
-            }
-
-            RunBoundedAuthorityRefresh();
-        }
-
-        private static void DrainDeferredAuthorityRefresh()
-        {
-            lock (SyncRoot)
-            {
-                if (!authorityRefreshDeferred || authorityRefreshInProgress)
-                {
-                    return;
-                }
-
-                authorityRefreshDeferred = false;
-                authorityRefreshInProgress = true;
-            }
-
-            RunBoundedAuthorityRefresh();
-        }
-
-        private static void RunBoundedAuthorityRefresh()
-        {
-            try
-            {
-                for (int pass = 0; pass < MaxSynchronousAuthorityRefreshPasses; pass++)
-                {
-#if DEBUG
-                    Interlocked.Increment(ref authorityRefreshPasses);
-#endif
-                    PriorityAuthorityTransitionService.NotifyPotentialAuthorityChanged(refreshRegistry: false);
-                    lock (SyncRoot)
-                    {
-                        if (!authorityRefreshPending)
-                        {
-                            return;
-                        }
-
-                        if (pass + 1 < MaxSynchronousAuthorityRefreshPasses)
-                        {
-                            authorityRefreshPending = false;
-                        }
-                    }
-                }
-            }
-            finally
-            {
-                lock (SyncRoot)
-                {
-                    authorityRefreshInProgress = false;
-                    if (authorityRefreshPending)
-                    {
-                        authorityRefreshPending = false;
-                        authorityRefreshDeferred = true;
-                    }
-                }
-            }
         }
 
         private sealed class CompositeSuspendScope : IDisposable

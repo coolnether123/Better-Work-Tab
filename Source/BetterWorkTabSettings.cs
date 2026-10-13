@@ -14,7 +14,6 @@ using System.Xml;
 using Unity.Burst.Intrinsics;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.SocialPlatforms.Impl;
 using Verse;
 using Better_Work_Tab.UI;
 using Better_Work_Tab.UI.Settings;

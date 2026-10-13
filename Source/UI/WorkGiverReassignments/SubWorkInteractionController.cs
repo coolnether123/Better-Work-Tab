@@ -35,6 +35,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
         private int _pendingSubWorkButton;
         private bool _pendingSubWorkExit;
         private bool _pendingSubWorkRestoreCursor;
+        private Vector2? _pendingSubWorkReturnClientPosition;
         private bool _pendingSubWorkCtrlClickDiscovery;
         private int _suppressSubWorkPriorityMouseDownFrame = -1;
 
@@ -124,7 +125,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     AngledHeaderInteraction.ClearPendingHeaderClick(targetColumn.Column);
                 }
                 Vector2? returnMousePosition = fromHeader
-                    ? GuiMousePosition.ToRootUiPosition(evt.mousePosition)
+                    ? GuiMousePosition.ToClientPosition(evt.mousePosition)
                     : (Vector2?)null;
 
                 BeginPendingSubWorkGesture(
@@ -135,6 +136,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                     exit: false,
                     restoreCursor: returnMousePosition.HasValue,
                     ctrlClickDiscovery: isCtrlClickDiscovery);
+                _pendingSubWorkReturnClientPosition = returnMousePosition;
                 MarkSubWorkPriorityMouseDownForSuppression();
                 return false;
             }
@@ -159,9 +161,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
                 _pendingSubWorkOpenType != null &&
                 WorkGiverReassignmentManager.GetDisplayWorkGiversForWorkType(_pendingSubWorkOpenType).Count > 0;
 
-            Vector2? storedReturnPosition = _pendingSubWorkRestoreCursor
-                ? GuiMousePosition.ToRootUiPosition(_pendingSubWorkStart)
-                : (Vector2?)null;
+            Vector2? storedReturnPosition = _pendingSubWorkReturnClientPosition;
             WorkTypeDef openType = _pendingSubWorkOpenType;
             Rect openBounds = _pendingSubWorkBounds;
             bool ctrlClickDiscovery = _pendingSubWorkCtrlClickDiscovery;
@@ -649,6 +649,7 @@ namespace Better_Work_Tab.UI.WorkGiverReassignments
             _pendingSubWorkButton = -1;
             _pendingSubWorkExit = false;
             _pendingSubWorkRestoreCursor = false;
+            _pendingSubWorkReturnClientPosition = null;
             _pendingSubWorkCtrlClickDiscovery = false;
         }
 

@@ -6,17 +6,17 @@ using Verse;
 namespace Better_Work_Tab.UI.Input
 {
     /// <summary>
-    /// Converts RimWorld UI coordinates to the native window client area and moves the OS cursor.
+    /// Restores the cursor only in the focused game window. Coordinates are client pixels.
     /// </summary>
     internal static class NativeCursorPosition
     {
         private const int MoveDelayFrames = 2;
         private const float MoveDurationSeconds = 0.22f;
 
-        private static Vector2? _pendingUiPosition;
+        private static Vector2? _pendingClientPosition;
         private static int _pendingFrame;
-        private static Vector2 _moveStartUiPosition;
-        private static Vector2 _moveTargetUiPosition;
+        private static Vector2 _moveStartClientPosition;
+        private static Vector2 _moveTargetClientPosition;
         private static float _moveStartedAt;
         private static bool _isAnimatingMove;
 
@@ -30,29 +30,32 @@ namespace Better_Work_Tab.UI.Input
         private static extern bool ClientToScreen(IntPtr hWnd, ref NativePoint lpPoint);
 
         [DllImport("user32.dll")]
-        private static extern bool ScreenToClient(IntPtr hWnd, ref NativePoint lpPoint);
-
-        [DllImport("user32.dll")]
-        private static extern bool GetCursorPos(out NativePoint lpPoint);
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
         [DllImport("user32.dll")]
         private static extern bool SetCursorPos(int x, int y);
 
-        internal static void ScheduleMoveToUiPosition(Vector2 uiPosition)
+        internal static void ScheduleMoveToClientPosition(Vector2 clientPosition)
         {
-            _pendingUiPosition = uiPosition;
+            if (!Application.isFocused)
+            {
+                CancelPendingMove();
+                return;
+            }
+
+            _pendingClientPosition = clientPosition;
             _pendingFrame = Time.frameCount + MoveDelayFrames;
-            _moveTargetUiPosition = uiPosition;
-            _moveStartUiPosition = TryGetClientPosition(out var currentPosition)
+            _moveTargetClientPosition = clientPosition;
+            _moveStartClientPosition = GuiMousePosition.TryGetClientPosition(out var currentPosition)
                 ? currentPosition
-                : uiPosition;
+                : clientPosition;
             _moveStartedAt = 0f;
             _isAnimatingMove = true;
         }
 
         internal static void CancelPendingMove()
         {
-            _pendingUiPosition = null;
+            _pendingClientPosition = null;
             _pendingFrame = 0;
             _moveStartedAt = 0f;
             _isAnimatingMove = false;
@@ -60,7 +63,13 @@ namespace Better_Work_Tab.UI.Input
 
         internal static void ProcessPendingMove()
         {
-            if (!_pendingUiPosition.HasValue || !_isAnimatingMove || Time.frameCount < _pendingFrame)
+            if (!Application.isFocused)
+            {
+                CancelPendingMove();
+                return;
+            }
+
+            if (!_pendingClientPosition.HasValue || !_isAnimatingMove || Time.frameCount < _pendingFrame)
             {
                 return;
             }
@@ -78,29 +87,31 @@ namespace Better_Work_Tab.UI.Input
 
             float rawProgress = Mathf.Clamp01((Time.realtimeSinceStartup - _moveStartedAt) / MoveDurationSeconds);
             float eased = Mathf.SmoothStep(0f, 1f, rawProgress);
-            Vector2 current = Vector2.Lerp(_moveStartUiPosition, _moveTargetUiPosition, eased);
-            TryMoveToUiPosition(current);
+            Vector2 current = Vector2.Lerp(_moveStartClientPosition, _moveTargetClientPosition, eased);
+            TryMoveToClientPosition(current);
 
             if (rawProgress >= 1f)
             {
-                _pendingUiPosition = null;
+                _pendingClientPosition = null;
                 _isAnimatingMove = false;
             }
         }
 
         internal static void DrawPendingMoveCue()
         {
-            if (!_isAnimatingMove || !_pendingUiPosition.HasValue || Event.current.type != EventType.Repaint)
+            if (!_isAnimatingMove || !_pendingClientPosition.HasValue || Event.current.type != EventType.Repaint)
             {
                 return;
             }
 
-            Vector2 current = TryGetClientPosition(out var clientPosition)
+            Vector2 current = GuiMousePosition.TryGetClientPosition(out var clientPosition)
                 ? clientPosition
-                : _moveStartUiPosition;
+                : _moveStartClientPosition;
+            current = GuiMousePosition.ToGuiPosition(current);
+            Vector2 target = GuiMousePosition.ToGuiPosition(_moveTargetClientPosition);
             Color color = new Color(1f, 0.78f, 0.18f, 0.68f);
-            Widgets.DrawLine(current, _moveTargetUiPosition, color, 2f);
-            Widgets.DrawBoxSolid(new Rect(_moveTargetUiPosition.x - 3f, _moveTargetUiPosition.y - 3f, 6f, 6f), color);
+            Widgets.DrawLine(current, target, color, 2f);
+            Widgets.DrawBoxSolid(new Rect(target.x - 3f, target.y - 3f, 6f, 6f), color);
         }
 
         private static bool AnyMouseButtonDown()
@@ -110,11 +121,11 @@ namespace Better_Work_Tab.UI.Input
                    UnityEngine.Input.GetMouseButton(2);
         }
 
-        internal static bool TryGetClientPosition(out Vector2 position)
+        internal static bool TryMoveToClientPosition(Vector2 clientPosition)
         {
-            position = Vector2.zero;
-            if (Application.platform != RuntimePlatform.WindowsPlayer &&
-                Application.platform != RuntimePlatform.WindowsEditor)
+            if (!Application.isFocused ||
+                (Application.platform != RuntimePlatform.WindowsPlayer &&
+                 Application.platform != RuntimePlatform.WindowsEditor))
             {
                 return false;
             }
@@ -122,45 +133,18 @@ namespace Better_Work_Tab.UI.Input
             try
             {
                 IntPtr window = GetForegroundWindow();
-                if (window == IntPtr.Zero || !GetCursorPos(out var point))
-                {
-                    return false;
-                }
-
-                if (!ScreenToClient(window, ref point))
-                {
-                    return false;
-                }
-
-                position = new Vector2(point.X, point.Y);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        internal static bool TryMoveToUiPosition(Vector2 uiPosition)
-        {
-            if (Application.platform != RuntimePlatform.WindowsPlayer &&
-                Application.platform != RuntimePlatform.WindowsEditor)
-            {
-                return false;
-            }
-
-            try
-            {
-                IntPtr window = GetForegroundWindow();
-                if (window == IntPtr.Zero || !GetClientRect(window, out var clientRect))
+                if (window == IntPtr.Zero ||
+                    GetWindowThreadProcessId(window, out uint processId) == 0 ||
+                    processId != (uint)Environment.ProcessId ||
+                    !GetClientRect(window, out var clientRect))
                 {
                     return false;
                 }
 
                 var point = new NativePoint
                 {
-                    X = Mathf.RoundToInt(Mathf.Clamp(uiPosition.x, clientRect.Left, clientRect.Right)),
-                    Y = Mathf.RoundToInt(Mathf.Clamp(uiPosition.y, clientRect.Top, clientRect.Bottom))
+                    X = Mathf.RoundToInt(Mathf.Clamp(clientPosition.x, clientRect.Left, clientRect.Right)),
+                    Y = Mathf.RoundToInt(Mathf.Clamp(clientPosition.y, clientRect.Top, clientRect.Bottom))
                 };
 
                 if (!ClientToScreen(window, ref point))

@@ -347,18 +347,13 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
         {
             failure = RetainedWorkBoxDrawFailure.None;
             RenderTexture previous = RenderTexture.active;
-            int previousViewportWidth = previous == null ? Screen.width : previous.width;
-            int previousViewportHeight = previous == null ? Screen.height : previous.height;
             Matrix4x4 previousMatrix = GUI.matrix;
             Color previousColor = GUI.color;
-            bool previousSrgbWrite = GL.sRGBWrite;
             bool matrixPushed = false;
             try
             {
                 RenderTexture.active = surface;
-                GL.InvalidateState();
-                PreparedWorkBoxRenderer.ConfigureSrgbWriteForSrgbTarget();
-                GL.Viewport(new Rect(0f, 0f, surface.width, surface.height));
+                // Waylith derives the target size from RenderTexture.active.
                 // The target owns device pixels. Its rectangles were captured
                 // before this target became active, while the real owner clip
                 // and native device alignment were still in force.
@@ -434,18 +429,8 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
                 }
 
                 RenderTexture.active = previous;
-                if (previousViewportWidth > 0 && previousViewportHeight > 0)
-                {
-                    GL.Viewport(new Rect(
-                        0f,
-                        0f,
-                        previousViewportWidth,
-                        previousViewportHeight));
-                }
-                GL.sRGBWrite = previousSrgbWrite;
                 GUI.matrix = previousMatrix;
                 GUI.color = previousColor;
-                GL.InvalidateState();
             }
         }
 
@@ -705,11 +690,12 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
 
         private static bool TryGetOwnerTextureRect(Rect localRect, out Rect screenRect)
         {
-            Rect aligned = GUIUtility.AlignRectToDevice(
-                localRect,
-                out int pixelWidth,
-                out int pixelHeight);
-            screenRect = UnclipRect(aligned);
+            // Waylith draws fractional texture rectangles without Unity's device
+            // alignment API. Keep those on the direct path rather than shifting
+            // their baked texture to a different pixel phase.
+            screenRect = UnclipRect(localRect);
+            int pixelWidth = Mathf.RoundToInt(screenRect.width);
+            int pixelHeight = Mathf.RoundToInt(screenRect.height);
             if (!IsUsableRect(screenRect) || pixelWidth <= 0 || pixelHeight <= 0)
             {
                 return false;
@@ -721,7 +707,9 @@ namespace Better_Work_Tab.UI.WorkGrid.Rendering
             // below its integer. Normalize only that round-trip error; floor
             // would move the entire texture by a pixel.
             if (Mathf.Abs(screenRect.x - left) > DeviceScaleEpsilon ||
-                Mathf.Abs(screenRect.y - top) > DeviceScaleEpsilon)
+                Mathf.Abs(screenRect.y - top) > DeviceScaleEpsilon ||
+                Mathf.Abs(screenRect.width - pixelWidth) > DeviceScaleEpsilon ||
+                Mathf.Abs(screenRect.height - pixelHeight) > DeviceScaleEpsilon)
             {
                 return false;
             }

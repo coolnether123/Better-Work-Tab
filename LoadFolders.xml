@@ -5,4 +5,9 @@
     <li IfModNotActive="CoolNether123.Spine">1.6</li>
     <li IfModActive="CoolNether123.Spine">1.6/ExternalSpine</li>
   </v1.6>
+  <v1.7>
+    <li>/</li>
+    <li IfModNotActive="CoolNether123.Spine">1.7</li>
+    <li IfModActive="CoolNether123.Spine">1.7/ExternalSpine</li>
+  </v1.7>
 </loadFolders>
