@@ -804,6 +804,33 @@ namespace Better_Work_Tab.UI.Workloads
             }
         }
 
+        internal static void ResetForGameTeardown()
+        {
+            WorkloadPreviewController controller = Current;
+            if (controller == null)
+            {
+                return;
+            }
+
+            // Window replacement preserves a preview within one game. A game
+            // transition discards that session and its queued UI actions.
+            Current = null;
+            Workload2Backend.MultiplayerCommitStatusChanged -=
+                controller.OnMultiplayerCommitStatusPublished;
+            controller._queuedLifecycleActions.Clear();
+            try
+            {
+                if (WorkloadGateway.IsV2PreviewSessionActive)
+                {
+                    WorkloadGateway.CancelV2Preview();
+                }
+            }
+            finally
+            {
+                controller.ClearLocalSession();
+            }
+        }
+
         private void ClaimCurrentOwnership()
         {
             if (ReferenceEquals(Current, this))

@@ -7,6 +7,7 @@ using Better_Work_Tab.UI.WorkGrid.Invalidation;
 using Better_Work_Tab.UI.WorkGrid.Snapshots;
 using Better_Work_Tab.PawnOrganizer;
 using Better_Work_Tab.UI;
+using Better_Work_Tab.UI.Workloads;
 
 namespace Better_Work_Tab.Patches
 {
@@ -167,6 +168,7 @@ namespace Better_Work_Tab.Patches
         public static void Reset(string reason)
         {
             BedCachePatchUtility.SafeClear(reason);
+            SafeReset(reason, "workload preview", WorkloadPreviewController.ResetForGameTeardown);
             SafeReset(reason, "work-grid snapshot", WorkGridSnapshotProvider.ClearActive);
             SafeReset(reason, "layout geometry", () => PawnOrganizerSystem.Instance?.Layout?.ClearGeometrySnapshot());
             SafeReset(reason, "invalidation audit", WorkGridInvalidationAudit.Reset);
