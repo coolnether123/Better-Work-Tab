@@ -25,6 +25,15 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         public Dictionary<int, Dictionary<string, List<string>>> PawnWorkGiverOrdering = new Dictionary<int, Dictionary<string, List<string>>>();
         public int SyncVersion = 0;
 
+        // Scribe revisits this instance across loading phases before rebuilding
+        // the authoritative collections in PostLoadInit.
+        private List<WorkTypeOrderRecord> orderRecords;
+        private List<string> globalPriorityClearRecords;
+        private List<string> globalOrderClearRecords;
+        private List<WorkTypeOrderRecord> movedWorkGiverRecords;
+        private List<PawnWorkGiverPriorityRecord> pawnPriorities;
+        private List<PawnWorkGiverOrderRecord> pawnOrders;
+
         public bool HasAnyData()
         {
             return HasEntries(WorkGiverToWorkTypeMap) ||
@@ -198,7 +207,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             Scribe_Collections.Look(ref WorkGiverToWorkTypeMap, "workGiverToWorkTypeMap", LookMode.Value, LookMode.Value);
 
-            List<WorkTypeOrderRecord> orderRecords = null;
             if (Scribe.mode == LoadSaveMode.Saving && WorkTypeWorkGiverOrder != null)
             {
                 orderRecords = WorkTypeWorkGiverOrder
@@ -220,7 +228,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     StringComparer.Ordinal) ?? new Dictionary<string, List<string>>(StringComparer.Ordinal);
             }
 
-            List<string> globalPriorityClearRecords = null;
             if (Scribe.mode == LoadSaveMode.Saving && GlobalWorkGiverPriorityClears != null)
             {
                 globalPriorityClearRecords = GlobalWorkGiverPriorityClears
@@ -241,7 +248,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     StringComparer.Ordinal);
             }
 
-            List<string> globalOrderClearRecords = null;
             if (Scribe.mode == LoadSaveMode.Saving && GlobalWorkTypeOrderClears != null)
             {
                 globalOrderClearRecords = GlobalWorkTypeOrderClears
@@ -262,7 +268,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     StringComparer.Ordinal);
             }
 
-            List<WorkTypeOrderRecord> movedWorkGiverRecords = null;
             if (Scribe.mode == LoadSaveMode.Saving && PlayerMovedWorkGiversByWorkType != null)
             {
                 movedWorkGiverRecords = PlayerMovedWorkGiversByWorkType
@@ -284,7 +289,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     StringComparer.Ordinal) ?? new Dictionary<string, List<string>>(StringComparer.Ordinal);
             }
 
-            List<PawnWorkGiverPriorityRecord> pawnPriorities = null;
             if (Scribe.mode == LoadSaveMode.Saving && PawnWorkGiverPriorityOverrides != null)
             {
                 pawnPriorities = PawnWorkGiverPriorityOverrides
@@ -298,7 +302,6 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
 
             Scribe_Collections.Look(ref pawnPriorities, "pawnWorkGiverPriorityOverrides", LookMode.Deep);
 
-            List<PawnWorkGiverOrderRecord> pawnOrders = null;
             if (Scribe.mode == LoadSaveMode.Saving && PawnWorkGiverOrdering != null)
             {
                 pawnOrders = PawnWorkGiverOrdering
@@ -325,6 +328,16 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
                     r => r.Orders ?? new Dictionary<string, List<string>>(StringComparer.Ordinal)) ?? new Dictionary<int, Dictionary<string, List<string>>>();
 
                 EnsureCollections();
+            }
+
+            if (Scribe.mode == LoadSaveMode.Saving || Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                orderRecords = null;
+                globalPriorityClearRecords = null;
+                globalOrderClearRecords = null;
+                movedWorkGiverRecords = null;
+                pawnPriorities = null;
+                pawnOrders = null;
             }
         }
 
@@ -387,22 +400,30 @@ namespace Better_Work_Tab.Features.WorkGiverReassignments
         {
             public int PawnId;
             public Dictionary<string, List<string>> Orders = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            private List<WorkTypeOrderRecord> orderRecords;
 
             public void ExposeData()
             {
                 Scribe_Values.Look(ref PawnId, "pawnId");
 
-                List<WorkTypeOrderRecord> list = null;
                 if (Scribe.mode == LoadSaveMode.Saving && Orders != null)
                 {
-                    list = Orders.Select(kv => new WorkTypeOrderRecord { WorkTypeDefName = kv.Key, OrderedWorkGivers = kv.Value }).ToList();
+                    orderRecords = Orders.Select(kv => new WorkTypeOrderRecord { WorkTypeDefName = kv.Key, OrderedWorkGivers = kv.Value }).ToList();
                 }
 
-                Scribe_Collections.Look(ref list, "orders", LookMode.Deep);
+                Scribe_Collections.Look(ref orderRecords, "orders", LookMode.Deep);
 
                 if (Scribe.mode == LoadSaveMode.PostLoadInit)
                 {
-                    Orders = list?.ToDictionary(r => r.WorkTypeDefName, r => r.OrderedWorkGivers) ?? new Dictionary<string, List<string>>(StringComparer.Ordinal);
+                    Orders = orderRecords?.ToDictionary(
+                        r => r.WorkTypeDefName,
+                        r => r.OrderedWorkGivers ?? new List<string>(),
+                        StringComparer.Ordinal) ?? new Dictionary<string, List<string>>(StringComparer.Ordinal);
+                }
+
+                if (Scribe.mode == LoadSaveMode.Saving || Scribe.mode == LoadSaveMode.PostLoadInit)
+                {
+                    orderRecords = null;
                 }
             }
         }

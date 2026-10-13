@@ -1,6 +1,6 @@
 # RimWorld 1.7 port
 
-This branch targets the Waylith build `1.7.4976 rev1043`, inspected October 12, 2026. It preserves BWT's `2.0.0` mod version and existing save keys. Both production modes build and pass the exercised core live acceptance, including the footer fix. This is not a claim of compatibility with every mod, device or later unstable build.
+This branch targets the Waylith build `1.7.4976 rev1043`, inspected October 12 and 13, 2026. It preserves BWT's `2.0.0` mod version and existing save keys. Both production modes build and passed the exercised core live acceptance, including the footer fix. Subsequent populated-save testing found a data-loss defect in candidate04. The corrected candidate11 passes real-Scribe regressions and normal game save/restart checks in both modes. This is not a claim of compatibility with every mod, device or later unstable build.
 
 ## Required build changes
 
@@ -23,6 +23,26 @@ Use the shared tooling `Invoke-RimWorldBuild.ps1` with configuration/version `1.
 
 The port retains `RenderTexture.active`, GUI matrix/color and GL matrix restoration. Fractional row geometry uses the existing direct drawing path. It is not a claim that Waylith needs no alignment strategy.
 
+## Specific-job save persistence
+
+`BWT17-SAVE-001` loses populated global work-giver order, moved-header markers, pawn priority overrides, pawn ordering and explicit clear sets after loading. The serialization pattern exists unchanged in the pre-port baseline. A 1.6 runtime reproduction has not been performed, so the evidence does not establish a port-introduced regression.
+
+`WorkGiverReassignmentData.ExposeData()` now retains transport lists on the exposable instance across `LoadingVars`, `ResolvingCrossRefs` and `PostLoadInit`. It rebuilds the authoritative dictionaries and sets during finalization, then releases the transport lists. The nested `PawnWorkGiverOrderRecord` follows the same contract. Saving also releases the temporary lists after writing. All XML keys and `SyncVersion` are unchanged. No migration is required.
+
+The private `SaveScribeRegressions` suite uses the installed engine's actual Scribe loader. It checks populated collections, two independent instances, re-saving, empty legacy keys, absent legacy keys and revision defaults. Each frozen baseline mode fails 18 of 51 assertions. Each repaired candidate11 mode passes all 51, as do both separately compiled probe assemblies. Evidence is `save-regressions-01/verified-final-02/verification.json`. These offline results do not prove normal game initialization or fresh-process acceptance.
+
+Candidate04 is retained as failure evidence, not an accepted distribution candidate. Candidate11 packages are under `save-fix-packages-01`; normal game save/load, visible readback and process restart receipts belong under `save-fix-live-01`. Preserve the original defect saves and test only disposable copies.
+
+`save-fix-live-01/acceptance-02-verified.json` passes 164 structured checks. Each mode saves populated specific-job state, reloads it normally, then starts a separate process and saves the loaded state again. All eight outer XML fields match the disposable populated seed at each readback. Completed load generations, exact loaded BWT/harness hashes and four graceful session releases are verified. External readbacks also attest the loaded standalone Spine path and hash.
+
+Both isolated probes ran inside the actual game and passed 51 assertions per mode with no engine gate. `save-fix-private-01/verification.json` passes 39 aggregate steps, including 280 deterministic tests, with no failures or skips. The synthetic legacy-empty dictionary fixture emits two engine messages about missing keys. Those messages do not come from a normal colony save; the run is not log-error-free.
+
+Both normal-reload captures and the unobstructed fresh-process captures show Jim's Fix breakdown priority at 1 and Smooth walls with its yellow moved marker. All eight XML fields also match after both supplemental fresh-process readbacks. `save-fix-live-01/parent-visual-inspection.json` records the four inspected image hashes. The original fresh captures contain a tutorial dialog over the relevant cells and do not supply visual acceptance.
+
+The supplemental External session released gracefully. The Embedded supplemental stop returned a coordination timeout after shutdown; its known manifest records completion with exit code 0 and `ShutdownRequested=true`. Subsequent canonical doctor found no active leases, unknown games or blockers, but the completed session was absent from authority discovery. Its final release receipt remains unavailable and the harness owner is investigating. Preserve the refusals and do not treat that timeout as proof that shutdown was never dispatched. This launcher cleanup issue does not invalidate the populated-save readbacks or the four original successful releases.
+
+Source evidence binds 489 tracked source files to the tested candidates, with zero drift before commit. The save fix adds 31 lines and removes 10 in one production file. It adds no shipping helper. All 13 distinct XML keys across 14 Scribe calls remain unchanged. Keep the tested candidate11 binaries frozen and bind their hashes to the eventual source commit rather than inferring byte-identical output from a rebuild.
+
 ## Engine reference
 
 The local hash-pinned reference is `A:\Dev\RimWorld\Decompiled\1.7.4976-rev1043`. Its accepted managed receipt covers 238 assemblies as C# and IL, with zero failures or source drift. Start with `inventory.json` and `receipt.json`, then the relevant `source` file. Use IL when reconstructed C# obscures a signature or transpiler pattern.
@@ -37,7 +57,7 @@ Candidate04 passes all 24 live footer cases across Embedded and External Spine a
 
 Both modes pass the full terminal runtime suite in `runtime-embedded-10-terminal-result.txt` and `runtime-external-10-terminal-result.txt`, with harness09 and private08. Priority-cache completion, priority99 and specific-job smokes also pass. The suite exercises actual input ownership, settings/world Scribe round-trips, migration, tutorial/rule state and schedule fallback. Fresh-process readbacks in `acceptance-embedded-09-reload` and `acceptance-external-10-reload` restore the workload identity and Construction hour3 priority4, including its independent pinned-hour mask.
 
-`core-acceptance-10.json` binds both terminal results, the 24 footer cases, package file hashes, persistence readbacks and inspected captures. Fresh candidate05 builds are not byte-identical to live-tested candidate04. SourceLink now names the footer commit and each build has its own symbol path. `rebuild-equivalence-05.json` records identical assembly metadata, IL and resources in both modes after a Cecil rewrite omits debug records and zeros MVID/timestamp. Distribute the already live-tested candidate04 packages rather than silently replacing them with a rebuild.
+`core-acceptance-10.json` binds both terminal results, the 24 footer cases, package file hashes, persistence readbacks and inspected captures. Fresh candidate05 builds are not byte-identical to live-tested candidate04. SourceLink now names the footer commit and each build has its own symbol path. `rebuild-equivalence-05.json` records identical assembly metadata, IL and resources in both modes after a Cecil rewrite omits debug records and zeros MVID/timestamp. These earlier passes did not cover populated specific-job persistence. Candidate04 is rejected for distribution after BWT17-SAVE-001; use the repaired candidate only after its own acceptance gates pass.
 
 The tooling-owned `waylith-preserved-runtime` is now available/verified for normal Runtime admission on this pinned host. The canonical doctor passes with the explicit accepted `cleanup-live-packages-09/host.json`, no validation switch, no resource leases and no unknown game processes. That host configuration selects the accepted tooling manifest and frozen harness09 package. This does not change a different host's default configuration or establish performance support.
 
@@ -109,4 +129,4 @@ The private 1.7 aggregate includes the cleanup regressions and rejects Unity-era
 
 ## Code change size
 
-Compared with BWT baseline `55195cad5b478dece556d006745ddbbe445fdb86`, the current port changes 25 files under `Source`, adding 228 lines and removing 355. This count includes the project manifest, transpiler profiles, footer fix and architecture cleanup. It excludes documentation, metadata, external tests, standalone Spine and the harness. Line changes measure the patch, not feature completeness. Priority rules, schedule save keys and workload semantics remain unchanged.
+Compared with BWT baseline `55195cad5b478dece556d006745ddbbe445fdb86`, the current port changes 26 files under `Source`, adding 259 lines and removing 365. This count includes the project manifest, transpiler profiles, footer fix, architecture cleanup and specific-job save fix. It excludes documentation, metadata, external tests, standalone Spine and the harness. Line changes measure the patch, not feature completeness. Priority rules, schedule save keys and workload semantics remain unchanged.
